@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord.commands import Option
 from models.actor import Actor
 from helpers.renderers import render_actor_summary
-from helpers.config import GUILD_ID
+from config import GUILD_ID
 
 class Info(commands.Cog):
     def __init__(self, bot):

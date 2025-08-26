@@ -2,9 +2,8 @@ import discord
 from discord.ext import commands
 from discord.commands import Option
 from models.actor import Actor
-from config import DT_CHANNEL_ID
+from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
-from helpers.config import GUILD_ID
 
 class LifestyleCmd(commands.Cog):
     def __init__(self, bot):

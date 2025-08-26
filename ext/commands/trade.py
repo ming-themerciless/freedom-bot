@@ -4,9 +4,8 @@ from discord.commands import Option
 from models.actor import Actor
 from models.resource import Resource
 from models.trade import Trade
-from config import TRADE_CHANNEL_ID
+from config import TRADE_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
-from helpers.config import GUILD_ID
 
 class TradeCmd(commands.Cog):
     def __init__(self, bot):
