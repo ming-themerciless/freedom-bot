@@ -1,0 +1,16 @@
+[Unit]
+Description=Discord Bot Service for the Freedom Bot
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/discord-bots/freedom-bot
+ExecStart=/opt/discord-bots/venv/bin/python main.py
+User=discordbot
+Group=discordbot
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

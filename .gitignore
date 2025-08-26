@@ -1,0 +1,23 @@
+# venv & Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Env/Secrets
+.env
+*.env
+.env.*
+service_account.json
+*.pem
+*.key
+
+# Logs & tmp
+logs/
+*.log
+.DS_Store
+
+# Node/lavalink cache (falls vorhanden)
+node_modules/
