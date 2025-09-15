@@ -21,3 +21,5 @@ logs/
 
 # Node/lavalink cache (falls vorhanden)
 node_modules/
+
+yt-cookies.txt

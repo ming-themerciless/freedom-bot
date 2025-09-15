@@ -1,0 +1,9 @@
+# Example YouTube cookies for yt-dlp (Netscape cookie format).
+# Export from your browser per yt-dlp docs, then save as: yt-cookies.txt
+# This file is ONLY an example and is safe to commit.
+
+# domain        include_subdomains  path  secure  expires     name               value
+# .youtube.com  TRUE                /     TRUE    2147483647  VISITOR_INFO1_LIVE example
+# .youtube.com  TRUE                /     TRUE    2147483647  YSC                example
+# .youtube.com  TRUE                /     TRUE    2147483647  SID                example
+# .youtube.com  TRUE                /     TRUE    2147483647  HSID               example
