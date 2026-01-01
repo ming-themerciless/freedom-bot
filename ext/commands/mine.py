@@ -12,10 +12,7 @@ class Mine(commands.Cog):
     @commands.slash_command(guild_ids=[GUILD_ID], name="mine", description="Search for Moradinium using downtime.")
     async def mine(self, ctx: discord.ApplicationContext,
                    actor_name:        Option(str, name="character", required=True),
-                   investigation_mod: Option(int, name="investigation", required=False, default=0),
-                   downtime:          Option(int, name="downtime", required=False, default=5),
-                   roll_mode:         Option(str, name="roll_mode", choices=["normal","advantage","disadvantage"], required=False, default="normal"),
-                   reroll:            Option(int, name="reroll", required=False, default=0)):
+                   downtime:          Option(int, name="downtime", required=False, default=5)):
         if ctx.channel.id != DT_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
 
@@ -24,8 +21,7 @@ class Mine(commands.Cog):
         try:
             await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
             rolls = actor.resources.mine_moradinium(
-                bot=self.bot, downtime=downtime, investigation_mod=investigation_mod,
-                roll_mode=roll_mode, reroll=reroll, actor_name=actor.name
+                bot=self.bot, downtime=downtime, actor_name=actor.name
             )
             await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
         except ValueError as e:

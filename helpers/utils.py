@@ -39,20 +39,20 @@ def to_currency(money: float) -> Tuple[int,int,int,str]:
     ) or "0gp"
     return gold, silver, copper, msg
 
-def roll_dice(bot: discord.Client, sides=20, rolls=1, modifier=0, roll_mode="normal", reroll=0, actor_name=None):
+def roll_dice(bot: discord.Client, sides=20, rolls=1, modifier=0, roll_mode="normal", actor_name=None):
     results = []
     roll_details = ""
     for _ in range(rolls):
         if roll_mode == "advantage":
-            a, b = random.randint(1+reroll, sides), random.randint(1+reroll, sides)
+            a, b = random.randint(1, sides), random.randint(1, sides)
             result = max(a, b)
             roll_details = f"[{a}, {b}] (Advantage: {result})"
         elif roll_mode == "disadvantage":
-            a, b = random.randint(1+reroll, sides), random.randint(1+reroll, sides)
+            a, b = random.randint(1, sides), random.randint(1, sides)
             result = min(a, b)
             roll_details = f"[{a}, {b}] (Disadvantage: {result})"
         else:
-            result = random.randint(1+reroll, sides)
+            result = random.randint(1, sides)
             roll_details = str(result)
         results.append(result)
     total = sum(results) + modifier

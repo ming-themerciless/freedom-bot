@@ -11,7 +11,7 @@ class TradeCmd(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.slash_command(guild_ids=[GUILD_ID], name="trade", description="Trade money and goods between actors.")
+    @commands.slash_command(guild_ids=[GUILD_ID], name="trade", description="Trade money and goods between actors and the shop.")
     async def trade(self, ctx: discord.ApplicationContext,
                     buyer_name:  Option(str, name="buyer",  required=False, default="Shop"),
                     seller_name: Option(str, name="seller", required=False, default="Shop"),
@@ -20,7 +20,7 @@ class TradeCmd(commands.Cog):
                     gold:        Option(int, name="gold",     required=False, default=0),
                     silver:      Option(int, name="silver",   required=False, default=0),
                     copper:      Option(int, name="copper",   required=False, default=0),
-                    moradinium:  Option(int, name="moradinium", required=False, default=0)):
+                    moradinium:  Option(int, name="moradinium", description="Should you buy Moradinium from another actor, you need to enter a negative sign here.", required=False, default=0)):
         if ctx.channel.id != TRADE_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
 

@@ -60,7 +60,7 @@ class Resource:
         self.copper += copper
         self.moradinium += moradinium
 
-    def mine_moradinium(self, bot: discord.Client, downtime: int, investigation_mod: int=0, roll_mode="normal", reroll=0, actor_name=""):
+    def mine_moradinium(self, bot: discord.Client, downtime: int, actor_name=""):
         if downtime < 5 or downtime % 5 != 0:
             raise ValueError("Downtime must be spent in increments of five days.")
         if downtime > self.downtime:
@@ -69,16 +69,15 @@ class Resource:
         roll_results: List[Tuple[int,int,int]] = []
         total_moradinium = 0
         for _ in range(mining_weeks):
-            rolls, total = roll_dice(bot, modifier=investigation_mod, roll_mode=roll_mode, reroll=reroll, actor_name=actor_name)
-            roll_val = rolls[0]
-            earned = max(1, total // 5)
+            rolls, total = roll_dice(bot, modifier=0, roll_mode="normal", actor_name=actor_name)
+            earned = (total+7) // 4 + (1 if rolls[0]==20 else 0)
             total_moradinium += earned
-            roll_results.append((roll_val, total, earned))
+            roll_results.append((rolls[0], total, earned))
         self.moradinium += total_moradinium
         self.downtime -= downtime
         return roll_results
 
-    def earn_money(self, bot: discord.Client, downtime: int, modifier: int=0, roll_mode="normal", reroll= 0, actor_name=""):
+    def earn_money(self, bot: discord.Client, downtime: int, modifier: int=0, roll_mode: str="normal", actor_name: str=""):
         if downtime < 5 or downtime % 5 != 0:
             raise ValueError("Downtime must be spent in increments of five days.")
         if downtime > self.downtime:
@@ -87,25 +86,19 @@ class Resource:
         roll_results: List[Tuple[int,int,int]] = []
         total_gold = 0
         for _ in range(earning_weeks):
-            rolls, total = roll_dice(bot, modifier=modifier, roll_mode=roll_mode, reroll=reroll, actor_name=actor_name)
-            roll_val = rolls[0]
-            earned = min(((total - 15) // 5) * 30 + 10, 100) if total >= 15 else 0
+            rolls, total = roll_dice(bot, modifier=modifier, roll_mode=roll_mode, actor_name=actor_name)
+            earned = min(2 ** (max(total - 6, 0) // 5) * 7, 112) * (1.5 if rolls[0]==20 else 1)
             total_gold += earned
-            roll_results.append((roll_val, total, earned))
+            roll_results.append((rolls[0], total, earned))
         self.gold += total_gold
         self.downtime -= downtime
         return roll_results
 
-    def retail_sale(self, bot: discord.Client, item: str, downtime: int, persuasion_modifier: int, roll_mode: str, reroll: int, 
-                    crafting_cost: float, quantity: int, material: int, actor_name: str):
+    def sale(self, bot: discord.Client, item: str, persuasion_modifier: int=0, roll_mode: str="normal", 
+                    crafting_cost: float=0, quantity: int=1, material: int=0, actor_name: str="", point_of_sale: str="general store"):
         from helpers.utils import to_currency
-        if downtime < 1:
-            raise ValueError("You must spend at least one day of downtime.")
-        if self.downtime < downtime:
-            raise ValueError(f"Not enough downtime available: {self.downtime} days.")
-        rolls, total_persuasion = roll_dice(bot, modifier=persuasion_modifier + downtime,
-                                            roll_mode=roll_mode, reroll=reroll, actor_name=actor_name)
-        earnings_percent = min(total_persuasion * 5, 140) / 100
+        rolls, total_persuasion = roll_dice(bot, modifier=persuasion_modifier, roll_mode=roll_mode, actor_name=actor_name)
+        earnings_percent = (min(total_persuasion + 40 + (20 if point_of_sale=="your own shop" else 0), 80) + (10 if rolls[0]==20 else 0)) / 100
         earnings = crafting_cost * earnings_percent
         sale_price_per_item = material + crafting_cost + earnings
         total_sale_price = sale_price_per_item * quantity
@@ -115,10 +108,9 @@ class Resource:
         total_gold, total_silver, total_copper, total_amount = to_currency(total_sale_price)
 
         self.add(gold=total_gold,silver=total_silver, copper=total_copper)
-        self.downtime -= downtime
         
         msg = (f"Item(s): {item}\n"
-               f"Roll: {rolls[0]} + {persuasion_modifier + downtime} = {total_persuasion}\n"
+               f"Roll: {rolls[0]} + {persuasion_modifier} = {total_persuasion}\n"
                f"Earnings rate: {earnings_percent * 100:.0f}%\n"
                f"Profit per item: {earnings_amount}\n"
                f"Sale price per item: {item_amount}\n")
@@ -126,28 +118,4 @@ class Resource:
             msg += f"Total sale price for {quantity} items: {total_amount}"
         else:
             msg += f"Total sale price: {total_amount}"
-        return msg
-
-    def wholesale_sale(self, bot: discord.Client, item: str, crafting_cost: float, quantity: int, persuasion_modifier: int,
-                       roll_mode: str, reroll: int, haggle: bool, actor_name: str):
-        from helpers.utils import to_currency
-        if haggle:
-            rolls, total = roll_dice(bot, modifier=persuasion_modifier, roll_mode=roll_mode, reroll=reroll, actor_name=actor_name)
-            percentage = min(max(total * 10, 80), 180) / 100
-            roll_info = f"Roll: {rolls[0]} + {persuasion_modifier} (Persuasion) = {total}"
-        else:
-            percentage = 1
-            roll_info = ""
-        
-        total_sale_price = crafting_cost * percentage * quantity
-        total_gold, total_silver, total_copper, total_amount = to_currency(total_sale_price)
-        self.add(gold=total_gold,silver=total_silver, copper=total_copper)
-
-        msg = (
-            f"Item(s): {item}\n"
-            f"Sale to merchant {'with' if haggle else 'without'} haggling."
-            f" {roll_info}\n"
-            f"Sale percentage: {percentage * 100:.0f}%\n"
-            f"Total sale price: {total_amount}"
-        )
         return msg

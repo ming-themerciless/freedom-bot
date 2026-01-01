@@ -44,6 +44,8 @@ class Lifestyle:
         )
 
         self.living_weeks -= weeks
+        actor_resources.downtime = min(actor_resources.downtime + weeks * 5, 60)
+
         if self.living_weeks == 0 and self.bastion.bastion_flag == 1:
             self.bastion.turn_available_flag = 1
 

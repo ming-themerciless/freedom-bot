@@ -1,7 +1,7 @@
 import logging, discord, os
 from discord.ext import commands
 from config import DISCORD_TOKEN, GUILD_ID
-from music import attach_music
+# from music import attach_music
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -21,8 +21,7 @@ EXTENSIONS = [
     "ext.commands.mine",
     "ext.commands.work",
     "ext.commands.bastion",
-    "ext.commands.retail",
-    "ext.commands.wholesale",
+    "ext.commands.sale",
 ]
 
 @bot.event
