@@ -6,124 +6,73 @@ import discord
 class Skills:
     def __init__(self, crp=0, crafting=None, tool_proficiencies=None, languages=None, downtime_progress="-"):
         self.crp = crp
-        self.crafting = crafting or []
-        self.tool_proficiencies = tool_proficiencies or []
-        self.languages = languages or []
-        self.downtime_progress = downtime_progress
+        self.crp_dict: Dict[str, float | int] = {}
+        # Dictionaries instead of lists of strings
+        self.crafting: Dict[str, str] = {}
+        self.tool_proficiencies: Dict[str, str | None] = {}
+        self.languages: Dict[str, bool] = {}
+        self.downtime_progress: Dict[str, Dict[str, Any]] = {}
 
     def load_from_sheet_data(self, get_val):
+        # 1. Crafting Reputation
         val = get_val('crp')
         raw_str = str(val).strip() if val is not None else ""
+        self.crp_dict = {}
         if raw_str in ("", "-", "0"):
             self.crp = 0
         else:
-            try:
-                self.crp = int(float(raw_str.replace(",", ".")))
-            except ValueError:
-                self.crp = val
+            if ":" in raw_str:
+                parts = [p.strip() for p in raw_str.split(",") if p.strip()]
+                for part in parts:
+                    if ":" in part:
+                        t_name, t_val = part.split(":", 1)
+                        t_name = t_name.strip()
+                        try:
+                            f_val = float(t_val.strip().replace(",", "."))
+                            self.crp_dict[t_name.lower()] = int(f_val) if f_val.is_integer() else f_val
+                        except ValueError:
+                            pass
+                self.crp = raw_str
+            else:
+                try:
+                    f_val = float(raw_str.replace(",", "."))
+                    self.crp = int(f_val) if f_val.is_integer() else f_val
+                    self.crp_dict["general"] = self.crp
+                except ValueError:
+                    self.crp = val
 
+        # 2. Crafting Skills (Column X): e.g. "Expert Smith, Journeyman Alchemist"
         skills_val = str(get_val('skills') or "")
-        self.crafting = [s.strip() for s in skills_val.split(",") if s.strip()]
+        self.crafting = {}
+        for s in skills_val.split(","):
+            s = s.strip()
+            if not s:
+                continue
+            name, level = self._parse_item_level(s)
+            self.crafting[name] = level or "journeyman"
+
+        # 3. Tool Proficiencies (Column Y): e.g. "Smith's Tools (expert), Dice Set"
         prof_val = str(get_val('proficiencies') or "")
-        self.tool_proficiencies = [p.strip() for p in prof_val.split(",") if p.strip()]
+        self.tool_proficiencies = {}
+        for p in prof_val.split(","):
+            p = p.strip()
+            if not p:
+                continue
+            name, level = self._parse_item_level(p)
+            self.tool_proficiencies[name] = level
+
+        # 4. Languages (Column Z): e.g. "Common, Elvish"
         lang_val = str(get_val('languages') or "")
-        self.languages = [l.strip() for l in lang_val.split(",") if l.strip()]
-        self.downtime_progress = str(get_val('downtime_progress') or "")
+        self.languages = {}
+        for l in lang_val.split(","):
+            l = l.strip()
+            if not l:
+                continue
+            self.languages[l] = True
 
-    def get_sheet_data(self) -> Dict[str, Any]:
-        return {
-            'crp': "-" if self.crp == 0 else self.crp,
-            'skills': ", ".join(self.crafting),
-            'proficiencies': ", ".join(self.tool_proficiencies),
-            'languages': ", ".join(self.languages),
-            'downtime_progress': self.downtime_progress
-        }
-
-    def get_summary(self) -> str:
-        return f"**Crafting Reputation:** {self.crp}"
-
-    def _clean_tool_name(self, name: str) -> str:
-        """
-        Extracts the first word of the tool name and strips any 's or ' suffix.
-        e.g., "Leatherworker's Tools" -> "Leatherworker"
-              "Thieves' Tools" -> "Thieves"
-        """
-        cleaned = name.strip()
-        if not cleaned:
-            return ""
-        first_word = cleaned.split()[0]
-        if first_word.endswith("'s") or first_word.endswith("’s"):
-            return first_word[:-2]
-        if first_word.endswith("'") or first_word.endswith("’"):
-            return first_word[:-1]
-        return first_word
-
-    def _parse_item_level(self, item: str) -> Tuple[str, str | None]:
-        """
-        Parses a proficiency string to extract the tool name and level.
-        Supports:
-          - "Tool Name (level)" -> ("Tool Name", "level")
-          - "Level Tool Name" -> ("Tool Name", "level")
-        """
-        item_str = item.strip()
-        levels = ["journeyman", "expert", "master"]
-        
-        # 1. Try "Tool Name (level)"
-        match_paren = re.match(r"^(.+?)\s*\((journeyman|expert|master)\)$", item_str, re.IGNORECASE)
-        if match_paren:
-            return match_paren.group(1).strip(), match_paren.group(2).lower()
-            
-        # 2. Try "Level Tool Name"
-        levels_pattern = "|".join(levels)
-        match_prefix = re.match(rf"^({levels_pattern})\s+(.+)$", item_str, re.IGNORECASE)
-        if match_prefix:
-            return match_prefix.group(2).strip(), match_prefix.group(1).lower()
-            
-        return item_str, None
-
-    def get_current_tool_level(self, tool_name: str) -> str:
-        """
-        Inspects the character's crafting skills list and tool proficiencies list
-        to find the current level of the tool.
-        Returns:
-            str or None: The level if found ('journeyman', 'expert', 'master'), else None.
-        """
-        clean_search = self._clean_tool_name(tool_name).lower()
-        
-        # Check crafting skills (Column X)
-        for item in self.crafting:
-            name, level = self._parse_item_level(item)
-            if level:
-                item_clean = self._clean_tool_name(name).lower()
-                if item_clean == clean_search:
-                    return level
-        # Check tool proficiencies (Column Y)
-        for item in self.tool_proficiencies:
-            name, level = self._parse_item_level(item)
-            if level:
-                item_clean = self._clean_tool_name(name).lower()
-                if item_clean == clean_search:
-                    return level
-        return None
-
-    def learn_proficiency(self, actor, bot: discord.Client, ability_modifier: int, downtime: int, gp_cost_override: int = None,
-                          tool: str = None, new_target: str = None, new_type: str = None,
-                          roll_mode: str = "normal") -> Tuple[List[Dict[str, Any]], int, int, str, str]:
-        """
-        Deducts downtime and gold from the actor to make learning rolls toward a language or skill/tool proficiency.
-        Updates the downtime progress, and moves the proficiency to crafting/proficiencies/languages if it reaches 100%.
-        
-        Returns:
-            Tuple[List[Dict[str, Any]], int, int, str, str]: Roll details, total spent downtime, total spent gold, target name, and target level.
-        """
-        from helpers.utils import roll_dice
-
-        # 1. Validation of inputs
-        actor.resources.validate_downtime(downtime)
-
-        # Parse the current progress list
-        progress_str = self.downtime_progress.strip()
-        projects = []
+        # 5. Downtime Progress (Column V): e.g. "45% (master) smith"
+        progress_str = str(get_val('downtime_progress') or "").strip()
+        self.downtime_progress = {}
         if progress_str not in ("", "-", "None"):
             fragments = [f.strip() for f in progress_str.split(",") if f.strip()]
             for frag in fragments:
@@ -162,18 +111,108 @@ class Skills:
                     level_found = "language"
                     orig_level_found = "language"
                 
-                projects.append({
-                    "raw": frag,
+                self.downtime_progress[target_name.lower()] = {
                     "percent": percent,
                     "level": level_found,
                     "orig_level": orig_level_found,
-                    "name": target_name
-                })
+                    "name": target_name,
+                    "raw": frag
+                }
+
+    def get_sheet_data(self) -> Dict[str, Any]:
+        # 1. CRP list
+        if self.crp_dict:
+            if len(self.crp_dict) == 1 and "general" in self.crp_dict:
+                crp_val = self.crp_dict["general"]
+            else:
+                crp_val = ", ".join(f"{t.capitalize()}: {v}" for t, v in self.crp_dict.items())
+        else:
+            crp_val = "-" if self.crp == 0 else self.crp
+
+        # 2. Crafting Skills
+        skills_str = ", ".join(f"{lvl.capitalize()} {name}" for name, lvl in self.crafting.items())
+        
+        # 3. Tool Proficiencies
+        profs_str = ", ".join(f"{name} ({lvl})" if lvl else name for name, lvl in self.tool_proficiencies.items())
+        
+        # 4. Languages
+        langs_str = ", ".join(self.languages.keys())
+        
+        # 5. Downtime Progress
+        progress_parts = []
+        for proj in self.downtime_progress.values():
+            pct = proj["percent"]
+            pct_str = str(int(pct)) if pct.is_integer() else f"{pct:.1f}"
+            progress_parts.append(f"{pct_str}% ({proj['orig_level']}) {proj['name']}")
+        progress_str = ", ".join(progress_parts) if progress_parts else "-"
+
+        return {
+            'crp': crp_val,
+            'skills': skills_str if skills_str else "-",
+            'proficiencies': profs_str if profs_str else "-",
+            'languages': langs_str if langs_str else "-",
+            'downtime_progress': progress_str
+        }
+
+    def get_summary(self) -> str:
+        if not self.crp_dict:
+            return f"**Crafting Reputation:** {self.crp}"
+        if len(self.crp_dict) == 1 and "general" in self.crp_dict:
+            return f"**Crafting Reputation:** {self.crp_dict['general']}"
+        parts = [f"{t.capitalize()}: {v}" for t, v in self.crp_dict.items()]
+        return f"**Crafting Reputation:** {', '.join(parts)}"
+
+    def _clean_tool_name(self, name: str) -> str:
+        cleaned = name.strip()
+        if not cleaned:
+            return ""
+        first_word = cleaned.split()[0]
+        if first_word.endswith("'s") or first_word.endswith("’s"):
+            return first_word[:-2]
+        if first_word.endswith("'") or first_word.endswith("’"):
+            return first_word[:-1]
+        return first_word
+
+    def _parse_item_level(self, item: str) -> Tuple[str, str | None]:
+        item_str = item.strip()
+        levels = ["journeyman", "expert", "master"]
+        
+        # 1. Try "Tool Name (level)"
+        match_paren = re.match(r"^(.+?)\s*\((journeyman|expert|master)\)$", item_str, re.IGNORECASE)
+        if match_paren:
+            return match_paren.group(1).strip(), match_paren.group(2).lower()
+            
+        # 2. Try "Level Tool Name"
+        levels_pattern = "|".join(levels)
+        match_prefix = re.match(rf"^({levels_pattern})\s+(.+)$", item_str, re.IGNORECASE)
+        if match_prefix:
+            return match_prefix.group(2).strip(), match_prefix.group(1).lower()
+            
+        return item_str, None
+
+    def get_current_tool_level(self, tool_name: str) -> str | None:
+        clean_search = self._clean_tool_name(tool_name).lower()
+        
+        # Check crafting skills
+        for name, level in self.crafting.items():
+            if self._clean_tool_name(name).lower() == clean_search:
+                return level
+        # Check tool proficiencies
+        for name, level in self.tool_proficiencies.items():
+            if self._clean_tool_name(name).lower() == clean_search:
+                return level
+        return None
+
+    def learn_proficiency(self, actor, bot: discord.Client, ability_modifier: int, downtime: int, gp_cost_override: int = None,
+                          tool: str = None, new_target: str = None, new_type: str = None,
+                          roll_mode: str = "normal") -> Tuple[List[Dict[str, Any]], int, int, str, str]:
+        from helpers.utils import roll_dice
+
+        # 1. Validation of inputs
+        actor.resources.validate_downtime(downtime)
 
         # 2. Select or Initialize project to promote
         selected_project = None
-        selected_index = -1
-        
         search_name = (tool or new_target)
         if search_name:
             search_name = search_name.strip()
@@ -191,26 +230,21 @@ class Skills:
             else:
                 clean_search = search_name.lower()
 
-        if projects:
+        if self.downtime_progress:
             if clean_search:
-                for idx, proj in enumerate(projects):
-                    proj_is_tool = proj["level"] in ("journeyman", "expert", "master")
-                    if proj_is_tool:
-                        proj_clean = self._clean_tool_name(proj["name"]).lower()
-                    else:
-                        proj_clean = proj["name"].lower()
-                    
-                    if proj_clean == clean_search:
-                        selected_project = proj
-                        selected_index = idx
-                        break
-            
-            if not selected_project and not search_name:
-                if len(projects) == 1:
-                    selected_project = projects[0]
-                    selected_index = 0
+                selected_project = self.downtime_progress.get(clean_search)
+                if not selected_project:
+                    for key, proj in self.downtime_progress.items():
+                        proj_is_tool = proj["level"] in ("journeyman", "expert", "master")
+                        proj_clean = self._clean_tool_name(proj["name"]).lower() if proj_is_tool else proj["name"].lower()
+                        if proj_clean == clean_search:
+                            selected_project = proj
+                            break
+            else:
+                if len(self.downtime_progress) == 1:
+                    selected_project = list(self.downtime_progress.values())[0]
                 else:
-                    proj_names = [f"'{p['name']} ({p['level']})'" for p in projects]
+                    proj_names = [f"'{p['name']} ({p['level']})'" for p in self.downtime_progress.values()]
                     raise ValueError(f"Multiple active learning projects found: {', '.join(proj_names)}. Please specify 'tool' or 'new_target' to choose which one to promote.")
 
         if not selected_project:
@@ -235,16 +269,14 @@ class Skills:
                 selected_level = new_type.strip().lower()
                 target_name = search_name
 
-            new_proj = {
-                "raw": "",
+            selected_project = {
                 "percent": 0.0,
                 "level": selected_level,
                 "orig_level": selected_level,
-                "name": target_name
+                "name": target_name,
+                "raw": ""
             }
-            projects.append(new_proj)
-            selected_project = new_proj
-            selected_index = len(projects) - 1
+            self.downtime_progress[target_name.lower()] = selected_project
 
         # 3. Parse selected project details
         current_percent = selected_project["percent"]
@@ -253,6 +285,29 @@ class Skills:
 
         if level in ("journeyman", "expert", "master"):
             name = self._clean_tool_name(name)
+
+        # Enforce the one-Master-tool limit
+        if level == "master":
+            cleaned_target = self._clean_tool_name(name).lower()
+            has_other_master = False
+            other_master_name = None
+            for p_name, p_lvl in self.crafting.items():
+                if p_lvl == "master":
+                    p_clean = self._clean_tool_name(p_name).lower()
+                    if p_clean != cleaned_target:
+                        has_other_master = True
+                        other_master_name = p_name
+                        break
+            if not has_other_master:
+                for p_name, p_lvl in self.tool_proficiencies.items():
+                    if p_lvl == "master":
+                        p_clean = self._clean_tool_name(p_name).lower()
+                        if p_clean != cleaned_target:
+                            has_other_master = True
+                            other_master_name = p_name
+                            break
+            if has_other_master:
+                raise ValueError(f"You can only become a Master in one artisan's tool. You are already a Master in '{other_master_name}'.")
 
         if current_percent >= 100:
             raise ValueError(f"Downtime progress for '{name}' is already at 100%.")
@@ -318,13 +373,12 @@ class Skills:
         actor.resources.downtime -= total_spent_dt
 
         # Update or clear project in the list
+        selected_project["percent"] = current_percent
         if current_percent >= 100:
-            projects.pop(selected_index)
+            self.downtime_progress.pop(name.lower(), None)
             
             if level == "language":
-                existing_lower = [lang.lower() for lang in self.languages]
-                if name.lower() not in existing_lower:
-                    self.languages.append(name)
+                self.languages[name] = True
             else:
                 crafting_tools = {
                     "alchemist", "brewer", "calligrapher", "carpenter", "cartographer",
@@ -361,50 +415,25 @@ class Skills:
                 full_name = full_names_map.get(name.lower(), name)
 
                 if name.lower() in crafting_tools:
-                    new_entry_x = f"{name} ({level})"
-                    cleaned_crafting = []
-                    for item in self.crafting:
-                        parsed_name, parsed_level = self._parse_item_level(item)
-                        if self._clean_tool_name(parsed_name).lower() == name.lower():
-                            continue
-                        cleaned_crafting.append(item)
-                    cleaned_crafting.append(new_entry_x)
-                    self.crafting = cleaned_crafting
+                    clean_target = name.lower()
+                    to_remove = [k for k in self.crafting.keys() if self._clean_tool_name(k).lower() == clean_target]
+                    for k in to_remove:
+                        self.crafting.pop(k)
+                    self.crafting[name] = level
 
-                    cleaned_profs = []
-                    for item in self.tool_proficiencies:
-                        parsed_name, parsed_level = self._parse_item_level(item)
-                        if self._clean_tool_name(parsed_name).lower() == name.lower():
-                            continue
-                        cleaned_profs.append(item)
-                    cleaned_profs.append(full_name)
-                    self.tool_proficiencies = cleaned_profs
+                    to_remove_prof = [k for k in self.tool_proficiencies.keys() if self._clean_tool_name(k).lower() == clean_target]
+                    for k in to_remove_prof:
+                        self.tool_proficiencies.pop(k)
+                    self.tool_proficiencies[full_name] = None
                 else:
-                    new_entry_y = f"{full_name} ({level})"
-                    cleaned_profs = []
-                    for item in self.tool_proficiencies:
-                        parsed_name, parsed_level = self._parse_item_level(item)
-                        if self._clean_tool_name(parsed_name).lower() == name.lower():
-                            continue
-                        cleaned_profs.append(item)
-                    cleaned_profs.append(new_entry_y)
-                    self.tool_proficiencies = cleaned_profs
+                    clean_target = name.lower()
+                    to_remove_prof = [k for k in self.tool_proficiencies.keys() if self._clean_tool_name(k).lower() == clean_target]
+                    for k in to_remove_prof:
+                        self.tool_proficiencies.pop(k)
+                    self.tool_proficiencies[full_name] = level
         else:
             orig_level = selected_project["orig_level"]
             pct_str = str(int(current_percent)) if current_percent == int(current_percent) else str(current_percent)
             selected_project["raw"] = f"{pct_str}% ({orig_level}) {name}"
-            selected_project["percent"] = current_percent
-
-        if projects:
-            formatted_list = []
-            for p in projects:
-                if p["raw"]:
-                    formatted_list.append(p["raw"])
-                else:
-                    pct_str = str(int(p["percent"])) if p["percent"] == int(p["percent"]) else str(p["percent"])
-                    formatted_list.append(f"{pct_str}% ({p['orig_level']}) {p['name']}")
-            self.downtime_progress = ", ".join(formatted_list)
-        else:
-            self.downtime_progress = "-"
 
         return rolls_info, total_spent_dt, total_spent_gp, name, level

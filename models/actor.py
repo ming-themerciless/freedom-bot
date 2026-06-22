@@ -5,6 +5,7 @@ from helpers.utils import safe_int, safe_number, col_to_index
 from .resource import Resource
 from .lifestyle import Lifestyle
 from .skills import Skills
+from models.item import Item
 
 class Actor:
     COLUMNS = {
@@ -31,6 +32,8 @@ class Actor:
         'skills': 'X',
         'proficiencies': 'Y',
         'languages': 'Z',
+        'notable_items': 'AA',
+        'masterpiece': 'AB',
         'debt': 'AC',
         'no_shows': 'AK',
         'active_flag': 'AL'
@@ -53,6 +56,8 @@ class Actor:
         self.active_flag = 0
         self.badge = ""
         self.aristocratic_flag = 0
+        self.notable_items = ""
+        self.masterpiece = ""
 
     def get_summary(self) -> str:
         parts = [
@@ -83,7 +88,10 @@ class Actor:
                 self.last_played = get_val('last_played')
                 self.no_shows = safe_int(get_val('no_shows'), default=0)
                 self.active_flag = safe_int(get_val('active_flag'), default=0)
-                
+                self.notable_items = str(get_val('notable_items') or "").strip()
+                self.masterpiece = str(get_val('masterpiece') or "").strip()
+                self.items = Item.parse_notable_items(self.notable_items)
+
                 self.lifestyle.load_from_sheet_data(get_val)
                 self.resources.load_from_sheet_data(get_val)
                 self.skills.load_from_sheet_data(get_val)
@@ -100,6 +108,8 @@ class Actor:
                 "range": f"Characters!{c}{self.row_index}:{c}{self.row_index}",
                 "values": [[val]]
             })
+        self.notable_items = Item.serialize_notable_items(self.items)
+
         add_update('name', self.name)
         add_update('inspiration', self.inspiration)
         add_update('badge', self.badge)
@@ -108,6 +118,8 @@ class Actor:
         add_update('last_played', self.last_played)
         add_update('no_shows', self.no_shows)
         add_update('active_flag', self.active_flag)
+        add_update('notable_items', self.notable_items)
+        add_update('masterpiece', self.masterpiece)
         
         for model in (self.lifestyle, self.resources, self.skills):
             for col, val in model.get_sheet_data().items():

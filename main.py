@@ -23,6 +23,7 @@ EXTENSIONS = [
     "ext.commands.bastion",
     "ext.commands.sale",
     "ext.commands.learn",
+    "ext.commands.craft",
 ]
 
 @bot.event
