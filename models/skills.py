@@ -12,8 +12,16 @@ class Skills:
         self.downtime_progress = downtime_progress
 
     def load_from_sheet_data(self, get_val):
-        from helpers.utils import safe_int
-        self.crp = safe_int(get_val('crp'), default=0)
+        val = get_val('crp')
+        raw_str = str(val).strip() if val is not None else ""
+        if raw_str in ("", "-", "0"):
+            self.crp = 0
+        else:
+            try:
+                self.crp = int(float(raw_str.replace(",", ".")))
+            except ValueError:
+                self.crp = val
+
         skills_val = str(get_val('skills') or "")
         self.crafting = [s.strip() for s in skills_val.split(",") if s.strip()]
         prof_val = str(get_val('proficiencies') or "")
@@ -24,7 +32,7 @@ class Skills:
 
     def get_sheet_data(self) -> Dict[str, Any]:
         return {
-            'crp': self.crp,
+            'crp': "-" if self.crp == 0 else self.crp,
             'skills': ", ".join(self.crafting),
             'proficiencies': ", ".join(self.tool_proficiencies),
             'languages': ", ".join(self.languages),
@@ -40,7 +48,10 @@ class Skills:
         e.g., "Leatherworker's Tools" -> "Leatherworker"
               "Thieves' Tools" -> "Thieves"
         """
-        first_word = name.strip().split()[0]
+        cleaned = name.strip()
+        if not cleaned:
+            return ""
+        first_word = cleaned.split()[0]
         if first_word.endswith("'s") or first_word.endswith("’s"):
             return first_word[:-2]
         if first_word.endswith("'") or first_word.endswith("’"):

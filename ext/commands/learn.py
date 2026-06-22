@@ -38,6 +38,8 @@ class Learn(commands.Cog):
         # Validate downtime increments
         if downtime < 5 or downtime % 5 != 0:
             return await ctx.respond("Downtime must be spent in increments of five days.", ephemeral=True)
+        if gp_cost is not None and gp_cost < 0:
+            return await ctx.respond("GP cost override cannot be negative.", ephemeral=True)
 
         # Predefined tool and custom target name are mutually exclusive
         if tool and new_target:

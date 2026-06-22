@@ -54,6 +54,18 @@ class Actor:
         self.badge = ""
         self.aristocratic_flag = 0
 
+    def get_summary(self) -> str:
+        parts = [
+            f"**Name:** {self.name}",
+            f"**Level:** {self.level}",
+            f"**Badge:** {self.badge}",
+            self.lifestyle.get_summary(),
+        ]
+        if self.lifestyle.bastion.bastion_flag:
+            parts.append(self.lifestyle.bastion.get_summary())
+        parts.append(self.resources.get_summary(include_money=True, include_moradinium=True, include_downtime=True))
+        return "\n".join(parts)
+
     def load_from_sheet(self):
         rows = get_values("Characters!A3:AL150", value_render_option="UNFORMATTED_VALUE")
         for idx, row in enumerate(rows, start=3):

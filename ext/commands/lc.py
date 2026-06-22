@@ -13,7 +13,7 @@ class LifestyleCmd(commands.Cog):
     async def lc(self, ctx: discord.ApplicationContext,
                  actor_name: Option(str, name="character", required=True),
                  lifestyle:  Option(str, name="lifestyle", choices=["wretched","modest","comfortable","wealthy","aristocratic"], required=False, default=""),
-                 weeks:      Option(int, name="weeks", required=False, default=1),
+                 weeks:      Option(int, name="weeks", required=False, default=None),
                  expenses:   Option(float, name="expenses", description="Extra expenses in silver pieces (e.g. 3.5 = 3sp 5cp)", required=False, default=0.0)):
         if ctx.channel.id != DT_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
@@ -26,6 +26,9 @@ class LifestyleCmd(commands.Cog):
 
         if lifestyle:
             actor.lifestyle.lifestyle_type = lifestyle.lower()
+
+        if weeks is None:
+            weeks = actor.lifestyle.living_weeks
 
         try:
             weeks_gp, (exp_gp, exp_sp, exp_cp) = actor.lifestyle.pay_for_weeks(

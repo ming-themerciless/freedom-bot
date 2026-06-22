@@ -77,7 +77,8 @@ class Bastion:
             raise ValueError("No bastion turn remains available this cycle.")
         if special_facilities is None or special_facilities <= 0:
             special_facilities = self.get_max_special_facilities(level)
-        cost = self.weeks_of_maintenance * special_facilities * 5
+        weeks = max(0, self.weeks_of_maintenance)
+        cost = weeks * special_facilities * 5
         actor_resources.deduct(gold=cost)
         self.weeks_of_maintenance = 0
         self.turn_available_flag = 0

@@ -20,6 +20,8 @@ class Retail(commands.Cog):
                      material:              Option(int, name="material", required=False, default=0)):
         if ctx.channel.id != TRADE_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
+        if crafting_cost < 0 or quantity <= 0 or material < 0:
+            return await ctx.respond("Cost, quantity, and material must be non-negative (quantity must be at least 1).", ephemeral=True)
         if "shop owner" not in [r.name.lower() for r in ctx.author.roles]: point_of_sale="general store"
 
         await ctx.defer()

@@ -53,6 +53,15 @@ class Resource:
             parts.append(f"**Downtime:** {self.downtime} days")
         return "\n".join(parts) if parts else "*No relevant resources.*"
 
+    def format_coins(self) -> str:
+        parts = []
+        if self.platinum:   parts.append(f"{self.platinum}pp")
+        if self.gold:       parts.append(f"{self.gold}gp")
+        if self.silver:     parts.append(f"{self.silver}sp")
+        if self.copper:     parts.append(f"{self.copper}cp")
+        if self.moradinium: parts.append(f"{self.moradinium} Moradinium")
+        return ", ".join(parts) or "nothing"
+
     def deduct(self, platinum=0, gold=0, silver=0, copper=0, moradinium=0):
         if moradinium > self.moradinium:
             raise ValueError("Not enough Moradinium to pay.")
@@ -90,6 +99,12 @@ class Resource:
         self.platinum = wallet["pp"]
 
     def add(self, platinum=0, gold=0, silver=0, copper=0, moradinium=0):
+        if self.platinum + platinum < 0: raise ValueError("Resulting platinum cannot be negative.")
+        if self.gold + gold < 0: raise ValueError("Resulting gold cannot be negative.")
+        if self.silver + silver < 0: raise ValueError("Resulting silver cannot be negative.")
+        if self.copper + copper < 0: raise ValueError("Resulting copper cannot be negative.")
+        if self.moradinium + moradinium < 0: raise ValueError("Resulting Moradinium cannot be negative.")
+
         self.platinum += platinum
         self.gold += gold
         self.silver += silver

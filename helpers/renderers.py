@@ -4,8 +4,11 @@ from typing import Any
 def render_resources(res: Any, *, include_money=True, include_moradinium=True, include_downtime=False) -> str:
     if not res:
         return "*No relevant resources.*"
+    # Call class method for encapsulation
+    if hasattr(res, "get_summary"):
+        return res.get_summary(include_money=include_money, include_moradinium=include_moradinium, include_downtime=include_downtime)
+    
     parts = []
-
     if include_money:
         money = []
         pp = getattr(res, "platinum", 0) or 0
@@ -18,25 +21,26 @@ def render_resources(res: Any, *, include_money=True, include_moradinium=True, i
         if cp: money.append(f"{cp}cp")
         if money:
             parts.append("**Money:** " + ", ".join(money))
-
     if include_moradinium and getattr(res, "moradinium", None) is not None:
         parts.append(f"**Moradinium:** {getattr(res, 'moradinium', 0)}")
-
     if include_downtime and getattr(res, "downtime", None) is not None:
         parts.append(f"**Downtime:** {getattr(res, 'downtime', 0)} days")
-
     return "\n".join(parts) if parts else "*No relevant resources.*"
 
 def render_lifestyle(ls: Any) -> str:
     if not ls:
         return "**Lifestyle:** —"
+    if hasattr(ls, "get_summary"):
+        return ls.get_summary()
     lt = (getattr(ls, "lifestyle_type", "") or "modest").capitalize()
     weeks = getattr(ls, "living_weeks", 0) or 0
     return f"**Lifestyle:** {lt} (Weeks open: {weeks})"
 
 def render_bastion(b: Any) -> str:
-    if not b or int(getattr(b, "bastion_flag", 0) or 0) == 0:
+    if not b:
         return "**Bastion:** None"
+    if hasattr(b, "get_summary"):
+        return b.get_summary()
     weeks = getattr(b, "weeks_of_maintenance", 0) or 0
     turn  = bool(getattr(b, "turn_available_flag", 0))
     return (f"**Bastion:** Owned\n"
@@ -46,6 +50,8 @@ def render_bastion(b: Any) -> str:
 def render_item(it: Any) -> str:
     if not it:
         return "**Item:** —"
+    if hasattr(it, "get_summary"):
+        return it.get_summary()
     name = getattr(it, "name", "") or "—"
     desc = getattr(it, "description", "") or "—"
     ben  = getattr(it, "benefits", "") or "—"
@@ -58,10 +64,16 @@ def render_item(it: Any) -> str:
 def render_skills(sk: Any) -> str:
     if not sk:
         return "**Crafting Reputation:** —"
+    if hasattr(sk, "get_summary"):
+        return sk.get_summary()
     crp = getattr(sk, "crp", 0) or 0
     return f"**Crafting Reputation:** {crp}"
 
 def render_actor_summary(actor: Any) -> str:
+    if not actor:
+        return "—"
+    if hasattr(actor, "get_summary"):
+        return actor.get_summary()
     parts = [
         f"**Name:** {getattr(actor, 'name', '—')}",
         f"**Level:** {getattr(actor, 'level', '—')}",
@@ -76,5 +88,4 @@ def render_actor_summary(actor: Any) -> str:
     res = getattr(actor, "resources", None)
     if res:
         parts.append(render_resources(res, include_money=True, include_moradinium=True, include_downtime=True))
-    # skills/items könntest du hier ebenfalls ergänzen
     return "\n".join(parts)

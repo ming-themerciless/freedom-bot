@@ -38,6 +38,7 @@ def main():
             logging.exception("Failed loading extension: %s", ext)
     try:
         if os.getenv("ENABLE_MUSIC", "0") == "1":
+            from music import attach_music
             attach_music(bot, guild_ids=[GUILD_ID])
     except Exception:
         logging.exception("Music attach failed (stub or custom module missing).")

@@ -23,6 +23,8 @@ class TradeCmd(commands.Cog):
                     moradinium:  Option(int, name="moradinium", description="Should you buy Moradinium from another actor, you need to enter a negative sign here.", required=False, default=0)):
         if ctx.channel.id != TRADE_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
+        if platinum < 0 or gold < 0 or silver < 0 or copper < 0:
+            return await ctx.respond("Currency values (platinum, gold, silver, copper) cannot be negative.", ephemeral=True)
 
         await ctx.defer()
         buyer_actor = None
@@ -49,13 +51,7 @@ class TradeCmd(commands.Cog):
         except ValueError as e:
             return await ctx.followup.send(f"Trade failed: {e}", ephemeral=True)
 
-        paid = ", ".join(filter(None, [
-            f"{platinum}pp" if platinum else "",
-            f"{gold}gp"     if gold     else "",
-            f"{silver}sp"   if silver   else "",
-            f"{copper}cp"   if copper   else "",
-            f"{moradinium} Moradinium" if moradinium else ""
-        ])) or "nothing"
+        paid = price.format_coins()
 
         summary = ""
         if buyer_actor:
