@@ -46,6 +46,19 @@ class Bastion:
         self.facilities = []
         self.lifestyle_type = (lifestyle_type or "modest").lower()
 
+    def load_from_sheet_data(self, get_val):
+        from helpers.utils import safe_int
+        self.bastion_flag = safe_int(get_val('bastion_flag'), default=0)
+        self.weeks_of_maintenance = safe_int(get_val('bastion_maintenance'), default=0)
+        self.turn_available_flag = safe_int(get_val('bastion_turn_flag'), default=0)
+
+    def get_sheet_data(self) -> dict[str, any]:
+        return {
+            'bastion_flag': self.bastion_flag,
+            'bastion_maintenance': self.weeks_of_maintenance,
+            'bastion_turn_flag': self.turn_available_flag
+        }
+
     def get_max_special_facilities(self, level):
         level_group = get_level_group(level)
         return self.MAX_SPECIAL_FACILITIES.get((level_group, self.lifestyle_type), 1)

@@ -17,6 +17,21 @@ class Lifestyle:
         self.bastion = Bastion(lifestyle_type=self.lifestyle_type)
         self.living_weeks = 0
 
+    def load_from_sheet_data(self, get_val):
+        from helpers.utils import safe_int
+        self.lifestyle_type = str(get_val('lifestyle')).strip().lower() or "modest"
+        self.living_weeks = safe_int(get_val('living_weeks'), default=0)
+        self.bastion.lifestyle_type = self.lifestyle_type
+        self.bastion.load_from_sheet_data(get_val)
+
+    def get_sheet_data(self) -> dict[str, any]:
+        data = {
+            'lifestyle': self.lifestyle_type,
+            'living_weeks': self.living_weeks
+        }
+        data.update(self.bastion.get_sheet_data())
+        return data
+
     def pay_for_weeks(
         self,
         actor_resources: "Resource",

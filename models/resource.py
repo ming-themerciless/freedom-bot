@@ -12,6 +12,31 @@ class Resource:
         self.copper = copper
         self.moradinium = moradinium
 
+    def load_from_sheet_data(self, get_val):
+        from helpers.utils import safe_int, safe_number
+        self.downtime = safe_number(get_val('downtime'), default=0.0)
+        self.platinum = safe_int(get_val('platinum'), default=0)
+        self.gold = safe_int(get_val('gold'), default=0)
+        self.silver = safe_int(get_val('silver'), default=0)
+        self.copper = safe_int(get_val('copper'), default=0)
+        self.moradinium = safe_int(get_val('moradinium'), default=0)
+
+    def get_sheet_data(self) -> dict[str, any]:
+        return {
+            'downtime': self.downtime,
+            'platinum': self.platinum,
+            'gold': self.gold,
+            'silver': self.silver,
+            'copper': self.copper,
+            'moradinium': self.moradinium
+        }
+
+    def validate_downtime(self, downtime: int):
+        if downtime < 5 or downtime % 5 != 0:
+            raise ValueError("Downtime must be spent in increments of five days.")
+        if downtime > self.downtime:
+            raise ValueError(f"Not enough downtime available: {self.downtime} days.")
+
     def get_summary(self, include_money=True, include_moradinium=True, include_downtime=False) -> str:
         parts = []
         if include_money:
@@ -36,18 +61,29 @@ class Resource:
         required = {"pp": platinum, "gp": gold, "sp": silver, "cp": copper}
         rates = {"pp": 10, "gp": 10, "sp": 10}
         order = ["cp", "sp", "gp", "pp"]
-        for i, curr in enumerate(order):
+
+        def ensure_funds(curr, amount):
+            if wallet[curr] >= amount:
+                return True
+            if curr == "pp":
+                return False
+            idx = order.index(curr)
+            bigger = order[idx + 1]
+            needed = amount - wallet[curr]
+            rate = rates[bigger]
+            needed_bigger = (needed // rate) + (1 if needed % rate else 0)
+            if ensure_funds(bigger, needed_bigger):
+                wallet[bigger] -= needed_bigger
+                wallet[curr] += needed_bigger * rate
+                return True
+            return False
+
+        for curr in order:
             if required[curr] > wallet[curr]:
-                if curr == "pp":
-                    raise ValueError("Not enough platinum pieces and no higher currency available.")
-                bigger = order[i + 1]
-                needed = required[curr] - wallet[curr]
-                exchange_needed = (needed // rates[bigger]) + (1 if needed % rates[bigger] else 0)
-                if wallet[bigger] < exchange_needed:
-                    raise ValueError(f"Not enough {bigger} to convert into {curr}.")
-                wallet[bigger] -= exchange_needed
-                wallet[curr] += exchange_needed * rates[bigger]
+                if not ensure_funds(curr, required[curr]):
+                    raise ValueError(f"Not enough currency to deduct {required[curr]} {curr}.")
             wallet[curr] -= required[curr]
+
         self.copper = wallet["cp"]
         self.silver = wallet["sp"]
         self.gold = wallet["gp"]
@@ -61,10 +97,7 @@ class Resource:
         self.moradinium += moradinium
 
     def mine_moradinium(self, bot: discord.Client, downtime: int, actor_name=""):
-        if downtime < 5 or downtime % 5 != 0:
-            raise ValueError("Downtime must be spent in increments of five days.")
-        if downtime > self.downtime:
-            raise ValueError(f"Not enough downtime available: {self.downtime} days.")
+        self.validate_downtime(downtime)
         mining_weeks = downtime // 5
         roll_results: List[Tuple[int,int,int]] = []
         total_moradinium = 0
@@ -78,10 +111,7 @@ class Resource:
         return roll_results
 
     def earn_money(self, bot: discord.Client, downtime: int, modifier: int=0, roll_mode: str="normal", actor_name: str=""):
-        if downtime < 5 or downtime % 5 != 0:
-            raise ValueError("Downtime must be spent in increments of five days.")
-        if downtime > self.downtime:
-            raise ValueError(f"Not enough downtime available: {self.downtime} days.")
+        self.validate_downtime(downtime)
         earning_weeks = downtime // 5
         roll_results: List[Tuple[int,int,int]] = []
         total_gold = 0
