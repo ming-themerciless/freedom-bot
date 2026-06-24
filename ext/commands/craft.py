@@ -117,6 +117,8 @@ class Craft(commands.Cog):
         if not tool_level:
             return await ctx.followup.send(f"{actor.name} is not proficient with '{tool}'.", ephemeral=True)
 
+        tool_level_abbr = {"journeyman": "j", "expert": "e", "master": "m"}.get(tool_level, tool_level)
+
         # 2. Check if tool level matches rarity requirements
         rarity_allowed = {
             "journeyman": ["standard", "common"],
@@ -201,7 +203,7 @@ class Craft(commands.Cog):
                 if item_base_gp is None:
                     return await ctx.followup.send(f"Cannot craft a {craft_type} of spell level {spell_level}.", ephemeral=True)
                 
-                dt_per_item = level_data.get(tool_level)
+                dt_per_item = level_data.get(tool_level_abbr)
                 if dt_per_item is None:
                     return await ctx.followup.send(
                         f"Your level {tool_level} is insufficient to craft a {spell_level}-level {craft_type}.",
@@ -222,7 +224,7 @@ class Craft(commands.Cog):
                         ephemeral=True
                     )
                 
-                dt_per_item = level_data.get(tool_level)
+                dt_per_item = level_data.get(tool_level_abbr)
                 if dt_per_item is None:
                     return await ctx.followup.send(
                         f"Your level {tool_level} is insufficient to brew a {spell_level}-level spell (concentration: {has_concentration}).",
@@ -258,7 +260,7 @@ class Craft(commands.Cog):
                         dt_div = {"journeyman": 25.0, "expert": 50.0, "master": 100.0}[tool_level]
                         dt_cost = (base_price / dt_div) * quantity
                 else:
-                    dt_per_item = poison_data.get(tool_level)
+                    dt_per_item = poison_data.get(tool_level_abbr)
                     if dt_per_item is None:
                         return await ctx.followup.send(
                             f"Your level {tool_level} is insufficient to craft poison '{item_name}'.",
