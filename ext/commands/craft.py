@@ -368,22 +368,27 @@ class Craft(commands.Cog):
                 actor.items.append(new_item)
 
         # 7. Apply CRP updates
+        has_master_tool = any(lvl == "master" for lvl in actor.skills.crafting.values()) or \
+                          any(lvl == "master" for lvl in actor.skills.tool_proficiencies.values())
+
         earned_crp = 0.0
-        if rarity == "common":
-            if craft_type == "non-consumable":
-                earned_crp = 2.5 * quantity
-            else:
-                earned_crp = 0.5 * quantity
-        elif rarity == "uncommon":
-            if craft_type == "non-consumable":
-                earned_crp = 7.5 * quantity
-            else:
-                earned_crp = 1.5 * quantity
+        if not has_master_tool:
+            if rarity == "common":
+                if craft_type == "non-consumable":
+                    earned_crp = 2.5 * quantity
+                else:
+                    earned_crp = 0.5 * quantity
+            elif rarity == "uncommon":
+                if craft_type == "non-consumable":
+                    earned_crp = 7.5 * quantity
+                else:
+                    earned_crp = 1.5 * quantity
 
         if earned_crp > 0:
             current_crp = actor.skills.crp_dict.get(tool_clean, 0.0)
             new_crp = current_crp + earned_crp
             actor.skills.crp_dict[tool_clean] = int(new_crp) if new_crp.is_integer() else new_crp
+            actor.skills.crp_modified = True
 
         # 8. Save actor changes
         try:

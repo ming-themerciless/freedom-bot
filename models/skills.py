@@ -12,12 +12,14 @@ class Skills:
         self.tool_proficiencies: Dict[str, str | None] = {}
         self.languages: Dict[str, bool] = {}
         self.downtime_progress: Dict[str, Dict[str, Any]] = {}
+        self.crp_modified = False
 
     def load_from_sheet_data(self, get_val):
         # 1. Crafting Reputation
         val = get_val('crp')
         raw_str = str(val).strip() if val is not None else ""
         self.crp_dict = {}
+        self.crp_modified = False
         if raw_str in ("", "-", "0"):
             self.crp = 0
         else:
@@ -120,15 +122,6 @@ class Skills:
                 }
 
     def get_sheet_data(self) -> Dict[str, Any]:
-        # 1. CRP list
-        if self.crp_dict:
-            if len(self.crp_dict) == 1 and "general" in self.crp_dict:
-                crp_val = self.crp_dict["general"]
-            else:
-                crp_val = ", ".join(f"{t.capitalize()}: {v}" for t, v in self.crp_dict.items())
-        else:
-            crp_val = "-" if self.crp == 0 else self.crp
-
         # 2. Crafting Skills
         skills_str = ", ".join(f"{lvl.capitalize()} {name}" for name, lvl in self.crafting.items())
         
@@ -146,13 +139,25 @@ class Skills:
             progress_parts.append(f"{pct_str}% ({proj['orig_level']}) {proj['name']}")
         progress_str = ", ".join(progress_parts) if progress_parts else "-"
 
-        return {
-            'crp': crp_val,
+        data = {
             'skills': skills_str if skills_str else "-",
             'proficiencies': profs_str if profs_str else "-",
             'languages': langs_str if langs_str else "-",
             'downtime_progress': progress_str
         }
+
+        if self.crp_modified:
+            # 1. CRP list
+            if self.crp_dict:
+                if len(self.crp_dict) == 1 and "general" in self.crp_dict:
+                    crp_val = self.crp_dict["general"]
+                else:
+                    crp_val = ", ".join(f"{t.capitalize()}: {v}" for t, v in self.crp_dict.items())
+            else:
+                crp_val = "-" if self.crp == 0 else self.crp
+            data['crp'] = crp_val
+
+        return data
 
     def get_summary(self) -> str:
         if not self.crp_dict:
@@ -377,6 +382,11 @@ class Skills:
         if current_percent >= 100:
             self.downtime_progress.pop(name.lower(), None)
             
+            if level == "master":
+                self.crp = "Master"
+                self.crp_dict = {}
+                self.crp_modified = True
+
             if level == "language":
                 self.languages[name] = True
             else:
