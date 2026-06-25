@@ -18,7 +18,7 @@ TOOL_CHOICES = [
     "Painter's Supplies", "Poisoner's Kit", "Potter's Tools",
     "Smith's Tools", "Tinker's Tools", "Weaver's Tools",
     "Woodcarver's Tools", "Disguise Kit", "Forgery Kit",
-    "Thieves' Tools", "Scroll Proficiency"
+    "Thieves' Tools"
 ]
 
 # Poisons table from PDF page 24-25
@@ -117,10 +117,6 @@ class Craft(commands.Cog):
         if not tool_level:
             return await ctx.followup.send(f"{actor.name} is not proficient with '{tool}'.", ephemeral=True)
 
-        # Scroll proficiency has no levels; behaves as journeyman for crafting speed and rarity checks
-        if tool_level == "scroll":
-            tool_level = "journeyman"
-
         tool_level_abbr = {"journeyman": "j", "expert": "e", "master": "m"}.get(tool_level, tool_level)
 
         # 2. Check if tool level matches rarity requirements
@@ -198,6 +194,12 @@ class Craft(commands.Cog):
                     gp_cost = 1000.0 * quantity + extra_cost
                     dt_cost = 20.0 * quantity
             elif craft_type in ("scroll", "tattoo"):
+                # Enforce appropriate tool for scrolls and tattoos
+                if craft_type == "scroll" and "calligrapher" not in tool.lower():
+                    return await ctx.followup.send("Scrolls require Calligrapher's Supplies.", ephemeral=True)
+                if craft_type == "tattoo" and "painter" not in tool.lower():
+                    return await ctx.followup.send("Spellwrought Tattoos require Painter's Supplies.", ephemeral=True)
+
                 level_data = SCROLL_TATTOO_TABLE.get(spell_level)
                 if not level_data:
                     return await ctx.followup.send(f"Invalid spell level {spell_level}.", ephemeral=True)
