@@ -117,6 +117,10 @@ class Craft(commands.Cog):
         if not tool_level:
             return await ctx.followup.send(f"{actor.name} is not proficient with '{tool}'.", ephemeral=True)
 
+        # Scroll proficiency has no levels; behaves as journeyman for crafting speed and rarity checks
+        if tool_level == "scroll":
+            tool_level = "journeyman"
+
         tool_level_abbr = {"journeyman": "j", "expert": "e", "master": "m"}.get(tool_level, tool_level)
 
         # 2. Check if tool level matches rarity requirements

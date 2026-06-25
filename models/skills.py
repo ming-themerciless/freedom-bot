@@ -112,21 +112,46 @@ class Skills:
                 if not level_found:
                     level_found = "language"
                     orig_level_found = "language"
-                
-                self.downtime_progress[target_name.lower()] = {
-                    "percent": percent,
-                    "level": level_found,
-                    "orig_level": orig_level_found,
-                    "name": target_name,
-                    "raw": frag
-                }
+
+                # Normalize scroll names and levels
+                if target_name.lower() in ("scrolls", "scroll", "scroll proficiency"):
+                    target_name = "Scroll"
+                    if level_found in ("scroll", "scroll proficiency", "language", "journeyman", "expert", "master"):
+                        level_found = "scroll"
+                        orig_level_found = "scroll"
+
+                target_key = target_name.lower()
+                if target_key in self.downtime_progress:
+                    # Merge percent by summing them (up to 100%) to heal split progress from the bug
+                    existing_proj = self.downtime_progress[target_key]
+                    new_percent = min(existing_proj["percent"] + percent, 100.0)
+                    existing_proj["percent"] = new_percent
+                    # Keep the higher level or the current level
+                    if existing_proj["level"] in ("scroll", "scroll proficiency", "language") and level_found not in ("scroll", "scroll proficiency", "language"):
+                        existing_proj["level"] = level_found
+                        existing_proj["orig_level"] = orig_level_found
+                    # Update raw representation
+                    orig_lvl = existing_proj["orig_level"]
+                    pct_str = str(int(new_percent)) if new_percent.is_integer() else f"{new_percent:.1f}"
+                    if orig_lvl == "scroll":
+                        existing_proj["raw"] = f"{pct_str}% Scrolls"
+                    else:
+                        existing_proj["raw"] = f"{pct_str}% ({orig_lvl}) {existing_proj['name']}"
+                else:
+                    self.downtime_progress[target_key] = {
+                        "percent": percent,
+                        "level": level_found,
+                        "orig_level": orig_level_found,
+                        "name": target_name,
+                        "raw": frag
+                    }
 
     def get_sheet_data(self) -> Dict[str, Any]:
         # 2. Crafting Skills
         skills_str = ", ".join(f"{lvl.capitalize()} {name}" for name, lvl in self.crafting.items())
         
         # 3. Tool Proficiencies
-        profs_str = ", ".join(f"{name} ({lvl})" if lvl else name for name, lvl in self.tool_proficiencies.items())
+        profs_str = ", ".join(f"{name} ({lvl})" if lvl and lvl != "scroll" else name for name, lvl in self.tool_proficiencies.items())
         
         # 4. Languages
         langs_str = ", ".join(self.languages.keys())
@@ -136,7 +161,10 @@ class Skills:
         for proj in self.downtime_progress.values():
             pct = proj["percent"]
             pct_str = str(int(pct)) if pct.is_integer() else f"{pct:.1f}"
-            progress_parts.append(f"{pct_str}% ({proj['orig_level']}) {proj['name']}")
+            if proj["level"] == "scroll":
+                progress_parts.append(f"{pct_str}% Scrolls")
+            else:
+                progress_parts.append(f"{pct_str}% ({proj['orig_level']}) {proj['name']}")
         progress_str = ", ".join(progress_parts) if progress_parts else "-"
 
         data = {
@@ -171,6 +199,8 @@ class Skills:
         cleaned = name.strip()
         if not cleaned:
             return ""
+        if cleaned.lower() in ("scrolls", "scroll", "scroll proficiency"):
+            return "Scroll"
         first_word = cleaned.split()[0]
         if first_word.endswith("'s") or first_word.endswith("’s"):
             return first_word[:-2]
@@ -205,7 +235,9 @@ class Skills:
         # Check tool proficiencies
         for name, level in self.tool_proficiencies.items():
             if self._clean_tool_name(name).lower() == clean_search:
-                return level
+                if level:
+                    return level
+                return "scroll" if clean_search == "scroll" else "journeyman"
         return None
 
     def learn_proficiency(self, actor, bot: discord.Client, ability_modifier: int, downtime: int, gp_cost_override: int = None,
@@ -259,14 +291,19 @@ class Skills:
             if is_tool:
                 cleaned_target = self._clean_tool_name(search_name)
                 current_level = self.get_current_tool_level(cleaned_target)
-                if current_level is None:
-                    selected_level = "journeyman"
-                elif current_level == "journeyman":
-                    selected_level = "expert"
-                elif current_level == "expert":
-                    selected_level = "master"
+                if cleaned_target.lower() == "scroll":
+                    if current_level is not None:
+                        raise ValueError("You already have Scroll Proficiency.")
+                    selected_level = "scroll"
                 else:
-                    raise ValueError(f"'{cleaned_target}' is already at master level.")
+                    if current_level is None:
+                        selected_level = "journeyman"
+                    elif current_level == "journeyman":
+                        selected_level = "expert"
+                    elif current_level == "expert":
+                        selected_level = "master"
+                    else:
+                        raise ValueError(f"'{cleaned_target}' is already at master level.")
                 target_name = cleaned_target
             else:
                 if not new_type:
@@ -444,6 +481,9 @@ class Skills:
         else:
             orig_level = selected_project["orig_level"]
             pct_str = str(int(current_percent)) if current_percent == int(current_percent) else str(current_percent)
-            selected_project["raw"] = f"{pct_str}% ({orig_level}) {name}"
+            if orig_level == "scroll":
+                selected_project["raw"] = f"{pct_str}% Scrolls"
+            else:
+                selected_project["raw"] = f"{pct_str}% ({orig_level}) {name}"
 
         return rolls_info, total_spent_dt, total_spent_gp, name, level
