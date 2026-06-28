@@ -8,6 +8,7 @@ from models.item import Item
 from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
 from helpers.utils import to_currency, roll_dice
+from helpers.craft_calculator import calculate_craft
 
 # Define choices for the tool dropdown
 TOOL_CHOICES = [
@@ -21,52 +22,6 @@ TOOL_CHOICES = [
     "Thieves' Tools"
 ]
 
-# Poisons table from PDF page 24-25
-POISON_TABLE = {
-    "assassin's blood": {"gp": 75, "j": 1.0, "e": 0.5, "m": 0.25},
-    "truth serum": {"gp": 75, "j": 1.0, "e": 0.5, "m": 0.25},
-    "carrion crawler mucus": {"gp": 100, "j": 1.0, "e": 0.5, "m": 0.25},
-    "lolth's sting": {"gp": 100, "j": 1.0, "e": 0.5, "m": 0.25},
-    "serpent venom": {"gp": 100, "j": 2.0, "e": 1.0, "m": 0.5},
-    "malice": {"gp": 125, "j": 2.0, "e": 1.0, "m": 0.5},
-    "pale tincture": {"gp": 125, "j": 2.0, "e": 1.0, "m": 0.5},
-    "essence of ether": {"gp": 150, "j": 2.0, "e": 1.0, "m": 0.5},
-    "biza's breath": {"gp": 200, "j": None, "e": 2.0, "m": 1.0},
-    "oil of taggit": {"gp": 200, "j": None, "e": 2.0, "m": 1.0},
-    "burnt othur fumes": {"gp": 250, "j": None, "e": 2.0, "m": 1.0},
-    "torpor": {"gp": 300, "j": None, "e": 2.0, "m": 1.0},
-    "wyvern poison": {"gp": 600, "j": None, "e": None, "m": 2.0},
-    "midnight tears": {"gp": 750, "j": None, "e": None, "m": 2.5},
-    "yserthrax's corruption": {"gp": 750, "j": None, "e": None, "m": 2.5},
-    "purple worm poison": {"gp": 1500, "j": None, "e": None, "m": 3.0}
-}
-
-# Spell Scrolls & Tattoos table from PDF page 23-24
-SCROLL_TATTOO_TABLE = {
-    0: {"j": 1.0, "e": 0.5, "m": 0.25, "tattoo": 40, "scroll": 25},
-    1: {"j": 2.0, "e": 1.0, "m": 0.5,  "tattoo": 60, "scroll": 40},
-    2: {"j": None, "e": 1.5, "m": 1.0, "tattoo": 80, "scroll": 50},
-    3: {"j": None, "e": 2.0, "m": 1.5, "tattoo": 150, "scroll": 100},
-    4: {"j": None, "e": None, "m": 2.0, "tattoo": 300, "scroll": 200},
-    5: {"j": None, "e": None, "m": 3.0, "tattoo": 450, "scroll": 300},
-    6: {"j": None, "e": None, "m": 5.0, "tattoo": None, "scroll": 400},
-    7: {"j": None, "e": None, "m": 10.0, "tattoo": None, "scroll": 600},
-    8: {"j": None, "e": None, "m": 15.0, "tattoo": None, "scroll": 1000},
-    9: {"j": None, "e": None, "m": 20.0, "tattoo": None, "scroll": 2000}
-}
-
-# Brews table from PDF page 27
-# Key: (spell_level, has_concentration)
-BREW_TABLE = {
-    (0, False): {"j": 0.5, "e": 0.25, "m": 0.125, "gp": 25},
-    (0, True):  {"j": 1.0, "e": 0.5,  "m": 0.25,  "gp": 30},
-    (1, False): {"j": 2.0, "e": 1.0,  "m": 0.5,   "gp": 40},
-    (1, True):  {"j": None, "e": 1.5, "m": 1.0,   "gp": 50},
-    (2, False): {"j": None, "e": 2.0, "m": 1.5,   "gp": 100},
-    (2, True):  {"j": None, "e": None, "m": 2.0,   "gp": 200},
-    (3, False): {"j": None, "e": None, "m": 3.0,   "gp": 300}
-}
-
 class Craft(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -76,7 +31,7 @@ class Craft(commands.Cog):
                     actor_name:          Option(str, name="character", required=True, description="The name of the character crafting."),
                     item_name:           Option(str, name="item_name", required=True, description="Name of the item being crafted."),
                     rarity:              Option(str, name="rarity", choices=["standard", "common", "uncommon", "rare", "very rare", "legendary"], required=True),
-                    craft_type:          Option(str, name="type", choices=["non-consumable", "consumable", "scroll", "tattoo", "poison", "brew"], required=True),
+                    craft_type:          Option(str, name="type", choices=["non-consumable", "consumable", "scroll", "tattoo", "poison", "brew", "meal"], required=True),
                     tool:                Option(str, name="tool", choices=TOOL_CHOICES, required=True, description="The tool being used for crafting."),
                     quantity:            Option(int, name="quantity", default=1, required=False, description="Number of items to craft."),
                     base_price:          Option(float, name="base_price", default=None, required=False, description="Price in GP of the standard item (only needed for standard rarity)."),
@@ -84,6 +39,7 @@ class Craft(commands.Cog):
                     has_concentration:   Option(bool, name="has_concentration", default=False, required=False, description="Whether the brew spell has concentration (brews only)."),
                     extra_cost:          Option(float, name="extra_cost", default=0.0, required=False, description="Extra component GP cost for consumables/scrolls/tattoos/brews."),
                     is_masterpiece:      Option(bool, name="is_masterpiece", default=False, required=False, description="Set to True if this is your Masterpiece craft (costs 0 downtime)."),
+                    gather_ingredients:  Option(bool, name="gather_ingredients", default=False, required=False, description="Gather ingredients yourself (doubles DT, 0 GP cost, Herbalism Kit only)."),
                     description:         Option(str, name="description", default="", required=False, description="Item description."),
                     benefits:            Option(str, name="benefits", default="", required=False, description="Item mechanical benefits."),
                     link:                Option(str, name="link", default="", required=False, description="Web link to the item."),
@@ -99,12 +55,6 @@ class Craft(commands.Cog):
         if extra_cost < 0:
             return await ctx.respond("Extra cost cannot be negative.", ephemeral=True)
 
-        if rarity == "standard" and base_price is None:
-            return await ctx.respond("Base price must be specified when crafting a standard item.", ephemeral=True)
-
-        if craft_type in ("scroll", "tattoo", "brew") and spell_level is None:
-            return await ctx.respond("Spell level must be specified for scrolls, tattoos, and brews.", ephemeral=True)
-
         await ctx.defer()
         actor = Actor(actor_name)
         try:
@@ -117,173 +67,40 @@ class Craft(commands.Cog):
         if not tool_level:
             return await ctx.followup.send(f"{actor.name} is not proficient with '{tool}'.", ephemeral=True)
 
-        tool_level_abbr = {"journeyman": "j", "expert": "e", "master": "m"}.get(tool_level, tool_level)
+        # Masterpiece check for already having masterpiece (character specific validation)
+        if is_masterpiece and actor.masterpiece and actor.masterpiece.strip() not in ("", "-", "None"):
+            return await ctx.followup.send(f"{actor.name} already has a masterpiece: {actor.masterpiece}.", ephemeral=True)
 
-        # 2. Check if tool level matches rarity requirements
-        rarity_allowed = {
-            "journeyman": ["standard", "common"],
-            "expert": ["standard", "common", "uncommon"],
-            "master": ["standard", "common", "uncommon", "rare", "very rare", "legendary"]
-        }
-        if rarity not in rarity_allowed.get(tool_level, []):
-            return await ctx.followup.send(
-                f"{tool_level.capitalize()} level with {tool} is insufficient to craft a {rarity} item. Requires higher proficiency.",
-                ephemeral=True
+        # 2. Perform validations and calculate costs
+        has_master_tool = any(lvl == "master" for lvl in actor.skills.crafting.values()) or \
+                          any(lvl == "master" for lvl in actor.skills.tool_proficiencies.values())
+
+        try:
+            craft_result = calculate_craft(
+                craft_type=craft_type,
+                rarity=rarity,
+                tool=tool,
+                tool_level=tool_level,
+                quantity=quantity,
+                item_name=item_name,
+                base_price=base_price,
+                spell_level=spell_level,
+                has_concentration=has_concentration,
+                extra_cost=extra_cost,
+                is_masterpiece=is_masterpiece,
+                gather_ingredients=gather_ingredients,
+                has_master_tool=has_master_tool
             )
+        except ValueError as e:
+            return await ctx.followup.send(str(e), ephemeral=True)
 
-        # 3. Masterpiece validations
-        if is_masterpiece:
-            if tool_level != "master":
-                return await ctx.followup.send("You must have Master level in the tool to craft a Masterpiece.", ephemeral=True)
-            if actor.masterpiece and actor.masterpiece.strip() not in ("", "-", "None"):
-                return await ctx.followup.send(f"{actor.name} already has a masterpiece: {actor.masterpiece}.", ephemeral=True)
-            if craft_type != "non-consumable":
-                return await ctx.followup.send("Masterpieces must be non-consumable items.", ephemeral=True)
-
-        # 4. Cost and Downtime calculation
-        gp_cost = 0.0
-        moradinium_cost = 0
-        dt_cost = 0.0
-        is_legendary_project = (rarity == "legendary" and craft_type == "non-consumable")
-
-        if is_legendary_project:
-            gp_cost = 100000.0 * quantity
-            moradinium_cost = 256 * quantity
-            # DT cost is not fixed; handled via roll progression below
-        else:
-            # Consumable vs Non-Consumable rules
-            if craft_type == "non-consumable":
-                if rarity == "standard":
-                    gp_cost = (base_price / 2.0) * quantity
-                    dt_div = {"journeyman": 10.0, "expert": 25.0, "master": 75.0}[tool_level]
-                    dt_cost = (base_price / dt_div) * quantity
-                elif rarity == "common":
-                    gp_cost = 50.0 * quantity
-                    moradinium_cost = 1 * quantity
-                    dt_cost = {"journeyman": 5.0, "expert": 3.0, "master": 1.0}[tool_level] * quantity
-                elif rarity == "uncommon":
-                    gp_cost = 200.0 * quantity
-                    moradinium_cost = 4 * quantity
-                    dt_cost = {"expert": 5.0, "master": 3.0}[tool_level] * quantity
-                elif rarity == "rare":
-                    gp_cost = 2000.0 * quantity
-                    moradinium_cost = 16 * quantity
-                    dt_cost = 5.0 * quantity
-                elif rarity == "very rare":
-                    gp_cost = 20000.0 * quantity
-                    moradinium_cost = 64 * quantity
-                    dt_cost = 20.0 * quantity
-            elif craft_type == "consumable":
-                if rarity == "standard":
-                    gp_cost = (base_price / 2.0) * quantity + extra_cost
-                    dt_div = {"journeyman": 25.0, "expert": 50.0, "master": 100.0}[tool_level]
-                    dt_cost = (base_price / dt_div) * quantity
-                elif rarity == "common":
-                    gp_cost = 25.0 * quantity + extra_cost
-                    dt_cost = {"journeyman": 1.0, "expert": 0.5, "master": 0.25}[tool_level] * quantity
-                elif rarity == "uncommon":
-                    gp_cost = 50.0 * quantity + extra_cost
-                    dt_cost = {"expert": 1.0, "master": 0.5}[tool_level] * quantity
-                elif rarity == "rare":
-                    gp_cost = 200.0 * quantity + extra_cost
-                    dt_cost = 1.0 * quantity
-                elif rarity == "very rare":
-                    gp_cost = 400.0 * quantity + extra_cost
-                    dt_cost = 5.0 * quantity
-                elif rarity == "legendary":
-                    gp_cost = 1000.0 * quantity + extra_cost
-                    dt_cost = 20.0 * quantity
-            elif craft_type in ("scroll", "tattoo"):
-                # Enforce appropriate tool for scrolls and tattoos
-                if craft_type == "scroll" and "calligrapher" not in tool.lower():
-                    return await ctx.followup.send("Scrolls require Calligrapher's Supplies.", ephemeral=True)
-                if craft_type == "tattoo" and "painter" not in tool.lower():
-                    return await ctx.followup.send("Spellwrought Tattoos require Painter's Supplies.", ephemeral=True)
-
-                level_data = SCROLL_TATTOO_TABLE.get(spell_level)
-                if not level_data:
-                    return await ctx.followup.send(f"Invalid spell level {spell_level}.", ephemeral=True)
-                
-                # Check if this type (tattoo) is available for this spell level
-                item_base_gp = level_data.get(craft_type)
-                if item_base_gp is None:
-                    return await ctx.followup.send(f"Cannot craft a {craft_type} of spell level {spell_level}.", ephemeral=True)
-                
-                dt_per_item = level_data.get(tool_level_abbr)
-                if dt_per_item is None:
-                    return await ctx.followup.send(
-                        f"Your level {tool_level} is insufficient to craft a {spell_level}-level {craft_type}.",
-                        ephemeral=True
-                    )
-                
-                gp_cost = float(item_base_gp) * quantity + extra_cost
-                dt_cost = float(dt_per_item) * quantity
-            elif craft_type == "brew":
-                # Check brewer supplies
-                if "brewer" not in tool.lower():
-                    return await ctx.followup.send("Brews require Brewer's Supplies.", ephemeral=True)
-                
-                level_data = BREW_TABLE.get((spell_level, has_concentration))
-                if not level_data:
-                    return await ctx.followup.send(
-                        f"No brew recipe found for spell level {spell_level} (concentration: {has_concentration}).",
-                        ephemeral=True
-                    )
-                
-                dt_per_item = level_data.get(tool_level_abbr)
-                if dt_per_item is None:
-                    return await ctx.followup.send(
-                        f"Your level {tool_level} is insufficient to brew a {spell_level}-level spell (concentration: {has_concentration}).",
-                        ephemeral=True
-                    )
-                
-                gp_cost = float(level_data["gp"]) * quantity + extra_cost
-                dt_cost = float(dt_per_item) * quantity
-            elif craft_type == "poison":
-                # Check poisoner kit or similar
-                clean_item = item_name.strip().lower()
-                poison_data = POISON_TABLE.get(clean_item)
-                if not poison_data:
-                    # Fallback to standard consumable calculation if item name is custom
-                    # Determine rarity category first
-                    if rarity == "common":
-                        gp_cost = 25.0 * quantity + extra_cost
-                        dt_cost = {"journeyman": 1.0, "expert": 0.5, "master": 0.25}[tool_level] * quantity
-                    elif rarity == "uncommon":
-                        gp_cost = 50.0 * quantity + extra_cost
-                        dt_cost = {"expert": 1.0, "master": 0.5}[tool_level] * quantity
-                    elif rarity == "rare":
-                        gp_cost = 200.0 * quantity + extra_cost
-                        dt_cost = 1.0 * quantity
-                    elif rarity == "very rare":
-                        gp_cost = 400.0 * quantity + extra_cost
-                        dt_cost = 5.0 * quantity
-                    elif rarity == "legendary":
-                        gp_cost = 1000.0 * quantity + extra_cost
-                        dt_cost = 20.0 * quantity
-                    else:  # standard
-                        gp_cost = (base_price / 2.0) * quantity + extra_cost
-                        dt_div = {"journeyman": 25.0, "expert": 50.0, "master": 100.0}[tool_level]
-                        dt_cost = (base_price / dt_div) * quantity
-                else:
-                    dt_per_item = poison_data.get(tool_level_abbr)
-                    if dt_per_item is None:
-                        return await ctx.followup.send(
-                            f"Your level {tool_level} is insufficient to craft poison '{item_name}'.",
-                            ephemeral=True
-                        )
-                    gp_cost = float(poison_data["gp"]) * quantity + extra_cost
-                    dt_cost = float(dt_per_item) * quantity
-
-        # Override DT for masterpieces
-        if is_masterpiece:
-            dt_cost = 0.0
+        gp_cost = craft_result["gp_cost"]
+        moradinium_cost = craft_result["moradinium_cost"]
+        dt_cost = craft_result["dt_cost"]
+        is_legendary_project = craft_result["is_legendary_project"]
+        earned_crp = craft_result["earned_crp"]
 
         # Validate resource availability
-        if int(gp_cost) > 0:
-            # We want to check GP deduction. Since deduct accepts coins, we check if they have enough
-            # We will catch ValueError inside deduct if they lack money
-            pass
         if moradinium_cost > actor.resources.moradinium:
             return await ctx.followup.send(
                 f"Not enough Moradinium. Requires {moradinium_cost}, has {actor.resources.moradinium}.",
@@ -291,17 +108,13 @@ class Craft(commands.Cog):
             )
 
         if not is_legendary_project:
-            # Validate DT availability
-            # Note: dt_cost can be fractional, but sheet stores floats, so it's fine.
-            # However, validate_downtime checks multiples of 5, which applies to study rolls.
-            # Standard crafting consumes DT directly. We just check if they have enough DT.
             if dt_cost > actor.resources.downtime:
                 return await ctx.followup.send(
                     f"Not enough downtime. Requires {dt_cost} days, has {actor.resources.downtime} days.",
                     ephemeral=True
                 )
 
-        # 5. Execute Crafting
+        # 3. Execute Crafting
         rolls_detail = []
         is_completed = True
         
@@ -322,7 +135,8 @@ class Craft(commands.Cog):
             # If new project, deduct materials GP and Moradinium first
             if active_project is None:
                 try:
-                    actor.resources.deduct(gold=int(gp_cost), moradinium=moradinium_cost)
+                    gold_d, silver_d, copper_d, _ = to_currency(gp_cost)
+                    actor.resources.deduct(gold=gold_d, silver=silver_d, copper=copper_d, moradinium=moradinium_cost)
                 except ValueError as e:
                     return await ctx.followup.send(f"Failed to deduct crafting materials cost: {e}", ephemeral=True)
                 
@@ -360,12 +174,13 @@ class Craft(commands.Cog):
         else:
             # Deduct GP/Moradinium and DT
             try:
-                actor.resources.deduct(gold=int(gp_cost), moradinium=moradinium_cost)
+                gold_d, silver_d, copper_d, _ = to_currency(gp_cost)
+                actor.resources.deduct(gold=gold_d, silver=silver_d, copper=copper_d, moradinium=moradinium_cost)
             except ValueError as e:
                 return await ctx.followup.send(f"Failed to deduct currency: {e}", ephemeral=True)
             actor.resources.downtime -= dt_cost
 
-        # 6. Apply Notable Items or Masterpiece additions (only for non-consumables on completion)
+        # 4. Apply Notable Items or Masterpiece additions (only for non-consumables on completion)
         if is_completed and craft_type == "non-consumable":
             if is_masterpiece:
                 actor.masterpiece = item_name
@@ -373,36 +188,20 @@ class Craft(commands.Cog):
                 new_item = Item(name=item_name, description=description, benefits=benefits, link=link, rarity=rarity)
                 actor.items.append(new_item)
 
-        # 7. Apply CRP updates
-        has_master_tool = any(lvl == "master" for lvl in actor.skills.crafting.values()) or \
-                          any(lvl == "master" for lvl in actor.skills.tool_proficiencies.values())
-
-        earned_crp = 0.0
-        if not has_master_tool:
-            if rarity == "common":
-                if craft_type == "non-consumable":
-                    earned_crp = 2.5 * quantity
-                else:
-                    earned_crp = 0.5 * quantity
-            elif rarity == "uncommon":
-                if craft_type == "non-consumable":
-                    earned_crp = 7.5 * quantity
-                else:
-                    earned_crp = 1.5 * quantity
-
+        # 5. Apply CRP updates
         if earned_crp > 0:
             current_crp = actor.skills.crp_dict.get(tool_clean, 0.0)
             new_crp = current_crp + earned_crp
             actor.skills.crp_dict[tool_clean] = int(new_crp) if new_crp.is_integer() else new_crp
             actor.skills.crp_modified = True
 
-        # 8. Save actor changes
+        # 6. Save actor changes
         try:
             await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
         except Exception as e:
             return await ctx.followup.send(f"Failed to save actor data to Google Sheet: {e}", ephemeral=True)
 
-        # 9. Format response
+        # 7. Format response
         embed_item = Item(name=item_name, description=description, benefits=benefits, link=link)
         
         lines = []
@@ -418,7 +217,10 @@ class Craft(commands.Cog):
                 lines.append(f"\nUpdated Legendary Progress: **{current_percent:.1f}%**")
         else:
             lines.append(f"🛠️ **{actor.name}** successfully crafted **{item_name}** (x{quantity})!")
-            lines.append(f"• Spent: {gp_cost} GP" + (f", {moradinium_cost} Moradinium" if moradinium_cost else "") + (f", {dt_cost} days of downtime" if dt_cost else ""))
+            spent_str = f"• Spent: {gp_cost} GP" + (f", {moradinium_cost} Moradinium" if moradinium_cost else "") + (f", {dt_cost} days of downtime" if dt_cost else "")
+            if gather_ingredients:
+                spent_str += " (gathered ingredients)"
+            lines.append(spent_str)
             
             if craft_type == "non-consumable":
                 if is_masterpiece:
@@ -442,3 +244,4 @@ class Craft(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Craft(bot))
+
