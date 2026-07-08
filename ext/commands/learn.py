@@ -25,7 +25,13 @@ class Learn(commands.Cog):
                         "Woodcarver's Tools", "Disguise Kit", "Forgery Kit",
                         "Thieves' Tools", "Scroll Proficiency"
                     ], description="Select a predefined tool to learn (automatically determines next level)."),
-                    new_target: Option(str, name="new_target", required=False, default=None, description="Specify what you want to learn if starting a new target (not in the tool dropdown)."),
+                    language:   Option(str, name="language", required=False, default=None, choices=[
+                        "Abyssal", "Celestial", "Common", "Common Sign Language", "Deep Speech",
+                        "Draconic", "Druidic", "Dwarvish", "Elvish", "Giant", "Gnomish", "Goblin",
+                        "Halfling", "Infernal", "Orc", "Primordial", "Sylvan", "Thieves' Cant",
+                        "Undercommon"
+                    ], description="Select a predefined language to learn."),
+                    new_target: Option(str, name="new_target", required=False, default=None, description="Specify what you want to learn if starting a new target (not in the tool or language dropdown)."),
                     new_type:   Option(str, name="new_type", required=False, default=None, choices=["language", "instrument", "gaming set", "martial weapon", "weapon mastery", "vehicle"], description="Select the type if starting a custom non-tool target."),
                     roll_mode:  Option(str, name="roll_mode", choices=["normal","advantage","disadvantage"], required=False, default="normal", description="Select roll mode.")):
         """
@@ -41,9 +47,14 @@ class Learn(commands.Cog):
         if gp_cost is not None and gp_cost < 0:
             return await ctx.respond("GP cost override cannot be negative.", ephemeral=True)
 
-        # Predefined tool and custom target name are mutually exclusive
-        if tool and new_target:
-            return await ctx.respond("Please select either a tool from the dropdown OR specify a custom new_target, but not both.", ephemeral=True)
+        # Predefined tool, language and custom target name are mutually exclusive
+        targets_specified = sum(1 for x in [tool, language, new_target] if x is not None)
+        if targets_specified > 1:
+            return await ctx.respond("Please select at most one of 'tool', 'language', or 'new_target'.", ephemeral=True)
+
+        if language:
+            new_target = language
+            new_type = "language"
 
         await ctx.defer()
         actor = Actor(actor_name)
