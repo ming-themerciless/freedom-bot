@@ -64,9 +64,10 @@ class Resource:
         return ", ".join(parts) or "nothing"
 
     def deduct(self, platinum=0, gold=0, silver=0, copper=0, moradinium=0):
+        if any(amount < 0 for amount in (platinum, gold, silver, copper)):
+            raise ValueError("Currency deductions cannot be negative.")
         if moradinium > self.moradinium:
             raise ValueError("Not enough Moradinium to pay.")
-        self.moradinium -= moradinium
         wallet = {"pp": self.platinum, "gp": self.gold, "sp": self.silver, "cp": self.copper}
         required = {"pp": platinum, "gp": gold, "sp": silver, "cp": copper}
         rates = {"pp": 10, "gp": 10, "sp": 10}
@@ -98,6 +99,7 @@ class Resource:
         self.silver = wallet["sp"]
         self.gold = wallet["gp"]
         self.platinum = wallet["pp"]
+        self.moradinium -= moradinium
 
     def add(self, platinum=0, gold=0, silver=0, copper=0, moradinium=0):
         if self.platinum + platinum < 0: raise ValueError("Resulting platinum cannot be negative.")
@@ -137,8 +139,8 @@ class Resource:
             earned = Money.from_gold(base_gold) if rolls[0] != 20 else Money(base_gold * 150)
             total_earned += earned
             roll_results.append((rolls[0], total, earned.copper / 100))
-        platinum, gold, silver, copper = total_earned.denominations()
-        self.add(platinum=platinum, gold=gold, silver=silver, copper=copper)
+        gold, silver, copper = total_earned.gold_denominations()
+        self.add(gold=gold, silver=silver, copper=copper)
         self.downtime -= downtime
         return roll_results
 

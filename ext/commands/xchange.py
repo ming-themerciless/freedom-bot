@@ -1,107 +1,23 @@
+import logging
+
 import discord
 from discord.ext import commands
 from discord.commands import Option
-from typing import Dict, Any
 
+from application.actor_locks import locked_actor_option
 from models.actor import Actor
+from models.exchange import calculate_exchange
 from config import TRADE_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
 
-RATES_IN_COPPER = {
-    "pp": 1000,
-    "gp": 100,
-    "sp": 10,
-    "cp": 1
-}
-
-DENOM_ATTRS = {
-    "pp": "platinum",
-    "gp": "gold",
-    "sp": "silver",
-    "cp": "copper"
-}
-
-def perform_exchange_calculation(
-    from_denom: str,
-    to_denom: str,
-    amount: int,
-    current_wallet: Dict[str, int]
-) -> Dict[str, int]:
-    """
-    Computes the net changes for each denomination.
-    Raises ValueError on validation failures.
-    """
-    from_denom = from_denom.strip().lower()
-    to_denom = to_denom.strip().lower()
-
-    if amount <= 0:
-        raise ValueError("Amount must be a positive integer.")
-    if from_denom not in RATES_IN_COPPER or to_denom not in RATES_IN_COPPER:
-        raise ValueError("Invalid denomination specified.")
-    if from_denom == to_denom:
-        raise ValueError(f"Cannot exchange {from_denom.upper()} to itself.")
-
-    from_attr = DENOM_ATTRS[from_denom]
-    current_amount = current_wallet.get(from_attr, 0)
-    if current_amount < amount:
-        raise ValueError(f"Not enough {from_denom.upper()} to exchange. Needs {amount}, has {current_amount}.")
-
-    # Calculate total copper to convert
-    total_copper = amount * RATES_IN_COPPER[from_denom]
-    
-    # Calculate target amount
-    dest_rate = RATES_IN_COPPER[to_denom]
-    dest_amount = total_copper // dest_rate
-    remainder_copper = total_copper % dest_rate
-
-    # Distribute remainder to lower denominations
-    distributed = {
-        "pp": 0,
-        "gp": 0,
-        "sp": 0,
-        "cp": 0
-    }
-    distributed[to_denom] = dest_amount
-
-    # List of denominations from highest to lowest
-    order = ["pp", "gp", "sp", "cp"]
-    to_idx = order.index(to_denom)
-    
-    # We only distribute to denominations lower than the target denomination
-    rem = remainder_copper
-    for denom in order[to_idx + 1:]:
-        rate = RATES_IN_COPPER[denom]
-        distributed[denom] = rem // rate
-        rem = rem % rate
-
-    # Calculate net changes
-    net_changes = {
-        "platinum": 0,
-        "gold": 0,
-        "silver": 0,
-        "copper": 0
-    }
-    
-    # Spent from_denom
-    net_changes[DENOM_ATTRS[from_denom]] -= amount
-    # Received distributed denoms
-    for k, v in distributed.items():
-        net_changes[DENOM_ATTRS[k]] += v
-
-    # Check if there is a net change (i.e. not all zero)
-    if all(v == 0 for v in net_changes.values()):
-        raise ValueError(
-            f"This exchange has no effect. The amount {amount} {from_denom.upper()} "
-            f"is too small to obtain any {to_denom.upper()} or intermediate coins."
-        )
-
-    return net_changes
+logger = logging.getLogger(__name__)
 
 class XChange(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.slash_command(guild_ids=[GUILD_ID], name="xchange", description="Exchange currency between denominations.")
+    @locked_actor_option()
     async def xchange(self, ctx: discord.ApplicationContext,
                       actor_name: Option(str, name="character", required=True, description="The name of the character exchanging."),
                       from_denom: Option(str, name="from_denomination", choices=["pp", "gp", "sp", "cp"], required=True, description="The denomination you want to change."),
@@ -133,9 +49,9 @@ class XChange(commands.Cog):
         }
 
         try:
-            net_changes = perform_exchange_calculation(
-                from_denom=from_denom,
-                to_denom=to_denom,
+            net_changes = calculate_exchange(
+                from_denomination=from_denom,
+                to_denomination=to_denom,
                 amount=amount,
                 current_wallet=current_wallet
             )
@@ -151,8 +67,16 @@ class XChange(commands.Cog):
         # Save actor changes
         try:
             await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
-        except Exception as e:
-            return await ctx.followup.send(f"Failed to save actor data to Google Sheet: {e}", ephemeral=True)
+        except Exception:
+            interaction_id = getattr(getattr(ctx, "interaction", None), "id", "unknown")
+            logger.exception(
+                "Failed to save currency exchange interaction_id=%s",
+                interaction_id,
+            )
+            return await ctx.followup.send(
+                "The currency exchange could not be saved. Please try again or contact a bot administrator.",
+                ephemeral=True,
+            )
 
         # Format output summary
         lines = []

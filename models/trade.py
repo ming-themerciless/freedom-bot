@@ -1,7 +1,11 @@
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .resource import Resource
-from .actor import Actor
-from connectors.sheets import batch_update
+
+if TYPE_CHECKING:
+    from .actor import Actor
 
 class Trade:
     def __init__(self, buyer: Actor | None=None, seller: Actor | None=None, price: Resource | None=None):
@@ -9,8 +13,18 @@ class Trade:
         self.seller = seller
         self.price = price or Resource()
 
+    @staticmethod
+    def _is_same_actor(buyer: Actor, seller: Actor) -> bool:
+        if buyer.row_index is not None and seller.row_index is not None:
+            return buyer.row_index == seller.row_index
+        return buyer.name.strip().casefold() == seller.name.strip().casefold()
+
     def perform_trade(self):
-        if self.buyer is self.seller and self.buyer is not None:
+        if (
+            self.buyer is not None
+            and self.seller is not None
+            and self._is_same_actor(self.buyer, self.seller)
+        ):
             raise ValueError("Buyer and seller must be different actors.")
 
         # Validate both in memory before issuing the single persistence request.
@@ -36,4 +50,7 @@ class Trade:
             updates.extend(self.buyer.sheet_updates())
         if self.seller:
             updates.extend(self.seller.sheet_updates())
+
+        from connectors.sheets import batch_update
+
         batch_update(updates)

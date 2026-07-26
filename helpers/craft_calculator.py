@@ -1,3 +1,4 @@
+import math
 from typing import Dict, Any, Tuple, Optional
 
 # Poisons table from PDF page 24-25
@@ -65,6 +66,11 @@ def calculate_craft(
     Validates crafting options and calculates GP, Moradinium, DT cost, and earned CRP.
     Returns a dictionary with the results, or raises a ValueError on validation error.
     """
+    if base_price is not None and (not math.isfinite(base_price) or base_price < 0):
+        raise ValueError("Base price must be a non-negative finite number.")
+    if not math.isfinite(extra_cost) or extra_cost < 0:
+        raise ValueError("Extra cost must be a non-negative finite number.")
+
     tool_clean = tool.strip().lower()
     tool_level_abbr = {"journeyman": "j", "expert": "e", "master": "m"}.get(tool_level, tool_level)
 

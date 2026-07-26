@@ -1,3 +1,6 @@
+import logging
+import math
+
 import discord
 from discord.ext import commands
 from discord.commands import Option
@@ -5,10 +8,13 @@ from typing import Dict, Any, List
 
 from models.actor import Actor
 from models.item import Item
+from application.actor_locks import locked_actor_option
 from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
 from helpers.utils import to_currency, roll_dice
 from helpers.craft_calculator import calculate_craft
+
+logger = logging.getLogger(__name__)
 
 # Define choices for the tool dropdown
 TOOL_CHOICES = [
@@ -27,6 +33,7 @@ class Craft(commands.Cog):
         self.bot = bot
 
     @commands.slash_command(guild_ids=[GUILD_ID], name="craft", description="Spend downtime and gold to craft items.")
+    @locked_actor_option()
     async def craft(self, ctx: discord.ApplicationContext,
                     actor_name:          Option(str, name="character", required=True, description="The name of the character crafting."),
                     item_name:           Option(str, name="item_name", required=True, description="Name of the item being crafted."),
@@ -52,8 +59,10 @@ class Craft(commands.Cog):
         if quantity <= 0:
             return await ctx.respond("Quantity must be at least 1.", ephemeral=True)
             
-        if extra_cost < 0:
-            return await ctx.respond("Extra cost cannot be negative.", ephemeral=True)
+        if not math.isfinite(extra_cost) or extra_cost < 0:
+            return await ctx.respond("Extra cost must be a non-negative finite number.", ephemeral=True)
+        if base_price is not None and (not math.isfinite(base_price) or base_price < 0):
+            return await ctx.respond("Base price must be a non-negative finite number.", ephemeral=True)
 
         await ctx.defer()
         actor = Actor(actor_name)
@@ -198,8 +207,16 @@ class Craft(commands.Cog):
         # 6. Save actor changes
         try:
             await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
-        except Exception as e:
-            return await ctx.followup.send(f"Failed to save actor data to Google Sheet: {e}", ephemeral=True)
+        except Exception:
+            interaction_id = getattr(getattr(ctx, "interaction", None), "id", "unknown")
+            logger.exception(
+                "Failed to save craft result interaction_id=%s",
+                interaction_id,
+            )
+            return await ctx.followup.send(
+                "The craft could not be saved. Please try again or contact a bot administrator.",
+                ephemeral=True,
+            )
 
         # 7. Format response
         embed_item = Item(name=item_name, description=description, benefits=benefits, link=link)
@@ -244,4 +261,3 @@ class Craft(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Craft(bot))
-

@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord.commands import Option
+from application.actor_locks import locked_actor_option
 from models.actor import Actor
 from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
@@ -10,6 +11,7 @@ class Learn(commands.Cog):
         self.bot = bot
 
     @commands.slash_command(guild_ids=[GUILD_ID], name="learn", description="Spend downtime and gold to learn a tool, language, or weapon proficiency.")
+    @locked_actor_option()
     async def learn(self, ctx: discord.ApplicationContext,
                     actor_name: Option(str, name="character", required=True, description="The name of the character learning."),
                     modifier:   Option(int, name="modifier", required=True, description="The ability score modifier to add to the rolls."),
