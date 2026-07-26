@@ -6,6 +6,7 @@ from models.resource import Resource
 from models.trade import Trade
 from config import TRADE_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
+from application.actor_locks import actor_locks
 
 class TradeCmd(commands.Cog):
     def __init__(self, bot):
@@ -27,29 +28,34 @@ class TradeCmd(commands.Cog):
             return await ctx.respond("Currency values (platinum, gold, silver, copper) cannot be negative.", ephemeral=True)
 
         await ctx.defer()
-        buyer_actor = None
-        if buyer_name.lower() not in ["shop","store"]:
-            buyer_actor = Actor(buyer_name)
+        actor_names = [
+            name for name in (buyer_name, seller_name)
+            if name.casefold() not in {"shop", "store"}
+        ]
+        async with actor_locks.acquire(*actor_names):
+            buyer_actor = None
+            if buyer_name.lower() not in ["shop","store"]:
+                buyer_actor = Actor(buyer_name)
+                try:
+                    await self.bot.loop.run_in_executor(None, buyer_actor.load_from_sheet)
+                except ValueError as e:
+                    return await ctx.followup.send(f"Buyer error: {e}", ephemeral=True)
+
+            seller_actor = None
+            if seller_name.lower() not in ["shop","store"]:
+                seller_actor = Actor(seller_name)
+                try:
+                    await self.bot.loop.run_in_executor(None, seller_actor.load_from_sheet)
+                except ValueError as e:
+                    return await ctx.followup.send(f"Seller error: {e}", ephemeral=True)
+
+            price = Resource(platinum=platinum, gold=gold, silver=silver, copper=copper, moradinium=moradinium)
+            trade = Trade(buyer=buyer_actor, seller=seller_actor, price=price)
+
             try:
-                await self.bot.loop.run_in_executor(None, buyer_actor.load_from_sheet)
+                await self.bot.loop.run_in_executor(None, trade.perform_trade)
             except ValueError as e:
-                return await ctx.followup.send(f"Buyer error: {e}", ephemeral=True)
-
-        seller_actor = None
-        if seller_name.lower() not in ["shop","store"]:
-            seller_actor = Actor(seller_name)
-            try:
-                await self.bot.loop.run_in_executor(None, seller_actor.load_from_sheet)
-            except ValueError as e:
-                return await ctx.followup.send(f"Seller error: {e}", ephemeral=True)
-
-        price = Resource(platinum=platinum, gold=gold, silver=silver, copper=copper, moradinium=moradinium)
-        trade = Trade(buyer=buyer_actor, seller=seller_actor, price=price)
-
-        try:
-            await self.bot.loop.run_in_executor(None, trade.perform_trade)
-        except ValueError as e:
-            return await ctx.followup.send(f"Trade failed: {e}", ephemeral=True)
+                return await ctx.followup.send(f"Trade failed: {e}", ephemeral=True)
 
         paid = price.format_coins()
 

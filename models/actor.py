@@ -98,7 +98,7 @@ class Actor:
                 return
         raise ValueError(f"Actor '{self.name}' could not be found in the records.")
 
-    def save_to_sheet(self):
+    def sheet_updates(self):
         if self.row_index is None:
             raise ValueError(f"Actor '{self.name}' was not loaded from the sheet; row unknown.")
         updates = []
@@ -124,4 +124,8 @@ class Actor:
         for model in (self.lifestyle, self.resources, self.skills):
             for col, val in model.get_sheet_data().items():
                 add_update(col, val)
+        return updates
+
+    def save_to_sheet(self):
+        updates = self.sheet_updates()
         batch_update(updates)

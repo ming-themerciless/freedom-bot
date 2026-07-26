@@ -4,6 +4,7 @@ from discord.commands import Option
 from models.actor import Actor
 from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
+from application.actor_locks import actor_locks
 
 class Mine(commands.Cog):
     def __init__(self, bot):
@@ -17,15 +18,16 @@ class Mine(commands.Cog):
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
 
         await ctx.defer()
-        actor = Actor(actor_name)
-        try:
-            await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
-            rolls = actor.resources.mine_moradinium(
-                bot=self.bot, downtime=downtime, actor_name=actor.name
-            )
-            await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
-        except ValueError as e:
-            return await ctx.followup.send(str(e), ephemeral=True)
+        async with actor_locks.acquire(actor_name):
+            actor = Actor(actor_name)
+            try:
+                await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
+                rolls = actor.resources.mine_moradinium(
+                    bot=self.bot, downtime=downtime, actor_name=actor.name
+                )
+                await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
+            except ValueError as e:
+                return await ctx.followup.send(str(e), ephemeral=True)
 
         total = sum(r[2] for r in rolls)
         msg = (f"{actor.name} used {downtime} days of downtime and mined {total} Moradinium.\n\n"

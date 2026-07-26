@@ -4,6 +4,7 @@ from discord.commands import Option
 from models.actor import Actor
 from config import BASTION_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
+from application.actor_locks import actor_locks
 
 class BastionCmd(commands.Cog):
     def __init__(self, bot):
@@ -17,21 +18,22 @@ class BastionCmd(commands.Cog):
             return await ctx.respond("This ritual may only be performed in the #bastion-turns chamber.", ephemeral=True)
 
         await ctx.defer()
-        actor = Actor(actor_name)
-        try:
-            await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
-        except ValueError as e:
-            return await ctx.followup.send(str(e), ephemeral=True)
+        async with actor_locks.acquire(actor_name):
+            actor = Actor(actor_name)
+            try:
+                await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
+            except ValueError as e:
+                return await ctx.followup.send(str(e), ephemeral=True)
 
-        bastion = actor.lifestyle.bastion
-        if bastion.bastion_flag == 0:
-            return await ctx.followup.send(f"{actor.name} does not yet command a bastion.", ephemeral=True)
+            bastion = actor.lifestyle.bastion
+            if bastion.bastion_flag == 0:
+                return await ctx.followup.send(f"{actor.name} does not yet command a bastion.", ephemeral=True)
 
-        try:
-            cost = bastion.maintain_bastion(actor_resources=actor.resources, level=actor.level, special_facilities=special_facilities)
-            await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
-        except ValueError as e:
-            return await ctx.followup.send(str(e), ephemeral=True)
+            try:
+                cost = bastion.maintain_bastion(actor_resources=actor.resources, level=actor.level, special_facilities=special_facilities)
+                await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
+            except ValueError as e:
+                return await ctx.followup.send(str(e), ephemeral=True)
 
         msg = (f"{actor.name} has expended **{cost} gp** to maintain the bastion.\n"
                "Bastion upkeep is complete; a turn now lies before you.\n\n"

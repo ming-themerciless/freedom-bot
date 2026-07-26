@@ -4,6 +4,7 @@ from discord.commands import Option
 from models.actor import Actor
 from config import DT_CHANNEL_ID, GUILD_ID
 from helpers.renderers import render_resources
+from application.actor_locks import actor_locks
 
 class LifestyleCmd(commands.Cog):
     def __init__(self, bot):
@@ -18,27 +19,28 @@ class LifestyleCmd(commands.Cog):
         if ctx.channel.id != DT_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
         await ctx.defer()
-        actor = Actor(actor_name)
-        try:
-            await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
-        except ValueError as e:
-            return await ctx.followup.send(str(e), ephemeral=True)
+        async with actor_locks.acquire(actor_name):
+            actor = Actor(actor_name)
+            try:
+                await self.bot.loop.run_in_executor(None, actor.load_from_sheet)
+            except ValueError as e:
+                return await ctx.followup.send(str(e), ephemeral=True)
 
-        if lifestyle:
-            actor.lifestyle.lifestyle_type = lifestyle.lower()
+            if lifestyle:
+                actor.lifestyle.lifestyle_type = lifestyle.lower()
 
-        if weeks is None:
-            weeks = actor.lifestyle.living_weeks
+            if weeks is None:
+                weeks = actor.lifestyle.living_weeks
 
-        try:
-            weeks_gp, (exp_gp, exp_sp, exp_cp) = actor.lifestyle.pay_for_weeks(
-                actor_resources=actor.resources,
-                weeks=weeks,
-                extra_expenses_sp=expenses,
-            )
-            await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
-        except ValueError as e:
-            return await ctx.followup.send(f"Error: {e}", ephemeral=True)
+            try:
+                weeks_gp, (exp_gp, exp_sp, exp_cp) = actor.lifestyle.pay_for_weeks(
+                    actor_resources=actor.resources,
+                    weeks=weeks,
+                    extra_expenses_sp=expenses,
+                )
+                await self.bot.loop.run_in_executor(None, actor.save_to_sheet)
+            except ValueError as e:
+                return await ctx.followup.send(f"Error: {e}", ephemeral=True)
         
         lines = []
         if weeks > 0:

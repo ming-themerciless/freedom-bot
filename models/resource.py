@@ -1,5 +1,6 @@
 from __future__ import annotations
 from helpers.utils import to_currency, roll_dice
+from models.money import Money
 from typing import List, Tuple
 import discord
 
@@ -129,13 +130,15 @@ class Resource:
         self.validate_downtime(downtime)
         earning_weeks = downtime // 5
         roll_results: List[Tuple[int,int,int]] = []
-        total_gold = 0
+        total_earned = Money()
         for _ in range(earning_weeks):
             rolls, total = roll_dice(bot, modifier=modifier, roll_mode=roll_mode, actor_name=actor_name)
-            earned = min(2 ** (max(total - 6, 0) // 5) * 7, 112) * (1.5 if rolls[0]==20 else 1)
-            total_gold += earned
-            roll_results.append((rolls[0], total, earned))
-        self.gold += total_gold
+            base_gold = min(2 ** (max(total - 6, 0) // 5) * 7, 112)
+            earned = Money.from_gold(base_gold) if rolls[0] != 20 else Money(base_gold * 150)
+            total_earned += earned
+            roll_results.append((rolls[0], total, earned.copper / 100))
+        platinum, gold, silver, copper = total_earned.denominations()
+        self.add(platinum=platinum, gold=gold, silver=silver, copper=copper)
         self.downtime -= downtime
         return roll_results
 

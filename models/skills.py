@@ -46,7 +46,7 @@ class Skills:
         # 2. Crafting Skills (Column X): e.g. "Expert Smith, Journeyman Alchemist"
         skills_val = str(get_val('skills') or "")
         self.crafting = {}
-        for s in skills_val.split(","):
+        for s in re.split(r"[,;.]\s*", skills_val):
             s = s.strip()
             if not s:
                 continue
@@ -56,7 +56,7 @@ class Skills:
         # 3. Tool Proficiencies (Column Y): e.g. "Smith's Tools (expert), Dice Set"
         prof_val = str(get_val('proficiencies') or "")
         self.tool_proficiencies = {}
-        for p in prof_val.split(","):
+        for p in re.split(r"[,;.]\s*", prof_val):
             p = p.strip()
             if not p:
                 continue
@@ -201,7 +201,7 @@ class Skills:
             return ""
         if cleaned.lower() in ("scrolls", "scroll", "scroll proficiency"):
             return "Scroll"
-        first_word = cleaned.split()[0]
+        first_word = cleaned.split()[0].rstrip(".,;:")
         if first_word.endswith("'s") or first_word.endswith("’s"):
             return first_word[:-2]
         if first_word.endswith("'") or first_word.endswith("’"):

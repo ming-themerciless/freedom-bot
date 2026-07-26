@@ -1,7 +1,7 @@
 import random, asyncio
-from config import ROLL_CHANNEL_ID
 from typing import Tuple
 import discord
+from models.money import Money
 
 def safe_number(value, default=0.0):
     try:
@@ -27,11 +27,7 @@ def col_to_index(col: str) -> int:
     return index - 1
 
 def to_currency(money: float) -> Tuple[int,int,int,str]:
-    total_cp = round(money * 100)
-    gold   = total_cp // 100
-    rem    = total_cp % 100
-    silver = rem // 10
-    copper = rem % 10
+    gold, silver, copper = Money.from_gold(money).gold_denominations()
     msg = " ".join(
         denom for denom, amt in zip(
             [f"{gold}gp", f"{silver}sp", f"{copper}cp"], [gold, silver, copper]
@@ -58,6 +54,8 @@ def roll_dice(bot: discord.Client, sides=20, rolls=1, modifier=0, roll_mode="nor
     total = sum(results) + modifier
 
     if actor_name:
+        from config import ROLL_CHANNEL_ID
+
         if roll_mode == "normal":
             msg = f"{actor_name}: rolls {results[0]} + {modifier} = {total}"
         else:
