@@ -1,8 +1,11 @@
 # Freedom Blades Platform — Master Implementation Plan
 
-Status: Draft for maintainer approval  
-Audience: Maintainers, Claude Code, reviewers, and operators  
-Repository: `freedom-bot` (to evolve into the Freedom Blades platform)  
+Status: Draft for maintainer approval
+
+Audience: Maintainers, Claude Code, reviewers, and operators
+
+Repository: `freedom-bot` (to evolve into the Freedom Blades platform)
+
 Primary rules source: `Freedom Blades - Homebrew Rules.pdf`
 
 ## 1. Purpose
@@ -1114,4 +1117,3 @@ A production feature is complete when:
 4. Create a sanitized Foundry/Sheet mapping fixture.
 5. Establish PostgreSQL development and test environments.
 6. Begin Phase 1 only after the Phase 0 review gate.
-
