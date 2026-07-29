@@ -1,24 +1,73 @@
-# AGENTS.md — Freedom Bot
+# AGENTS.md — Freedom Blades Platform
 
 This is the working agreement for humans and coding agents contributing to
-Freedom Bot. It applies to the entire repository.
+the Freedom Blades Platform. It applies to the entire repository.
+
+## Required project context
+
+Before planning or changing this project, read:
+
+1. this file in full; and
+2. `docs/implementation-plan.md`, including the milestone being worked on and
+   its acceptance criteria.
+
+The implementation plan is the approved product roadmap and milestone
+contract. This file contains the always-applicable engineering, safety, and
+contributor rules. If they conflict, stop and ask a maintainer rather than
+silently choosing one.
+
+The root `AGENTS.md` and `CLAUDE.md` files are discovery entry points. This
+file is the canonical working agreement and must not be bypassed.
 
 ## Product context and direction
 
-Freedom Bot supports the Freedom Blades Discord community. Its game behavior is
-based on D&D 5.5 (the 2024 rules) plus Freedom Blades homebrew rules. Today it
-is a Python/Pycord bot backed by Google Sheets, with optional Lavalink music.
+The Freedom Blades Platform supports the Freedom Blades Discord community. Its
+game behavior is based on D&D 5.5 (the 2024 rules) plus Freedom Blades homebrew
+rules. Today it is a Python/Pycord bot backed by Google Sheets, with optional
+Lavalink music. It is being evolved in this repository into a secure,
+PostgreSQL-backed web platform with Discord and Foundry adapters.
 
-The intended direction is:
+The approved direction is:
 
 1. keep the live Discord bot reliable;
 2. isolate game rules and use cases from Discord and Google Sheets;
 3. replace Sheets incrementally with a transactional database;
 4. add a purpose-built web interface using the same application logic; and
 5. integrate selected data with Foundry VTT through a narrow, authenticated,
-   versioned interface.
+   versioned interface;
+6. automate missions, attendance evidence, reports, rewards, and approvals;
+7. automate basic Bastions before incrementally implementing special
+   facilities; and
+8. retain Discord for identity, communication, events, attendance metadata,
+   notifications, and optional lightweight commands.
 
 Treat this as an evolution of a live system, not permission for a rewrite.
+The Discord bot remains a supported adapter and must not be deleted as part of
+the website or database migration. The repository may be renamed later as an
+explicit administrative change.
+
+## Product invariants
+
+- PostgreSQL is the eventual authoritative operational data store.
+- A Discord user may be linked to multiple characters, and a character may
+  have multiple explicitly authorized users.
+- Character links are managed and audited through Guild Council workflows.
+- Website direct mutations require Guild Council unless a later approved
+  requirement delegates a narrower capability.
+- No advancement, mission settlement, reward, or Council-controlled Foundry
+  proposal is official until an authorized Guild Council user approves it.
+- There is no automatic advancement.
+- Attendance collected from Discord voice state is evidence only. It never
+  grants rewards or advancement and must be confirmed through the mission
+  workflow.
+- Initial attendance tracking records join/leave metadata only. Do not record,
+  receive, transcribe, or retain voice audio without a separately approved
+  privacy, consent, retention, and legal design.
+- AI may draft or extract proposals, but it must never calculate authoritatively
+  or apply game state without deterministic validation and required human
+  approval.
+- Audit and transaction history is append-only in normal operation.
+  Corrections use explicit compensating actions rather than erased history.
 
 ## Rules sources
 
@@ -52,8 +101,13 @@ tests, and Foundry.
 - `music.py` and `infra/lavalink/`: optional music integration.
 - `infra/systemd/`: service deployment files.
 - `.env.example`: documented configuration contract.
+- `docs/implementation-plan.md`: approved platform roadmap, milestone
+  requirements, acceptance criteria, and review gates.
 
-There is currently no committed automated test suite. Adding one is a priority.
+There is a committed pytest suite covering parts of the existing domain
+behavior. Expanding it into unit, application, repository, database,
+authorization, migration, Foundry contract, and end-to-end coverage is a
+priority.
 
 ## Architecture
 
@@ -230,6 +284,10 @@ one store authoritative, record failures durably, reconcile automatically, and
 document recovery. Imports must be idempotent and retain mappings from Sheet
 rows to stable database IDs.
 
+Do not delete the Sheets adapter, credentials, or rollback path until the
+verification and retirement gate in `docs/implementation-plan.md` has been
+completed and approved.
+
 ## Web interface
 
 The web interface and Discord bot must call the same application services. The
@@ -245,6 +303,11 @@ web app must not become a second implementation of the rules.
   supplied by the browser.
 - Audit sensitive mutations with actor, action, time, source, and correlation
   ID. Provide an administrative correction flow rather than editing history.
+- Treat cached Discord membership and roles as display/cache data, not
+  permanent authorization. Verify effective privileges server-side.
+- Use stable Discord role IDs for authorization; role names are presentation.
+- Ordinary users initially receive a read-only website. Do not infer permission
+  to add self-service mutations from the existence of a form or API route.
 
 Do not choose a web or frontend framework as a drive-by change. Record material
 architecture choices as short ADRs under `docs/adr/`.
@@ -261,6 +324,12 @@ version, network topology, and which fields are authoritative on each side.
 Begin with one narrow, useful flow—usually read-only character/resource
 display—before allowing writes.
 
+The currently observed baseline for `The Guild` is Foundry `14.365`, D&D5e
+`5.3.3`, world ID `the-guild`, with active characters in the Actor folder
+`Characters (active)`. Treat these values as an observed deployment baseline,
+not an eternal compatibility promise. The connector must negotiate or validate
+supported versions.
+
 - Map database actor IDs, Discord user IDs, and Foundry actor/world IDs
   explicitly.
 - Use scoped, revocable credentials. Never ship an administrator or database
@@ -272,6 +341,40 @@ display—before allowing writes.
   field-level ownership rules and conflict resolution.
 - Use supported Foundry module hooks/APIs, and pin and test supported Foundry
   and game-system versions.
+- Never use direct reads from or writes to live Foundry LevelDB as the
+  production integration. Offline read-only snapshots may be used for
+  maintainer-authorized discovery, but production synchronization requires the
+  authenticated, versioned Foundry adapter described in the implementation
+  plan.
+
+## Missions, attendance, reports, and settlements
+
+- Mission attendance is captured as Discord user join/leave intervals, with
+  reconnect handling, and must be confirmed by the DM.
+- A player selects from characters currently linked to their Discord identity.
+  The DM or Guild Council may correct the selection with an audited reason.
+- DMs may prepare mission facts and reports. Guild Council applies settlements.
+- Reward calculations must be deterministic, rule-versioned, previewed, and
+  committed atomically across all affected characters.
+- Discord events are an external presentation/integration. Deleting or changing
+  an event must not destroy the internal mission record.
+- Report revisions, loot decisions, settlement proposals, overrides,
+  approvals, and corrections must remain attributable and auditable.
+- AI-authored report text is always a draft requiring human review. AI output
+  cannot grant rewards, infer official attendance, or mutate character state.
+
+## Bastions and facilities
+
+- Migrate the existing Bastion state and maintenance behavior before building
+  a comprehensive special-facility engine.
+- Each implemented facility must cite its rule source and version, validate
+  prerequisites, preview effects, and have boundary and failure tests.
+- Prefer data-driven definitions for declarative facts, but do not introduce an
+  unrestricted expression or scripting language for facility effects.
+- Complex or exceptional facility behavior belongs in tested domain policy
+  objects.
+- A Bastion turn, resource deduction, or facility order must not be applied
+  twice due to retries or concurrent requests.
 
 ## Discord practices
 
@@ -351,11 +454,17 @@ YouTube, or Lavalink. Do not use real player data or credentials in fixtures.
 
 Before editing:
 
-1. read this file, relevant modules, `.env.example`, and current tests;
+1. read this file, `docs/implementation-plan.md`, relevant modules,
+   `.env.example`, and current tests;
 2. check `git status` and preserve unrelated user changes;
 3. trace the complete path from input through mutation and persistence;
 4. identify the applicable rule and existing behavior; and
 5. state assumptions when requirements are genuinely ambiguous.
+
+Work within one approved implementation-plan milestone or an explicitly scoped
+slice of it. Do not silently continue past a review gate. Stop for maintainer
+direction when a decision changes architecture, data authority, authorization,
+privacy, production behavior, or migration/rollback strategy.
 
 While editing:
 
@@ -378,6 +487,12 @@ Before handing off:
 5. call out deployment, configuration, data migration, and rollback steps.
 
 Do not claim a check passed unless it was actually run.
+
+At the review gates named in `docs/implementation-plan.md`, provide a complete
+handoff and wait for the required review. Blocking findings involving security,
+data integrity, authorization, rule correctness, migrations, atomicity, or
+production reliability must be fixed and re-reviewed before dependent work
+continues.
 
 ## Definition of done
 
