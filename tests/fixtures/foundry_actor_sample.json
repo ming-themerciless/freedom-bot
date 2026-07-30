@@ -1,0 +1,243 @@
+{
+  "_fixture_notice": "SYNTHETIC. Invented by hand, not exported from any Foundry world. The field paths and their presence/absence match the structure verified against two real dnd5e 5.3.3 Actor exports on 2026-07-30 (docs/discovery/foundry-mapping.md section 4, findings F-F1 to F-F5). Values are synthetic; the shape is the contract.",
+  "_fixture_shape": "Manual-export shape: '_id' is null and the real actor ID survives only in the filename (F-F1). Derived values are absent rather than precomputed (F-F2): no abilities.*.mod, no attributes.prof, hp.max is null, ac.flat is null, and system.details.level does not exist.",
+  "_fixture_export_filename": "fvtt-Actor-test-alchemist-b-TESTACTOR000001.json",
+  "_fixture_world": {
+    "id": "test-world",
+    "title": "Test World",
+    "system": "dnd5e",
+    "systemVersion": "5.3.3",
+    "coreVersion": "14.365",
+    "_note": "The world is the identity; a Foundry instance is a transport endpoint (foundry-mapping.md section 3). No instance identifier belongs in a mapping key."
+  },
+  "_id": null,
+  "name": "Test Alchemist B",
+  "type": "character",
+  "img": "icons/svg/mystery-man.svg",
+  "folder": "TESTFOLDER0001",
+  "system": {
+    "abilities": {
+      "str": { "value": 10 },
+      "dex": { "value": 14 },
+      "con": { "value": 12 },
+      "int": { "value": 16 },
+      "wis": { "value": 13 },
+      "cha": { "value": 8 }
+    },
+    "attributes": {
+      "hp": { "value": 58, "max": null, "temp": 0, "tempmax": 0 },
+      "ac": {
+        "calc": "custom",
+        "flat": null,
+        "formula": "@attributes.ac.armor + @abilities.dex.mod"
+      },
+      "movement": { "walk": 30, "units": "ft" }
+    },
+    "details": {
+      "xp": { "value": 48000 },
+      "background": "",
+      "originalClass": "TESTITEM000002",
+      "biography": { "value": "", "public": "" },
+      "alignment": "",
+      "appearance": "",
+      "trait": "",
+      "ideal": "",
+      "bond": "",
+      "flaw": ""
+    },
+    "currency": {
+      "pp": 2,
+      "gp": 860,
+      "ep": 0,
+      "sp": 7,
+      "cp": 4
+    },
+    "skills": {
+      "arc": { "value": 1 },
+      "inv": { "value": 2 },
+      "prc": { "value": 0 }
+    },
+    "tools": {
+      "alchemist": { "value": 2 },
+      "calligrapher": { "value": 1 },
+      "scrolls": { "value": 1 },
+      "disg": { "value": 1 },
+      "lute": { "value": 1 }
+    },
+    "traits": {
+      "languages": {
+        "value": ["common", "elvish"],
+        "custom": "Common Sign Language"
+      },
+      "weaponProf": { "value": ["sim"], "custom": "" },
+      "armorProf": { "value": ["lgt"], "custom": "" }
+    },
+    "bastion": {
+      "name": "Test Hightower Cottage",
+      "description": "<p>Synthetic Bastion. dnd5e 5.3.3 models Bastions natively (F-F4).</p>"
+    }
+  },
+  "items": [
+    {
+      "_id": "TESTITEM000001",
+      "name": "Test Species",
+      "type": "race",
+      "system": { "identifier": "test-species" }
+    },
+    {
+      "_id": "TESTITEM000002",
+      "name": "Test Class Display Name",
+      "type": "class",
+      "system": { "levels": 9, "identifier": "test-class" },
+      "_fixture_note": "The display name is player-customised; map on system.identifier, never on name."
+    },
+    {
+      "_id": "TESTITEM000003",
+      "name": "Test Subclass (TSK)",
+      "type": "subclass",
+      "system": { "identifier": "test-subclass" }
+    },
+    {
+      "_id": "TESTITEM000004",
+      "name": "Test Entertainer",
+      "type": "background",
+      "system": { "identifier": "test-background" }
+    },
+    {
+      "_id": "TESTITEM000005",
+      "name": "Test Ring of Warmth",
+      "type": "equipment",
+      "system": {
+        "rarity": "rare",
+        "quantity": 1,
+        "attunement": "required",
+        "attuned": true,
+        "price": { "value": 0, "denomination": "gp" }
+      }
+    },
+    {
+      "_id": "TESTITEM000006",
+      "name": "Test Dread Helm",
+      "type": "equipment",
+      "system": {
+        "rarity": "common",
+        "quantity": 1,
+        "attunement": "",
+        "price": { "value": 0, "denomination": "gp" }
+      }
+    },
+    {
+      "_id": "TESTITEM000007",
+      "name": "Test Alchemist's Supplies",
+      "type": "tool",
+      "system": { "type": { "value": "art", "baseItem": "alchemist" } }
+    },
+    {
+      "_id": "TESTITEM000008",
+      "name": "Test Homebrew Poison Blade",
+      "type": "weapon",
+      "system": {
+        "rarity": "uncommon",
+        "quantity": 1
+      },
+      "_fixture_note": "Freedom Blades homebrew content (rules section 8.3, PDF p.34-36). A non-SRD item must not break the importer."
+    },
+    {
+      "_id": "TESTITEM000009",
+      "name": "Test Laboratory",
+      "type": "facility",
+      "system": {
+        "type": { "value": "special", "subtype": "laboratory" },
+        "size": "roomy",
+        "order": "craft"
+      }
+    },
+    {
+      "_id": "TESTITEM000010",
+      "name": "Test Bedroom",
+      "type": "facility",
+      "system": {
+        "type": { "value": "basic", "subtype": "bedroom" },
+        "size": "cramped",
+        "order": ""
+      }
+    },
+    {
+      "_id": "TESTITEM000011",
+      "name": "Test Manifest Zone",
+      "type": "facility",
+      "system": {
+        "type": { "value": "special", "subtype": "" },
+        "size": "vast",
+        "order": "empower"
+      },
+      "_fixture_note": "Homebrew facility: subtype is empty, so the facility vocabulary needs an other/homebrew path rather than a closed enum (F-F4)."
+    }
+  ],
+  "ownership": { "default": 0 },
+  "flags": {
+    "dnd5e": {},
+    "tidy5e-sheet": {}
+  },
+  "_stats": {
+    "coreVersion": "14.365",
+    "systemId": "dnd5e",
+    "systemVersion": "5.3.3",
+    "lastModifiedBy": null,
+    "_fixture_note": "A real export also carries Foundry user IDs here and in 'ownership'. Both are omitted by construction."
+  },
+  "_fixture_expected_mapping": {
+    "external_actor_id": "TESTACTOR000001",
+    "external_actor_id_source": "Not present in the document body: an export carries '_id': null (F-F1), so the ID comes from the Foundry module/API, or in this fixture from _fixture_export_filename. A mapping must never be established from an export alone.",
+    "platform_owner": "resolved via Council-managed character_access, never by name match",
+    "foundry_owned": [
+      "system.abilities.*.value",
+      "system.attributes.hp.value",
+      "system.attributes.hp.temp",
+      "system.skills.*.value",
+      "system.details.xp.value",
+      "items[type=race|class|subclass|background]",
+      "img"
+    ],
+    "derived_must_be_computed": {
+      "ability modifiers": "(value - 10) // 2; system.abilities.*.mod is absent (F-F2)",
+      "proficiency bonus": "computed from level; system.attributes.prof is absent (F-F2)",
+      "hit points maximum": "attributes.hp.max is null; Foundry computes it at runtime (F-F2)",
+      "armour class": "attributes.ac.flat is null and calc may be 'custom' with a formula string (F-F2)",
+      "character level": "sum of items[type=class].system.levels; system.details.level does not exist (F-F2)"
+    },
+    "database_owned_never_overwritten": [
+      "downtime",
+      "living_weeks",
+      "lifestyle",
+      "crp",
+      "bastion_flag",
+      "bastion_maintenance",
+      "bastion_turn_flag",
+      "missions",
+      "last_played",
+      "badge",
+      "masterpiece",
+      "artisan tool rank"
+    ],
+    "council_approved_shared": ["name", "character level", "languages"],
+    "tool_vocabulary": {
+      "_note": "system.tools keys are artisan names, the same vocabulary as Sheet columns W/X (F-F3). Three aliases are required.",
+      "alchemist": "Alchemist (value 2 = expertise; Freedom Blades has three ranks, so rank cannot round-trip)",
+      "calligrapher": "Calligrapher",
+      "scrolls": "Scroll (plural/singular alias)",
+      "disg": "Disguise (dnd5e abbreviation)",
+      "lute": "instrument, not a crafting tool: must not imply a crafting rank"
+    },
+    "bastion": {
+      "_note": "Complementary ownership, not a conflict (F-F4). Sheet flags stay database-owned; Foundry facilities are imported read-only as evidence.",
+      "coverage": "Opt-in and incomplete. An empty facility list means 'not recorded', never 'no Bastion'. Store what was observed with its observation time."
+    },
+    "unresolved": {
+      "system.details.xp.value": "D&D experience. NOT Sheet column G, which is a mission count. Never reconcile the two.",
+      "character level": "Rules section 3.1 p.9-10 derive level from cumulative mission count and require Council approval. See OD-15.",
+      "system.tools.*": "dnd5e models proficient/expertise only; Freedom Blades has three artisan ranks. Rank cannot round-trip. See field-ownership.md section 5.",
+      "inventory": "The Sheet holds curated names only; Foundry holds everything. No join key beyond fuzzy name comparison. See OD-13."
+    }
+  }
+}

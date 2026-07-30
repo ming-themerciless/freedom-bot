@@ -1,9 +1,38 @@
 from __future__ import annotations
 from typing import List, Tuple, Dict, Any
+import math
 import re
 import discord
 
 class Skills:
+    # Homebrew rules 6.3.3.1 (PDF p.17): a master only takes a student on after
+    # they have accumulated 100 crafting reputation points with that tool.
+    MASTER_CRP_REQUIREMENT = 100
+
+    # One column W fragment, in either accepted notation:
+    #   canonical, confirmed by the maintainer 2026-07-30 -- "7.5 (Brewer)",
+    #     amount first, tool in parentheses;
+    #   legacy, the form the bot itself used to write   -- "Brewer: 7.5".
+    # Both coexist in the live sheet by design (OD-34, 2026-07-30). The amount may
+    # use a comma as its decimal separator, so fragments are matched by pattern
+    # rather than by splitting the cell on commas.
+    _CRP_FRAGMENT_RE = re.compile(
+        r"(?P<amount>\d+(?:[.,]\d+)?)\s*\(\s*(?P<tool>[^)]+?)\s*\)"
+        r"|(?P<legacy_tool>[^,;:()]+?)\s*:\s*(?P<legacy_amount>\d+(?:[.,]\d+)?)"
+    )
+
+    # Everything a cell may contain *between* fragments. A per-tool list is only
+    # accepted when every character outside the matched fragments is one of these,
+    # because a partial read is destructive: "7.5 (Brewer), BROKEN" read as
+    # {"brewer": 7.5} is rewritten by the next /craft as a cell that no longer
+    # contains "BROKEN" (sheet-inventory.md 3.2, F-S3a).
+    _CRP_SEPARATOR_RE = re.compile(r"^[\s,;]*$")
+
+    # The literal the sheet holds once a tool reaches Master rank. Further CRP
+    # can never be spent (one Master rank for life, rules 6.3.3.1 p.17), so no
+    # running total is kept -- see OD-29.
+    _CRP_MASTERED = "master"
+
     def __init__(self, crp=0, crafting=None, tool_proficiencies=None, languages=None, downtime_progress="-"):
         self.crp = crp
         self.crp_dict: Dict[str, float | int] = {}
@@ -13,6 +42,7 @@ class Skills:
         self.languages: Dict[str, bool] = {}
         self.downtime_progress: Dict[str, Dict[str, Any]] = {}
         self.crp_modified = False
+        self._crp_unparsed = False
 
     def load_from_sheet_data(self, get_val):
         # 1. Crafting Reputation
@@ -20,20 +50,17 @@ class Skills:
         raw_str = str(val).strip() if val is not None else ""
         self.crp_dict = {}
         self.crp_modified = False
+        self._crp_unparsed = False
         if raw_str in ("", "-", "0"):
             self.crp = 0
+        elif raw_str.lower() == self._CRP_MASTERED:
+            # A mastered tool. No per-tool total is kept or expected.
+            self.crp = raw_str
         else:
-            if ":" in raw_str:
-                parts = [p.strip() for p in raw_str.split(",") if p.strip()]
-                for part in parts:
-                    if ":" in part:
-                        t_name, t_val = part.split(":", 1)
-                        t_name = t_name.strip()
-                        try:
-                            f_val = float(t_val.strip().replace(",", "."))
-                            self.crp_dict[t_name.lower()] = int(f_val) if f_val.is_integer() else f_val
-                        except ValueError:
-                            pass
+            per_tool = self._parse_crp_cell(raw_str)
+            if per_tool is not None:
+                # A per-tool list, every fragment of it understood.
+                self.crp_dict = per_tool
                 self.crp = raw_str
             else:
                 try:
@@ -41,7 +68,13 @@ class Skills:
                     self.crp = int(f_val) if f_val.is_integer() else f_val
                     self.crp_dict["general"] = self.crp
                 except ValueError:
+                    # Not a per-tool list, not a bare total, not the mastered
+                    # literal. The raw value is kept verbatim and column W is
+                    # pinned read-only until a maintainer reconciles it, so that
+                    # nothing already in the cell can be overwritten by a value
+                    # derived from a parse that did not understand it.
                     self.crp = val
+                    self._crp_unparsed = True
 
         # 2. Crafting Skills (Column X): e.g. "Expert Smith, Journeyman Alchemist"
         skills_val = str(get_val('skills') or "")
@@ -174,13 +207,23 @@ class Skills:
             'downtime_progress': progress_str
         }
 
-        if self.crp_modified:
-            # 1. CRP list
+        if self.crp_modified and not self._crp_unparsed:
+            # 1. CRP list, written back in the sheet's own canonical form
+            #    ("7.5 (Brewer)") so a save never rewrites the maintainer's
+            #    convention into the legacy "Brewer: 7.5" one.
+            #
+            #    A cell the parser could not read in full is never written: it is
+            #    omitted from the returned data, so the adapter leaves the
+            #    existing cell untouched. add_tool_crp() refuses such a cell
+            #    outright; this is the second line of defence, for any caller that
+            #    sets crp_modified by hand.
             if self.crp_dict:
                 if len(self.crp_dict) == 1 and "general" in self.crp_dict:
                     crp_val = self.crp_dict["general"]
                 else:
-                    crp_val = ", ".join(f"{t.capitalize()}: {v}" for t, v in self.crp_dict.items())
+                    crp_val = ", ".join(
+                        f"{v:g} ({t.capitalize()})" for t, v in self.crp_dict.items()
+                    )
             else:
                 crp_val = "-" if self.crp == 0 else self.crp
             data['crp'] = crp_val
@@ -188,6 +231,13 @@ class Skills:
         return data
 
     def get_summary(self) -> str:
+        if self._crp_unparsed:
+            # Show the stored text as it stands rather than a number derived from
+            # a parse that failed, and say so, so the row can be reconciled.
+            return (
+                f"**Crafting Reputation:** {self.crp} "
+                "*(unreadable format -- ask the Guild Council to correct it)*"
+            )
         if not self.crp_dict:
             return f"**Crafting Reputation:** {self.crp}"
         if len(self.crp_dict) == 1 and "general" in self.crp_dict:
@@ -224,6 +274,175 @@ class Skills:
             return match_prefix.group(2).strip(), match_prefix.group(1).lower()
             
         return item_str, None
+
+    def _parse_crp_cell(self, raw_str: str) -> Dict[str, float | int] | None:
+        """Read a per-tool CRP cell, or return None if any of it is unrecognised.
+
+        All or nothing by design. A cell is a per-tool list only when every
+        fragment parses *and* nothing but separators sits between the fragments,
+        because the parsed dictionary is what a later save writes back over the
+        whole cell: accepting "7.5 (Brewer), BROKEN" as {"brewer": 7.5} would let
+        the next /craft rewrite the cell without "BROKEN" in it. Returning None
+        keeps the raw value and leaves column W read-only instead.
+
+        Two fragments naming the same tool are **summed**, not overwritten. The
+        key is the tool name case-folded, so "2.5 (Smith), 2.5 (SMITH)" is one
+        tool holding 5 -- assigning each fragment straight into the dictionary
+        dropped the earlier value and the next save wrote the survivor back over
+        the whole cell, which is the same all-or-nothing violation in miniature.
+        Consolidation is safe here because case is the only difference between the
+        two names, so there is nothing to interpret. The first spelling seen keeps
+        both the entry and its position, so the cell serialises deterministically.
+
+        Names that differ by more than case stay separate. Merging them would mean
+        applying _clean_tool_name()'s tool-to-artisan bridge to decide identity at
+        read time, and that bridge collapses a name to its first word -- it merges
+        anything sharing one, including a non-canonical spelling nobody has
+        validated. Column W is free text, so OD-06's rule is that an unrecognised
+        artisan must fail loudly at import rather than be guessed at; a silent
+        read-time merge is exactly the guess it forbids. add_tool_crp() applies the
+        bridge deliberately, and only when CRP is actually awarded for that tool.
+        """
+        parsed: Dict[str, float | int] = {}
+        position = 0
+        for match in self._CRP_FRAGMENT_RE.finditer(raw_str):
+            if not self._CRP_SEPARATOR_RE.match(raw_str[position:match.start()]):
+                return None
+            position = match.end()
+
+            amount, tool = match.group("amount"), match.group("tool")
+            if amount is None:
+                amount, tool = match.group("legacy_amount"), match.group("legacy_tool")
+            tool_key = tool.strip().lower()
+            if not tool_key:
+                return None
+            # The pattern only admits digits with one optional [.,] group, so the
+            # conversion cannot fail once the fragment has matched. It can still
+            # overflow to infinity on a long enough digit run, on its own or once
+            # a duplicate is added to it; such a cell is unreadable rather than
+            # worth writing an infinite total back over.
+            value = float(amount.replace(",", "."))
+            previous = parsed.get(tool_key)
+            if previous is not None:
+                value += float(previous)
+            if not math.isfinite(value):
+                return None
+            parsed[tool_key] = int(value) if value.is_integer() else value
+
+        if not parsed or not self._CRP_SEPARATOR_RE.match(raw_str[position:]):
+            return None
+        return parsed
+
+    @property
+    def crp_unparsed(self) -> bool:
+        """True when column W held something this class could not read in full.
+
+        Callers must not record crafting reputation against such a row: the raw
+        cell is preserved and needs maintainer reconciliation first.
+        """
+        return self._crp_unparsed
+
+    def _is_mastered(self) -> bool:
+        """True when column W holds the terminal "Master" literal (OD-29)."""
+        return isinstance(self.crp, str) and self.crp.strip().lower() == self._CRP_MASTERED
+
+    def can_record_tool_crp(self) -> bool:
+        """True when earned crafting reputation can be added safely.
+
+        False for a cell that could not be parsed in full, and for a mastered
+        character, whose cell holds "Master" rather than a total and must not be
+        replaced by one (rules 6.3.3.1 p.17: one Master rank for life, so further
+        reputation can never be spent).
+        """
+        return not self._crp_unparsed and not self._is_mastered()
+
+    def add_tool_crp(self, tool_name: str, amount: float) -> float:
+        """Add earned crafting reputation to one tool; return its new total.
+
+        The tool is identified with the same normalisation get_tool_crp() uses, so
+        an award lands on the entry the Master gate will later read instead of
+        creating a second spelling of the same tool. Without this, "2.5 (Smith's
+        Tools)" plus an award for "Smith's Tools" produced
+        "2.5 (Smith's tools), 2.5 (Smith)" and the gate saw only half the total.
+        Any duplicate spellings already in the cell are folded into one entry.
+        """
+        try:
+            earned = float(amount)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Crafting reputation must be a number, got {amount!r}.") from exc
+        if not math.isfinite(earned) or earned < 0:
+            raise ValueError(f"Crafting reputation must be finite and non-negative, got {amount!r}.")
+
+        clean_search = self._clean_tool_name(tool_name).lower()
+        if not clean_search:
+            raise ValueError("A tool name is required to record crafting reputation.")
+        if not self.can_record_tool_crp():
+            raise ValueError(
+                f"Crafting reputation cannot be recorded for '{tool_name}': the stored value "
+                f"{self.crp!r} must be reconciled first."
+            )
+        if earned == 0:
+            # Nothing to record, and no reason to rewrite the cell.
+            return self.get_tool_crp(tool_name)
+
+        equivalent = [k for k in self.crp_dict if self._clean_tool_name(k).lower() == clean_search]
+        total = earned
+        for key in equivalent:
+            value = self.crp_dict[key]
+            try:
+                total += float(value)
+            except (TypeError, ValueError) as exc:
+                # Refuse before mutating anything, so a value that cannot be read
+                # is never replaced by one that ignores it.
+                raise ValueError(
+                    f"Existing crafting reputation for '{key}' is not a number: {value!r}."
+                ) from exc
+
+        target_key = equivalent[0] if equivalent else clean_search
+        for duplicate in equivalent[1:]:
+            del self.crp_dict[duplicate]
+        self.crp_dict[target_key] = int(total) if total.is_integer() else total
+        self.crp_modified = True
+        return total
+
+    def get_tool_crp(self, tool_name: str) -> float:
+        """Return the crafting reputation accumulated for one tool."""
+        clean_search = self._clean_tool_name(tool_name).lower()
+        for name, value in self.crp_dict.items():
+            if self._clean_tool_name(name).lower() == clean_search:
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return 0.0
+        # Sheets predating per-tool tracking hold a single untagged total, which
+        # records no tool. Returning it for any requested tool preserves the
+        # behaviour those characters have today, but rules 6.3.3.1 (PDF p.17)
+        # require the 100 points to be earned "with that tool" -- so this can
+        # satisfy the Master gate for a tool the character never used.
+        #
+        # RULED 2026-07-30, docs/discovery/open-decisions.md OD-34: untagged CRP
+        # is resolved once by hand at import, not by a code policy, so this
+        # branch stays as it is and the Phase 2 importer reports any bare-number
+        # cell for that one-time assignment. Do not tighten it here; a Master
+        # rank is granted once for life and cannot be taken back by a later
+        # correction.
+        if list(self.crp_dict) == ["general"]:
+            try:
+                return float(self.crp_dict["general"])
+            except (TypeError, ValueError):
+                return 0.0
+        return 0.0
+
+    def _find_other_master_tool(self, target_name: str) -> str | None:
+        """Return the name of a mastered tool other than the target, if any."""
+        clean_target = self._clean_tool_name(target_name).lower()
+        for source in (self.crafting, self.tool_proficiencies):
+            for name, level in source.items():
+                if level != "master":
+                    continue
+                if self._clean_tool_name(name).lower() != clean_target:
+                    return name
+        return None
 
     def get_current_tool_level(self, tool_name: str) -> str | None:
         clean_search = self._clean_tool_name(tool_name).lower()
@@ -301,6 +520,19 @@ class Skills:
                     elif current_level == "journeyman":
                         selected_level = "expert"
                     elif current_level == "expert":
+                        other_master = self._find_other_master_tool(cleaned_target)
+                        if other_master:
+                            raise ValueError(
+                                f"You can only become a Master in one artisan's tool. "
+                                f"You are already a Master in '{other_master}'."
+                            )
+                        earned_crp = self.get_tool_crp(cleaned_target)
+                        if earned_crp < self.MASTER_CRP_REQUIREMENT:
+                            raise ValueError(
+                                f"A master will only take you on once you have earned "
+                                f"{self.MASTER_CRP_REQUIREMENT} crafting reputation points with "
+                                f"'{cleaned_target}'. Current reputation: {earned_crp:g}."
+                            )
                         selected_level = "master"
                     else:
                         raise ValueError(f"'{cleaned_target}' is already at master level.")
@@ -330,25 +562,8 @@ class Skills:
 
         # Enforce the one-Master-tool limit
         if level == "master":
-            cleaned_target = self._clean_tool_name(name).lower()
-            has_other_master = False
-            other_master_name = None
-            for p_name, p_lvl in self.crafting.items():
-                if p_lvl == "master":
-                    p_clean = self._clean_tool_name(p_name).lower()
-                    if p_clean != cleaned_target:
-                        has_other_master = True
-                        other_master_name = p_name
-                        break
-            if not has_other_master:
-                for p_name, p_lvl in self.tool_proficiencies.items():
-                    if p_lvl == "master":
-                        p_clean = self._clean_tool_name(p_name).lower()
-                        if p_clean != cleaned_target:
-                            has_other_master = True
-                            other_master_name = p_name
-                            break
-            if has_other_master:
+            other_master_name = self._find_other_master_tool(name)
+            if other_master_name:
                 raise ValueError(f"You can only become a Master in one artisan's tool. You are already a Master in '{other_master_name}'.")
 
         if current_percent >= 100:
@@ -420,8 +635,15 @@ class Skills:
             self.downtime_progress.pop(name.lower(), None)
             
             if level == "master":
+                # Reaching Master rank replaces the whole cell with the terminal
+                # literal, deliberately and independently of what it held before,
+                # so the read-only pin on an unparsed cell is lifted here. That
+                # this discards any per-tool total is a known data-model defect
+                # recorded for Phase 5 (phase-0-handoff.md, deliberately
+                # incomplete); it is not changed by this fix.
                 self.crp = "Master"
                 self.crp_dict = {}
+                self._crp_unparsed = False
                 self.crp_modified = True
 
             if level == "language":

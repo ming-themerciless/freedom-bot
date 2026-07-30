@@ -1,0 +1,61 @@
+{
+  "_fixture_notice": "SYNTHETIC. Invented by hand. The two anomalies here are deliberate and must both be rejected or reported rather than absorbed: a nonzero electrum balance, and a (core, system) version tuple that is not the pinned deployed one. Covers fixture-strategy.md section 6 cases 24 and 25.",
+  "_fixture_expected_behaviour": {
+    "system.currency.ep": "WARN AND REFUSE TO CONVERT. The game does not use electrum and the Sheet has no electrum column, so a nonzero value is an anomaly, never a quantity to fold in at 5 sp. See OD-13 and foundry-mapping.md section 4.4.",
+    "version tuple": "FAIL CLOSED. The connector is pinned to core 14.365 / dnd5e 5.3.3 and must name both observed and expected versions in its diagnostic. No degrading, no partial import. See OD-14 and plan section 12 Phase 7.",
+    "badge_confusion_guard": "'Electrum' is also a Freedom Blades badge tier (rules section 3 p.8-9). A badge named Electrum has no relationship to currency; the two must never be matched by name."
+  },
+  "_fixture_export_filename": "fvtt-Actor-test-anomaly-u-TESTACTOR000002.json",
+  "_fixture_world": {
+    "id": "test-world",
+    "title": "Test World",
+    "system": "dnd5e",
+    "systemVersion": "4.1.0",
+    "coreVersion": "13.347"
+  },
+  "_id": null,
+  "name": "Test Anomaly U",
+  "type": "character",
+  "img": "icons/svg/mystery-man.svg",
+  "folder": "TESTFOLDER0001",
+  "system": {
+    "abilities": {
+      "str": { "value": 12 },
+      "dex": { "value": 12 },
+      "con": { "value": 12 },
+      "int": { "value": 12 },
+      "wis": { "value": 12 },
+      "cha": { "value": 12 }
+    },
+    "attributes": {
+      "hp": { "value": 24, "max": null, "temp": 0 },
+      "ac": { "calc": "default", "flat": null, "formula": "" }
+    },
+    "details": {
+      "xp": { "value": 0 }
+    },
+    "currency": {
+      "pp": 0,
+      "gp": 15,
+      "ep": 7,
+      "sp": 0,
+      "cp": 0
+    },
+    "tools": {}
+  },
+  "items": [
+    {
+      "_id": "TESTITEM000101",
+      "name": "Test Class Display Name",
+      "type": "class",
+      "system": { "levels": 3, "identifier": "test-class" }
+    }
+  ],
+  "ownership": { "default": 0 },
+  "_stats": {
+    "coreVersion": "13.347",
+    "systemId": "dnd5e",
+    "systemVersion": "4.1.0",
+    "lastModifiedBy": null
+  }
+}

@@ -135,8 +135,12 @@ class Resource:
         total_earned = Money()
         for _ in range(earning_weeks):
             rolls, total = roll_dice(bot, modifier=modifier, roll_mode=roll_mode, actor_name=actor_name)
+            # Earnings table, homebrew rules 6.6 (PDF p.28): 0-10 -> 7gp, 11-15 -> 14gp,
+            # 16-20 -> 28gp, 21-25 -> 56gp, 26+ -> 112gp.
             base_gold = min(2 ** (max(total - 6, 0) // 5) * 7, 112)
-            earned = Money.from_gold(base_gold) if rolls[0] != 20 else Money(base_gold * 150)
+            # A natural 20 increases the earnings by 20% (same section). Money is
+            # denominated in copper, so 100 copper per gold is the base and 120 is +20%.
+            earned = Money.from_gold(base_gold) if rolls[0] != 20 else Money(base_gold * 120)
             total_earned += earned
             roll_results.append((rolls[0], total, earned.copper / 100))
         gold, silver, copper = total_earned.gold_denominations()
@@ -148,7 +152,17 @@ class Resource:
                     crafting_cost: float=0, quantity: int=1, material: int=0, actor_name: str="", point_of_sale: str="general store"):
         from helpers.utils import to_currency
         rolls, total_persuasion = roll_dice(bot, modifier=persuasion_modifier, roll_mode=roll_mode, actor_name=actor_name)
-        earnings_percent = (min(total_persuasion + 40 + (20 if point_of_sale=="your own shop" else 0), 80) + (10 if rolls[0]==20 else 0)) / 100
+        # Homebrew rules 4.1/4.1.1/4.2.1 (PDF p.11-12). The selling price starts at
+        # 140% of crafting cost; the haggling roll adds percentage points on top,
+        # capped at 180%. Selling in your own shop adds 20% before the cap, and a
+        # natural 20 adds a further 10% after it, for a maximum of 190%.
+        # A poor roll never drops the price below the 140% base.
+        haggling_bonus = max(total_persuasion, 0)
+        own_shop_bonus = 20 if point_of_sale == "your own shop" else 0
+        percent_over_cost = min(haggling_bonus + 40 + own_shop_bonus, 80)
+        if rolls[0] == 20:
+            percent_over_cost += 10
+        earnings_percent = percent_over_cost / 100
         earnings = crafting_cost * earnings_percent
         sale_price_per_item = material + crafting_cost + earnings
         total_sale_price = sale_price_per_item * quantity

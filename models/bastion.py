@@ -11,6 +11,8 @@ def get_level_group(level: int) -> Tuple[int, int]:
     return (17,20)
 
 class Bastion:
+    # Homebrew rules 7.1 (PDF p.29-30). Wretched and modest lifestyles cannot
+    # sustain a bastion at any level, so they are zero throughout.
     MAX_SPECIAL_FACILITIES = {
         ((1, 4), 'wretched'): 0,
         ((1, 4), 'modest'): 0,
@@ -21,7 +23,7 @@ class Bastion:
         ((5, 8), 'modest'): 0,
         ((5, 8), 'comfortable'): 1,
         ((5, 8), 'wealthy'): 2,
-        ((5, 8), 'aristocratic'): 2,
+        ((5, 8), 'aristocratic'): 3,
         ((9, 12), 'wretched'): 0,
         ((9, 12), 'modest'): 0,
         ((9, 12), 'comfortable'): 2,
@@ -61,7 +63,9 @@ class Bastion:
 
     def get_max_special_facilities(self, level):
         level_group = get_level_group(level)
-        return self.MAX_SPECIAL_FACILITIES.get((level_group, self.lifestyle_type), 1)
+        # An unrecognised lifestyle is a data error. Fall back to zero rather than
+        # inventing an allowance the rules never grant.
+        return self.MAX_SPECIAL_FACILITIES.get((level_group, self.lifestyle_type), 0)
 
     def get_summary(self) -> str:
         if not self.bastion_flag:

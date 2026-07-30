@@ -80,7 +80,10 @@ class Craft(commands.Cog):
         if is_masterpiece and actor.masterpiece and actor.masterpiece.strip() not in ("", "-", "None"):
             return await ctx.followup.send(f"{actor.name} already has a masterpiece: {actor.masterpiece}.", ephemeral=True)
 
-        # 2. Perform validations and calculate costs
+        # 2. Perform validations and calculate costs.
+        # A Master rank in *any* tool stops CRP accruing everywhere, because a
+        # character may only ever master one artisan's tool (homebrew rules
+        # 6.3.3.1, PDF p.17). See docs/rules/rule-catalogue.md RC-07.
         has_master_tool = any(lvl == "master" for lvl in actor.skills.crafting.values()) or \
                           any(lvl == "master" for lvl in actor.skills.tool_proficiencies.values())
 
@@ -108,6 +111,17 @@ class Craft(commands.Cog):
         dt_cost = craft_result["dt_cost"]
         is_legendary_project = craft_result["is_legendary_project"]
         earned_crp = craft_result["earned_crp"]
+
+        # A reputation award has to land on a column W value the adapter read in
+        # full, or the save would overwrite a cell it did not understand
+        # (docs/discovery/sheet-inventory.md 3.2, F-S3a). Checked here, before any
+        # resource is spent, so such a row is refused rather than half-applied.
+        if earned_crp > 0 and not actor.skills.can_record_tool_crp():
+            return await ctx.followup.send(
+                f"{actor.name}'s crafting reputation could not be read from the records, so this "
+                "craft cannot be recorded. Please ask the Guild Council to correct it.",
+                ephemeral=True
+            )
 
         # Validate resource availability
         if moradinium_cost > actor.resources.moradinium:
@@ -197,12 +211,26 @@ class Craft(commands.Cog):
                 new_item = Item(name=item_name, description=description, benefits=benefits, link=link, rarity=rarity)
                 actor.items.append(new_item)
 
-        # 5. Apply CRP updates
+        # 5. Apply CRP updates. Skills owns the identity rules, so that an award
+        #    accumulates on the entry the Master gate reads (rules 6.3.3.1 p.17)
+        #    instead of adding a second spelling of the same tool.
         if earned_crp > 0:
-            current_crp = actor.skills.crp_dict.get(tool_clean, 0.0)
-            new_crp = current_crp + earned_crp
-            actor.skills.crp_dict[tool_clean] = int(new_crp) if new_crp.is_integer() else new_crp
-            actor.skills.crp_modified = True
+            try:
+                actor.skills.add_tool_crp(tool, earned_crp)
+            except ValueError as e:
+                # Pre-checked above, so this is a record that changed shape in
+                # between; nothing has been saved, so nothing is half-applied.
+                interaction_id = getattr(getattr(ctx, "interaction", None), "id", "unknown")
+                logger.warning(
+                    "Craft reputation award refused interaction_id=%s: %s",
+                    interaction_id,
+                    e,
+                )
+                return await ctx.followup.send(
+                    f"{actor.name}'s crafting reputation could not be recorded, so this craft "
+                    "was not applied. Please ask the Guild Council to check the records.",
+                    ephemeral=True
+                )
 
         # 6. Save actor changes
         try:

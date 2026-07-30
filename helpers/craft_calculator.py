@@ -98,11 +98,16 @@ def calculate_craft(
         )
 
     # 3. Validation for Masterpieces
+    # Homebrew rules 6.3.3.1 (PDF p.17): finishing Master lessons produces "a rare
+    # item of your choice", paid for at the normal crafting cost but without
+    # spending extra downtime.
     if is_masterpiece:
         if tool_level != "master":
             raise ValueError("You must have Master level in the tool to craft a Masterpiece.")
         if craft_type != "non-consumable":
             raise ValueError("Masterpieces must be non-consumable items.")
+        if rarity != "rare":
+            raise ValueError("A Masterpiece must be a rare item.")
 
     # 4. Meal-specific validations
     if craft_type == "meal":
@@ -255,7 +260,12 @@ def calculate_craft(
     if is_masterpiece:
         dt_cost = 0.0
 
-    # 9. Calculate CRP updates
+    # 9. Calculate CRP updates.
+    # Homebrew rules 6.3.3.1 (PDF p.17): CRP exists solely to make a master
+    # contact you at 100 points in a tool, and a character may only ever become a
+    # Master in one artisan's tool. Once a Master rank is held, further CRP can no
+    # longer lead anywhere, so it stops accruing for every tool. Confirmed as a
+    # Guild Council ruling on 2026-07-29; see docs/rules/rule-catalogue.md RC-07.
     earned_crp = 0.0
     if not has_master_tool:
         if rarity == "common":

@@ -14,6 +14,11 @@ service_account.json
 *.pem
 *.key
 
+# Foundry Actor exports — real character documents supplied for structural
+# verification only. They are read outside the repository and never committed;
+# see docs/discovery/fixture-strategy.md (fixtures are synthetic by construction).
+fvtt-Actor-*.json
+
 # Logs & tmp
 logs/
 *.log
