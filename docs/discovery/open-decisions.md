@@ -89,7 +89,7 @@ confirmed out of scope.
 
 *Closed.*
 
-### OD-36 — What happens to the sheet macros at cutover? · Blocking Phase 2
+### OD-36 — What happens to the sheet macros at cutover? · **CLOSED 2026-07-31**
 
 Raised 2026-07-30 by the answer to OD-07. **Two** timed Apps Script macros write to
 the sheet: `+1` week to `J` weekly, and Frank's interest on `AC`. A third, the
@@ -121,6 +121,15 @@ the whole living-cost economy rests on.
 
 *Also worth a look while deciding:* whether the macro source is backed up
 anywhere. It is currently a single point of failure holding live game rules.
+
+**Maintainer decision, 2026-07-31:** reimplement both active macros—the weekly
+living-cost accrual in column J and Frank's interest accrual in column AC—as
+scheduled, deterministic, audited and idempotent platform jobs. Each Sheet macro
+remains running and authoritative until its corresponding platform job is
+implemented, tested, dry-run/reconciled against the Sheet, and approved for
+cutover. At that per-macro cutover, disable the Sheet macro before enabling the
+platform writer. The two writers must never operate concurrently after cutover.
+Retain the Sheet and rollback procedure during the verification window.
 
 ### OD-02 — What do the unmapped columns hold? · ~~Blocking Phase 2~~ **CLOSED**
 
@@ -1017,7 +1026,8 @@ every craft. Fixed, with seven regression tests — see
 data loss is fixed, and the downtime double-grant risk was disproved (the macro is
 off).
 
-**Blocking Phase 2:** **OD-36** only.
+**Blocking Phase 2:** none.
+*(OD-36 closed 2026-07-31.)*
 *(OD-01, OD-02, OD-06, OD-07, OD-12 and OD-30 closed.)*
 
 **Blocking Phase 3:** OD-16 and OD-17.
@@ -1072,7 +1082,7 @@ What remains, in the order it will be needed:
 | When | Decisions |
 |---|---|
 | Early Phase 1 | **Closed 2026-07-30:** OD-15 (Council-approved shared level), OD-21 (host-managed PostgreSQL 16), OD-22 (same-host staging with strict separation) |
-| Phase 2 | **OD-36** (the two live macros at cutover), plus **F-S6** (are the player-level *Last date played* / *No shows* aggregates?) and **F-S7** (is *"Latest date to DM"* a rule?) |
+| Phase 2 | No blocking decision. Preserve and report F-S6 aggregate disagreements and F-S7's unruled deadline rather than treating either as authoritative policy |
 | Phase 3 | OD-16 and OD-17; the §17 authorization parameters closed 2026-07-31 |
 | Write-enablement | Ownership settled by OD-13; implementation still requires the approved proposal and Council-approval controls |
 | Phase 5–8 | OD-03, OD-04, OD-05, OD-09 and OD-28 tribute item; OD-32 and OD-33 closed 2026-07-31 |
