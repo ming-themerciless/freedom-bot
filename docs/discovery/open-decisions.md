@@ -540,7 +540,7 @@ mandatory for these two?
 
 ## C. Data ownership
 
-### OD-13 — Contested field groups · Blocking write-enablement
+### OD-13 — Contested field groups · **CLOSED 2026-07-31**
 
 Four groups need explicit ownership rulings. Full analysis in
 [field-ownership.md](../rules/field-ownership.md).
@@ -552,7 +552,15 @@ Four groups need explicit ownership rulings. Full analysis in
 | **Languages** | Which code table; who owns additions? | Platform code table seeded from the `/learn` dropdown plus rules §6.3.1 p.16; Council owns additions |
 | **Weapon proficiencies / masteries** | Platform-granted or Foundry-recorded? | Platform-granted — rules §6.3.2 p.16 make them a downtime purchase |
 
-### OD-15 — Who owns character level? · Blocking Phase 7, decide by Phase 1
+**Maintainer decision, 2026-07-31:** notable inventory, languages, and weapon
+proficiencies/masteries are **Council-approved shared**. A Guild Council member
+imports the Foundry representation; the import creates reviewable proposals and
+nothing changes authoritative platform state without Council approval. Notable
+items use Council linking rather than automatic fuzzy matching. Languages use
+the platform code table with Council-controlled additions. Self-approval follows
+OD-32 and is explicitly auditable.
+
+### OD-15 — Who owns character level? · **CLOSED 2026-07-30**
 
 Plan §6.1 puts level under Foundry. Rules §3.1 p.9–10 derive it from cumulative
 mission count, and rules §2.1.1 p.3–4 plus `.agents/AGENTS.md` require Council
@@ -562,12 +570,10 @@ If Foundry owns level, a player editing their own Foundry sheet grants themselve
 a level and the platform imports it. If the platform owns level, the two disagree
 whenever a player levels in Foundry before approval.
 
-*Recommendation:* **Council-approved shared.** The platform computes the eligible
+**Maintainer decision:** **Council-approved shared.** The platform computes the eligible
 level from mission count; Foundry reports the actual level; a mismatch becomes an
 approval proposal. Satisfies the invariant without pretending Foundry is not where
 levelling happens.
-
-*This is the most consequential unresolved item in Phase 0.*
 
 ### OD-16 — Should `/info` remain unrestricted? · Blocking Phase 3
 
@@ -700,14 +706,33 @@ electrum, so the importer's anomaly-warning path has a fixture.
 
 ## E. Authorization and policy
 
-### OD-18 — Discord guild, Council and DM role snowflakes · Blocking Phase 3
+### OD-18 — Discord guild, Council and DM role snowflakes · **CLOSED 2026-07-31**
 
 Plan §17 requires these as configuration. Which roles grant DM capability?
+
+**Maintainer decision, 2026-07-31:**
+
+- Freedom Blades guild: `1052698198180892733`;
+- Guild Council role: `1052702392728178688`; and
+- Dungeon Master role, the sole Discord role granting DM capability initially:
+  `1124406915783475241`.
+
+These are stable authorization identifiers. The guild and protected Server
+Administrator role are bootstrap configuration; capability mappings such as
+Council and DM are stored by the platform and managed through the
+administrator-only website workflow. The Sheet's `Active DM` flag remains
+reconciliation evidence only and never grants effective authorization.
+
+**Authorization administration clarification, 2026-07-31:** individual users'
+guild membership and Discord role assignments are managed on the Discord server,
+not by the Freedom Blades website. The website stores only the mapping from
+stable Discord role IDs to platform capabilities. Only the Server Administrator
+may manage those mappings.
 
 `/sale` currently matches the role **name** `shop owner`; that role's snowflake is
 needed too.
 
-### OD-24 — Platform Administrator scope · Blocking Phase 3
+### OD-24 — Platform Administrator scope · **CLOSED 2026-07-31**
 
 Plan §4.1: the administrator role *"must not silently imply game-policy
 authority"*.
@@ -715,17 +740,82 @@ authority"*.
 *Decide:* may an administrator act with Council capability in a break-glass case?
 If so, how is it audited and announced?
 
-### OD-31 — Ordinary-user website mutations · Blocking Phase 3
+**Maintainer decision, 2026-07-31:** Discord role
+`1124405581298552933` is the Server Administrator role. It currently has one
+holder, but authorization is role-based and must not be tied to that person's
+user ID. Individual membership and role assignment are administered in Discord;
+the website does not grant or revoke Discord roles. The website manages only the
+mapping from Discord role IDs to platform capabilities, and only the Server
+Administrator may change those mappings.
+
+The Server Administrator mapping is protected bootstrap configuration: a
+Council user cannot edit it, and ordinary mapping changes cannot revoke,
+replace, demote or otherwise lock out the administrator. Discord server
+ownership remains an external emergency-recovery path, not the normal
+authorization mechanism.
+
+This ruling protects administrative continuity; it does not silently make the
+Server Administrator a Guild Council game-policy actor. Game-policy capability
+continues to come from the separately configured Council role.
+
+### OD-31 — Ordinary-user website mutations · **CLOSED 2026-07-31**
 
 Plan §4.3 and `.agents/AGENTS.md`: ordinary users initially get a **read-only**
 website. Confirm this holds for the initial release, and name any narrow action to
 be delegated later.
 
-### OD-32 — May an approver approve their own draft? · Blocking Phase 6
+**Maintainer decision, 2026-07-31:** confirmed. Ordinary users receive a
+read-only website initially. Website mutations require Guild Council; no narrow
+ordinary-user mutation is delegated for the initial release.
+
+### OD-37 — Character ownership and Council reach · **CLOSED 2026-07-30**
+
+Raised at the Phase 1 review gate as O-1: plan §4.2 lists `owner` and `co_owner`
+without saying whether a character may have more than one `owner`.
+
+**Maintainer decision, 2026-07-30:**
+
+> *"A character has exactly one owner. However, the Guild Council members can
+> access and modify all characters. Modifications should be logged."*
+
+Consequences implemented in Phase 1:
+
+1. **At most one active `owner` per character** is a database constraint —
+   `uq_character_access_one_active_owner`. `co_owner`, `delegate` and `viewer`
+   remain unlimited.
+2. **"Exactly" also means at least one, which is *not* a table constraint.**
+   PostgreSQL cannot require a row in another table without a deferred trigger,
+   and the Phase 2 importer must be able to create a character before Council
+   has resolved who owns it — the same reason `characters.level` is nullable. So
+   *at most one* is enforced by the database, and *at least one* is an
+   application invariant that the Phase 2 reconciliation report must list as an
+   exception. This is the one part of the ruling the schema cannot hold.
+3. **Council reach is role-derived, not a `character_access` row.** Council
+   members are not granted access rows for every character; their capability
+   comes from holding the configured Council role snowflake, resolved through
+   `discord_membership_roles` (OD-18 supplies the snowflake). `guild_council` is
+   therefore deliberately *not* an `access_kind`.
+4. **`audit_events.actor_capability` records the authority a mutation was made
+   under**, so a Council modification of a character the actor does not own is
+   distinguishable in the audit from an owner editing their own. Plan §4.3
+   already required *"the acting Discord user and current authorization
+   context"*; this ruling is what makes the second half concrete.
+
+Enforcing the Council's *reach* — that holding the role grants read and write on
+every character — is Phase 3 authorization work, not Phase 1. Phase 1 provides
+the role snapshot table it will read and the audit column it must write.
+
+### OD-32 — Mission approval and self-approval · **CLOSED 2026-07-31**
 
 Plan §17. Also: are there thresholds requiring a second approver?
 
-### OD-33 — Event and announcement channel mappings · Blocking Phase 8
+**Maintainer decision, 2026-07-31:** a DM prepares and submits a mission and its
+settlement; Guild Council approves and applies it. A Guild Council member may
+approve their own draft. Self-approval must be recorded explicitly in the audit
+history and must be searchable/reviewable by the other Council members. There is
+no mandatory second-approver threshold in the initial release.
+
+### OD-33 — Event and announcement channel mappings · **CLOSED 2026-07-31**
 
 Plan §17. The rules name `#goodies-confirmation` (§2.1.2 p.4), `#downtime` (§6
 p.14), `#announcements` (§6 p.14), `#trading` (§4.1 p.10),
@@ -734,32 +824,75 @@ p.14), `#announcements` (§6 p.14), `#trading` (§4.1 p.10),
 `#lifestyle-work-and.mining` (§6.4 p.18). Snowflakes are needed for each the
 platform will use.
 
+**Maintainer decision, 2026-07-31:**
+
+- server announcements: `1054441748874657852`;
+- mission channel: `1052700525444997130`; and
+- Discord Scheduled Events are guild-level objects and have no channel mapping.
+
+The mission channel constrains mission-related bot commands and notifications;
+it is not an Event location. Other legacy command-channel IDs remain separate
+configuration and are not inferred from these values.
+
+### OD-38 — Initial authority during Sheet migration · **CLOSED 2026-07-31**
+
+Plan §17 requires an explicit source of truth while Sheets are being retired.
+
+**Maintainer decision, 2026-07-31:** Google Sheets remain authoritative until an
+explicitly approved, per-feature cutover. Before each cutover PostgreSQL imports
+and reconciles the applicable data. The platform does not enter an indefinite
+dual-write mode; authority changes only at the approved cutover gate, with the
+documented rollback path retained for the verification period.
+
 ---
 
 ## F. Operations
 
-### OD-19 — Production domain for the web application · Blocking Phase 3
+### OD-19 — Production domain for the web application · **CLOSED 2026-07-31**
 
 Caddy currently serves `foundry1..3.rpgworld.org`.
 
-### OD-20 — Same host as Foundry, or separate? · Blocking Phase 3
+**Maintainer decision, 2026-07-31:** the production hostname is
+`freedom-blades.rpgworld.org`, and Caddy is the accepted reverse proxy (it
+already fronts Foundry). This exact HTTPS origin is used when configuring web
+security and Discord OAuth redirect URIs; a wildcard origin is not used.
+
+### OD-20 — Same host as Foundry, or separate? · **CLOSED 2026-07-31**
 
 This host already runs three Foundry instances plus the live bot.
 
-### OD-21 — PostgreSQL deployment and backup method · Required during Phase 1
+**Maintainer decision, 2026-07-31:** the platform is co-located on this host and
+served as `freedom-blades.rpgworld.org` through the existing Caddy reverse proxy.
+It retains separate systemd services, loopback application ports, credentials,
+database roles and environment files.
 
-Managed service, container, or host package? Backup target, retention, and
-off-host copy (plan §14.3).
+### OD-21 — PostgreSQL deployment and backup method · **CLOSED 2026-07-30**
 
-### OD-22 — Staging on this host or its own? · Required during Phase 1
+**Maintainer decision:** PostgreSQL 16 is installed from the Ubuntu package and
+managed as a host systemd service. It binds to loopback. Migrations use a
+separate owner role; applications use restricted roles. Backup target,
+retention and off-host copy remain operational configuration that must be
+settled before production data is stored.
 
-*Recommendation:* separate host. Staging exists to rehearse migrations; a staging
-component that can reach a production resource cannot do that safely.
+### OD-22 — Staging on this host or its own? · **CLOSED 2026-07-30**
 
-### OD-23 — Retention periods · Blocking Phase 3
+**Maintainer decision:** staging shares this host to avoid renting a second
+server. The accepted risk is mitigated by hard separation: a separate database
+and login role, separate service accounts and environment files, distinct
+loopback ports, a staging-only Discord application/guild, a non-production
+Foundry world, and no shared credentials. Staging never receives a production
+backup and must not be configured with a production endpoint.
+
+### OD-23 — Retention periods · **CLOSED 2026-07-31**
 
 Plan §9.4 and §17: OAuth tokens, sessions, attendance records, audit events and
 reports.
+
+**Maintainer decision, 2026-07-31:** raw attendance intervals are retained for
+90 days after mission settlement; the confirmed mission roster and mission
+reports are retained; audit and settlement history are retained indefinitely in
+normal operation; OAuth tokens and sessions are retained only as long as they
+are operationally necessary and are revoked/removed when no longer needed.
 
 ### OD-25 — Are Foundry ports firewalled? · Non-blocking, but check now
 
@@ -877,8 +1010,7 @@ parser understood, and `/craft` was overwriting per-tool CRP with a single tool 
 every craft. Fixed, with seven regression tests — see
 [phase-0-handoff.md §4.6](phase-0-handoff.md#46-column-w-was-silently-destroying-crp-data-on-every-craft--fixed).
 
-**Required during Phase 1, before the affected design is fixed and before the
-milestone completes:** OD-15, OD-21, OD-22.
+**Resolved during Phase 1:** OD-15, OD-21, OD-22.
 *(OD-08 and OD-35 are ruled; ADRs 0003 and 0005 were amended and accepted.)*
 
 **Blocking live behaviour today:** none outstanding. OD-34 is ruled, the column W
@@ -888,14 +1020,18 @@ off).
 **Blocking Phase 2:** **OD-36** only.
 *(OD-01, OD-02, OD-06, OD-07, OD-12 and OD-30 closed.)*
 
-**Blocking Phase 3:** OD-16, OD-17, OD-18, OD-19, OD-20, OD-23, OD-24, OD-31.
+**Blocking Phase 3:** OD-16 and OD-17.
+*(OD-18, OD-19, OD-20, OD-23, OD-24 and OD-31 closed 2026-07-31.)*
 
 **Blocking Phase 5 (per command):** OD-03, OD-04, OD-05, OD-09, plus the tribute
 item remainder of OD-28 and the gate-boundary half of OD-34.
 
-**Blocking Phase 6–8:** OD-32, OD-33.
+**Blocking Phase 6–8:** none from the plan §17 decision log.
+*(OD-32 and OD-33 closed 2026-07-31.)*
 
-**Blocking write-enablement:** OD-13 (three of four groups remain), OD-15.
+**Blocking write-enablement:** none from field ownership.
+*(OD-13 closed 2026-07-31; the approved workflow still requires proposals and
+Council approval.)*
 *(OD-14 closed.)*
 
 **Check independently:** OD-25.
@@ -935,8 +1071,8 @@ What remains, in the order it will be needed:
 
 | When | Decisions |
 |---|---|
-| Early Phase 1 | **OD-15** (who owns character level) — decide before the schema fixes it; **OD-21**, **OD-22** (PostgreSQL deployment, staging) |
+| Early Phase 1 | **Closed 2026-07-30:** OD-15 (Council-approved shared level), OD-21 (host-managed PostgreSQL 16), OD-22 (same-host staging with strict separation) |
 | Phase 2 | **OD-36** (the two live macros at cutover), plus **F-S6** (are the player-level *Last date played* / *No shows* aggregates?) and **F-S7** (is *"Latest date to DM"* a rule?) |
-| Phase 3 | OD-16, OD-17, OD-18, OD-19, OD-20, OD-23, OD-24, OD-31 — mostly authorization parameters |
-| Write-enablement | OD-13's remaining groups, OD-15 |
-| Phase 5–8 | OD-03, OD-04, OD-05, OD-09, OD-28 tribute item, OD-32, OD-33 |
+| Phase 3 | OD-16 and OD-17; the §17 authorization parameters closed 2026-07-31 |
+| Write-enablement | Ownership settled by OD-13; implementation still requires the approved proposal and Council-approval controls |
+| Phase 5–8 | OD-03, OD-04, OD-05, OD-09 and OD-28 tribute item; OD-32 and OD-33 closed 2026-07-31 |

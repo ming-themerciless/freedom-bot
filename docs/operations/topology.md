@@ -187,11 +187,12 @@ Staging exists to rehearse migrations and cutovers. A staging component that can
 reach a production resource cannot do that safely, because a rehearsal mistake
 becomes a production incident.
 
-**Open question** — whether staging shares this host or gets its own
-([OD-22](../discovery/open-decisions.md)). Sharing is cheaper and adds a real risk
-of cross-environment configuration mistakes; a separate host is cleaner. Given
-that this host already runs three Foundry instances plus the live bot, a separate
-host is the safer recommendation.
+**Decision 2026-07-30:** staging shares this host ([OD-22](../discovery/open-decisions.md)).
+The maintainer accepted the additional configuration risk to avoid the cost of a
+second server. The separations above are therefore enforcement requirements, not
+recommendations. Staging services use distinct Unix service names, environment
+files and loopback ports; database ownership and login roles are distinct; a
+staging service must not receive any production credential or endpoint.
 
 ## 4. Proposed production topology after Phase 3
 

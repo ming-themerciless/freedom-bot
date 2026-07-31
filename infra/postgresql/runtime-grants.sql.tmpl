@@ -1,0 +1,19 @@
+-- Apply as the schema owner after migrations.
+-- Replace __APP_ROLE__ using the deployment's secret-safe templating mechanism.
+-- Do not grant CREATE or schema ownership to the runtime role.
+
+GRANT USAGE ON SCHEMA public TO __APP_ROLE__;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    discord_users,
+    discord_guild_memberships,
+    discord_membership_roles,
+    characters,
+    character_access,
+    external_actor_mappings,
+    sheet_row_mappings,
+    idempotency_keys
+TO __APP_ROLE__;
+
+GRANT SELECT, INSERT ON audit_events TO __APP_ROLE__;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM __APP_ROLE__;

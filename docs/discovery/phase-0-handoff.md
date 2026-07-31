@@ -1012,28 +1012,30 @@ ruled and ADR 0003 amended; OD-08 is fully closed — the fixed master-tier cons
 OD-01 is closed, the player tab's eight columns supplied and recorded in
 [sheet-inventory.md §2.1](sheet-inventory.md#21-the-player-tab).
 
-The most consequential design question, still open:
+The most consequential design question at handoff was:
 
 1. **OD-15** — who owns character level? Plan §6.1 says Foundry; the rules derive
    it from mission count and require Council approval with no automatic
    advancement. **Note that column F holds it, and the sheet also holds classes,
    race, abilities and feats (F-S4)** — so this is now a three-way question, not
-   two-way. Recommendation: **Council-approved shared**. *Decide by Phase 1.*
+   two-way. Recommendation: **Council-approved shared**. **Resolved as recommended
+   during Phase 1 on 2026-07-30.**
 
-Then, in the order Phase 1 will need them: **OD-21** and **OD-22**, and **OD-36** (the
-fate of the two live sheet macros at cutover) before Phase 2 imports anything.
+OD-21 and OD-22 were also resolved during Phase 1 on 2026-07-30: host-managed
+PostgreSQL 16 and same-host staging with strict environment separation. OD-36
+(the fate of the two live sheet macros at cutover) remains due before Phase 2
+imports anything.
 
 Grouped by when they must be settled:
 
-- **During Phase 1, before the affected design is fixed and before the milestone
-  completes:** OD-15, OD-21, OD-22
+- **Resolved during Phase 1:** OD-15, OD-21, OD-22
 - **Live behaviour now:** none outstanding
 - **Phase 2:** **OD-36**, plus OD-06's residual abbreviation risk at import
 - **Phase 3:** OD-16, OD-17, OD-18, OD-19, OD-20, OD-23, OD-24, OD-31
 - **Phase 5, per command:** OD-03, OD-04, OD-05, OD-09 and the remaining tribute
   item question in OD-28
 - **Phases 6–8:** OD-32, OD-33
-- **Write-enablement:** OD-13 and OD-15
+- **Write-enablement:** OD-13
 - **Check independently:** OD-25
 
 Plan §17 requires its own decision list before Phase 1 completes; every item on it
@@ -1057,11 +1059,11 @@ record of what closed, not as outstanding requests.
    and unblocked; the untagged-CRP fallback stays as it is by decision, not by
    omission.
 
-Outstanding for the maintainer:
+Resolved during Phase 1:
 
-4. **OD-15, character level ownership.** It determines whether the
-   no-automatic-advancement invariant survives contact with Foundry. *Decide by
-   Phase 1.*
+4. **OD-15, character level ownership.** **Council-approved shared**, preserving
+   the no-automatic-advancement invariant while treating Foundry differences as
+   proposals.
 
 Also worth reading, though not gating:
 

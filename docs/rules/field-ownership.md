@@ -1,14 +1,15 @@
-# Field Ownership Matrix — Draft
+# Field Ownership Matrix
 
-Status: **Draft.** Phase 0 deliverable, required by implementation plan §6.1
-before any write is enabled. Awaiting maintainer decision on the entries marked
-**UNRESOLVED**.
+Status: **Approved ownership policy.** Phase 0 deliverable, required by
+implementation plan §6.1 before any write is enabled. Character-level ownership
+was settled on 2026-07-30; the remaining contested groups were settled by the
+maintainer on 2026-07-31.
 
 This document is the authority for what a synchronisation may and may not do to a
 field. Plan §6.1 requires it to exist before writes are enabled; plan §12
 Phase 7 makes "database-owned values are not overwritten" an acceptance
-criterion. Until every UNRESOLVED row is settled, **no outbound Foundry write and
-no Foundry-sourced overwrite may be enabled for any field.**
+criterion. Foundry imports of Council-approved shared fields create proposals;
+they never overwrite live state without Guild Council approval.
 
 ## Ownership classes
 
@@ -68,7 +69,7 @@ Plan §6.1: *"Ability scores and character mechanics — Foundry"*.
 
 | Field | Owner | Rationale |
 |---|---|---|
-| Character level | **UNRESOLVED** — see [OD-15](../discovery/open-decisions.md) | Plan §6.1 puts level under Foundry. Rules §3.1 p.9–10 make level a function of **cumulative mission count**, which is platform data, and rules §2.1.1 p.3–4 make advancement a Council-approved event with no automatic advancement (plan §3 principle 4) |
+| Character level | **Council-approved shared** — OD-15 ruled 2026-07-30 | The platform computes eligibility from mission count; a Foundry/platform difference becomes a Council proposal and never applies automatically |
 | Badge | **Derived** | A pure function of level (rules §3 p.8–9). Currently *stored* in Sheet column E and round-tripped by the bot |
 | Mission count | Database-owned | Sheet column G; the input to level |
 | Cumulative missions | Derived | Rules §3.1 p.9–10 table |
@@ -85,13 +86,14 @@ If the platform owns level, Foundry and the platform will disagree whenever a
 player levels up in Foundry before Council approval, generating a difference on
 every sync.
 
-**Recommendation:** level is **Council-approved shared**. The platform computes
+**Maintainer decision, 2026-07-30:** level is **Council-approved shared**. The platform computes
 the *eligible* level from mission count; Foundry reports the *actual* level; a
 mismatch becomes an approval proposal rather than a silent import in either
 direction. This satisfies both the no-automatic-advancement invariant and the
 reality that Foundry is where the character actually gets levelled.
 
-Maintainer decision required.
+No advancement becomes official without the existing Guild Council approval
+invariant.
 
 ## 4. Currency and resources
 
@@ -119,7 +121,7 @@ automatically in either direction.
 | Crafting reputation points (CRP) | Database-owned | Rules §6.3.3.1 p.17; per tool, fractional (2.5 / 7.5 / 0.5 / 1.5) |
 | Languages | **Council-approved shared** | Plan §6.1 requires explicit reconciliation. Vocabulary mismatch: Foundry SRD keys versus Sheet free text |
 | Skill proficiencies | Foundry-owned | Distinct from tool rank |
-| Weapon proficiencies and masteries | **UNRESOLVED** — [OD-13](../discovery/open-decisions.md) | Rules §6.3.2 p.16 makes these learnable per weapon through downtime, so the platform grants them; Foundry records them |
+| Weapon proficiencies and masteries | **Council-approved shared** | Rules §6.3.2 p.16 makes these learnable through platform downtime while Foundry records them; a Council member imports Foundry differences as proposals and approves application |
 
 Rank is the clearest example of why one-way sync is the correct starting point.
 The platform can project rank *onto* Foundry (as proficiency or expertise) but can
@@ -197,7 +199,7 @@ cannot gate a benefit, so it is evidence rather than a shared-ownership field.
 
 | Field | Owner | Rationale |
 |---|---|---|
-| Notable items (name + rarity) | **UNRESOLVED** — [OD-13](../discovery/open-decisions.md) | Plan §6.1: "explicit reconciliation required" |
+| Notable items (name + rarity) | **Council-approved shared** | Council links imported Foundry items; differences become approval proposals, never fuzzy-matched automatic mutations |
 | Item description / benefits / link | Database-owned | Already lost in the Sheet round-trip; the platform will be the only store that has them |
 | Full Foundry inventory | Read-only evidence | Includes mundane gear the Sheet never tracked |
 | Attunement, quantity, weight | Foundry-owned | No platform rule depends on them yet |
@@ -216,17 +218,18 @@ All database-owned, none synced, all append-only in normal operation
 `idempotency_keys`, `outbox_events`, `sync_runs`, `sync_snapshots`,
 `sync_differences`, `sync_resolutions`, `sessions`, `service_principals`.
 
-## 10. Unresolved summary
+## 10. Contested-field decisions
 
-These block **write-enablement**, not Phase 1. Phase 1 may proceed with
-database-owned and derived fields only.
+The ownership classes are settled. They do not themselves enable writes: every
+Foundry import or outbound update still requires the Phase 7 authenticated
+adapter, validation, proposal, audit and approval controls.
 
 | # | Field group | Question | Open decision |
 |---|---|---|---|
-| 1 | Character level | Foundry-owned, database-owned, or Council-approved shared? | [OD-15](../discovery/open-decisions.md) |
-| 2 | Notable items | Automated matching or Council linking? | [OD-13](../discovery/open-decisions.md) |
-| 3 | Languages | Which code table, and who owns additions? | [OD-13](../discovery/open-decisions.md) |
-| 4 | Weapon proficiencies and masteries | Platform-granted or Foundry-recorded? | [OD-13](../discovery/open-decisions.md) |
+| 1 | Character level | **Council-approved shared** | [OD-15](../discovery/open-decisions.md) |
+| 2 | Notable items | **Council-approved shared; Council linking** | [OD-13](../discovery/open-decisions.md) |
+| 3 | Languages | **Council-approved shared; Council owns additions** | [OD-13](../discovery/open-decisions.md) |
+| 4 | Weapon proficiencies and masteries | **Council-approved shared** | [OD-13](../discovery/open-decisions.md) |
 | 5 | Character name | Confirm Council-approved shared | §1 |
 | 6 | **Classes, race, abilities, feats** | Sheet columns AE–AH hold these **and** so does Foundry. Dual-recorded, newly discovered | §2, F-S4 |
 
@@ -242,10 +245,9 @@ available, the platform can compute the Learning-Roll modifier from data it alre
 holds instead of trusting a player-typed number, **without** waiting for the Foundry
 connector.
 
-## 11. Default posture until resolved
+## 11. Safe synchronization posture
 
-Until a maintainer settles the above, the connector operates under the most
-conservative reading:
+The connector operates under this conservative policy:
 
 - **no outbound writes to Foundry, for any field, in any phase before Phase 7's
   review gate;**
