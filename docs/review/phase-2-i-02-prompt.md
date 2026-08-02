@@ -1,13 +1,49 @@
-# Claude prompt — Phase 2 gap closure
+# Claude implementation prompt — Phase 2 I-02 Foundry snapshot milestone
 
 Continue work in `/opt/discord-bots/freedom-bot`.
 
-This is the implementation and review-preparation pass required to close Phase
-2. Do not begin the Phase 3 website UI, Phase 5 command migrations, the magic
-item catalogue, or the Phase 7 live Foundry connector. Do not commit, push,
-stash, reset, discard, or overwrite unrelated work. The worktree is intentionally
-dirty and contains earlier Phase 2 work that must be reassessed against new
-maintainer rulings.
+Issue I-01 is closed: Codex independently reviewed the mapped-name normalization
+correction, Peter Duscha accepted it on 2026-08-02, and commit `1695122` is the
+accepted starting point. Do not reopen or weaken that fail-closed identity
+policy.
+
+Your objective is to implement and prepare independent-review evidence for
+**I-02: the incomplete Phase 2 Foundry snapshot milestone**. This work may make
+I-02 technically ready for review, but it does not authorize you to close the
+issue, approve the Phase 2 gate, conduct the supervised real-snapshot rehearsal,
+or begin Phase 3. Those decisions and operational actions belong to the named
+maintainer roles.
+
+Do not begin the Phase 3 website UI, Phase 5 command migrations, the magic-item
+catalogue, or the Phase 7 live Foundry connector. Do not commit, push, stash,
+reset, discard, or overwrite unrelated work. Inspect the actual worktree before
+acting and preserve anything that appeared after commit `1695122`.
+
+## Delivery sequence and review stops
+
+Phase 2 is managed as five evidence-bearing packages. Treat the accepted Sheet
+identity slice as the existing portion of package 2.4; do not mistake it for the
+Foundry milestone. Implement I-02 in this order:
+
+1. **2.1 — immutable artifact, parser, exporter contract and exhaustive field
+   profile**;
+2. **2.2 — preview, mapping, reconciliation, snapshot-only projections and
+   idempotent import**;
+3. **2.3 — correction, current-role authorization and append-only audit
+   controls**;
+4. **2.4 — decide and document the narrow Sheet/manual bootstrap boundary,
+   retaining only what the accepted field profile needs**; and
+5. **2.5 — PostgreSQL concurrency, runtime-role, failure/recovery and operational
+   evidence, followed by a handoff for the maintainer-supervised real-snapshot
+   rehearsal**.
+
+Before editing, write a package-level plan with dependencies, explicit scope
+exclusions, three-point effort ranges, confidence, test/evidence mapping and
+review/remediation allowance. At the end of each package, run its narrow tests
+and inspect the diff before continuing. If implementation reveals a decision
+that would change data authority, correction semantics, privacy/retention,
+authorization, schema identity, or rollback strategy, stop and ask the
+maintainer; do not choose policy by convenience.
 
 ## Required reading and initial audit
 

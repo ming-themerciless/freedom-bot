@@ -278,7 +278,7 @@ Three factual slips in this document were corrected:
 |---|---|
 | §4 broke the 11 new tests down as "7 debug-logging canary, 3 client library, 1 helper" | It is **6** canary cases, **1** canary-is-really-there guard, 3 client library, 1 helper. The total of 11, and the 29 → 40 file count, were right |
 | §2.10 said "all six sites converted", which reads as a claim about the tree | Six pre-existing sites were converted; ruling B then added a **seventh**. A reader counting `log_expected_failure` in the tree finds seven, and all seven are the safe form |
-| §4's working-tree list omitted `docs/review/phase-2-gap-closure-prompt.md` | Now listed as a maintainer-authored file that post-dates this document and is not part of this work |
+| §4's working-tree list omitted the maintainer-authored Phase 2 gap-closure prompt (now `docs/review/phase-2-i-02-prompt.md`) | Now listed as a maintainer-authored file that post-dates this document and is not part of this work |
 
 One defect was found in a file this task does not touch: a **pre-existing broken
 anchor** in `docs/review/phase-1-submission.md` pointing at OD-14. It predates
@@ -1402,7 +1402,7 @@ file list accounts for every path `git status --short` reports, as of revision 6
 | `docs/implementation-plan.md` — the Phase 5 Living Cost scheduling requirements | modified | **Maintainer-authored.** The scheduled Living Cost accrual job: PostgreSQL authority, Sunday 04:00 initially, fixed IANA `Europe/Berlin`, Platform-Administrator-only schedule changes, effective-dated eligibility, the durable non-accruing transition occurrence, backlog/catch-up rules and the Phase 5 acceptance criteria and mandatory tests. Read and left **byte-for-byte unchanged** by this work, which implements none of it |
 | `docs/discovery/open-decisions.md` — OD-36's amendment of 2026-08-02 | modified | **Maintainer-authored**, and the OD-36 half of the same decision. Unchanged by this work |
 | `docs/review/Handover information` | untracked | The maintainer's working exchange file, used in both directions. It carried the prompt for this correction pass and now holds this session's handoff summary; it is a scratch channel, not a record — this document is the record |
-| `docs/review/phase-2-gap-closure-prompt.md` | untracked | An earlier maintainer-authored prompt |
+| `docs/review/phase-2-i-02-prompt.md` | later renamed and revised | The maintainer-authored successor prompt for I-02; not part of revision 7's implementation |
 | `docs/review/Prompt-for-claude` | deleted | Deleted in the working tree by the maintainer, not by this work. No agent session removed it |
 | `docs/Freedom Blades Token.png` | untracked | A binary asset |
 | `tools/` | untracked | Contains `tools/__init__.py` and `tools/import_sheet_characters.py`, both listed above |
