@@ -1,12 +1,133 @@
 # Freedom Blades Platform — Master Implementation Plan
 
-Status: Draft for maintainer approval
+Status: Controlled baseline v1.0 — accepted 2026-08-02
 
-Audience: Maintainers, Claude Code, reviewers, and operators
+Baseline date: 2026-08-02
+
+Document owner: Peter Duscha, Product Owner
+
+Acceptance authority: Peter Duscha, Maintainer and Product Sponsor
+
+Audience: Maintainers, implementation agents, reviewers, and operators
 
 Repository: `freedom-bot` (to evolve into the Freedom Blades platform)
 
 Primary rules source: `Freedom Blades - Homebrew Rules.pdf`
+
+## 0. Document control and project governance
+
+### 0.1 Purpose of this document
+
+This document is the product roadmap and technical milestone contract. It says
+what outcomes and controls each phase must deliver. It is not, by itself, a
+calendar commitment or a substitute for a phase delivery plan.
+
+Detailed project controls live under `docs/project-management/`:
+
+- [`README.md`](project-management/README.md) — governance, roles, gate process,
+  estimation rules and management definition of ready/done;
+- [`status.md`](project-management/status.md) — current phase, gate, forecast,
+  evidence and blockers;
+- [`raid-register.md`](project-management/raid-register.md) — risks,
+  assumptions, issues and dependencies;
+- [`decision-register.md`](project-management/decision-register.md) — decision
+  index and deadlines, linked to the full OD record; and
+- [`change-log.md`](project-management/change-log.md) — baseline amendments and
+  their scope, schedule and risk effects.
+
+The approved technical requirements remain in this document and the linked
+ADRs, rules, operations and review records. Supporting registers may summarize
+them but never silently override them.
+
+### 0.2 Baseline and change control
+
+Version 1.0 is the controlled baseline accepted by Peter Duscha on 2026-08-02,
+as recorded in `docs/project-management/change-log.md`. Earlier phase
+acceptances remain valid evidence; they do not by themselves approve later
+scope, estimates or gates.
+
+After acceptance, a material change to scope, authority, privacy, architecture,
+data ownership, release criteria, phase order or target range requires:
+
+1. a change-log entry identifying requester, reason and affected requirements;
+2. impact assessment for scope, dependencies, estimate, risk, testing,
+   migration and operations;
+3. Product Owner recommendation and Technical Lead review;
+4. Acceptance Authority approval before the change becomes effective; and
+5. a new baseline version when the roadmap or release boundary changes.
+
+Clarifications that do not change those matters may be recorded without a new
+baseline, but still need a dated change-log entry. Git history is evidence of
+edits, not evidence of project approval.
+
+### 0.3 Accountable roles
+
+AI assistants may implement or review work, but project and release
+accountability remains with the maintainer. This is a solo-maintainer project:
+Peter Duscha may hold multiple accountable roles. Independent technical review
+may be performed by an agent that did not implement the work, but that reviewer
+cannot approve its own recommendation; Peter records the gate decision.
+
+| Role | Accountable for |
+|---|---|
+| Product Sponsor / Acceptance Authority | baseline, priority, funding/capacity, risk acceptance and release approval |
+| Product Owner | scope, outcomes, backlog order, decisions and acceptance recommendation |
+| Technical Lead | architecture, decomposition, estimates, technical integration and readiness recommendation |
+| Data Owner | field ownership, migration reconciliation and real-data rehearsal approval |
+| Security Reviewer | authentication, authorization, privacy and security gate evidence |
+| Operations Owner | environments, backup/restore, deployment, monitoring, rollback and service readiness |
+| Delivery Lead | status, dependencies, RAID, change control, gate scheduling and forecast |
+| Independent Reviewer | evidence-based review without approving their own implementation |
+
+Current assignment: Peter Duscha is Product Sponsor, Acceptance Authority,
+Product Owner, Data Owner, Operations Owner and Delivery Lead. For each package,
+Peter designates the implementing agent as the working Technical Lead and a
+different agent as Independent Reviewer where practical. Security-sensitive
+work receives a separate security-focused review before Peter decides its gate.
+Tool names such as Claude, Gemini and Codex describe delivery resources, not
+approval authority.
+
+### 0.4 Planning and reporting rules
+
+- Target ranges are rough-order planning ranges for one focused implementer;
+  they are not commitments and exclude blocked time unless a phase plan states
+  otherwise.
+- Before a phase starts, its Technical Lead produces a work breakdown,
+  dependency check, capacity assumption, estimate range with confidence,
+  review/remediation allowance and named owners.
+- Calendar forecasts include maintainer decisions, independent review,
+  remediation, operational rehearsal, deployment and contingency.
+- Progress is measured by accepted deliverables and closed gate criteria, not
+  lines of code, elapsed time or raw test counts.
+- A phase plan must replace subjective terms such as `promptly`, `small`,
+  `reliably`, `agreed period` or `production-like` with a numeric threshold,
+  named environment or an explicitly approved operational check before the
+  affected criterion can close.
+- The Delivery Lead updates `docs/project-management/status.md` at each material
+  change and at least once per active delivery week.
+- Forecast variance outside the approved range, a newly critical risk, or a
+  blocked critical-path dependency triggers re-planning rather than silent
+  compression of testing or review.
+
+### 0.5 Project success measures
+
+The first release succeeds only when all §18 scope is accepted and:
+
+- every imported active Actor is mapped or explicitly unresolved in the signed
+  reconciliation report; no identity discrepancy is silently accepted;
+- automated migration/import tests show zero partial commits across injected
+  failure paths and the supervised rehearsal produces no unexplained mutation;
+- authorization tests show zero successful ordinary-member calls to Council or
+  Platform-Administrator operations;
+- duplicate and concurrent apply tests produce one durable effect and no
+  duplicate audit effect;
+- backup restoration and the documented application rollback are exercised in
+  a disposable or staging environment within the release gate;
+- all blocking review findings are closed and re-reviewed, with no waived
+  security, identity, financial-integrity, migration or authorization defect;
+- monitoring exposes health without secrets or player data; and
+- the Acceptance Authority signs the release record after the Data, Security
+  and Operations Owners recommend readiness.
 
 ## 1. Purpose
 
@@ -26,9 +147,19 @@ The target product consists of:
   lifestyle, missions, rewards, and Bastions; and
 - a future, optional AI-assisted report-writing workflow.
 
+Music is not part of the platform. Its former command implementation,
+dependencies, configuration and deployment templates have been removed. No
+platform phase or release criterion includes music.
+
 This is an incremental replacement of a live system. It is not a rewrite and
-does not authorize deleting the current bot, Google Sheet integration, live
-data, or deployment configuration.
+does not authorize deleting the current bot, its current Google Sheets runtime
+integration, live data, or deployment configuration. The legacy Discord bot
+continues to use Google Sheets until its Sheet-backed behavior has been replaced
+by the database-backed Freedom Blades Manager and the cutover has been verified.
+The Foundry active-character snapshot supplies Actor data outside the Sheet-era
+model. Google Sheets may bootstrap fields classified as
+Sheet-era/database-authoritative through validated manual entry or a narrow
+one-time import; it is not an ongoing platform authority.
 
 ## 2. Repository strategy
 
@@ -92,8 +223,11 @@ when its current feature is being migrated and protected by tests.
    mutable display values.
 7. Foundry is accessed through supported APIs and a narrow module. Never write
    directly to Foundry LevelDB.
-8. Google Sheets is retired through a measured migration, not an indefinite
-   dual-write arrangement.
+8. Google Sheets remains a legacy Discord-bot dependency during the transition.
+   Fields it currently owns may be bootstrapped as database authority; the Sheet
+   is not an ongoing platform authority and is retired only after the
+   database-backed Manager replaces the Sheet-backed behavior and the cutover is
+   verified.
 9. Authorization is enforced on the server for every request and command.
 10. AI may draft or extract proposals but never decides or applies game state.
 11. Production data is never used in automated tests or committed fixtures.
@@ -181,7 +315,7 @@ Foundry module ────────────────┘             �
                   ┌──────────────────────────┼──────────────────┐
                   ▼                          ▼                  ▼
               PostgreSQL              Google Sheets       External APIs
-             authoritative              temporary        Discord/Foundry
+             authoritative          legacy bot only      Discord/Foundry
 ```
 
 ### 5.2 Technology baseline
@@ -226,11 +360,16 @@ settlements.
 Before enabling writes, create `docs/rules/field-ownership.md`. Every synced
 field must be one of:
 
-- **Foundry-owned**: database imports changes; database does not overwrite it.
-- **Database-owned**: Foundry differences create warnings or receive approved
-  database updates.
+- **Foundry snapshot-only**: read from the immutable snapshot for display or
+  calculations, with no independently editable database representation.
+- **Foundry-owned**: database imports changes where a concrete platform use case
+  requires a persisted projection; database does not overwrite it.
+- **Database-owned**: Foundry differences create warnings or may be copied into
+  the database only through an explicit, selected Council correction.
 - **Council-approved shared**: Foundry differences create approval proposals.
-- **Derived**: calculated from authoritative inputs and never edited directly.
+- **Derived**: calculated from authoritative inputs; Council corrections change
+  the inputs or create an explicit compensating override rather than silently
+  replacing history.
 - **Display-only**: cached for presentation and safe to refresh.
 
 Initial recommendation:
@@ -238,17 +377,19 @@ Initial recommendation:
 | Field group | Initial owner |
 |---|---|
 | Foundry Actor ID and world ID | external mapping |
-| Name, image, class, species, level | Foundry, subject to review |
-| Ability scores and character mechanics | Foundry |
+| Character name and image | Foundry snapshot for comparison/display; name may be corrected in PostgreSQL through the protected workflow |
+| Species/race, class, subclass, background, ability scores, feats and level | PostgreSQL, protected Council correction |
 | Discord ownership links | PostgreSQL |
 | Missions, badges, last played | PostgreSQL |
 | Downtime and learning progress | PostgreSQL |
-| Lifestyle and Moradinium | PostgreSQL |
+| Lifestyle/living cost, weekly expenses and Moradinium | PostgreSQL |
 | CRP and homebrew crafting state | PostgreSQL |
 | Bastion state | PostgreSQL |
-| Currency | PostgreSQL after migration |
-| Inventory/notable items | explicit reconciliation required |
-| Languages and tool proficiencies | explicit reconciliation required |
+| Currency, debt and other homebrew balances | PostgreSQL |
+| Magic and homebrew-managed items | PostgreSQL; maintained manually in Foundry and compared on snapshot import |
+| Languages, tool proficiencies and special-weapon proficiencies | PostgreSQL; maintained manually in Foundry and compared on snapshot import |
+| Specials, no-shows and other Sheet-era homebrew state | PostgreSQL |
+| Skill proficiencies, mundane items, resistances, speed, conditions and other non-homebrew Actor mechanics | Foundry snapshot, read-only; persist no separately managed copy unless a later use case requires one |
 
 ### 6.2 Conflict policy
 
@@ -269,6 +410,51 @@ Council-approved shared fields generate proposals. Database-owned fields do
 not get overwritten by Foundry imports. Foundry-owned fields may be refreshed
 automatically only after the mapping and validation rules are approved.
 
+A Foundry snapshot is read-only evidence and a source of roll inputs. Skill
+proficiencies and other non-homebrew Actor mechanics are read from the immutable
+snapshot when application services need them; they do not become a second
+managed character model in PostgreSQL. Database-authoritative values are used
+for calculations whenever the database owns that field.
+
+For magic items, languages, tool proficiencies, special-weapon proficiencies and
+every other database-owned field represented in Foundry, reconciliation emits a
+warning that the Foundry Actor is out of date and should be updated manually.
+The platform does not write changes back to Foundry in this release.
+
+A Guild Council member may deliberately use snapshot values to correct selected
+database-authoritative fields, but never through a whole-Actor overwrite. The
+preview presents a versioned allowlist of eligible fields as individually
+selectable checkboxes, defaults them to unselected, shows before/after values and
+all affected calculations, and requires one Council member to confirm. The
+correction is atomic and append-only audited with the snapshot checksum and a
+reason. Reference-only Foundry fields and unknown JSON paths are never eligible
+for database overwrite.
+
+Every database-managed current-state field is manually correctable by any one
+currently authorized Guild Council member. No second approver is required.
+Corrections must use domain-aware operations: ledger, mission, crafting,
+inventory and other historical state is corrected through an explicit
+compensating action rather than editing or deleting the original record.
+
+Field ownership and correction sensitivity are separate. The versioned field
+profile assigns each database-managed field one correction mode:
+
+- **standard correction**: editable by one Council member with validation and a
+  required reason;
+- **protected correction**: for identity and progression facts such as name,
+  race/species, class, subclass, background, ability scores, feats and level;
+  it requires a dedicated before/after confirmation and warns about dependent
+  calculations, but still requires only one Council member; or
+- **compensating correction**: for balances, items, downtime, missions, debt,
+  expenses and other transaction/history-backed state; it appends a correction
+  transaction and leaves the original history intact.
+
+Every successful or refused correction records the Council Discord user,
+authorization context, time, source, reason, before/after values, correlation ID
+and, when applicable, snapshot checksum. Council members and Platform
+Administrators can read and search these audit records, but neither role can
+change or delete them through the application.
+
 ### 6.3 Foundry constraints
 
 The deployed baseline currently identified is:
@@ -280,9 +466,120 @@ The deployed baseline currently identified is:
 - system version: `5.3.3`;
 - source folder: `Characters (active)`.
 
-The connector must check compatible versions and fail safely on unsupported
-versions. It must use a Foundry module and authenticated HTTPS API. Reading or
-writing the live LevelDB database is not an application integration.
+Phase 2 does not connect to live Foundry. A Guild Council member deliberately
+exports an offline snapshot. The importer operates only on the supplied
+artifact and never writes to Foundry.
+
+The Phase 7 live connector must check compatible versions and fail safely on
+unsupported versions. It must use a Foundry module and authenticated HTTPS API.
+Reading or writing the live LevelDB database is not an application integration.
+
+### 6.4 Immutable Foundry snapshot
+
+The Phase 2 snapshot is an immutable, content-addressed record rather than a
+mutable interchange file:
+
+- the export includes the world ID, Foundry core version, game-system ID and
+  version, source-folder ID and name, export time, schema/exporter version, and
+  every selected Actor's stable external ID;
+- a Guild Council member takes the snapshot deliberately; one Council member is
+  sufficient to trigger an import;
+- the original artifact is preserved byte-for-byte and identified by a SHA-256
+  checksum recorded before parsing;
+- the snapshot record stores its checksum, provenance, triggering Discord user
+  or supervised-bootstrap actor, import time, selected folder, outcome, and an
+  audit correlation ID;
+- changing any byte creates a different snapshot. An imported artifact and its
+  audit record are never edited or overwritten;
+- preview, apply, reconciliation, audit, and every created external mapping
+  reference the same snapshot record and checksum;
+- parsing or previewing does not change character data;
+- reapplying the same checksum is a successful no-op or a typed
+  duplicate result, never a second mutation; and
+- a later snapshot is a new immutable record and explicit reconciliation event,
+  not a replacement for the initial snapshot.
+
+The supervised first import is a bootstrap operation and requires no separate
+approval record. It still records the supervising actor, exact checksum,
+selected folder, time, result and correlation ID in the append-only audit log.
+Later imports require one currently authorized Guild Council member to trigger
+them; triggering the import is the authorization event and no second approval
+workflow is required.
+
+The Manager UI accepts an offline snapshot and presents an import button only to
+Guild Council members. A Platform Administrator can select which Actor folder
+inside the snapshot is used; the default is `/actors/Characters (active)`.
+Selecting a folder and triggering an import are separate permissions: Platform
+Administrator alone does not grant game-policy authority to apply an import.
+Every attempted or completed import, including refusals, is audited. Snapshot
+import and reconciliation audit history is visible to Guild Council members and
+Platform Administrators; neither can change or delete it through the application.
+
+Snapshots are sensitive operational records. Accept only the documented data
+format; enforce byte-size, Actor-count, nesting and parsing limits; reject
+archives, executable content, unknown top-level structures and path-bearing
+uploads; and parse outside the database transaction. Store original artifacts
+with restricted access and encryption/backup treatment. Audit visibility does
+not by itself grant permission to download the raw artifact, and snapshot
+retention must be documented separately from the permanent checksum and audit
+record.
+
+Automated tests use small synthetic artifacts with synthetic actors. Real
+Council snapshots are operational inputs and must never be committed as test
+fixtures.
+
+### 6.5 Import, correction and audit invariants
+
+The following are implementation contracts, not UI conventions:
+
+- **Exhaustive field profile.** Every supported snapshot path is assigned a
+  snapshot mode (`snapshot-only`, `compare`, `Council-correctable`, or
+  `ignored`) and every database-managed field is assigned a correction mode
+  (`standard`, `protected`, or `compensating`). Unknown paths are reported and
+  cannot become writable. A schema change that introduces a field without a
+  classification fails closed. The profile has a version stored on every
+  preview, import and snapshot-based correction.
+- **Immutable preview input.** A preview records the snapshot checksum, selected
+  world/folder ID, field-profile version, database aggregate versions, selected
+  corrections and idempotency key. Apply rechecks all of them. Any changed
+  snapshot, folder, profile or database version makes the preview stale and
+  applies nothing.
+- **Atomic apply.** One import or correction commits its state changes,
+  external mappings, reconciliation results, compensating transactions and
+  audit event in one PostgreSQL transaction. An audit failure rolls back the
+  state change; a state failure writes no success audit event. After rollback,
+  an attempted/refused event may be written in a separate transaction with the
+  same correlation ID and safe failure category, but it must not claim or expose
+  partial state.
+- **Idempotency and concurrency.** Snapshot checksum plus selected folder and
+  field-profile version identify an import input. An explicit request key
+  identifies an apply attempt. Repeated requests return the original result.
+  Concurrent or stale applies cannot duplicate, lose or overwrite state.
+- **No implicit deletion.** An Actor missing from a later snapshot produces a
+  warning. It never deletes, deactivates or unmaps a character without a
+  separate Council correction.
+- **Snapshot-backed calculations.** Each calculation records the snapshot
+  checksum and exporter/profile version used. Missing, unsupported or stale
+  snapshot inputs produce a typed refusal or visible warning according to the
+  use case; calculations never silently substitute zero, no proficiency or an
+  older unreported value.
+- **Bootstrap is one-time.** The supervised bootstrap path is available only
+  against an empty/uninitialized Manager dataset, requires an explicit
+  bootstrap flag and named supervisor, and disables itself after the first
+  successful import. Later imports always require current Guild Council
+  authorization.
+- **Append-only audit.** The application exposes no audit update/delete use
+  case. The restricted runtime database role has `SELECT` and `INSERT`, but no
+  `UPDATE`, `DELETE` or `TRUNCATE`, on audit and transaction-history tables;
+  database constraints or triggers reject mutation through normal runtime
+  connections. Exceptional database-owner recovery is outside the application,
+  follows a documented procedure and cannot be presented as ordinary history.
+- **Safe audit content.** Audit records identify the snapshot by checksum and
+  store necessary structured before/after facts, not credentials, raw uploaded
+  files, arbitrary exception text or unrelated private Actor data.
+- **Role changes take effect at apply.** Preview permission is not sufficient.
+  Current guild membership and Council role are rechecked when applying a
+  correction or import. Revocation between preview and apply refuses the action.
 
 ## 7. Database model
 
@@ -315,7 +612,7 @@ following logical model is required.
 - `character_resources`
 - `wallet_balances`
 - `resource_transactions`
-- `items`
+- `item_definitions`
 - `character_items`
 - `proficiencies`
 - `character_proficiencies`
@@ -331,7 +628,182 @@ following logical model is required.
 Do not create every future table in the first migration. Add tables when a
 milestone has a real use case, domain model, and tests.
 
-### 7.4 Missions and reports
+### 7.4 Magic-item catalogue and character inventory
+
+Magic-item definitions and character ownership are separate concepts. A
+catalogue entry may be owned by many characters; ownership must therefore not
+be represented by putting a character foreign key on the catalogue row.
+
+Use at least these logical records when crafting and inventory are migrated:
+
+- `source_publications`: stable source code, title, publisher, edition,
+  upstream origin (`core`, `prerelease`, or `homebrew`), enabled state, import
+  time, and upstream version;
+- `item_definitions`: stable internal ID, upstream identifier, source-publication
+  ID, name, category, rarity, consumable status, attunement requirement,
+  craftable state, and explicitly permitted metadata;
+- `item_definition_revisions`: immutable, versioned catalogue facts and any
+  permitted descriptive content for a definition, with upstream snapshot,
+  effective time and content checksum;
+- `character_items`: character ID, item-definition ID, quantity or distinct
+  instance identity, the acquired definition revision, attunement state, notes,
+  acquisition time, and optimistic version;
+- `catalogue_imports`: immutable preview/apply record with upstream repository,
+  commit or release identifier, archive checksum, parser/schema version,
+  source-selection policy, status, counts and audit correlation ID; and
+- append-only inventory transactions recording crafting, acquisition,
+  consumption, transfer, correction, and other quantity/ownership changes.
+
+`character_items.character_id` references `characters.id` and
+`character_items.item_definition_id` references `item_definitions.id`. Unique
+magic items use distinct ownership rows. Stackable consumables may use a
+quantity, but every quantity change still receives a transaction and audit
+record.
+
+Enforce database constraints, not only application conventions:
+
+- upstream definition identity is unique on source publication plus upstream
+  identifier;
+- source codes are unique within an upstream catalogue;
+- quantities are positive for live ownership rows and transaction deltas may
+  not produce a negative balance;
+- a distinct item instance has quantity one;
+- an attuned ownership row must reference a definition that permits attunement;
+- import snapshot/checksum identity is unique, so the same snapshot cannot be
+  applied twice; and
+- foreign keys prevent deletion of definitions, revisions, characters or
+  imports referenced by inventory, crafting, transactions or audit history.
+
+The initial catalogue source is the structured item data used by
+`https://5e.tools/items.html`, imported as a reviewed, versioned snapshot rather
+than queried during a command. Do not scrape the interactive page or make live
+5e.tools availability a dependency of crafting. In this plan, **core** means
+records shipped in the upstream repository's main `data` collection; it excludes
+the separately distributed `homebrew` and `prerelease` collections regardless
+of publisher. The importer must:
+
+1. discover every publication referenced by the core 5e.tools item data;
+2. prepopulate and enable the allowlist with those core publications;
+3. exclude the separately classified `homebrew` and `prerelease` collections
+   by default;
+4. show publisher, source code, edition and item count, because presence in the
+   core dataset must not be presented as proof that Wizards of the Coast
+   published the source;
+5. import all magic-item definitions from enabled sources, including potions,
+   scrolls, ammunition and every other consumable category;
+6. key upstream identity by stable source plus upstream identifier, never by
+   mutable or non-unique item name;
+7. resolve or explicitly model generic magic variants instead of silently
+   flattening or dropping them;
+8. preview additions, updates, removals, duplicates and conflicts before an
+   administrator applies a refresh;
+9. apply each approved catalogue refresh transactionally and audit it with the
+   upstream version; and
+10. retain definitions referenced by inventory or history when a source is
+    disabled or disappears upstream. Such definitions become unavailable for
+    new crafting rather than being deleted.
+
+Acquire the upstream data as a pinned commit or versioned release archive and
+record a cryptographic checksum before parsing it. A mutable branch, live page,
+or unrecorded download is not an import source. Parser behavior is versioned so
+the same input and parser version produce the same preview. Automated tests use
+small synthetic records shaped like the upstream schema and never copy book
+content.
+
+Every import first creates an immutable preview against a specific current
+catalogue version. Applying it requires the same snapshot checksum, parser
+version, source-selection policy and current catalogue version. Any intervening
+catalogue change makes the preview stale and it must be regenerated. A database
+lock or equivalent serialization prevents two catalogue applies from
+interleaving. Reapplying an already applied snapshot is a successful no-op or a
+typed duplicate result, never a second mutation.
+
+Unknown item shapes, missing stable identity, duplicate upstream identity,
+unresolved generic variants and contradictory source metadata are blocking
+import issues. They are reported with source and record location but no
+copyrighted description. Warnings may not silently drop an item. An apply with
+any blocking issue commits nothing.
+
+Catalogue refreshes preserve history. Changes to meaningful catalogue facts
+create an immutable `item_definition_revision` and move the definition's
+current pointer; they do not rewrite an old revision. Existing character items
+retain the revision under which they were acquired, while new crafting uses the
+current enabled revision. Renames therefore preserve identity, and a removed or
+disabled definition remains readable in inventory and history. Upstream
+identifier replacement, merges and splits are ambiguous migrations requiring
+an explicit reviewed mapping; name similarity alone never rekeys an item.
+
+An administrator may later add or enable another 5e.tools publication through
+the same preview/import workflow. Homebrew and prerelease sources require an
+explicit Council decision before enablement.
+
+Catalogue membership means that an item is recognized; it does not by itself
+mean the item is craftable. Craftability is explicit policy. Character
+eligibility remains a separate deterministic calculation over the selected
+definition, applicable rules, rarity, prerequisites, recipe, time and cost.
+Crafting accepts an `item_definition_id`, not a caller-supplied item name, and
+completion atomically creates or increments `character_items` together with its
+inventory transaction, resource deductions, crafting result and audit event.
+Starting a project records the selected definition revision and policy version.
+Completion revalidates source enablement, craftability, prerequisites and
+optimistic versions. If any changed, it returns a typed stale-project result and
+applies nothing; Council may then review and deliberately rebase or cancel it.
+
+Transfers lock or version-check both character inventories and move the item in
+one transaction. Consumption locks or version-checks its stack, refuses an
+insufficient quantity, records the negative inventory transaction and never
+stores a zero or negative live ownership quantity. Corrections use compensating
+transactions rather than editing history.
+
+Catalogue import recovery is roll-back-first: parsing and previewing change no
+active catalogue definitions or inventory (an immutable preview record may be
+stored); a failed apply rolls back completely; the previously applied catalogue
+remains usable. Operations documentation must include how to identify
+the last applied snapshot, retry the same immutable input, and restore the
+database backup if the database itself fails during deployment. Never repair a
+partial catalogue with ad hoc row edits.
+
+Mandatory catalogue and inventory tests include:
+
+- core publications are prepopulated and enabled while homebrew and prerelease
+  collections are excluded;
+- every supported magic-item category, including representative potions,
+  scrolls, ammunition and other consumables, is imported from synthetic data;
+- duplicate names in different sources remain distinct, while duplicate stable
+  upstream identities block the import;
+- importing the same pinned snapshot twice is idempotent and produces no second
+  set of revisions or audit effects;
+- malformed records, unknown shapes, missing identifiers, contradictory source
+  metadata and unresolved variants report deterministic blocking issues and
+  commit nothing;
+- a stale preview and either of two concurrent applies are refused without
+  partial catalogue changes;
+- a parser failure, constraint failure or interrupted apply leaves the previous
+  catalogue fully usable;
+- rename creates a revision under the same identity; removal, source disabling
+  and refresh do not alter or orphan existing inventory or history;
+- ambiguous merge, split or upstream-ID replacement requires an explicit
+  reviewed mapping and is never inferred from a name;
+- disabled or unknown definitions cannot start crafting;
+- a project made stale by a definition, policy, eligibility or source change
+  cannot complete or spend resources;
+- unique items create distinct quantity-one instances, consumables stack, and
+  insufficient consumption cannot create a negative quantity;
+- concurrent consumption, transfer and craft completion detect stale versions
+  and cannot duplicate or lose an item;
+- transfer updates both characters, inventory transactions and audit in one
+  transaction, and a failure rolls all of them back; and
+- successful crafting atomically records the acquired revision, inventory,
+  resource/ledger effects and audit, while every injected failure leaves all of
+  them unchanged.
+
+Treat catalogue text and mechanics as third-party content with provenance. The
+licence of an upstream site's software must not be assumed to grant permission
+to redistribute every publication's descriptive text. Store only content the
+maintainers are authorized to retain; otherwise store identifying catalogue
+facts and an external/source reference.
+
+### 7.5 Missions and reports
 
 - `missions`
 - `mission_sessions`
@@ -348,7 +820,7 @@ milestone has a real use case, domain model, and tests.
 - `settlement_entries`
 - `discord_event_mappings`
 
-### 7.5 Approval and audit
+### 7.6 Approval and audit
 
 - `approval_requests`
 - `approval_decisions`
@@ -359,7 +831,7 @@ milestone has a real use case, domain model, and tests.
 Audit records are append-only. Corrections create new compensating actions.
 They do not mutate or delete historical transactions.
 
-### 7.6 Data representation rules
+### 7.7 Data representation rules
 
 - Store currency in integer copper.
 - Store Discord snowflakes safely as 64-bit integers or canonical strings.
@@ -396,7 +868,9 @@ approval remains immutable.
 - Application is atomic across all affected characters.
 - Double-clicks and retries cannot apply a proposal twice.
 - Stale proposals fail with a clear conflict and must be recalculated.
-- Optional two-person approval may later be enabled for configured thresholds.
+- One currently authorized Guild Council member is sufficient for Council
+  actions unless a separate future maintainer ruling explicitly changes a
+  particular workflow.
 
 ## 9. Security baseline
 
@@ -560,8 +1034,97 @@ Council-approved application.
 
 ## 12. Implementation phases
 
-Each phase ends at a review gate. Claude Code must not silently continue across
-a blocking gate.
+Each numbered phase ends at a review gate. An implementation agent must not
+silently continue across a blocking gate. The frontend visual design track in
+§12.1 is deliberately separate from the numbered implementation phases and may
+run in parallel under its stated restrictions.
+
+The target ranges below are rough-order effort ranges under §0.4, not calendar
+commitments. No phase receives a committed start or finish date until its
+management definition of ready is met and a capacity-based phase plan is
+accepted.
+
+### 12.0 Dependency and release map
+
+| Work | Required predecessors | May run in parallel with | Gate that releases successor work |
+|---|---|---|---|
+| Phase 0 | Approved project start | None | Architecture/data-handling gate releases Phase 1 |
+| Phase 1 | Phase 0 gate and blocking architecture decisions | Visual prototype | Schema/transaction gate releases Phase 2 |
+| Phase 2 | Phase 1 gate, field ownership and Foundry snapshot contract | Visual prototype | Data-integrity/migration gate releases Phase 3 |
+| Phase 3 | Phase 2 gate, accepted visual direction, named security reviewer | Phase 4 planning only | Authentication/security gate releases production portal integration |
+| Phase 4 | Phase 1 foundations; interfaces coordinated with Phases 2–3 | Late Phase 3 work where contracts do not conflict | Domain/dependency gate releases Phase 5 mutations |
+| Phase 5 packages | Phase 4 gate plus package-specific decisions and dependencies | Independent packages only when they touch no shared aggregate/cutover | Package gate releases only its own cutover; final gate releases Sheet retirement verification |
+| Phase 6 | Phase 3 security and Phase 4 command foundations | Later independent Phase 5 packages | Approval-centre gate releases workflows that require generic approval |
+| Phase 7 | Phase 2 snapshot contract, Phase 3 security and Phase 6 approval where shared fields require it | Independent Phase 5 packages | Foundry gate releases live connector use |
+| Phase 8 | Phase 3 identity/security and Phase 4 services | Phases 7 and late Phase 5 where resources permit | Attendance/privacy gate releases Phase 9 |
+| Phase 9 | Phase 6 approval centre and Phase 8 mission evidence | Phase 10 planning | Rules/financial-integrity gate releases settlement production use |
+| Phase 10 | Phase 4 and relevant Phase 5 economy migration | Phase 9 where aggregates do not overlap | Bastion gate releases Phase 11 |
+| Phase 11 | Phase 10 and catalogue/inventory foundations | None for the same Bastion aggregate | Facility gates release catalogue batches |
+| Phase 12 | Accepted manual Phase 9 reporting and separate privacy/provider approval | Non-critical-path work only | Separate optional-feature gate |
+
+The current critical path and actual gate states are maintained in
+`docs/project-management/status.md`. A row stating that work *may* run in
+parallel is not authorization to bypass its own readiness criteria.
+
+### 12.1 Parallel track — Frontend visual design prototype
+
+This track may be assigned independently to a frontend-focused implementation
+agent, including Gemini. It is design work, not the beginning of Phase 3, and
+does not satisfy or bypass any numbered-phase review gate.
+
+The prototype lives under `design-prototype/` until its design is accepted. It
+must remain a static, inert preview that can be opened locally without starting
+the bot, web application, database, or an external service.
+
+Deliver:
+
+- a Freedom Blades visual language covering colour, typography, spacing,
+  borders, elevation, icon treatment, and interaction states;
+- responsive application shell and navigation concepts;
+- static prototypes for login, My Characters, character detail,
+  reconciliation, and Council approval-queue/diff views;
+- reusable HTML and CSS component examples for cards, tables, forms, badges,
+  alerts, empty/loading/error states, pagination, and confirmation dialogs;
+- accessibility notes, responsive breakpoints, and a component inventory; and
+- a short integration handoff mapping prototype screens and components to the
+  Phase 3 Jinja templates and later HTMX partials.
+
+Constraints:
+
+- use only synthetic names, values, portraits, and records; never copy player,
+  production Discord, Sheet, Foundry, or database data;
+- do not add FastAPI routes, authentication, sessions, authorization,
+  application services, repositories, migrations, API calls, or production
+  configuration;
+- do not place prototype code in `web/` or import it from production code;
+- do not implement a functional login, approval, mutation, upload, sync, or
+  persistence flow; controls that suggest these actions are visual examples;
+- target the accepted Jinja2 and HTMX architecture, but do not introduce React,
+  Vue, another SPA framework, npm, a bundler, or a JavaScript build step;
+- use semantic, Jinja-compatible HTML and plain CSS. Optional prototype-only
+  JavaScript must be small, local, dependency-free, and removable;
+- do not use CDNs, remote fonts, trackers, analytics, or runtime network
+  dependencies;
+- use repository-owned or appropriately licensed assets, record their source
+  and licence, and do not generate or copy protected D&D publication art; and
+- preserve visible keyboard focus, usable contrast, reduced-motion behaviour,
+  sensible reading order, and narrow-screen operation.
+
+Acceptance:
+
+- every prototype page works as a static local preview with no network access;
+- layouts are usable at narrow mobile and desktop widths;
+- primary navigation and representative controls are keyboard reachable;
+- text and essential controls meet WCAG 2.2 AA contrast targets;
+- the component inventory covers normal, empty, loading, validation, denied,
+  stale, and system-error states;
+- no control can affect real or repository-backed state;
+- no production module imports or depends on `design-prototype/`; and
+- a maintainer accepts the visual direction before Phase 3 integration.
+
+Review gate: visual direction, accessibility, asset provenance, and fit with
+ADR 0002. This review does not approve authentication, authorization, web
+security, or production integration.
 
 ### Phase 0 — Discovery and architecture
 
@@ -613,30 +1176,182 @@ Review gate: schema, migrations, constraints, and transaction safety.
 
 ### Phase 2 — Import and reconciliation
 
-Target: 4–7 working days
+Target: 8–15 working days
+
+Planning note: this historical range is retained only as a rough-order record
+and must be re-estimated before the remaining Phase 2 work is forecast. Phase 2
+is managed as five evidence-bearing packages: (2.1) immutable artifact/parser
+and field profile, (2.2) preview/mapping/reconciliation, (2.3) correction,
+authorization and audit controls, (2.4) optional Sheet bootstrap, and (2.5)
+PostgreSQL concurrency/recovery/runtime-role evidence plus the supervised real-
+snapshot rehearsal. The gate closes only when all required packages are
+accepted; completion of the Sheet package alone is not milestone completion.
 
 Deliver:
 
-- dry-runnable Sheet importer;
-- Foundry active-character snapshot importer through a safe adapter;
+- an offline exporter contract and dry-runnable importer for the immutable
+  Foundry active-character snapshot defined in §6.4;
+- immutable snapshot provenance, checksum, triggering-actor and audit records;
 - stable external mappings;
 - validation and reconciliation reports;
+- a versioned Foundry field profile classifying fields as database-authoritative
+  comparison, snapshot-only roll input, selectable Council correction, or
+  ignored;
 - repeatable/idempotent imports;
-- no production writes.
+- no writes to Foundry or Google Sheets.
+
+Some database-authoritative homebrew values exist only in Google Sheets today.
+Because the live population is small, validated manual bootstrap entry is the
+default migration path for those values. A general Sheet migration framework is
+not required. Existing Sheet-import code may be reused or narrowed for a
+one-time import only when that is simpler than manual entry, and only for fields
+explicitly classified as Sheet-era/database-authoritative in the field profile.
+Foundry availability does not make a Sheet-authoritative value overwriteable by
+the snapshot. The bootstrap must preview and validate every value, write only
+PostgreSQL, and create no ongoing Sheet authority. The existing Sheets connector
+remains untouched because the live Discord bot still requires it.
 
 Acceptance:
 
-- all active characters map or are explicitly unresolved;
-- duplicates and malformed fields are reported;
+- every invariant in §6.5 is implemented and enforced below the web/Discord UI;
+- the initial `docs/rules/field-ownership.md` profile is exhaustive, versioned,
+  reviewed by a maintainer and contains no unclassified supported field;
+- no Phase 2 process requires network or live Foundry access;
+- the importer verifies the snapshot checksum, triggering authority, world,
+  Foundry and system versions, exporter schema, and selected folder identity
+  before proposing database changes;
+- altered snapshot bytes are treated as a different snapshot and cannot inherit
+  another snapshot's identity, preview or audit record;
+- all Foundry Actors in `Characters (active)` map or are explicitly unresolved;
+- duplicate external IDs, malformed fields, unsupported versions, missing
+  Actors and ambiguous mappings are reported;
 - repeated imports do not create duplicates;
 - import failure cannot partially commit;
+- stale or concurrent import/correction previews apply nothing;
+- preview and dry-run modes persist no character or mapping changes;
+- database-owned field disagreements produce warnings that Foundry should be
+  updated manually and do not overwrite PostgreSQL by default;
+- a Council correction may copy only explicitly selected, allowlisted Foundry
+  values into PostgreSQL after a before/after preview and records an atomic,
+  append-only audit event;
+- snapshot-only fields remain readable for calculations without becoming a
+  second managed representation in PostgreSQL;
+- calculations identify the snapshot and field-profile versions they used and
+  refuse missing required inputs rather than silently defaulting them;
+- an Actor missing from a later snapshot remains intact and mapped until a
+  separate Council correction changes that state;
+- every applied character and mapping is traceable to the immutable snapshot
+  checksum and triggering actor;
+- any optional Sheet bootstrap reads only fields explicitly classified as
+  Sheet-era/database-authoritative, never writes Google Sheets, and is not used
+  after bootstrap;
+- the restricted runtime database role cannot update, delete or truncate audit
+  and transaction-history records;
+- rollback/recovery and snapshot-retention procedures are documented;
+- a maintainer-supervised rehearsal with the real immutable snapshot produces a
+  reviewed reconciliation report without committing the artifact as a fixture;
 - real data is not copied into tests.
+
+Mandatory Phase 2 tests:
+
+- valid synthetic snapshot preview and apply, including the supervised bootstrap
+  path without a separate approval;
+- checksum mismatch after any byte is changed;
+- oversized, excessively nested, unknown-shape and path-bearing input is refused
+  before a database transaction begins;
+- denial for an ordinary member, acceptance for one Council member, and refusal
+  when Council authorization has been revoked;
+- wrong world, unsupported Foundry/system version, wrong folder, and unsupported
+  exporter schema;
+- malformed Actor data, duplicate external Actor ID, duplicate display name,
+  missing mapping and ambiguous mapping;
+- Actor rename under the same external ID and an Actor absent from a later
+  snapshot;
+- repeated preview and repeated apply of the same checksum;
+- stale preview after a database edit, field-profile change, folder change or
+  snapshot change, each committing nothing;
+- two concurrent applies of the same or overlapping snapshot cannot duplicate
+  characters, mappings, corrections or audit effects;
+- an Actor missing from a later snapshot warns without deletion, deactivation
+  or unmapping;
+- database-owned field mismatches produce a Foundry-out-of-date warning while
+  matching fields produce no warning;
+- selectable Council correction defaults every field to unselected, refuses
+  unknown or snapshot-only fields, applies selected allowlisted fields
+  atomically, and records before/after values, reason, actor and checksum;
+- one Council member can execute standard, protected and compensating
+  corrections; protected confirmation requires no second actor;
+- correction tests cover every database-managed field, including protected
+  identity/progression facts and append-only balance/history corrections;
+- Council can read and search correction audit records while update and delete
+  attempts are denied;
+- snapshot-only skill proficiency and Actor-stat inputs are available to roll
+  calculations without creating independently editable database fields, and
+  the result records its snapshot/profile provenance;
+- a required snapshot value that is missing, malformed or unsupported produces
+  the defined typed refusal rather than a default value;
+- every supported snapshot path and database field has exactly one applicable
+  profile/correction classification, and an unknown new path fails closed;
+- bootstrap requires the explicit flag and supervisor, refuses a non-empty
+  target, and cannot run again after successful initialization;
+- optional Sheet bootstrap refuses non-allowlisted fields and cannot let a
+  Foundry snapshot replace a Sheet-era/database-authoritative bootstrap value;
+  validated manual bootstrap produces the same database state;
+- parser failure, database constraint failure and injected mid-import failure,
+  each leaving characters and mappings unchanged, writing no success audit, and
+  recording at most one safe attempted/refused audit event;
+- injected audit-write failure rolls back the corresponding import/correction;
+- direct runtime-role `UPDATE`, `DELETE` and `TRUNCATE` attempts against audit
+  and transaction-history tables are rejected by PostgreSQL; and
+- database constraints preventing two records from claiming the same
+  world/Actor external identity, exercised against PostgreSQL.
 
 Review gate: data integrity and migration safety.
 
-### Phase 3 — Authentication and read-only portal
+### Phase 3 — Authentication, read-only member portal, and Council administration
 
-Target: 5–8 working days
+Target: 10–18 working days
+
+Planning note: baseline the backend security foundation, Council/import UI,
+member read views and production frontend integration as separately estimated
+packages. Authentication and server-side authorization contracts precede every
+protected production route; frontend integration starts only against accepted
+route/view-model contracts. The phase target is revalidated after named backend,
+frontend, security, accessibility and review capacity is known.
+
+#### Phase 3 implementation and review responsibilities
+
+Keep implementation and review responsibilities distinct. The Product Owner and
+Technical Lead assign named humans to the accountable roles in §0.3; the tools
+below are proposed implementation resources only:
+
+1. **Claude** implements the backend foundation: FastAPI structure, Discord
+   OAuth, sessions, server-side authorization, application queries, routes,
+   view models, and minimal integration templates sufficient to exercise the
+   contracts.
+2. **Gemini** implements the production frontend against those accepted route
+   and view-model contracts, adapting the approved §12.1 visual prototype into
+   Jinja templates, static assets, and appropriately modest HTMX enhancements.
+   Gemini does not redesign authentication, authorization, application-service,
+   persistence, or API boundaries as part of frontend work.
+3. An **Independent Reviewer** may use Codex to review both implementations and
+   their integration.
+   Review scope includes authentication and authorization boundaries, sessions,
+   CSRF, escaping, security headers, route/view-model contracts, Jinja and HTMX
+   behaviour, accessibility, responsive behaviour, error and stale states, and
+   automated test coverage.
+4. The named implementer, using Claude or Gemini according to the ownership
+   above, addresses review findings. Cross-boundary findings must be assigned
+   explicitly rather than being fixed through an unreviewed contract change.
+5. The Independent Reviewer re-reviews all blocking and important findings
+   before recommending that the Phase 3 review gate close. The Acceptance
+   Authority records the gate decision.
+
+Before Phase 3 begins, prepare coordinated Claude and Gemini prompts from this
+section and the accepted §12.1 handoff. Claude's backend contracts should be
+stable before Gemini begins production frontend integration. Visual prototype
+work may occur earlier under §12.1, but it does not authorize production web
+integration.
 
 Deliver:
 
@@ -644,7 +1359,18 @@ Deliver:
 - membership and role verification;
 - secure session handling;
 - Council character-link management;
-- Freedom Blades visual baseline;
+- Guild-Council-only offline snapshot import control;
+- Platform-Administrator folder selection for snapshot imports, defaulting to
+  `/actors/Characters (active)`;
+- reviewable field-profile controls showing which snapshot fields are used as
+  read-only roll inputs, compared with database authority, eligible for a
+  selected Council correction, or ignored;
+- standard, protected and compensating Council correction controls for every
+  database-managed current-state field;
+- Council-and-administrator-visible immutable correction, snapshot-import and
+  reconciliation audit log;
+- integrate the accepted Freedom Blades visual baseline from §12.1 into
+  production Jinja templates and static assets;
 - My Characters page;
 - character detail page;
 - read-only reconciliation view;
@@ -657,7 +1383,57 @@ Acceptance:
 - Council authorization uses role ID;
 - revoked membership/role is handled;
 - multiple characters per user work;
+- ordinary members cannot see or call the snapshot import control;
+- one authorized Council member can trigger an import without a second approval;
+- Platform Administrator alone cannot apply an import unless that user also has
+  Guild Council authority;
+- the Council confirmation shows the checksum, world, selected folder, Actor
+  count, mappings, warnings and every selected database correction;
+- database-correction checkboxes default to unselected and cannot be enabled for
+  snapshot-only or unknown fields;
+- any one authorized Council member can correct every database-managed
+  current-state field through its assigned correction mode;
+- protected corrections require an explicit before/after confirmation but no
+  second person;
+- transaction/history-backed corrections append compensating records and never
+  rewrite or delete their original history;
+- Council members can search correction and import audit records but cannot
+  modify or delete them;
+- snapshot import attempts and results are visible in the administrator audit
+  view without exposing snapshot contents to unauthorized users;
+- production templates preserve the accepted responsive and accessibility
+  baseline without importing or serving `design-prototype/`; and
 - security tests cover common authorization failures.
+
+Mandatory Phase 3 tests:
+
+- unauthenticated, non-member, ordinary-member, Council and
+  Platform-Administrator-only access for every import, correction, profile and
+  audit endpoint, checking direct HTTP calls as well as hidden controls;
+- Council role or guild membership revoked between preview and apply;
+- CSRF refusal, request/file-size limits, unsupported content type, malicious
+  filename, escaped Actor/warning text and unauthorized raw-snapshot download;
+- an administrator folder/profile change invalidates an existing Council
+  preview, and Council confirmation displays the exact changed scope before a
+  new apply;
+- double-click, retry and two-browser concurrent apply return one result and one
+  audit effect;
+- stale optimistic version after another Council correction applies nothing;
+- cross-character identifier substitution cannot read or mutate another record
+  outside the requested Council operation;
+- table-driven UI/application tests exercise standard, protected and
+  compensating correction for every field in the versioned field profile;
+- protected correction cannot be submitted without the dedicated confirmation
+  and reason, but succeeds with one Council member;
+- compensating correction changes the effective state while preserving the
+  original transaction/history rows;
+- Council and administrator can search audit records with bounded pagination;
+  ordinary users and unrelated service principals cannot read them;
+- no application route or repository operation can update/delete an audit
+  record, and attempted direct runtime-role mutation is rejected; and
+- audit rendering excludes raw snapshot bytes, secrets and unsafe exception
+  detail while retaining actor, action, source, time, reason, correlation ID and
+  before/after facts.
 
 Review gate: authentication, authorization, and web security.
 
@@ -687,7 +1463,34 @@ Review gate: dependency direction and domain correctness.
 
 ### Phase 5 — Existing automation migration
 
-Target: 10–15 working days
+Target: umbrella programme increment; the former 10–15 working-day range is
+withdrawn because it did not represent the scheduled jobs, catalogue,
+inventory, nine feature migrations, reviews or cutovers. Each package below is
+estimated and baselined separately when it meets the management definition of
+ready.
+
+#### Phase 5 work packages and gates
+
+| Package | Outcome | Package-specific predecessor | Gate |
+|---|---|---|---|
+| 5.0 Migration and cutover harness | feature flags, comparison telemetry, idempotency/audit conventions and common rollback procedure | Phase 4 gate | first-mutation and cutover-control review |
+| 5.1 `/info` | database-backed read path with linked-character authorization | 5.0, OD-16/17 resolved | read-path authorization review |
+| 5.2 `/xchange` | atomic, idempotent currency exchange | 5.0 and money/ledger foundation | first economy-mutation review |
+| 5.3 Lifestyle and scheduled accrual | interactive lifestyle behavior, Living Cost schedule/history/job, catch-up, monitoring and authority cutover | 5.0; OD-03/04 closed; effective-dated activation history | scheduled-economy and cutover review |
+| 5.4 Mining and work | characterized deterministic rules and atomic ledger effects | 5.0 and rule decisions | rules/economy review |
+| 5.5 Learning | learning projects, prerequisites, progress and corrections | 5.0; OD-09 and OD-28 closed | learning-rules review |
+| 5.6a Catalogue and inventory foundation | pinned catalogue import, definitions/revisions, inventory and transactions | Phase 4; source/licensing approval | catalogue, migration and inventory-integrity review |
+| 5.6b Crafting | projects and atomic completion against recognized definitions | 5.6a; OD-05 closed | crafting-rules and atomicity review |
+| 5.7 Sales | authorized atomic sale and ledger flow | 5.0, 5.6a where items are sold, OD-39 closed | authorization and financial-integrity review |
+| 5.8 Trades | authorized multi-character atomic trade and inventory transfer | 5.0, 5.6a, OD-39 closed | multi-actor atomicity review |
+| 5.9 Existing Bastion maintenance | migrated maintenance behavior and history | relevant lifestyle/resource packages | Bastion migration review; does not replace Phase 10 gate |
+| 5.10 Final bot cutover | reconciled package cutovers and verification window; Sheet rollback retained | every package in the agreed release scope approved | final bot-cutover review |
+
+Each package receives its own phase-plan record containing scope exclusions,
+work breakdown, three-point estimate, capacity, dependency owners, test mapping,
+rehearsal/cutover steps and contingency. A package may cut over only its own
+accepted behavior. Completion of one package does not imply completion of the
+Phase 5 umbrella or authorize a dependent package.
 
 Migrate in order:
 
@@ -700,6 +1503,124 @@ Migrate in order:
 7. sales;
 8. trades; and
 9. existing Bastion maintenance.
+
+#### Phase 5 scheduled economy jobs
+
+The lifestyle migration includes the existing weekly Living Cost accrual, not
+only the interactive lifestyle command. The platform must replace the active
+Sheet macro with a timer-triggered application job that increments each
+eligible character's Living Cost weeks owed by **1 on a configured weekday and
+time**. The initial migrated setting is **Sunday at 04:00**, matching the legacy
+automation. The authoritative timezone is the IANA zone **`Europe/Berlin`**
+(CET/CEST); it is not configurable and must not be replaced with a fixed `CET`
+offset or inferred from the deployment host. A currently authorized Platform
+Administrator can change the weekday and local time without editing code,
+direct SQL or the host timer. Guild Council membership alone does not grant
+this configuration permission.
+
+Store an immutable history of schedule revisions in PostgreSQL: weekday, local
+time, fixed `Europe/Berlin` timezone, effective instant, authorizing Platform
+Administrator, reason and creation time. Exactly one revision is effective for
+any instant. A schedule change is a validated, audited application command,
+not an update that erases the previous schedule. It cannot be backdated and
+needs no minimum lead time.
+It is refused while any accrual period under the current or an earlier revision
+is overdue or failed; the Administrator must first run or recover catch-up until
+the backlog is empty. This keeps a schedule change from obscuring which
+revision owns an unapplied period.
+
+The last successful accrual remains the anchor when a revision changes: the
+first occurrence of the new weekday/time after confirmation is recorded as a
+non-accruing transition occurrence, and the following weekly occurrence is the
+first one that increments Living Cost. This deliberate skipped transition
+prevents a schedule edit from charging another week merely because the new day
+is close to the old one. It is not a missed period and catch-up must never apply
+it later.
+
+Before confirmation, preview the last successful accrual, the proposed
+effective instant, the non-accruing transition occurrence, the first accruing
+occurrence, at least the next four accruing occurrences, the elapsed time
+between the last and first new accrual, `Europe/Berlin` and UTC representations,
+applicable DST effects, the projected eligible-character count and confirmation
+that the backlog is empty. The confirmation must state plainly that the first
+occurrence under the changed schedule will not increment Living Cost.
+
+An accrual period is identified by the immutable schedule-revision ID and the
+nominal local occurrence date/time, not by the process start time. Persist a
+database uniqueness constraint on that identity. This gives exactly-once
+**effects**, not an unrealistic promise that a distributed timer executes only
+once. Store the actual start/completion instants and status separately from the
+period identity.
+
+Daylight-saving behavior is deterministic: if a configured wall time does not
+exist during a forward clock change, that period becomes due at the first valid
+instant after the gap; if it occurs twice during a backward clock change, it is
+due once at the earlier occurrence. The preview must disclose an affected next
+occurrence. Time calculations use timezone-aware values and an injected clock;
+neither application code nor tests may depend on the host timezone.
+
+Changing the business schedule must not require regenerating the outer timer.
+The timer wakes at a fixed safe interval, invokes the application entry point,
+and the application decides from PostgreSQL state which periods are due. A late
+invocation catches up every unapplied occurrence in chronological order. Catch-
+up is bounded per invocation for operational safety and repeats until current;
+it never collapses several missed weeks into one period or silently drops them.
+
+The timer is an outer operational trigger, not the owner of the rule. It invokes
+the same deterministic application use case used for supervised replay, while
+PostgreSQL owns the resulting state, transaction, idempotency record and audit
+history. Prefer a repository-managed systemd timer in the existing deployment
+topology unless a separately reviewed decision approves a database scheduler.
+
+The job must:
+
+- use a stable accrual-period key so retries, restarts and concurrent timer
+  invocations cannot add the same week's Living Cost twice;
+- bind each accrual period to the effective schedule revision so a schedule
+  change cannot rename an already applied period or make it due twice;
+- resolve and persist the eligible-character set as it existed at the nominal
+  accrual instant from append-only or effective-dated character activation
+  history; only characters active at that instant accrue Living Cost, even when
+  the period is applied later during catch-up, and characters inactive then
+  receive neither an increment nor a per-character accrual record;
+- catch up every missed occurrence chronologically, in bounded batches, without
+  silently skipping, merging or duplicating a week;
+- apply the complete run transactionally, with concurrency protection and a
+  database-enforced unique period claim; two workers may attempt a period, but
+  only one may change balances or produce its success audit effects;
+- make one period atomic across its eligible population and audit writes: a
+  failure cannot leave only some characters incremented or claim success;
+- append a run-level audit record and per-character before/after facts
+  identifying the schedule revision, nominal period, system actor and
+  correlation ID;
+- support a supervised, idempotent manual replay through the application use
+  case and the same period identity rather than direct SQL;
+- require current Platform Administrator authorization, CSRF protection and an
+  optimistic schedule revision on preview/apply of a schedule change; and
+- expose failure, backlog depth, last successful period and next due period
+  through the normal operational health/monitoring path without player data.
+
+Per OD-36, keep the Sheet macro authoritative only while the legacy Sheet-backed
+behavior remains live and this replacement is built and reconciled. At the
+approved cutover, PostgreSQL becomes the sole authority and every database-
+backed Living Cost path must stop reading or reconciling column J. After that
+boundary, a Sheet macro may still alter the retired Sheet but cannot affect,
+overwrite or be imported into PostgreSQL. Disabling the obsolete macro remains
+recommended operational cleanup, not a correctness dependency of the database
+job. The cutover instant is also the beginning of platform accrual history:
+bootstrap the then-current active state at that instant and never synthesize or
+catch up platform periods before it. Later activation/deactivation changes must
+be effective-dated and audited so delayed jobs can reconstruct eligibility at
+their nominal occurrence. Frank's scheduled interest accrual follows the same
+timer/application-service, idempotency, audit and authority-cutover requirements
+when that economy field is migrated.
+
+Before migrating crafting, implement the versioned magic-item catalogue,
+source-publication allowlist, catalogue preview/import workflow, character
+inventory and inventory transaction model from §7.4. The initial reviewed
+catalogue enables all publications referenced by core 5e.tools item data while
+excluding its homebrew and prerelease collections. It includes all magic-item
+categories and consumables.
 
 For each command:
 
@@ -717,10 +1638,91 @@ Acceptance:
 - trade/crafting cannot partially apply;
 - database and domain tests pass;
 - feature flags permit controlled cutover;
-- Sheet rollback path exists during verification.
+- Sheet rollback path exists during verification;
+- the Living Cost job accrues exactly one week for each eligible character for
+  each configured weekly period, initially Sunday 04:00 in `Europe/Berlin`;
+- eligibility is evaluated at each nominal occurrence from effective-dated
+  activation history: characters inactive then never accrue, while characters
+  active then still accrue if that period is applied later during catch-up;
+- a currently authorized Platform Administrator can preview and change the
+  weekday and local time; Guild Council-only, ordinary and unauthenticated
+  callers, direct SQL and host-timer changes cannot change the business
+  schedule, and the timezone remains `Europe/Berlin`;
+- after a schedule change, the first new scheduled occurrence is durably
+  recorded as non-accruing and the following weekly occurrence is the first to
+  increment; retry, restart, replay and catch-up cannot turn the transition
+  occurrence into an accrual;
+- schedule history is immutable and auditable; a change cannot be backdated,
+  overwrite history, duplicate a boundary period or discard a period already
+  due under the preceding revision;
+- a schedule change is refused whenever any prior period is overdue or failed
+  and succeeds only after catch-up leaves an empty backlog;
+- a database uniqueness constraint guarantees one successful effect per
+  schedule revision and nominal local occurrence, including retries, restarts,
+  concurrent workers and supervised replay;
+- every missed weekly occurrence is caught up once in chronological order after
+  downtime, using bounded batches until the backlog is empty;
+- each period is atomic across all eligible characters and its audit facts, and
+  monitoring exposes last success, next due period, backlog and safe failure;
+- nonexistent and ambiguous daylight-saving wall times follow the specified
+  first-valid and earlier-occurrence rules and still produce exactly one period;
+- after authority cutover, no Sheet value or macro execution can change or be
+  imported into database Living Cost state;
+- crafting cannot accept a free-text or unknown item; it references an enabled,
+  recognized catalogue definition and separately enforces craftability;
+- a completed craft atomically records the owned item or quantity, inventory
+  transaction, resource changes and audit event;
+- catalogue refreshes are previewed, versioned, transactional and cannot delete
+  definitions referenced by character inventory or history; and
+- disabling a publication prevents new crafting from it without altering items
+  characters already own.
 
-Review gates: first mutation, trade atomicity, crafting/learning rules, and final
-bot cutover.
+Mandatory scheduled-job tests:
+
+- the initial Sunday 04:00 boundary and representative changed weekday/time
+  schedules in `Europe/Berlin`, including applicable daylight-saving
+  transitions;
+- Platform Administrator authorization, validation, audit history, complete
+  transition preview, empty-backlog precondition and effective-time behavior
+  for schedule changes;
+- unauthenticated, ordinary, Guild Council-only and revoked-Administrator
+  callers, stale schedule revision, CSRF failure, invalid weekday/time and
+  attempted backdating, each applying nothing;
+- changing a schedule before, exactly at and after a due boundary, proving the
+  old/new revision ownership of every period and the non-accruing first new
+  occurrence without duplication or later catch-up;
+- preview content showing the last accrual, transition occurrence, first and
+  next four accruals, elapsed interval, Berlin and UTC times, DST effect,
+  eligible count, backlog and an explicit no-accrual warning;
+- characters activated or deactivated between a missed period and its delayed
+  catch-up, proving eligibility comes from effective-dated state at the nominal
+  occurrence rather than current state;
+- initial cutover proving no platform period before the cutover instant is
+  synthesized or caught up;
+- retry, duplicate delivery, process restart and two concurrent invocations for
+  the same accrual period, with the database uniqueness constraint exercised
+  against PostgreSQL rather than only mocked;
+- one, multiple and more-than-one-batch missed periods, proving chronological
+  catch-up and eventual empty backlog;
+- a forward DST gap and backward DST fold, each producing exactly one effect at
+  the specified instant independently of the host timezone;
+- injected mid-run database and audit failures, each leaving the population
+  unchanged and recording no false success;
+- a character becoming active or inactive immediately before and after a
+  nominal occurrence, including when the job transaction runs later;
+- supervised replay using the same period key and application use case;
+- monitoring state for never-run, healthy, overdue, backlogged and failed jobs,
+  without names, balances or exception detail;
+- schedule changes with overdue, failed and multi-period backlogs, refused until
+  recovery/catch-up completes and then accepted against an empty backlog; and
+- post-cutover attempts to import or reconcile Sheet column J, proving the
+  retired Sheet and any surviving macro cannot affect database Living Cost.
+
+Review gates: the package gates above, including first mutation, scheduled
+economy, catalogue/inventory, trade atomicity, crafting/learning rules, and final
+bot cutover. Each decision follows §0 and
+`docs/project-management/README.md`; the umbrella closes only after all packages
+in the approved Phase 5 scope are accepted.
 
 ### Phase 6 — Council approval centre
 
@@ -872,6 +1874,9 @@ Review gates: facility abstraction, first complex facility, and catalogue batch.
 
 Begin only after manual reports and settlements are reliable.
 
+Target: not in the committed release baseline. Estimate only after a separate
+privacy, retention, provider and cost decision and after Phase 9 is accepted.
+
 Deliver:
 
 - report-draft interface;
@@ -883,6 +1888,26 @@ Deliver:
 
 AI output cannot mutate game state. Voice recording remains a separate future
 decision requiring explicit consent, privacy review, and deletion guarantees.
+
+Acceptance:
+
+- the feature is disabled by default and can be removed without affecting
+  manual reporting or settlement;
+- provider, data location, retention, cost limit and failure behavior are
+  approved and documented before any non-synthetic data is sent;
+- authorization and data minimization are enforced server-side;
+- every output is visibly a draft with provenance and requires explicit human
+  review;
+- deterministic validation and Council approval remain the only paths to game
+  state;
+- provider outage, timeout, malformed output and duplicate request cannot lose
+  a manual draft or apply a mutation;
+- tests use synthetic content and no production report or credential; and
+- privacy, security, accessibility and operations reviewers recommend approval.
+
+Review gate: optional-feature value, privacy, security, cost and operational
+readiness. The Acceptance Authority must add Phase 12 to a release baseline
+before production use.
 
 ## 13. Testing strategy
 
@@ -910,14 +1935,53 @@ decision requiring explicit consent, privacy review, and deletion guarantees.
 - guild role removed;
 - Actor renamed;
 - Foundry duplicate/missing mapping;
-- Sheet malformed row;
+- malformed or tampered Foundry snapshot;
 - migration failure and recovery;
 - mission settlement affecting multiple characters;
 - correction after approval;
 - attendance reconnect and late join;
-- unsupported Foundry version.
+- unsupported Foundry version;
+- pinned catalogue snapshot and checksum verification;
+- idempotent catalogue re-import and stale/concurrent preview refusal;
+- malformed, duplicate, removed, renamed and ambiguous upstream item records;
+- source disablement with retained historical inventory;
+- unique-item transfer and concurrent consumable use;
+- stale crafting project after definition, source or policy change; and
+- atomic craft completion across inventory, resources, ledger and audit.
 
 Tests must never contact production Discord, Sheets, Foundry, or PostgreSQL.
+
+### 13.3 Review-gate evidence
+
+A phase with data import or Council mutation cannot close on unit tests alone.
+Its handoff must include:
+
+- a traceability table mapping every acceptance criterion and mandatory scenario
+  to one or more named automated tests or to a clearly identified supervised
+  operational check;
+- unit and application tests for parsing, field policy, authorization,
+  reconciliation and typed failures;
+- repository/contract tests proving the same transaction and audit behavior for
+  fakes and the PostgreSQL adapter;
+- PostgreSQL integration tests for migrations, uniqueness, foreign keys,
+  optimistic concurrency, idempotency, rollback and runtime-role audit
+  immutability;
+- web security tests for authentication, current-role authorization, CSRF,
+  object-level authorization, input limits, escaping and stale submissions;
+- deterministic synthetic snapshot fixtures covering the supported schema
+  without real character data;
+- the narrow relevant suite followed by the full configured suite, with exact
+  commands and results reported;
+- configured formatter, linter, type checker, migration consistency and
+  `compileall` checks, or an explicit statement that a check is not configured;
+- diff review for secrets, raw snapshots, unsafe logs and accidental production
+  data; and
+- recovery documentation exercised against a disposable environment whenever
+  the phase introduces a new persistent mutation.
+
+Skipped tests, mocks and synthetic fixtures must be reported accurately. A test
+that only asserts a mocked method call does not prove a PostgreSQL constraint,
+transaction boundary, role permission or concurrent outcome.
 
 ## 14. Deployment and operations
 
@@ -949,28 +2013,41 @@ Before each production deployment:
 - Restore tests, not merely backup success messages.
 - Pre-migration backup.
 - Foundry backup before any approved outbound sync batch.
-- Sheet retained read-only for a defined verification window.
+- the legacy Sheet-backed bot remains available through the defined cutover and
+  rollback window.
 
 Applied migrations are never edited. Roll forward or create a documented
 recovery migration.
 
 ## 15. Google Sheets retirement
 
-Use these stages:
+Google Sheets is a temporary runtime dependency of the legacy Discord bot, not
+the character source for the Freedom Blades Manager. Character identity and
+snapshot-only Actor data come from Foundry. Fields classified as
+Sheet-era/database-authoritative may be entered manually or copied through a
+narrow, one-time, validated bootstrap. Do not build a general synchronization
+or migration framework around Google Sheets.
 
-1. characterize Sheet behavior;
-2. import into PostgreSQL;
-3. shadow-read and reconcile;
-4. cut selected reads over behind flags;
-5. cut selected writes over;
-6. make Sheet read-only;
-7. verify for an agreed period;
-8. export/archive the Sheet;
-9. remove service-account credentials and adapter.
+Use these retirement stages:
 
-Avoid indefinite dual writes. If temporary dual writes are approved, designate
-one authority, durably record secondary-write failures, and provide automated
-reconciliation.
+1. characterize the existing Sheet-backed bot behavior that must be preserved;
+2. import active characters from Foundry into PostgreSQL;
+3. manually enter or narrowly bootstrap the fields classified as
+   Sheet-era/database-authoritative and review their reconciliation report;
+4. implement the corresponding Manager application services and database-backed
+   bot/web behavior;
+5. compare the replacement behavior against the characterized legacy behavior;
+6. cut database-backed reads and writes over behind controlled feature flags;
+7. verify the Manager and bot operate correctly without Sheet-backed paths for
+   an agreed period;
+8. retain the Sheet connector, credential, and rollback path throughout that
+   verification window;
+9. after explicit maintainer approval, export/archive the Sheet and remove the
+   service-account credential, connector, and obsolete Sheet-backed code.
+
+Do not introduce dual writes between PostgreSQL and Google Sheets. PostgreSQL is
+authoritative for behavior after each approved cutover; the Sheet-backed path is
+a rollback implementation during verification, not a secondary data authority.
 
 ## 16. Claude Code working protocol
 
@@ -1045,25 +2122,26 @@ Review findings are classified:
 
 Blocking findings must be resolved and re-reviewed before proceeding.
 
-## 17. Decision log required before Phase 1 completion
+## 17. Decision governance
 
-Maintainers must decide and record:
+The authoritative OD-01–OD-40 record is
+`docs/discovery/open-decisions.md`; the actionable management index is
+`docs/project-management/decision-register.md`. The decisions originally
+required before Phase 1 completion are recorded there, and the closed Phase 0
+decisions remain valid unless superseded through §0.2 change control.
 
-- exact Discord guild and Council role IDs through configuration;
-- which Discord roles grant DM capabilities;
-- ordinary-user website mutation policy;
-- character co-ownership/delegation policy;
-- field ownership for currency, inventory, languages, and proficiencies;
-- initial source of truth during Sheet migration;
-- mission approval rules;
-- whether an approver may approve their own draft;
-- thresholds requiring a second approver, if any;
-- event/announcement channel mappings;
-- production domain and reverse proxy;
-- PostgreSQL deployment/backup method;
-- staging strategy;
-- retention policy for attendance and reports; and
-- supported Foundry/D&D5e version range.
+Before baselining any phase or package, the Delivery Lead verifies that every
+decision marked as blocking it is closed. Each open decision must have an
+accountable role, required-by milestone and management action. A deadline is
+added when a calendar forecast is established. If it is not resolved by the
+package's ready date, that package remains `not ready`; implementation does not
+choose policy by default.
+
+At minimum, decisions that govern authorization, field/data ownership,
+privacy/retention, game rules, production topology, migration authority,
+cutover or rollback require Product Owner recommendation and Acceptance
+Authority approval. Specialist recommendations from the Security Reviewer,
+Data Owner or Operations Owner are required where their area is affected.
 
 ## 18. Initial release definition
 
@@ -1074,7 +2152,7 @@ The first releasable version contains:
 - guild and Council-role verification;
 - Council-managed multi-character links;
 - imported active Foundry characters;
-- read-only Sheet/database/Foundry reconciliation;
+- read-only Foundry/database reconciliation;
 - My Characters and character detail pages;
 - audit foundation;
 - Freedom Blades branding;
@@ -1090,6 +2168,8 @@ It intentionally does not yet:
 - calculate mission rewards;
 - automate special facilities;
 - record or transcribe voice.
+
+It does not include music.
 
 ## 19. Definition of platform completion
 
@@ -1110,10 +2190,16 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-1. Maintainer reviews and approves or amends this plan.
-2. Add ADRs for repository strategy, web stack, database, authentication, and
-   field ownership.
-3. Catalogue Google Sheet schema, bot commands, and rules.
-4. Create a sanitized Foundry/Sheet mapping fixture.
-5. Establish PostgreSQL development and test environments.
-6. Begin Phase 1 only after the Phase 0 review gate.
+1. Prepare the next Phase 2 package with Peter Duscha as Acceptance Authority,
+   a designated implementing agent, a separate reviewer where practical, and a
+   package-level effort range; no additional standing team is required.
+2. Close and re-review the Phase 2 mapped-name normalization defect without
+   weakening the fail-closed identity policy.
+3. Re-estimate the five remaining Phase 2 packages, including independent
+   review, remediation, PostgreSQL evidence and supervised rehearsal.
+4. Complete the immutable Foundry snapshot importer, exhaustive field profile,
+   reconciliation/correction controls and required operational evidence.
+5. Submit the complete Phase 2 gate package; Phase 3 remains not ready until the
+   Acceptance Authority records an approved data-integrity/migration gate.
+6. Maintain current decisions, risks, dependencies and forecast in
+   `docs/project-management/` throughout delivery.

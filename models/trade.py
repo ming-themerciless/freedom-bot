@@ -51,6 +51,16 @@ class Trade:
         if self.seller:
             updates.extend(self.seller.sheet_updates())
 
+        if not updates:
+            return
+
+        # Both rows are confirmed before either is written. The two sides go out
+        # as one `batch_update`, so verifying afterwards would be too late and
+        # verifying only one side would leave the other's row free to have moved.
+        for actor in (self.buyer, self.seller):
+            if actor is not None:
+                actor.verify_sheet_row()
+
         from connectors.sheets import batch_update
 
         batch_update(updates)

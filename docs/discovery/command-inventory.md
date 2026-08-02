@@ -5,7 +5,9 @@ independent Codex review.** Five rule mismatches corrected under the maintainer
 ruling of 2026-07-29.
 
 Scope: every slash command registered by `main.py` as of the current
-`docs/platform-plan` branch, plus the optional music extension.
+`docs/platform-plan` branch. The former music extension was **removed** from the
+implementation under OD-40 (recorded as a duplicate "OD-38" until 2026-08-01) and
+is not deferred to a later phase, so it no longer appears in this inventory.
 
 Purpose: satisfy the Phase 0 acceptance criterion *"every current bot command
 has known reads, writes, and rule sources"*, and give Phases 4–5 a concrete
@@ -325,13 +327,7 @@ This is the cleanest module in the codebase: pure function, no I/O, no
 mutation, integer-only, fully unit-tested. It is the natural template for the
 Phase 4 domain layer and the correct first migration target after `/info`.
 
-## 3. Music commands — `music.py`
-
-`/play`, `/skip`, `/back`, `/queue`, `/remove`, `/stop`. Registered only when
-`ENABLE_MUSIC=1`. No Sheets access, no character state, no rule sources. Out of
-scope for the platform migration; they remain Discord-only adapter concerns.
-
-## 4. The fixed write set
+## 3. The fixed write set
 
 `Actor.sheet_updates()` unconditionally emits these cells on **every** save:
 
@@ -384,7 +380,7 @@ Two further round-trip losses come from the same mechanism:
   re-serialised, so any human formatting, ordering or unrecognised annotation in
   those cells is rewritten to the parser's canonical form.
 
-## 5. Cross-cutting gaps
+## 4. Cross-cutting gaps
 
 These apply to all mutating commands and become explicit requirements for
 Phases 3–5.
@@ -401,7 +397,7 @@ Phases 3–5.
 | G-8 | **Silent row cap.** `A3:AL150` supports 148 characters; the 149th is invisible to the bot with no error. | `models/actor.py:75` | 2 |
 | G-9 | **Read amplification.** Every command fetches the entire character table to find one row. | `models/actor.py:75` | 1 |
 
-## 6. Proposed application services
+## 5. Proposed application services
 
 The migration order in plan §12 Phase 5 maps onto these use cases. Names are
 proposals for the Phase 4 ADR, not settled API.

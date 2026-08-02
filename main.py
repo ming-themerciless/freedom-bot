@@ -1,7 +1,7 @@
-import logging, discord, os
+import logging, discord, sys
 from discord.ext import commands
 from config import DISCORD_TOKEN, GUILD_ID
-# from music import attach_music
+from ext.loader import ExtensionLoadError, load_required_extensions
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -13,6 +13,9 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
+# Every one of these is required: the error handler is what keeps exception text
+# out of Discord, and each command is a documented game action players rely on.
+# The bot refuses to start if any of them fails to load.
 EXTENSIONS = [
     "ext.error_handler",
     "ext.commands.info",
@@ -33,18 +36,13 @@ async def on_ready():
     logging.info("Guild ID: %s", GUILD_ID)
 
 def main():
-    for ext in EXTENSIONS:
-        try:
-            bot.load_extension(ext)
-        except Exception:
-            logging.exception("Failed loading extension: %s", ext)
     try:
-        if os.getenv("ENABLE_MUSIC", "0") == "1":
-            from music import attach_music
-            attach_music(bot, guild_ids=[GUILD_ID])
-    except Exception:
-        logging.exception("Music attach failed (stub or custom module missing).")
+        load_required_extensions(bot, EXTENSIONS)
+    except ExtensionLoadError as error:
+        logging.critical("%s", error)
+        return 1
     bot.run(DISCORD_TOKEN)
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

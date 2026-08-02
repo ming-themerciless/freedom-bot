@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 
 from application.imports import (
     ImportIssue,
@@ -8,6 +8,61 @@ from application.imports import (
     SheetCharacterCandidate,
     SheetCharacterImportReport,
 )
+from domain.names import DisplayName
+from helpers.utils import col_to_index
+
+#: The identity columns this importer reads, at the positions
+#: `docs/discovery/sheet-inventory.md` §3 records. The position is checked as
+#: well as the name: an inserted column would otherwise move every field
+#: silently, and the importer would write one character's data onto another.
+IDENTITY_COLUMNS = {
+    "Character Name (short)": "A",
+    "Character Name (long)": "B",
+    "Player Name": "C",
+    "Character Level": "F",
+    "Active": "AL",
+}
+
+#: Rows 1 and 2 of the Characters tab are both headers; data starts at row 3.
+FIRST_DATA_ROW = 3
+
+
+class SheetLayoutError(ValueError):
+    """The Sheet is not shaped the way the importer was written to read."""
+
+
+def rows_from_values(
+    values: Sequence[Sequence[object]], *, first_data_row: int = FIRST_DATA_ROW
+) -> list[dict[str, str]]:
+    """Turn a raw `Characters!A1:AL…` read into header-keyed rows.
+
+    The returned list is positional: index 0 is `first_data_row`, and a blank
+    row keeps its place rather than being dropped, because a row's position is
+    its import key. Short rows — Google omits trailing empty cells — are padded
+    rather than treated as malformed.
+    """
+    if not values:
+        raise SheetLayoutError("The Characters range returned no rows at all.")
+
+    headers = [str(header).strip() for header in values[0]]
+    for name, column in IDENTITY_COLUMNS.items():
+        index = col_to_index(column)
+        if index >= len(headers) or headers[index] != name:
+            found = headers[index] if index < len(headers) else "nothing"
+            raise SheetLayoutError(
+                f"Expected column {column} to be {name!r}, found {found!r}. "
+                "The Sheet layout changed; re-check the column map before importing."
+            )
+
+    header_rows = first_data_row - 1
+    return [
+        {
+            header: "" if index >= len(row) or row[index] is None else str(row[index])
+            for index, header in enumerate(headers)
+        }
+        for row in values[header_rows:]
+    ]
+
 
 def _value(row: Mapping[str, object], field: str) -> str:
     value = row.get(field, "")
@@ -69,8 +124,9 @@ def parse_character_rows(
 
     The live Characters range begins at row 3. Invalid rows are reported with
     their Sheet row and field and are excluded from candidates. Display names
-    are compared case-insensitively because the current bot lookup is likewise
-    case-insensitive; a duplicate is never resolved by first-match-wins.
+    are compared through `domain/names.py`, the one rule the platform claims
+    identities under, so two rows the importer could not later tell apart are
+    reported here; a duplicate is never resolved by first-match-wins.
     """
     candidates: list[SheetCharacterCandidate] = []
     issues: list[ImportIssue] = []
@@ -78,6 +134,11 @@ def parse_character_rows(
 
     for offset, row in enumerate(rows):
         row_number = first_row_number + offset
+        # A wholly empty row is a spacer, not a malformed character. It is
+        # skipped without an issue, and `row_number` still advances, because a
+        # row's position is what the import mapping is keyed on.
+        if not any(_value(row, field) for field in row):
+            continue
         row_errors_before = len(issues)
         display_name = _value(row, "Character Name (short)")
         if not display_name:
@@ -90,7 +151,10 @@ def parse_character_rows(
                 )
             )
         else:
-            normalized_name = display_name.casefold()
+            # The same key the platform claims identities under, so two rows the
+            # importer would later find indistinguishable are refused here,
+            # inside the run, with the row numbers still to hand.
+            normalized_name = DisplayName(display_name).identity_key
             earlier_row = seen_names.get(normalized_name)
             if earlier_row is not None:
                 issues.append(

@@ -1,3 +1,5 @@
+import math
+
 import discord
 from discord.ext import commands
 from discord.commands import Option
@@ -21,6 +23,12 @@ class Retail(commands.Cog):
                      material:              Option(int, name="material", required=False, default=0)):
         if ctx.channel.id != TRADE_CHANNEL_ID:
             return await ctx.respond("This rite may not be invoked in this chamber.", ephemeral=True)
+        # `nan` and `inf` pass every `< 0` test, so they have to be excluded
+        # first or they reach the money arithmetic, where they raise from inside
+        # Decimal and surface as an unexplained failure. Same check `/craft`
+        # already applies to its float options.
+        if not math.isfinite(crafting_cost):
+            return await ctx.respond("Cost must be a finite number.", ephemeral=True)
         if crafting_cost < 0 or quantity <= 0 or material < 0:
             return await ctx.respond("Cost, quantity, and material must be non-negative (quantity must be at least 1).", ephemeral=True)
         if "shop owner" not in [r.name.lower() for r in ctx.author.roles]: point_of_sale="general store"

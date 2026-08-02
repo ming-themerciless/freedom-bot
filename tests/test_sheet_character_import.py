@@ -3,7 +3,14 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from adapters.sheets.character_import import parse_character_rows
+import pytest
+
+from adapters.sheets.character_import import (
+    IDENTITY_COLUMNS,
+    SheetLayoutError,
+    parse_character_rows,
+    rows_from_values,
+)
 from application.imports import ImportIssueSeverity
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sheet_characters_sample.csv"
@@ -120,3 +127,84 @@ def test_verified_synthetic_fixture_produces_candidates_and_expected_anomalies()
         "invalid_integer",
         "invalid_boolean",
     }
+
+
+def fixture_headers() -> list[str]:
+    with FIXTURE.open(newline="", encoding="utf-8") as handle:
+        return next(csv.reader(handle))
+
+
+def values_from_fixture(*data_rows: list[str]) -> list[list[str]]:
+    """A raw `get_values` shape: header row, second header row, then data."""
+    headers = fixture_headers()
+    return [headers, [""] * len(headers), *data_rows]
+
+
+def data_row(**fields: str) -> list[str]:
+    headers = fixture_headers()
+    row = [""] * len(headers)
+    for name, value in fields.items():
+        row[headers.index(name)] = value
+    return row
+
+
+def test_raw_values_become_header_keyed_rows():
+    values = values_from_fixture(
+        data_row(**{"Character Name (short)": "Test Smith A", "Character Level": "4", "Active": "1"})
+    )
+
+    rows = rows_from_values(values)
+
+    assert len(rows) == 1
+    assert rows[0]["Character Name (short)"] == "Test Smith A"
+    assert rows[0]["Character Level"] == "4"
+
+
+def test_a_short_row_is_padded_rather_than_treated_as_malformed():
+    """Google omits trailing empty cells, so a valid row can arrive short."""
+    values = values_from_fixture(["Test Smith A"])
+
+    report = parse_character_rows(rows_from_values(values))
+
+    assert report.has_errors  # Active is blank, which is still not a boolean
+    assert {issue.field for issue in report.issues} == {"Active", "Player Name"}
+
+
+def test_a_blank_spacer_row_is_skipped_without_shifting_the_rows_below_it():
+    values = values_from_fixture(
+        data_row(**{"Character Name (short)": "Test Smith A", "Character Level": "4", "Active": "1", "Player Name": "testplayer01"}),
+        [],
+        data_row(**{"Character Name (short)": "Test Smith B", "Character Level": "5", "Active": "1", "Player Name": "testplayer02"}),
+    )
+
+    report = parse_character_rows(rows_from_values(values))
+
+    assert not report.has_errors
+    # Row 4 was blank and produced nothing, and row 5 kept its own number.
+    assert [(c.row_number, c.display_name) for c in report.candidates] == [
+        (3, "Test Smith A"),
+        (5, "Test Smith B"),
+    ]
+
+
+def test_an_unexpected_column_layout_refuses_to_import_anything():
+    headers = fixture_headers()
+    headers.insert(1, "Newly Inserted Column")
+
+    with pytest.raises(SheetLayoutError, match="Character Name \\(long\\)"):
+        rows_from_values([headers, [""] * len(headers), ["Test Smith A"]])
+
+
+def test_an_empty_read_is_refused_rather_than_reported_as_no_characters():
+    with pytest.raises(SheetLayoutError):
+        rows_from_values([])
+
+
+def test_the_identity_columns_match_the_verified_fixture_headers():
+    headers = fixture_headers()
+
+    for name, column in IDENTITY_COLUMNS.items():
+        index = 0
+        for character in column:
+            index = index * 26 + (ord(character) - ord("A") + 1)
+        assert headers[index - 1] == name

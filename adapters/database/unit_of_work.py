@@ -3,7 +3,12 @@ from __future__ import annotations
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .repositories import SqlAlchemyCharacterRepository, SqlAlchemyDiscordUserRepository
+from .repositories import (
+    SqlAlchemyAuditRepository,
+    SqlAlchemyCharacterRepository,
+    SqlAlchemyDiscordUserRepository,
+    SqlAlchemySheetRowMappingRepository,
+)
 
 
 class SqlAlchemyUnitOfWork:
@@ -16,6 +21,8 @@ class SqlAlchemyUnitOfWork:
 
     characters: SqlAlchemyCharacterRepository
     discord_users: SqlAlchemyDiscordUserRepository
+    sheet_row_mappings: SqlAlchemySheetRowMappingRepository
+    audit: SqlAlchemyAuditRepository
 
     def __init__(self, engine: Engine) -> None:
         self._session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -25,6 +32,8 @@ class SqlAlchemyUnitOfWork:
         self._session = self._session_factory()
         self.characters = SqlAlchemyCharacterRepository(self._session)
         self.discord_users = SqlAlchemyDiscordUserRepository(self._session)
+        self.sheet_row_mappings = SqlAlchemySheetRowMappingRepository(self._session)
+        self.audit = SqlAlchemyAuditRepository(self._session)
         return self
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:

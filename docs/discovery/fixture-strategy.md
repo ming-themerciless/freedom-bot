@@ -40,7 +40,7 @@ Governing rules, all binding:
 - *"Production data is never used in automated tests or committed fixtures."*
   (plan §3 principle 11)
 - *"Tests must never contact live Discord, Sheets, production databases, Foundry,
-  YouTube, or Lavalink. Do not use real player data or credentials in fixtures."*
+  external media services. Do not use real player data or credentials in fixtures."*
   (`.agents/AGENTS.md`)
 - Phase 0 acceptance: *"no secrets or real player records are committed."*
 
@@ -244,7 +244,7 @@ fixtures are the regression barrier between the two behaviours.
 - Unit and application tests use in-memory fakes. No file, no network.
 - Repository contract tests run against both the fake and real PostgreSQL, with
   the same assertions (`.agents/AGENTS.md`).
-- Google, Discord, Foundry and Lavalink clients are always test doubles.
+- Google, Discord and Foundry clients are always test doubles.
 - Any test that would open a socket fails the build. A `pytest` fixture that
   patches `socket.socket` at session scope is the cheapest enforcement and should
   be added in Phase 1, when the first integration tests arrive.
@@ -254,7 +254,7 @@ fixtures are the regression barrier between the two behaviours.
 Fixtures never contain credentials, including expired or revoked ones.
 
 `.gitignore` already excludes `.env`, `*.env`, `.env.*`, `service_account.json`,
-`*.pem`, `*.key` and `yt-cookies.txt`. The deployment gate (plan §14.2 step 4)
+`*.pem` and `*.key`. The deployment gate (plan §14.2 step 4)
 adds a secret scan.
 
 If a secret is ever suspected to have reached Git history or a log,

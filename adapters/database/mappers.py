@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from application.imports import SheetRowMapping
 from domain.identity import Character, DiscordUser
 
 
@@ -22,4 +23,12 @@ def discord_user_from_row(row: Mapping[str, Any]) -> DiscordUser:
         discord_id=row["id"],
         username=row["username"],
         global_name=row["global_name"],
+    )
+
+
+def sheet_row_mapping_from_row(row: Mapping[str, Any]) -> SheetRowMapping:
+    return SheetRowMapping(
+        character_id=row["character_id"],
+        sheet_tab=row["sheet_tab"],
+        row_index=row["row_index"],
     )

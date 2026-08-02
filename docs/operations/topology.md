@@ -37,13 +37,6 @@ no credential was read.**
    │   WorkingDirectory /opt/discord-bots/freedom-bot     │
    │   outbound only: Discord Gateway, Google Sheets API   │
    └──────────────────────────────────────────────────────┘
-
-   ┌──────────────────────────────────────────────────────┐
-   │ lavalink           systemd, user lavalink            │
-   │   127.0.0.1:2333 (loopback only)                     │
-   │   hardened: NoNewPrivileges, PrivateTmp,             │
-   │             ProtectSystem=full, ProtectHome          │
-   └──────────────────────────────────────────────────────┘
 ```
 
 | Component | Bind | Public | User | Managed by |
@@ -52,7 +45,6 @@ no credential was read.**
 | Caddy admin API | `127.0.0.1:2019` | no | — | system |
 | Foundry ×3 | `*:30001-30003` | via Caddy | `foundry` | not systemd-templated in this repo |
 | `freedom-bot` | none (outbound only) | no | `discordbot` | `infra/systemd/freedom-bot.service.tmpl` |
-| Lavalink | `127.0.0.1:2333` | no | `lavalink` | `infra/systemd/lavalink.service.tmpl` |
 | PostgreSQL | — | — | — | **does not exist yet** |
 
 ### Findings
@@ -95,11 +87,10 @@ effective, so the failure mode is *"the second instance refuses to launch
    configuration must be able to point at a different port without any change to
    world or actor identity. It must not assume port 30001.
 
-**F-3 — The bot's systemd unit hardening lags Lavalink's.** The Lavalink unit sets
-`NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=full` and `ProtectHome`. The
-`freedom-bot` unit sets none of these, despite holding the Discord token and the
-Google service-account key. Adding them is a small, low-risk change and is
-proposed for Phase 1.
+**F-3 — The bot's systemd unit lacks standard hardening.** The `freedom-bot`
+unit does not set `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem` or
+`ProtectHome`, despite holding the Discord token and Google service-account key.
+Adding them is a small, low-risk change proposed for Phase 1.
 
 **F-4 — The unit's `User=discordbot` does not match the file owner.** The
 repository is owned by `foundry:discordbot`. Group access is what makes this work;
@@ -126,7 +117,7 @@ Developer workstation
 ├── PostgreSQL 16 (test)   localhost:5432   database freedom_test  (recreated per run)
 ├── freedom-web            localhost:8000   uvicorn --reload
 ├── freedom-bot            optional, against a private test Discord guild
-└── pytest                 fakes for Discord, Sheets, Foundry, Lavalink
+└── pytest                 fakes for Discord, Sheets and Foundry
 ```
 
 **Rules for development**
@@ -226,7 +217,7 @@ staging service must not receive any production credential or endpoint.
 | 3 | Caddy site block for the web app, with HSTS, CSP and security headers | plan §9.2 |
 | 4 | Rate limits on authentication and sensitive endpoints | plan §9.2 |
 | 5 | Encrypted, off-host, **restore-tested** backups | plan §14.3 |
-| 6 | Systemd hardening on `freedom-bot` matching Lavalink (F-3) | §1 |
+| 6 | Systemd hardening on `freedom-bot` (F-3) | §1 |
 | 7 | Secrets via `EnvironmentFile=` at `0600`, or a credential store (F-5) | plan §9.3 |
 | 8 | Structured logging with correlation IDs, no tokens or player data | `.agents/AGENTS.md` |
 

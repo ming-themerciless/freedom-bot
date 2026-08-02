@@ -11,12 +11,17 @@ from dataclasses import replace
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from application.audit import ActorCapability, AuditEvent, AuditSource
 from application.errors import ConcurrencyConflictError
+from application.imports import SheetRowMapping
 from adapters.database.repositories import (
+    SqlAlchemyAuditRepository,
     SqlAlchemyCharacterRepository,
     SqlAlchemyDiscordUserRepository,
+    SqlAlchemySheetRowMappingRepository,
 )
 from adapters.database.unit_of_work import SqlAlchemyUnitOfWork
 from domain.identity import Character, DiscordUser
@@ -100,6 +105,207 @@ def test_character_repository_rejects_saving_an_unknown_character(session):
 
     with pytest.raises(ConcurrencyConflictError):
         repository.save(Character.create("Never Persisted"), expected_version=0)
+
+
+def test_character_repository_finds_by_display_name_ignoring_case(session):
+    repository = SqlAlchemyCharacterRepository(session)
+    character = Character.create("Synthetic Hero")
+    repository.add(character)
+    session.flush()
+
+    assert repository.find_by_display_name("synthetic hero") == (character,)
+    assert repository.find_by_display_name("Synthetic Villain") == ()
+
+
+def test_character_repository_returns_every_display_name_match(session):
+    """Display names carry no uniqueness rule, so a caller must see all of them."""
+    repository = SqlAlchemyCharacterRepository(session)
+    first = Character.create("Synthetic Twin")
+    second = Character.create("synthetic twin")
+    repository.add(first)
+    repository.add(second)
+    session.flush()
+
+    found = repository.find_by_display_name("Synthetic Twin")
+
+    assert {character.id for character in found} == {first.id, second.id}
+
+
+def test_sheet_row_mapping_repository_round_trip(session):
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemySheetRowMappingRepository(session)
+    character = Character.create("Synthetic Hero")
+    characters_repository.add(character)
+    mapping = SheetRowMapping(character.id, "Characters", 3)
+
+    repository.add(mapping)
+    session.flush()
+
+    assert repository.get_character_id("Characters", 3) == character.id
+    assert repository.get_character_id("Characters", 4) is None
+    assert repository.get_character_id("Retired", 3) is None
+    assert repository.list_for_tab("Characters") == (mapping,)
+
+
+def test_sheet_row_mapping_repository_lists_a_tab_in_row_order(session):
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemySheetRowMappingRepository(session)
+    for row_index in (9, 3, 5):
+        character = Character.create(f"Synthetic Hero {row_index}")
+        characters_repository.add(character)
+        repository.add(SheetRowMapping(character.id, "Characters", row_index))
+    session.flush()
+
+    assert [m.row_index for m in repository.list_for_tab("Characters")] == [3, 5, 9]
+
+
+def test_the_database_refuses_two_characters_on_one_sheet_row(session):
+    """Idempotency is a constraint, not a convention (ADR 0003)."""
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemySheetRowMappingRepository(session)
+    first = Character.create("Synthetic Hero")
+    second = Character.create("Synthetic Rival")
+    characters_repository.add(first)
+    characters_repository.add(second)
+    repository.add(SheetRowMapping(first.id, "Characters", 3))
+    session.flush()
+
+    # A Core insert reaches the server immediately, so the constraint fires here
+    # rather than at flush time.
+    with pytest.raises(IntegrityError):
+        repository.add(SheetRowMapping(second.id, "Characters", 3))
+
+
+def test_audit_repository_appends_an_unattended_import_event(session):
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemyAuditRepository(session)
+    character = Character.create("Synthetic Hero")
+    characters_repository.add(character)
+    event = AuditEvent(
+        action="sheet_import.character.created",
+        entity_type="character",
+        entity_id=str(character.id),
+        source=AuditSource.IMPORT,
+        actor_capability=ActorCapability.SYSTEM,
+        correlation_id=character.id,
+        payload={"sheet_tab": "Characters", "row_index": 3},
+    )
+
+    repository.record(event)
+    session.flush()
+
+    stored = session.execute(
+        text(
+            "SELECT actor_discord_user_id, actor_capability, source, payload "
+            "FROM audit_events WHERE id = :id"
+        ),
+        {"id": event.id},
+    ).one()
+    assert stored.actor_discord_user_id is None
+    assert stored.actor_capability == "system"
+    assert stored.source == "import"
+    assert stored.payload == {"sheet_tab": "Characters", "row_index": 3}
+
+
+def test_a_nested_frozen_payload_still_stores_as_the_json_it_describes(session):
+    """The freeze is recursive; the column is JSONB, and neither may bend.
+
+    `MappingProxyType` and `tuple` are what the recursive freeze produces and
+    neither is JSON-serializable, so the adapter converts back at the
+    persistence boundary. If it stopped doing that this test fails at the
+    driver, and if it converted by mutating the event the assertion below on
+    the in-memory payload fails instead.
+    """
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemyAuditRepository(session)
+    character = Character.create("Synthetic Hero")
+    characters_repository.add(character)
+    event = AuditEvent(
+        action="sheet_import.character.updated",
+        entity_type="character",
+        entity_id=str(character.id),
+        source=AuditSource.IMPORT,
+        actor_capability=ActorCapability.SYSTEM,
+        correlation_id=character.id,
+        payload={
+            "sheet_tab": "Characters",
+            "changes": {
+                "level": {"from": None, "to": 5},
+                "active": {"from": True, "to": False},
+            },
+            "rows": [3, 4],
+        },
+    )
+
+    repository.record(event)
+    session.flush()
+
+    stored = session.execute(
+        text("SELECT payload FROM audit_events WHERE id = :id"), {"id": event.id}
+    ).scalar_one()
+    assert stored == {
+        "sheet_tab": "Characters",
+        "changes": {
+            "level": {"from": None, "to": 5},
+            "active": {"from": True, "to": False},
+        },
+        "rows": [3, 4],
+    }
+    # The event itself is unchanged, and still refuses mutation.
+    with pytest.raises(TypeError):
+        event.payload["changes"]["level"]["to"] = 20  # type: ignore[index]
+
+
+def test_finite_numbers_survive_the_jsonb_round_trip_at_every_depth(session):
+    """The other side of the non-finite refusal: finite numbers must still store.
+
+    `AuditEvent` refuses `NaN` and the infinities because PostgreSQL rejects them
+    as JSONB — `invalid input syntax for type json`, which fails the transaction
+    and therefore the mutation being audited. That refusal is only correct if it
+    is narrow, so this stores finite values nested in both a mapping and a
+    sequence and reads them back through the column.
+
+    The values are ordinary magnitudes on purpose. JSONB stores a number as
+    `numeric`, so an extreme float such as `1e308` comes back as the exact
+    308-digit integer rather than the float that went in. That is a faithful
+    JSON round trip and not a defect, but it is a distinct property from the one
+    under test here.
+    """
+    characters_repository = SqlAlchemyCharacterRepository(session)
+    repository = SqlAlchemyAuditRepository(session)
+    character = Character.create("Synthetic Hero")
+    characters_repository.add(character)
+    event = AuditEvent(
+        action="sheet_import.character.updated",
+        entity_type="character",
+        entity_id=str(character.id),
+        source=AuditSource.IMPORT,
+        actor_capability=ActorCapability.SYSTEM,
+        correlation_id=character.id,
+        payload={
+            "changes": {
+                "downtime": {"from": 0.0, "to": 1.125},
+                "level": {"from": 4, "to": 5},
+            },
+            "amounts": [-2.5, 0.0, 1234.5],
+            "flags": [True, False, None],
+        },
+    )
+
+    repository.record(event)
+    session.flush()
+
+    stored = session.execute(
+        text("SELECT payload FROM audit_events WHERE id = :id"), {"id": event.id}
+    ).scalar_one()
+    assert stored == {
+        "changes": {
+            "downtime": {"from": 0.0, "to": 1.125},
+            "level": {"from": 4, "to": 5},
+        },
+        "amounts": [-2.5, 0.0, 1234.5],
+        "flags": [True, False, None],
+    }
 
 
 def test_saving_a_character_advances_updated_at(committed_database):

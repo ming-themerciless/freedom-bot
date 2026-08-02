@@ -1,0 +1,320 @@
+# Handover — Phase 2 mapped-name normalization closure (I-01)
+
+Date: 2026-08-02
+Implementing agent: Claude (working Technical Lead for this correction)
+Branch: `docs/platform-plan`, nothing committed or pushed
+Decision: **Accepted by Peter Duscha on 2026-08-02 after independent Codex
+re-review. I-01 is closed.**
+
+> The maintainer prompt this work was performed against previously occupied this
+> file. It is preserved unchanged at
+> [`phase-2-normalization-prompt.md`](phase-2-normalization-prompt.md).
+
+**The full implementation handoff is `docs/review/phase-2-submission.md`,
+revision 7** — §0.4 (the defect and the correction), §2.14 (the fix, the test
+table, both failure proofs), §4 (files changed), §7.0.2 (verification), §13.2
+(what this touched and did not). This document is the summary for the
+Acceptance Authority.
+
+---
+
+## 1. Scope, and what was not done
+
+Closed the mapped-name normalization defect (**I-01**) in the existing Phase 2
+Sheet identity bootstrap slice. Nothing else was started: no Foundry snapshot
+importer, no field profile, no reconciliation/correction controls, no Phase 3
+work, no rename/re-key command, no other Phase 2 package.
+
+**This does not close the Phase 2 gate.** Issue **I-02** — the incomplete
+Foundry snapshot milestone — is untouched, as are the runtime-role, concurrency,
+recovery and supervised real-snapshot evidence requirements.
+
+## 2. The defect, reproduced before any production edit
+
+`application/sheet_import.py` decided "capitalization only" with Python
+`casefold()` **and skipped the collision lookup entirely** when the two folded
+names matched. The fake and PostgreSQL character repositories resolved
+`find_by_display_name()` with `lower()`. `casefold()` expands `ß` into `ss`;
+`lower()` does not.
+
+Run against the untouched tree:
+
+```text
+applied= True
+issues= []
+names= ['Test STRASSE', 'Test STRASSE']
+```
+
+Two characters committed under one display name, with no blocking issue —
+matching Codex's reported result exactly.
+
+### Regression proof that failed before the fix
+
+Two proofs, because the defect spans two layers.
+
+**Application layer.** Nine regression tests were added to
+`tests/test_sheet_import_service.py` and run **before any production file was
+edited**: **6 failed, 33 passed**.
+
+| Failing test | Why |
+|---|---|
+| `test_a_sharp_s_expansion_is_a_semantic_name_change_not_a_capitalisation_fix` | the expansion was classified as a permitted re-capitalisation |
+| `test_a_sharp_s_expansion_never_commits_two_characters_under_one_name` | **the reported reproduction** |
+| `test_an_unmapped_sharp_s_variant_never_mints_a_second_character` | creation forked the identity |
+| `test_a_capitalisation_only_change_onto_a_taken_name_is_a_collision` | the lookup was skipped, so the collision was invisible |
+| `test_the_dry_run_and_the_apply_agree_on_a_normalisation_refusal` | there was no refusal to agree on |
+| `test_a_valid_update_beside_a_normalisation_refusal_rolls_back_with_it` | the run committed instead of rolling back |
+
+The remaining three of the nine are guards that must pass either way.
+
+**PostgreSQL layer.** With everything else corrected,
+`SqlAlchemyCharacterRepository.find_by_display_name` alone was reverted to the
+SQL `lower()` form and the database suites re-run: **4 failed, 40 passed** — the
+`sharp s expansion`, `sharp s expansion, lower` and `canonically equivalent`
+rows of the repository-policy test, plus
+`test_an_unmapped_sharp_s_variant_creates_no_second_character_in_postgresql`.
+The file was restored from a copy taken beforehand, confirmed **byte-identical
+by `cmp` and by MD5**, and the suites re-run green (44 passed).
+
+Note which test did *not* fail in the second proof:
+`…_sharp_s_expansion_never_commits_two_characters_under_one_name` passed with
+the `lower()` adapter, because there the imported name is byte-identical to the
+other character's stored name and SQL `lower()` finds it. The adapter's fold
+matters when the *stored* name differs from the queried one by the fold — the
+unmapped-creation case that did fail. Neither proof alone covers the defect.
+
+**No code was left deliberately broken.** The tree is green.
+
+## 3. The correction
+
+One comparison policy, `domain/names.py` — a frozen `DisplayName` value object
+importing only `unicodedata` and `dataclasses`. Three intention-revealing
+relations, two deliberately different folds:
+
+| Relation | Decides | Fold | Errs |
+|---|---|---|---|
+| `is_exactly` | idempotence; no lookup needed | none | — |
+| `differs_only_in_capitalization` | may apply without a human | NFC + `lower()` | **narrow** |
+| `claims_same_identity_as` / `identity_key` | whether another character holds the name | NFC + `casefold()` | **wide** |
+
+Both error directions land on *refuse*, which is the direction this importer
+already chose everywhere else. NFC normalisation precedes either fold, so two
+canonically equivalent encodings of one name are one name — without it, creation
+could fork an identity on how a name was typed.
+
+**The containment is structural, not an assumption about Unicode.**
+`differs_only_in_capitalization` is defined *through* `claims_same_identity_as`,
+so nothing exempt from the identity refusal can escape the collision lookup,
+whatever a future Unicode revision does. Asserted per case in
+`test_nothing_identity_neutral_escapes_the_collision_key`.
+
+Behavioural results:
+
+- `Test Straße -> Test STRASSE` is a semantic rename, refused like any other;
+- `Test Smith A -> TEST SMITH A` still applies — **after** a collision lookup;
+- every non-exact spelling change is looked up, including capitalisation-only;
+- unmapped creation uses the same key, so it cannot mint a second character.
+
+## 4. Files changed, and why
+
+**New**
+
+| File | Why |
+|---|---|
+| `domain/names.py` | the single comparison policy; infrastructure-free, so it sits in `domain/` beside `Character` |
+| `tests/display_name_cases.py` | the 12-case table every layer is checked against |
+| `tests/test_display_name_policy.py` | the rule, its containment property, symmetry, and parser/fake/service agreement (86 collected) |
+
+**Changed**
+
+| File | Why |
+|---|---|
+| `domain/identity.py` | `Character.name` exposes a comparable name rather than bare text |
+| `application/imports.py` | `SheetCharacterCandidate.name` likewise |
+| `application/repositories.py` | the `CharacterRepository` protocol states the comparison an implementation must answer for, and why a narrower one is the defect |
+| `application/sheet_import.py` | `is_semantic_name_change` delegates to the policy; new `is_spelling_change` drives the lookup; `_resolve` looks a name up for every non-exact mapped name instead of skipping on `casefold()` equality; `_update` blocks a capitalisation-only change onto a claimed name as `name_collision`; `_rows_by_name` keys on the identity key; docstrings corrected |
+| `adapters/sheets/character_import.py` | the parser's in-run duplicate check keys on the shared identity key |
+| `adapters/database/repositories.py` | `find_by_display_name` compares in Python on the policy instead of asserting a SQL `lower()` equivalence that does not hold; cost and threshold documented; the now-unused `func` import removed |
+| `tests/fakes.py` | the fake repository uses the same policy, so the application suite can no longer prove a decision the database would not reach |
+| `tests/test_sheet_import_service.py` | 30 → 39 collected |
+| `tests/test_sheet_import_database.py` | 7 → 24 collected, against real PostgreSQL |
+| `docs/operations/sheet-import.md` | new *How two names are compared* section: the two folds, eight worked examples, the sharp-`s` explanation, the scan/threshold note; `duplicate` and `name_collision` rows updated; a *One comparison rule* guarantee added |
+| `docs/review/phase-2-submission.md` | revision 7, preserving revisions 1–6 with their corrections struck rather than rewritten |
+| `docs/project-management/status.md` | health, milestone state, critical path and blockers |
+| `docs/project-management/raid-register.md` | R-01 mitigation and residual; I-01 state; new I-05 |
+
+`docs/project-management/change-log.md` is **not** updated: this implements the
+accepted identity policy rather than amending baseline v1.0.
+
+## 5. Verification, exact
+
+Repository `./venv` (Python 3.12.3), disposable local database `freedom_test`
+(PostgreSQL 16.14, Unix socket, owner `foundry`), confirmed present with
+`psql -lqt` and re-validated by `tests/conftest.py`'s two-layer guard before
+`alembic downgrade base`.
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `./venv/bin/pytest tests/test_sheet_import_service.py -q` | **39 passed**, 1 warning |
+| 2 | `./venv/bin/pytest tests/test_sheet_import_database.py -q` | **24 skipped**, 1 warning — no `TEST_DATABASE_URL`, so the fixture skips rather than let a database assertion pass without a database |
+| 3 | `./venv/bin/pytest tests/test_import_cli.py -q` | **40 passed**, 1 warning |
+| 4 | `./venv/bin/pytest tests/test_display_name_policy.py -q` | **86 passed**, 1 warning |
+| 5 | `./venv/bin/pytest -q` | **694 passed, 91 skipped**, 1 warning |
+| 6 | `TEST_DATABASE_URL='postgresql+psycopg://foundry@/freedom_test' ./venv/bin/pytest -q` | **785 passed, 0 skipped**, 1 warning |
+| 7 | `./venv/bin/python -m compileall -q main.py config.py application adapters domain ext models tools` | exit **0**, no output |
+| 8 | `git diff --check` | clean, exit **0** |
+| 9 | `APP_ENVIRONMENT=test DATABASE_URL='postgresql+psycopg://foundry@/freedom_test' ./venv/bin/alembic check` | `No new upgrade operations detected.` |
+| 10 | `psql -d freedom_test -Atc "SELECT lower('Test Straße') = lower('Test STRASSE')"` | `f` — the database's `lower()` really does disagree with the policy on this host (collation `C.UTF-8`) |
+| 11 | `psql -lqt` | `freedom_test` and `freedom_dev` present, both owned by `foundry`; no production or staging database contacted |
+
+**The one warning** in every pytest run is the pre-existing
+`DeprecationWarning: 'audioop' is deprecated and slated for removal in Python
+3.13`, raised by Pycord's `discord/player.py` at import. Unrelated to this work
+and unchanged by it.
+
+**PostgreSQL acceptance is claimed and earned.** All four mandated cases ran
+against real PostgreSQL, not mocks: the concrete reproduction, the
+capitalization-only collision, the unmapped collision, and the repository-policy
+table agreement — plus the mixed-run rollback and dry-run/apply agreement.
+
+**Commands not run, and why.** No formatter, linter or type checker: none is
+configured and none was installed for this task. Re-verified — no
+`pyproject.toml`, `setup.cfg`, `.flake8`, `ruff.toml` or `mypy.ini`;
+`requirements-dev.txt` adds only `pytest`; `pytest.ini` is test configuration,
+not a checker; `black`, `ruff`, `flake8`, `mypy`, `pyright`, `isort` and
+`pylint` are all absent from the venv. `compileall` is run instead, as the
+nearest available check. The importer was **not** run against a real Sheet: that
+needs the production service account and is a maintainer decision.
+
+**A correction to revision 6's figures.** The measured pre-change baseline was
+**599 passed / 74 skipped** without PostgreSQL, not the 600 / 74 revision 6
+reported — `--collect-only` puts `tests/test_sheet_import_service.py` at 30
+before this session's additions, not 31. The discrepancy is in the count only;
+no test was removed by this work.
+
+## 6. Acceptance criteria, traced to tests
+
+| # | Criterion | Test(s) |
+|---|---|---|
+| 1 | Exact name unchanged and idempotent | `…_an_exact_non_ascii_name_is_unchanged_and_idempotent`, `…_repeating_an_unchanged_import_is_never_refused`, the `exact` rows of the policy table |
+| 2 | `Test Smith A -> TEST SMITH A` applies when uncontested | `…_a_capitalisation_only_change_applies_when_nobody_else_claims_the_name`, `…_correcting_a_names_capitalisation_is_an_update_not_a_refusal` |
+| 3 | Capitalization-only change colliding → `name_collision`, commits nothing | `…_a_capitalisation_only_change_onto_a_taken_name_is_a_collision` **+ PostgreSQL** |
+| 4 | `Test Straße -> Test STRASSE` → `mapped_name_change` | `…_a_sharp_s_expansion_is_a_semantic_name_change_not_a_capitalisation_fix` |
+| 5 | The two-character reproduction refused, identities/mappings/versions/audit unchanged | `…_a_sharp_s_expansion_never_commits_two_characters_under_one_name` **+ PostgreSQL** |
+| 6 | Unmapped `Test STRASSE` refused beside `Test Straße`; no second character or mapping | `…_an_unmapped_sharp_s_variant_never_mints_a_second_character` **+ PostgreSQL** |
+| 7 | Parser, fake, service and PostgreSQL agree on a table-driven set | `tests/test_display_name_policy.py` (7 parametrised tests) and `test_the_postgresql_repository_matches_the_shared_display_name_policy` **+ PostgreSQL** |
+| 8 | Dry run and apply reach identical decisions for the new refusals | `…_the_dry_run_and_the_apply_agree_on_a_normalisation_refusal` **+ PostgreSQL** |
+| 9 | Mixed run rolls back characters, mappings, versions and audit atomically | `…_a_valid_update_beside_a_normalisation_refusal_rolls_back_with_it` **+ PostgreSQL** |
+| 10 | Fresh-name swap and three-row-cycle regressions still green | `…_swapped_rows_with_fresh_names_are_blocked_rather_than_crossed`, `…_a_three_row_cycle_with_fresh_names_is_blocked_atomically`, plus the PostgreSQL permutation test |
+
+The shared table covers ordinary ASCII case changes, German sharp-s expansion
+and its capital `ẞ`, exact non-ASCII names, NFC/NFD canonical equivalence,
+Turkish dotted/dotless `i`, and two plainly different names.
+
+## 7. Database, migration, configuration and deployment effects
+
+**None.**
+
+- No migration. `alembic check` reports no new upgrade operations.
+- No dependency. `requirements.txt` and `requirements-dev.txt` unchanged.
+- No configuration variable, no `.env.example` change, no deployment step.
+- No schema, constraint or index change.
+- No Discord cog, model or CLI surface change. No new exit code — the new
+  refusal is exit `1` like every other reported error.
+- Issue codes, outcome shapes, transaction boundaries, audit vocabulary and
+  idempotency are unchanged. The single behavioural addition is that
+  `name_collision` can now be reported for a capitalization-only change, which
+  is the blocking case the defect required.
+
+## 8. Rollback and recovery
+
+Unchanged from revision 6, and re-proved against PostgreSQL.
+
+- One run is still one transaction. The new refusal is an ERROR issue and
+  reaches `rollback()` by the same route as every other one.
+- A blocked run commits nothing — characters, versions, mappings and audit
+  events all roll back together, checked pairwise rather than by row count so a
+  silent re-key could not hide behind identical counts.
+- An applied run remains recoverable by restoring the backup taken before it,
+  per `docs/operations/database-development.md`. The Sheet is untouched and
+  remains authoritative throughout Phase 2, so re-importing after a restore is
+  safe.
+- Reverting this correction requires no data repair: it changes comparison
+  behaviour only, and wrote nothing to any database beyond the disposable
+  `freedom_test`, which is left migrated and empty.
+
+## 9. Diff review
+
+The complete diff was inspected. No secrets, credentials, DSNs, tokens or real
+player data were introduced — every fixture name in this work is synthetic and
+prefixed `Test`. No unsafe logging was added; no logging was touched at all. No
+unrelated file was changed, reformatted, deleted or reverted. `git diff --check`
+is clean. Documentation contradictions created by this change were corrected
+rather than left: every superseded claim in the submission is struck in place
+with its correction, and the operations document no longer describes the
+importer as comparing names "case-insensitively".
+
+Working-tree state: branch `docs/platform-plan`, **nothing committed, pushed,
+stashed, reset, checked out or restored**. All uncommitted maintainer and
+prior-agent work present at the start of this session was preserved.
+
+## 10. Remaining limitations
+
+Stated as limitations, not as closed items.
+
+1. **This correction was independently reviewed and accepted.** Codex found no
+   blocking or important implementation issue, and Peter Duscha accepted I-01
+   on 2026-08-02. The wider Phase 2 gate remains open for the limitations below.
+2. **The Phase 2 gate is not closed.** The Foundry snapshot importer, exhaustive
+   field profile, reconciliation/correction controls, runtime-role and
+   concurrency evidence and the supervised real-snapshot rehearsal are all
+   outstanding (**I-02**).
+3. **The database enforces no display-name uniqueness.** `characters.display_name`
+   carries no constraint, so the policy is enforced by the importer alone; a
+   writer that is not this importer could still create a duplicate. Raised as
+   new issue **I-05**. The fix is a decided uniqueness policy plus a migration
+   storing and indexing the identity key.
+4. **`find_by_display_name` is a sequential scan per lookup.** Deliberate and
+   bounded for ~150 bootstrap characters in an occasional operator tool, because
+   any SQL predicate available today is *narrower* than the comparison and would
+   skip real matches. The documented threshold at which it must become a stored,
+   indexed key: roughly 2,000 characters, or the first request path that calls
+   it.
+5. **The legacy bot still uses a third comparison.** `AmbiguousActorError` in
+   `models/actor.py` folds with `str.lower()` on the Sheet value. Deliberately
+   not touched — it reads the live Sheet, is not on the importer's path, and
+   changing a live lookup is a behaviour change outside this correction's scope.
+   It should adopt the policy when that path is migrated.
+6. **A genuine rename still has no in-platform remedy** (carried from revision
+   6, §11 item 5), and **the importer has never run against a real Sheet**
+   (§13 reservation 2).
+
+## 11. Decision
+
+Codex independently re-reviewed the correction, found no blocking or important
+implementation issue, reproduced the PostgreSQL evidence with the full suite
+(785 passed, 0 skipped), and recommended closing I-01. Peter Duscha accepted
+that recommendation on 2026-08-02. **I-01 is closed.** This decision does not
+close the Phase 2 gate or resolve I-02 or I-05.
+
+Three things worth attacking specifically in review:
+
+- whether **NFC** is the right normalisation for a name claim, or whether
+  **NFKC** — which would additionally fold a full-width `Ａ` onto `A` — is what
+  "the same name" should mean, noting NFKC merges
+  characters that are merely similar and so refuses more;
+- whether treating an **NFC/NFD-only difference** as identity-neutral and
+  *applying* it is right, or whether it should be refused like any other
+  spelling change, since it is not literally capitalization; and
+- whether a **locale-independent fold** is correct for this community.
+  `Test Işık -> Test IŞIK` is currently `mapped_name_change`; under a Turkish
+  tailoring it would be a capitalization fix. No tailoring is applied
+  deliberately, because a locale-dependent identity rule would make the same
+  import mean different things on different hosts.
+
+## 12. Stop point
+
+Work stopped after this normalization correction and its handoff, as instructed.
+No Foundry snapshot importer, no Phase 3, no other Phase 2 package, and no
+rename/re-key command has been started, and none should be until a new
+instruction and the applicable gate.

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
+from domain.names import DisplayName
+
 
 @dataclass(frozen=True, slots=True)
 class DiscordUser:
@@ -33,6 +35,16 @@ class Character:
             raise ValueError("A character level must be between 1 and 20.")
         if self.version < 0:
             raise ValueError("A character version cannot be negative.")
+
+    @property
+    def name(self) -> DisplayName:
+        """The display name as something comparable, rather than as bare text.
+
+        Callers deciding whether a name changed identity must go through this
+        rather than folding the string themselves — that divergence is what
+        `domain/names.py` exists to prevent.
+        """
+        return DisplayName(self.display_name)
 
     @classmethod
     def create(cls, display_name: str, long_name: str | None = None) -> Character:

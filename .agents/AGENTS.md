@@ -23,9 +23,13 @@ file is the canonical working agreement and must not be bypassed.
 
 The Freedom Blades Platform supports the Freedom Blades Discord community. Its
 game behavior is based on D&D 5.5 (the 2024 rules) plus Freedom Blades homebrew
-rules. Today it is a Python/Pycord bot backed by Google Sheets, with optional
-Lavalink music. It is being evolved in this repository into a secure,
-PostgreSQL-backed web platform with Discord and Foundry adapters.
+rules. Today it is a Python/Pycord bot backed by Google Sheets. It is being
+evolved in this repository into a secure, PostgreSQL-backed web platform with
+Discord and Foundry adapters.
+
+Music is not part of the platform. Its former implementation, dependencies,
+configuration and deployment templates were removed under OD-40. It is removed,
+not deferred: do not reintroduce it in any phase.
 
 The approved direction is:
 
@@ -98,7 +102,9 @@ tests, and Foundry.
   bastion behavior. Some models still access Sheets directly.
 - `helpers/`: calculations, formatting, dice, and utilities.
 - `connectors/sheets.py`: Google Sheets API adapter.
-- `music.py` and `infra/lavalink/`: optional music integration.
+- `application/`, `domain/`, `adapters/`: the platform layers introduced from
+  Phase 1 onward.
+- `tools/`: operator entry points, such as the Phase 2 Sheet importer.
 - `infra/systemd/`: service deployment files.
 - `.env.example`: documented configuration contract.
 - `docs/implementation-plan.md`: approved platform roadmap, milestone
@@ -447,8 +453,8 @@ case. Use table-driven tests for rule matrices and boundary values. Cover
 insufficient resources, invalid inputs, duplicate requests, concurrency,
 partial external failure, and permission denial.
 
-Tests must never contact live Discord, Sheets, production databases, Foundry,
-YouTube, or Lavalink. Do not use real player data or credentials in fixtures.
+Tests must never contact live Discord, Sheets, production databases, Foundry, or
+external media services. Do not use real player data or credentials in fixtures.
 
 ## Contributor and agent workflow
 

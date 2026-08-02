@@ -1,18 +1,27 @@
 # Unresolved Decisions
 
-Status: Phase 0 deliverable. **Sixteen of the 36 were closed by maintainer answers on
-2026-07-29 and 2026-07-30**, including every question that blocked Phase 1 or the
-architecture gate. The remainder are marked with when they must be settled. The
-independent Codex re-review approved Phase 0 on 2026-07-30, the maintainer accepted
-the milestone, and the gate is closed.
+Status: Phase 0 deliverable. Sixteen of the 36 entries that existed then were
+closed by maintainer answers on 2026-07-29 and 2026-07-30, including every
+question that blocked Phase 1 or the architecture gate. Further entries have been
+raised since; the list now runs **OD-01 to OD-40**, and every identifier is
+unique. The remainder are marked with when they must be settled. The independent
+Codex re-review approved Phase 0 on 2026-07-30, the maintainer accepted the
+milestone, and the gate is closed.
 
 Phase 0 acceptance criterion: *"unresolved ownership questions are listed
 explicitly"* (plan §12).
 
-Every decision below was reached during Phase 0 discovery and **cannot be made by
-an agent**, because each one changes rules, data authority, authorization,
-privacy, production behaviour or migration strategy — the exact categories
-`.agents/AGENTS.md` requires an agent to stop for.
+Most decisions below were reached during Phase 0 discovery, and none of them
+**can be made by an agent**, because each one changes rules, data authority,
+authorization, privacy, production behaviour or migration strategy — the exact
+categories `.agents/AGENTS.md` requires an agent to stop for.
+
+**Identifier note, 2026-08-01.** The music decision was recorded as a second
+"OD-38" while OD-38 already meant *Initial authority during Sheet migration*.
+The music decision is now **[OD-40](#od-40--music-platform-work--closed-2026-07-31-amended-2026-07-31)**;
+[OD-38](#od-38--initial-authority-during-sheet-migration--closed-2026-07-31)
+keeps its original meaning. Review documents written before that date may still
+show the old number and are accurate records of what they said at the time.
 
 ## How to use this list
 
@@ -57,7 +66,7 @@ Three consequences:
    already a normalised two-table model joined on player name, which is much closer
    to the target schema than Phase 0 assumed.
 2. **`is DM` is authorization data that already exists.** Plan §4.1 needs a DM
-   capability and [OD-18](#od-18--discord-guild-council-and-dm-role-snowflakes--blocking-phase-3)
+   capability and [OD-18](#od-18--discord-guild-council-and-dm-role-snowflakes--closed-2026-07-31)
    asks which Discord roles grant it. There is an existing answer in the sheet to
    reconcile against — a per-player flag maintained by the people who actually know.
    It is *evidence*, not authorization: effective privilege still resolves from
@@ -131,6 +140,24 @@ cutover. At that per-macro cutover, disable the Sheet macro before enabling the
 platform writer. The two writers must never operate concurrently after cutover.
 Retain the Sheet and rollback procedure during the verification window.
 
+**Maintainer amendment, 2026-08-02:** this supersedes the earlier requirement to
+disable the Living Cost Sheet macro before enabling the platform job. After the
+approved Living Cost authority cutover, PostgreSQL is the sole authority and no
+database-backed path reads, reconciles or imports Sheet column J. The old Sheet
+macro may be disabled as operational cleanup, but its continued execution
+against the retired Sheet cannot affect PostgreSQL and is no longer a
+dual-writer correctness risk. The platform schedule uses fixed IANA timezone
+`Europe/Berlin`, initially Sunday at
+04:00; only a currently authorized Platform Administrator may change its weekday
+or local time. Inactive characters do not accrue. Following a schedule change,
+the first occurrence under the new weekday/time is explicitly non-accruing and
+the next weekly occurrence is the first that increments Living Cost. Eligibility
+is evaluated from effective-dated active status at the nominal occurrence, not
+from status when a delayed catch-up happens. Platform accrual history begins at
+the authority-cutover instant; no earlier periods are synthesized. A schedule
+change is refused until every overdue or failed period has been recovered and
+the backlog is empty.
+
 ### OD-02 — What do the unmapped columns hold? · ~~Blocking Phase 2~~ **CLOSED**
 
 **Answered by the maintainer 2026-07-30.** All eleven identified; the full 38-column
@@ -180,7 +207,7 @@ fires inside a command's read→write window is silently reverted.
 
 Full analysis in
 [sheet-inventory.md §4](sheet-inventory.md#4-formulas-and-macros). The remaining
-decision is what happens to the macros at cutover — **[OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--blocking-phase-2)**.
+decision is what happens to the macros at cutover — **[OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--closed-2026-07-31)**.
 
 *Closed, and it is the good outcome.*
 
@@ -450,7 +477,7 @@ done by the Bot)."* So downtime **is** granted by paying, the current code is
 correct, and the weekly `+1` to column `J` is what tracks weeks owed.
 
 *One thing left to confirm:* there is also a **macro** that grants the `+5`
-(see [OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--blocking-phase-2)).
+(see [OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--closed-2026-07-31)).
 If both the macro and the bot are active, downtime may be granted twice for the
 same week. **Worth checking before anything else in this list** — it would be a live
 economy bug, not a migration concern.
@@ -465,7 +492,7 @@ by a timed macro, not a formula and not the bot. So the debt economy is live; on
 the bot is unaware of it.
 
 *Still to decide:* whether the platform takes over the interest accrual (see
-[OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--blocking-phase-2))
+[OD-36](#od-36--what-happens-to-the-sheet-macros-at-cutover--closed-2026-07-31))
 and whether it enforces the 500 GP collection threshold.
 
 ### OD-05 — Do fancy meals cost 5% downtime too? · Blocking Phase 5.6
@@ -593,7 +620,7 @@ from any channel.
 *Decide:* leave open (a deliberate transparency choice), make ephemeral, or scope
 to linked characters plus Council.
 
-### OD-17 — How long may the bot remain unauthorized? · Blocking Phase 3 planning
+### OD-17 — How long may the bot remain unauthorized? · Blocking Phase 3 planning · **ESCALATED 2026-07-31**
 
 Phase 3 gives the **web app** authorization. The bot keeps its current
 no-ownership-check behaviour until each command is migrated in Phase 5.
@@ -604,6 +631,133 @@ no-ownership-check behaviour until each command is migrated in Phase 5.
 *Recommendation:* back-port as soon as `character_access` is populated. It is a
 small change at the cog boundary, and it closes the largest live authorization
 gap months earlier than Phase 5 would.
+
+**Escalated by the Codex project review of the Phase 2 submission, 2026-07-31.**
+The review classifies the gap as a serious, live authorization risk rather than
+merely scheduled work: `/info`, `/trade`, `/sale`, `/craft`, `/xchange`, `/lc`,
+`/learn`, `/mine`, `/work` and `/bastion` all accept an arbitrary character name
+and act on it, and a channel restriction is not authorization.
+
+**Maintainer ruling, 2026-08-01 — which gate this belongs to.** OD-17 is a real
+authorization risk and it stays open. It must be resolved **before Phase 3
+planning, and before any affected legacy bot mutation is migrated or cut over.**
+It is **not** a Phase 2 import blocker:
+
+- the exposure is in the legacy Discord command surface and predates Phase 2;
+- the Phase 2 importer neither introduced nor widened it. It writes no
+  `character_access` row, no `discord_users` row and no authorization state at
+  all, and no Discord command calls any code it added;
+- the approved Phase 2 review gate is *data integrity and migration safety* for
+  import/reconciliation (plan §12), and this finding is outside it.
+
+Treating it as a Phase 2 blocker created a sequencing deadlock: the containment
+options below all depend on identity links that only Phase 3 can create, so
+Phase 2 could never be approved and Phase 3 could never start. **Nothing about
+this ruling reduces the risk or declares it fixed** — it records which gate the
+decision belongs to.
+
+**Why an agent cannot close it, precisely.** There is nothing to authorize
+*against*. `character_access` exists as a table with a schema, no rows, and no
+writer. The only Sheet-side link is column C, a free-text **player name** —
+`F-S1` and [OD-13](#c-data-ownership) both record that it seeds a
+Council-verified pass and is not itself authorization. Building a
+name-to-Discord mapping in the bot would be exactly the insecure shortcut this
+document exists to prevent, and Phase 3 is where verified links are created.
+
+**Containment options while that remains true**, with what each costs in
+production. Recorded here because the choice is a production-behaviour decision:
+
+| Option | Change | Consequence |
+|---|---|---|
+| **(a) Document and accept** | None in code. The gap is recorded as a known, accepted risk until Phase 3 | Zero disruption. Any guild member can continue to move any character's money. This is the status quo, made explicit |
+| **(b) Ephemeral reads** | `/info` replies ephemerally instead of publicly | Stops one member reading another's finances into a shared channel. Costs the current transparency, which may be deliberate — that is [OD-16](#od-16--should-info-remain-unrestricted--blocking-phase-3). Does not touch mutations |
+| **(c) Council-only mutations** | Gate the nine mutating commands on the Council role snowflake from [OD-18](#od-18--discord-guild-council-and-dm-role-snowflakes--closed-2026-07-31) | Closes the mutation gap immediately and completely. Also stops every ordinary player using `/work`, `/craft`, `/lc` and the rest — the bot's entire day-to-day purpose — until Phase 3 links exist. Implementable today |
+| **(d) Disable the highest-risk commands** | `/trade` and `/sale` only, per [OD-39](#od-39--unauthenticated-economy-mutations-through-trade-and-sale--raised-2026-07-31) | Closes the currency-creation path, leaves downtime commands working. Trades and sales revert to whatever manual process preceded the bot |
+| **(e) Announce, don't block** | Every mutation posts a non-ephemeral record naming the acting Discord user and the character | No authorization, but the Council can see who did what. Detective rather than preventive; needs no identity link because it records the *caller*, which Discord already supplies |
+
+*Recommendation:* **(e) now, (c) at the moment `character_access` has rows**, and
+(b) folded into whatever OD-16 decides. (e) is the only option that reduces risk
+without either breaking play or asserting an identity link the platform does not
+have; it makes an abuse attributable and visible on the day it happens rather
+than at the next audit. It is a genuine change to production behaviour and is
+therefore not made without this decision.
+
+*Needed from:* a maintainer, before Phase 3 planning and before any affected
+legacy bot mutation is migrated or cut over. Not required to approve Phase 2.
+
+### OD-39 — Unauthenticated economy mutations through `/trade` and `/sale` · **RAISED 2026-07-31**
+
+Raised by the Codex project review of the Phase 2 submission. Distinct from
+OD-17 because it is about **what evidence a value must have**, not only about
+who may act.
+
+**What the code does today.** Both are documented existing behaviour with a
+rule behind them, so neither is a defect to be fixed by an agent:
+
+- `/trade` with `Shop` or `Store` on one side loads and writes only the other
+  side. Selling to the shop therefore **creates currency** and buying from it
+  destroys currency. That is what an NPC vendor is, and §4.1 p.10 and §4.2 p.11
+  describe the guild shop and player-to-player deals as manual arrangements the
+  bot merely records.
+- `/sale` takes the item name, crafting cost, material value, quantity and
+  Persuasion modifier from the caller. It verifies none of them: not that the
+  character owns or crafted the item, not that the cost is the item's real
+  crafting cost, not that the Persuasion modifier is the character's. §4.1/§4.2
+  define the *percentage*, not the provenance of the inputs.
+
+So the bot is a **recording instrument for a Council-supervised process**, and
+its inputs are trusted because the people typing them are. The review's finding
+is that the platform is becoming the authority, and an authority cannot trust
+its inputs the way a shared spreadsheet could.
+
+**The classification the platform needs, and only a maintainer can give.** For
+each value: may a player supply it, must it come from authoritative character or
+game state, or does it need Council approval?
+
+| Value | Could come from | Question for the maintainer |
+|---|---|---|
+| `/sale` item | caller, or inventory | Must a sale name an item the character actually holds? Column AA records *notable* items only, so most sold goods are not recorded anywhere |
+| `/sale` crafting cost | caller, or the `/craft` that produced it | Should a sale be linked to a crafting record, so the cost is the one the rules computed rather than one typed in? |
+| `/sale` material value | caller | Same question, and it is added to the price directly |
+| `/sale` quantity | caller | Is an upper bound wanted? There is no rule for one, and the current command accepts any positive integer |
+| `/sale` Persuasion modifier | caller, or ability scores + proficiency | Sheet column **AG** now holds abilities ([OD-02](#od-02--what-do-the-unmapped-columns-hold--blocking-phase-2-closed)), so the platform *can* compute this without waiting for Foundry |
+| `/sale` point of sale | caller, gated on a role **name** | `your own shop` adds **20 percentage points** to the sale price. It is the one authorization check either command makes, and it matches `r.name.lower() == "shop owner"` on the caller's roles. A role name is presentation (plan §4.1, `.agents/AGENTS.md`), and renaming the role silently removes or grants the bonus. The snowflake [OD-18](#od-18--discord-guild-council-and-dm-role-snowflakes--closed-2026-07-31) asked for is **still outstanding**; until it exists this cannot be moved to a stable ID |
+| `/trade` shop side | caller | Should crediting a character from `Shop` require Council approval, or a Shop Owner role, or stay open? |
+| `/trade` counterparty | caller | Should the *other* character's owner have to confirm? Today one player can move another's money in both directions |
+
+**What was changed here, and what was not.** Only input validation that needs no
+ruling: `/sale` now refuses a non-finite cost, which previously passed the
+`< 0` check and failed obscurely inside the money arithmetic. Nothing about
+provenance, approval or authorization was changed, because every one of those is
+a rule or policy decision.
+
+*Fail-closed containment available today, if wanted before the classification
+exists:* refuse `/trade` where either side is `Shop`/`Store` unless the caller
+holds the Council role, which stops unbacked currency creation while leaving
+player-to-player trades working. This would visibly change production
+behaviour for the shop workflow and is not applied without a decision.
+
+**Maintainer ruling, 2026-08-01 — which gate this belongs to.** OD-39 is a real
+game-policy and data-provenance decision and it stays open. It must be resolved
+**before Phase 5.7 (`/sale`) and Phase 5.8 (`/trade`)**. It is **not** a Phase 2
+import blocker:
+
+- both behaviours are existing, rule-backed production behaviour that predates
+  Phase 2;
+- the Phase 2 importer neither introduced nor worsened them. It imports identity
+  only — display name, long name, level and the active flag — and touches no
+  currency, no inventory and no sale or trade path;
+- the approved Phase 2 review gate is *data integrity and migration safety* for
+  import/reconciliation (plan §12), and the provenance of `/sale` and `/trade`
+  inputs is outside it.
+
+The one Phase 2-era change to `/sale` — refusing a non-finite `cost` — is input
+validation that needs no ruling and is unaffected. **This ruling does not fix or
+reduce the risk**; it records when the classification table below must be
+answered.
+
+*Needed from:* a maintainer, before Phase 5.7 (`/sale`) and Phase 5.8
+(`/trade`). Not required to approve Phase 2.
 
 ---
 
@@ -738,8 +892,12 @@ not by the Freedom Blades website. The website stores only the mapping from
 stable Discord role IDs to platform capabilities. Only the Server Administrator
 may manage those mappings.
 
-`/sale` currently matches the role **name** `shop owner`; that role's snowflake is
-needed too.
+**Outstanding residue of an otherwise closed decision.** `/sale` currently matches
+the role **name** `shop owner`, and that match is worth 20 percentage points on
+the sale price. That role's snowflake is still needed, and until it is supplied
+the one authorization check in `/sale` is made against presentation data that
+anyone who can rename a role can change. Tracked as a row in
+[OD-39](#od-39--unauthenticated-economy-mutations-through-trade-and-sale--raised-2026-07-31).
 
 ### OD-24 — Platform Administrator scope · **CLOSED 2026-07-31**
 
@@ -991,6 +1149,49 @@ matched option (a) and needed no change.
 
 ---
 
+## H. Product scope
+
+### OD-40 — Music platform work · **CLOSED 2026-07-31, AMENDED 2026-07-31**
+
+*Recorded as a duplicate "OD-38" until 2026-08-01; renumbered because OD-38 was
+already* Initial authority during Sheet migration.
+
+**Maintainer decision:** remove music from the implementation completely. Music
+is not a platform feature and it is **not deferred** to a later phase. Its bot
+commands, runtime path, dependencies, configuration, credential examples and
+deployment templates are removed. No platform acceptance criterion depends on
+music, and no later phase reintroduces it.
+
+**State in the repository, verified 2026-08-01** (read-only verification; no live
+service was inspected or altered):
+
+| Surface | State |
+|---|---|
+| `music.py` | deleted |
+| Runtime attachment in `main.py` | removed; `EXTENSIONS` holds eleven required extensions and no music entry |
+| Music commands | none registered |
+| Dependencies | `yt-dlp` removed from `requirements.txt`; no Wavelink dependency is or was declared |
+| Configuration | no `ENABLE_MUSIC`, `LAVALINK_*` or `YTDLP_*` in `config.py`, `.env.example` or `repoize.sh` |
+| Deployment templates | `infra/systemd/lavalink.service.tmpl` and `infra/lavalink/application.yml.tmpl` deleted |
+| Cookie fixture | `yt-cookies.txt.example` deleted |
+| Tests | no music-specific test exists |
+
+Two residues are **outside the repository's tracked content** and were
+deliberately left alone:
+
+- `infra/lavalink/` remains as an empty directory in the working tree. Git does
+  not track empty directories, so it does not exist in the repository; deleting
+  it locally is optional tidying.
+- `yt-cookies.txt` still exists in the working tree and is excluded by
+  `.gitignore`. It is a credential-shaped file: it was not read, printed or
+  modified, and whether to delete it from the host is an operator decision.
+
+Repository removal is **not** authorization to stop or reconfigure any live
+Lavalink process. That is live-service administration and belongs to a
+maintainer.
+
+---
+
 ## Summary by urgency
 
 **Resolved 2026-07-29 (rule corrections):** OD-10, OD-11, OD-26, OD-27 and OD-29
@@ -1026,15 +1227,32 @@ every craft. Fixed, with seven regression tests — see
 data loss is fixed, and the downtime double-grant risk was disproved (the macro is
 off).
 
-**Blocking Phase 2:** none.
+**Blocking Phase 2:** none. No decision blocks the import work, and — per the
+maintainer ruling of 2026-08-01 recorded at OD-17 and OD-39 — neither of those
+entries gates the Phase 2 review either. Phase 2 approval depends on the Phase 2
+acceptance criteria in plan §12 and on the correction of actual
+import/reconciliation findings. **OD-17 and OD-39 remain open, real and
+unfixed**; they are listed under Phase 3 and Phase 5 below because that is where
+they must be answered, not because they have shrunk.
 *(OD-36 closed 2026-07-31.)*
 *(OD-01, OD-02, OD-06, OD-07, OD-12 and OD-30 closed.)*
 
-**Blocking Phase 3:** OD-16 and OD-17.
+**Blocking Phase 3:** OD-16 and OD-17. OD-17 must also be answered before any
+affected legacy bot mutation is migrated or cut over.
 *(OD-18, OD-19, OD-20, OD-23, OD-24 and OD-31 closed 2026-07-31.)*
 
-**Blocking Phase 5 (per command):** OD-03, OD-04, OD-05, OD-09, plus the tribute
-item remainder of OD-28 and the gate-boundary half of OD-34.
+**Raised by the Codex project review of Phase 2, 2026-07-31:** **OD-17
+escalated** from "decide the schedule" to "decide the interim containment", with
+five options priced; and **OD-39** opened on the provenance of `/trade` and
+`/sale` inputs. Neither can be settled by an agent: one asserts an identity link
+the platform does not yet have, the other is game policy. Both were scoped to
+their correct future gates on 2026-08-01 — Phase 3 planning and the affected
+command migrations for OD-17, Phase 5.7/5.8 for OD-39 — after the Phase 2
+classification was found to create a sequencing deadlock.
+
+**Blocking Phase 5 (per command):** OD-03, OD-04, OD-05, OD-09, **OD-39 before
+5.7 `/sale` and 5.8 `/trade`**, plus the tribute item remainder of OD-28 and the
+gate-boundary half of OD-34.
 
 **Blocking Phase 6–8:** none from the plan §17 decision log.
 *(OD-32 and OD-33 closed 2026-07-31.)*
@@ -1082,7 +1300,7 @@ What remains, in the order it will be needed:
 | When | Decisions |
 |---|---|
 | Early Phase 1 | **Closed 2026-07-30:** OD-15 (Council-approved shared level), OD-21 (host-managed PostgreSQL 16), OD-22 (same-host staging with strict separation) |
-| Phase 2 | No blocking decision. Preserve and report F-S6 aggregate disagreements and F-S7's unruled deadline rather than treating either as authoritative policy |
-| Phase 3 | OD-16 and OD-17; the §17 authorization parameters closed 2026-07-31 |
+| Phase 2 | **None gate the review.** Approval rests on the plan §12 acceptance criteria and on correcting actual import/reconciliation findings. Still to carry forward: preserve and report F-S6 aggregate disagreements and F-S7's unruled deadline rather than treating either as authoritative policy |
+| Phase 3 | OD-16 and OD-17; the §17 authorization parameters closed 2026-07-31. OD-17 is also required before any affected legacy bot mutation is migrated or cut over |
 | Write-enablement | Ownership settled by OD-13; implementation still requires the approved proposal and Council-approval controls |
-| Phase 5–8 | OD-03, OD-04, OD-05, OD-09 and OD-28 tribute item; OD-32 and OD-33 closed 2026-07-31 |
+| Phase 5–8 | OD-03, OD-04, OD-05, OD-09, **OD-39 before 5.7 `/sale` and 5.8 `/trade`**, and OD-28 tribute item; OD-32 and OD-33 closed 2026-07-31 |
