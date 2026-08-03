@@ -5,7 +5,7 @@ from adapters.database.metadata import metadata
 from adapters.database import tables  # noqa: F401
 
 
-EXPECTED_TABLES = {
+PHASE_1_TABLES = {
     "audit_events",
     "character_access",
     "characters",
@@ -17,13 +17,42 @@ EXPECTED_TABLES = {
     "sheet_row_mappings",
 }
 
+PHASE_2_TABLES = {
+    "foundry_snapshots",
+    "platform_initialization",
+    "snapshot_imports",
+}
+
+EXPECTED_TABLES = PHASE_1_TABLES | PHASE_2_TABLES
+
+#: Tables the Acceptance Authority rejected with ADR 0008 on 2026-08-02. Named
+#: rather than merely absent, so that reintroducing one fails a test that says
+#: why instead of only widening a set nobody rereads.
+REJECTED_TABLES = {
+    "character_state_values",
+    "character_balances",
+    "character_transactions",
+}
+
 
 def constraint_columns(constraint):
     return tuple(column.name for column in constraint.columns)
 
 
-def test_phase_1_foundation_tables_are_registered():
+def test_every_expected_table_is_registered_and_no_others():
+    # Listed per phase so that a table added without a milestone is visible as
+    # such, rather than merely swelling one set.
     assert set(metadata.tables) == EXPECTED_TABLES
+
+
+def test_no_generic_state_balance_or_transaction_table_exists():
+    """Threshold T-5, as a schema inventory rather than an inspection.
+
+    ADR 0008 proposed a profile-driven key/value store for character state; the
+    Acceptance Authority rejected it, and each field group now migrates once
+    into the typed model its owning package introduces (plan §7.3).
+    """
+    assert set(metadata.tables) & REJECTED_TABLES == set()
 
 
 def test_discord_snowflakes_use_bigint():

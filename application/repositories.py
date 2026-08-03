@@ -5,6 +5,12 @@ from uuid import UUID
 
 from application.audit import AuditEvent
 from application.imports import SheetRowMapping
+from application.snapshots import (
+    ExternalActorMapping,
+    PlatformInitialization,
+    SnapshotImportRecord,
+    SnapshotRecord,
+)
 from domain.identity import Character, DiscordUser
 
 
@@ -52,11 +58,58 @@ class AuditRepository(Protocol):
         ...
 
 
+class ExternalActorMappingRepository(Protocol):
+    """Links between platform characters and Foundry Actors.
+
+    Established deliberately, never inferred from a name (ADR 0006). There is no
+    `find_by_name` here, and adding one would be the defect rather than a
+    convenience.
+    """
+
+    def add(self, mapping: ExternalActorMapping) -> None: ...
+
+    def get_by_actor(
+        self, world_id: str, external_actor_id: str
+    ) -> ExternalActorMapping | None: ...
+
+    def list_for_world(self, world_id: str) -> tuple[ExternalActorMapping, ...]: ...
+
+
+class SnapshotRepository(Protocol):
+    def add(self, record: SnapshotRecord) -> SnapshotRecord: ...
+
+    def get_by_checksum(self, checksum: str) -> SnapshotRecord | None: ...
+
+
+class SnapshotImportRepository(Protocol):
+    def add(self, record: SnapshotImportRecord) -> None: ...
+
+    def find_by_request_key(self, request_key: str) -> SnapshotImportRecord | None: ...
+
+    def find_applied(
+        self, snapshot_id: UUID, folder_id: str, profile_version: str
+    ) -> SnapshotImportRecord | None: ...
+
+
+class PlatformInitializationRepository(Protocol):
+    def get(self) -> PlatformInitialization | None: ...
+
+    def record(self, initialization: PlatformInitialization) -> None: ...
+
+    def is_dataset_empty(self) -> bool:
+        """No characters, mappings, snapshots or history exist yet."""
+        ...
+
+
 class UnitOfWork(Protocol):
     characters: CharacterRepository
     discord_users: DiscordUserRepository
     sheet_row_mappings: SheetRowMappingRepository
     audit: AuditRepository
+    external_actor_mappings: ExternalActorMappingRepository
+    snapshots: SnapshotRepository
+    snapshot_imports: SnapshotImportRepository
+    initialization: PlatformInitializationRepository
 
     def __enter__(self) -> UnitOfWork: ...
 

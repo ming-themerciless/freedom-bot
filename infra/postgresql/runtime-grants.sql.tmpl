@@ -1,9 +1,20 @@
--- Apply as the schema owner after migrations.
+-- Runtime grants for the restricted application role.
+--
+-- Apply as the schema owner, after migrations.
 -- Replace __APP_ROLE__ using the deployment's secret-safe templating mechanism.
 -- Do not grant CREATE or schema ownership to the runtime role.
+--
+-- Covers the **final retained Phase 2 schema only**. An earlier revision of this
+-- template also granted `character_state_values`, `character_balances` and
+-- `character_transactions`; ADR 0008 was rejected on 2026-08-02 and those tables
+-- no longer exist. A grant naming a dropped table is harmless but a missing
+-- REVOKE on a retained append-only table is not, which is why the two lists
+-- below are checked against the live schema by `tests/test_runtime_grants.py`
+-- rather than maintained by eye.
 
 GRANT USAGE ON SCHEMA public TO __APP_ROLE__;
 
+-- Operational tables: the application creates, reads and maintains these.
 GRANT SELECT, INSERT, UPDATE, DELETE ON
     discord_users,
     discord_guild_memberships,
@@ -15,5 +26,26 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     idempotency_keys
 TO __APP_ROLE__;
 
-GRANT SELECT, INSERT ON audit_events TO __APP_ROLE__;
+-- Append-only tables. The application exposes no update or delete use case for
+-- any of these, the runtime role is not granted one, and a database trigger
+-- refuses UPDATE and DELETE even for the schema owner (migration 0002).
+--
+-- TRUNCATE is revoked here rather than trigger-blocked, so the owner can still
+-- reset a disposable test database while the runtime role cannot empty history.
+-- REVOKE after GRANT is deliberate and not redundant: PUBLIC may hold rights
+-- these statements would otherwise leave in place.
+GRANT SELECT, INSERT ON
+    audit_events,
+    foundry_snapshots,
+    snapshot_imports,
+    platform_initialization
+TO __APP_ROLE__;
 REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM __APP_ROLE__;
+REVOKE UPDATE, DELETE, TRUNCATE ON foundry_snapshots FROM __APP_ROLE__;
+REVOKE UPDATE, DELETE, TRUNCATE ON snapshot_imports FROM __APP_ROLE__;
+-- The supervised first-import bootstrap writes this row once and nothing may
+-- change it again; the singleton primary key is what makes that irreversible.
+REVOKE UPDATE, DELETE, TRUNCATE ON platform_initialization FROM __APP_ROLE__;
+
+-- Sequences: none of the retained tables uses one. Identifiers are application
+-- generated UUIDs (ADR 0003, OD-35), so no sequence privilege is granted.

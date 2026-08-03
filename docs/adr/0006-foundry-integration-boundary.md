@@ -1,10 +1,16 @@
 # ADR 0006 — Foundry integration boundary
 
-Status: **Accepted** — approved by the maintainer 2026-07-30. That satisfies the
-Phase 0 acceptance criterion *"maintainer approves architecture ADRs"* (plan §12).
-The independent Codex review required by plan §16.4 approved Phase 0 on
-2026-07-30, and the maintainer accepted the milestone. This ADR is the contract
-Phase 1 will be reviewed against.
+Status: **Accepted, amended 2026-08-02.** Approved by the maintainer 2026-07-30,
+which satisfies the Phase 0 acceptance criterion *"maintainer approves
+architecture ADRs"* (plan §12). The independent Codex review required by plan
+§16.4 approved Phase 0 on 2026-07-30, and the maintainer accepted the milestone.
+
+**Amendment 2026-08-02** supersedes two parts of this ADR — the outright
+rejection of offline snapshot import, and the claim that an Actor export cannot
+carry a real `_id`. Everything else stands unchanged. The amendment is recorded
+in [§ Amendment 2026-08-02](#amendment-2026-08-02--the-offline-snapshot-artifact)
+below rather than by rewriting the original reasoning, because the reasoning was
+sound for the artifact it was about.
 
 Date: 2026-07-29
 
@@ -48,6 +54,10 @@ Not for reads, not for writes, not "just for the import". The world stores are
 live. An offline read-only snapshot is permitted **only** for
 maintainer-authorized discovery (`.agents/AGENTS.md`) and never as a production
 code path.
+
+> **Unchanged by the 2026-08-02 amendment.** The Phase 2 snapshot artifact is
+> produced *inside* Foundry through supported document APIs and handed to the
+> Manager. Nothing in this repository opens a world directory, and no phase does.
 
 ### The world is the identity; the instance is a transport endpoint
 
@@ -137,6 +147,87 @@ name-based lookup already demonstrates the failure mode.
 This makes Council character-link management (plan §12 Phase 3) a hard
 prerequisite for Phase 7 — which the plan's phase ordering already reflects.
 
+## Amendment 2026-08-02 — the offline snapshot artifact
+
+The maintainer ruled that **the Manager never reads live Foundry and never reads
+Foundry LevelDB; a Guild Council member deliberately creates an offline snapshot
+artifact**, and that Phase 2 imports from that artifact. Two statements in this
+ADR conflict with that ruling and are superseded here.
+
+### Superseded 1 — "no offline snapshot import"
+
+The *Alternatives considered* section rejected **offline LevelDB snapshot
+import**. That rejection stands, in full: the world databases are open, the
+format is a Foundry internal, and `.agents/AGENTS.md` forbids it. It was
+rejecting a *LevelDB read*.
+
+What replaces it is a different artifact with none of those properties: a
+**Council-produced export bundle**, built inside the Foundry client through
+supported document APIs (`game.actors`, `game.folders`, `Document#toObject()`),
+handed to the Manager as a file. No world directory is opened, no storage format
+is depended on, and the act of exporting is a deliberate, attributable Council
+action rather than a background read.
+
+The bundle's contract is
+[docs/rules/foundry-export-contract.md](../rules/foundry-export-contract.md). It
+is versioned, deterministically encoded, content-addressed by SHA-256 computed
+before parsing, and bounded in size, depth, folder count and Actor count.
+
+### Superseded 2 — "an export has no `_id`, so mappings cannot come from one"
+
+Phase 0's finding **F-F1** was that both maintainer-supplied Actor exports
+carried `"_id": null`, with the real ID surviving only in the filename
+(`fvtt-Actor-…-52ywI3ttEcgf9iBv.json`). This ADR concluded that *"mappings cannot
+be established from exports"*.
+
+That is true of Foundry's **per-Actor export**, and remains true. It is not true
+of a bundle built through `Document#toObject()`, which carries the real `_id`.
+The contract therefore **requires** every Actor to carry its real 16-character
+Foundry `_id`, and refuses a missing, null, malformed or duplicated one as a
+blocking issue. A hand-saved per-Actor export fails that check and is refused —
+which is the correct outcome, because it is exactly the file whose identity is
+only in its filename.
+
+The conclusion F-F1 supported — **never establish a mapping by name matching** —
+is unchanged and is enforced in code.
+
+### What this amendment does **not** change
+
+Every one of these is carried forward intact:
+
+- **no LevelDB access**, for reads or writes, in any phase;
+- **no Manager-initiated live Foundry access** — Phase 2 touches no network at
+  all, and Phase 7's connector is still module-and-HTTPS only;
+- **the world ID, not the instance, defines world identity** — the bundle
+  carries no instance, host or port, for the reason §*The world is the identity*
+  gives;
+- **exact (core, system) version validation, failing closed** — the bundle
+  carries both and the Manager compares the tuple against configuration;
+- **stable platform character IDs independent of Foundry IDs** — `characters.id`
+  stays a platform UUID and the Foundry `_id` stays a mapping key in
+  `external_actor_mappings`;
+- **no Foundry write-back in this phase**, for any field. A database-owned
+  difference produces a warning that the Foundry Actor is out of date and should
+  be updated manually;
+- **mapping is Council-established, never inferred from a name.**
+
+### New in this amendment
+
+- **Content-addressed immutability.** The artifact's SHA-256, computed before
+  parsing, is the snapshot identity. Preview, import, mapping, reconciliation,
+  correction and audit all bind to it. One changed byte is a different snapshot.
+- **A bounded folder set, selected in the Manager.** The bundle carries 1–8
+  deliberately exported Actor folders plus the ancestors needed to present a
+  path; a Platform Administrator selects one in Phase 3 and a Council member
+  confirms the exact preview. The reasoning is in the contract, §2.5.
+- **Folder identity is (stable folder ID, displayed path)**, never the name
+  alone — the same rule this ADR already applies to Actor names, one level up.
+- **Idempotency for the offline artifact** is keyed on
+  (snapshot checksum, selected folder ID, field-profile version). The Phase 7
+  key of (world ID, actor `_id`, content hash) is unchanged and belongs to the
+  live connector; the two are different inputs and deliberately have different
+  keys.
+
 ## Consequences
 
 **Positive.**
@@ -170,7 +261,9 @@ prerequisite for Phase 7 — which the plan's phase ordering already reflects.
 **Offline LevelDB snapshot import.** Tempting: no module to write, no Foundry
 API to learn. Rejected — forbidden by `.agents/AGENTS.md` for production, the
 databases are open, and it would couple the platform to Foundry's internal
-storage format across versions.
+storage format across versions. **Still rejected after the 2026-08-02
+amendment**, which permits a Council-produced *export bundle* and nothing else;
+see that section for why the two are not the same artifact.
 
 **Foundry REST API module from the ecosystem.** A general-purpose remote-access
 module would grant far broader access than snapshot submission needs, and its

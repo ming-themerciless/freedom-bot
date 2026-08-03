@@ -1,6 +1,6 @@
 # Freedom Blades Platform — Master Implementation Plan
 
-Status: Controlled baseline v1.0 — accepted 2026-08-02
+Status: Controlled baseline v1.5 — accepted 2026-08-02
 
 Baseline date: 2026-08-02
 
@@ -81,11 +81,19 @@ cannot approve its own recommendation; Peter records the gate decision.
 
 Current assignment: Peter Duscha is Product Sponsor, Acceptance Authority,
 Product Owner, Data Owner, Operations Owner and Delivery Lead. For each package,
-Peter designates the implementing agent as the working Technical Lead and a
-different agent as Independent Reviewer where practical. Security-sensitive
-work receives a separate security-focused review before Peter decides its gate.
-Tool names such as Claude, Gemini and Codex describe delivery resources, not
-approval authority.
+Peter designates the implementing agent as the working Technical Lead.
+
+At a **mandatory review checkpoint** — every subject listed in §16.4, and every
+gate whose row in the `docs/project-management/README.md` gate-authority table
+requires an Independent Reviewer recommendation — a **different** Independent
+Reviewer than the implementer is **required**. If none is available, the package
+remains `deferred`; the gate is not approved, not conditionally approved, and
+not closed on the implementer's own recommendation. *Where practical* applies
+only to reviews that neither list mandates.
+
+Security-sensitive work receives a separate security-focused review before Peter
+decides its gate. Tool names such as Claude, Gemini and Codex describe delivery
+resources, not approval authority.
 
 ### 0.4 Planning and reporting rules
 
@@ -157,9 +165,10 @@ integration, live data, or deployment configuration. The legacy Discord bot
 continues to use Google Sheets until its Sheet-backed behavior has been replaced
 by the database-backed Freedom Blades Manager and the cutover has been verified.
 The Foundry active-character snapshot supplies Actor data outside the Sheet-era
-model. Google Sheets may bootstrap fields classified as
-Sheet-era/database-authoritative through validated manual entry or a narrow
-one-time import; it is not an ongoing platform authority.
+model. Google Sheets remains the accepted legacy store for each Sheet-era field
+until that field's typed domain package passes migration and cutover. It is not
+the permanent platform authority, and its state is not copied into a generic
+interim database model.
 
 ## 2. Repository strategy
 
@@ -223,11 +232,10 @@ when its current feature is being migrated and protected by tests.
    mutable display values.
 7. Foundry is accessed through supported APIs and a narrow module. Never write
    directly to Foundry LevelDB.
-8. Google Sheets remains a legacy Discord-bot dependency during the transition.
-   Fields it currently owns may be bootstrapped as database authority; the Sheet
-   is not an ongoing platform authority and is retired only after the
-   database-backed Manager replaces the Sheet-backed behavior and the cutover is
-   verified.
+8. Google Sheets remains a legacy Discord-bot dependency and per-field legacy
+   authority during the transition. Each typed package migrates its fields once;
+   the Sheet is retired only after every database-backed replacement and cutover
+   has been verified.
 9. Authorization is enforced on the server for every request and command.
 10. AI may draft or extract proposals but never decides or applies game state.
 11. Production data is never used in automated tests or committed fixtures.
@@ -391,6 +399,13 @@ Initial recommendation:
 | Specials, no-shows and other Sheet-era homebrew state | PostgreSQL |
 | Skill proficiencies, mundane items, resistances, speed, conditions and other non-homebrew Actor mechanics | Foundry snapshot, read-only; persist no separately managed copy unless a later use case requires one |
 
+The matrix states the **target owner**, not that the field has already migrated.
+Each row also has a migration state: `legacy`, `shadow`, `database`, or
+`retired`. Until a package-specific gate moves a field to `database`, its
+accepted legacy path remains authoritative for production behavior and the new
+platform must not write it. Target ownership never authorizes a premature
+generic representation or an unreviewed cutover.
+
 ### 6.2 Conflict policy
 
 Never silently apply a bidirectional last-write-wins rule.
@@ -431,7 +446,11 @@ reason. Reference-only Foundry fields and unknown JSON paths are never eligible
 for database overwrite.
 
 Every database-managed current-state field is manually correctable by any one
-currently authorized Guild Council member. No second approver is required.
+currently authorized Guild Council member **after the package owning that field
+has introduced its typed domain model and passed its migration/cutover gate**.
+No second approver is required. Before that gate, corrections continue through
+the accepted legacy workflow and the platform may compare or report the field
+but must not persist a second editable representation.
 Corrections must use domain-aware operations: ledger, mission, crafting,
 inventory and other historical state is corrected through an explicit
 compensating action rather than editing or deleting the original record.
@@ -544,7 +563,8 @@ The following are implementation contracts, not UI conventions:
   corrections and idempotency key. Apply rechecks all of them. Any changed
   snapshot, folder, profile or database version makes the preview stale and
   applies nothing.
-- **Atomic apply.** One import or correction commits its state changes,
+- **Atomic apply.** One import or correction for fields already migrated to a
+  typed database model commits its state changes,
   external mappings, reconciliation results, compensating transactions and
   audit event in one PostgreSQL transaction. An audit failure rolls back the
   state change; a state failure writes no success audit event. After rollback,
@@ -627,6 +647,84 @@ following logical model is required.
 
 Do not create every future table in the first migration. Add tables when a
 milestone has a real use case, domain model, and tests.
+
+Do not use a generic key/value or JSON character-state table merely to move
+Sheet-era values ahead of those models. The package that introduces each typed
+aggregate owns its migration from the legacy Sheet, reconciliation, correction
+workflow, cutover, recovery and acceptance evidence. Data is migrated once into
+its intended domain representation unless a separately approved ADR demonstrates
+why an interim store is necessary.
+
+#### 7.3.1 Relational representation of authoritative multi-valued domain facts
+
+Every Google Sheet cell or range that encodes multiple **authoritative
+operational domain facts** must be normalized when migrated. Do not persist
+such a collection as comma/newline-delimited text, a JSON/JSONB array or object,
+a PostgreSQL array, or a generic key/value row. Use the appropriate relational
+shape:
+
+- controlled vocabulary: a definition/reference table plus a junction table
+  whose parent and definition identifiers are foreign keys;
+- owned structured entries such as projects or notes: one typed child row per
+  entry with a foreign key to its parent character/player and further foreign
+  keys to referenced definitions;
+- quantities, ranks, dates, order and status: typed columns on the junction or
+  child row, with check constraints and uniqueness rules;
+- changing or historical membership: effective-dated rows or append-only
+  transactions rather than replacement of a serialized collection.
+
+Do not invent a global definition entity when no shared domain identity exists.
+Free-form values owned by one aggregate—such as reviewed character notes—use
+typed child rows with their own stable ID and a foreign key to the owning
+character, plus position, timestamps or other real facts where applicable. A
+definition/reference table is required only for a genuinely shared or
+controlled vocabulary.
+
+Reference identities use stable internal IDs; display labels are mutable and
+never serve as foreign keys. Junction tables have a declared primary key or
+unique constraint preventing duplicate membership. Deletes use `RESTRICT` when
+history references a row and are never used to erase audit or transaction
+history. An unrecognized source value becomes an explicit unresolved migration
+item; it is not silently inserted into a controlled vocabulary or discarded.
+
+Ability scores use the same relational discipline: `ability_definitions`
+contains the stable reviewed ability codes and labels, and
+`character_ability_scores` references both character and ability. It has a
+unique `(character_id, ability_id)` key, a constrained integer score and source
+provenance. An authoritative ability map is not stored as JSON.
+
+This rule covers, at minimum, classes/subclasses where multiple entries are
+possible, feats, languages, tool and special-weapon proficiencies, artisan
+ranks, specials/notes, learning and crafting projects, magic items, campaigns
+and character access. An exception permitting serialized collection storage
+requires a separate accepted ADR and controlled-baseline change.
+
+This normalization rule does **not** require relational decomposition of:
+
+- immutable original Foundry or other external artifacts retained as evidence;
+- immutable audit-event contextual payloads whose authoritative effects are
+  already represented in typed operational tables;
+- bounded diagnostic or parser metadata used only to explain an import;
+- external API payloads preserved for provenance or replay; or
+- presentation-only caches that are disposable and never authoritative.
+
+Those exceptions cannot become an alternate editable character model, satisfy
+a migrated-field requirement, drive authoritative calculations without typed
+validation, or hide a relationship that requires referential integrity. Store
+only necessary data, apply size/retention/access controls, and keep searchable
+identity, status, checksum, time, actor and correlation fields in typed columns.
+If an alleged evidence/metadata/cache exception becomes operational authority,
+it must first migrate into the normalized domain model and pass its package
+gate.
+
+Before coding a package that introduces normalized legacy data, its definition
+of ready includes an independently reviewed logical schema artifact (ER diagram
+plus schema decision table) naming table ownership, cardinalities, primary and
+foreign keys, unique/check constraints, nullability, delete behavior,
+effective-dating/history behavior, vocabulary sources, unresolved-record
+handling, expected access patterns and source-to-target control totals. A
+material schema change after readiness returns the package through impact
+assessment and schema review rather than being absorbed silently.
 
 ### 7.4 Magic-item catalogue and character inventory
 
@@ -1180,12 +1278,13 @@ Target: 8–15 working days
 
 Planning note: this historical range is retained only as a rough-order record
 and must be re-estimated before the remaining Phase 2 work is forecast. Phase 2
-is managed as five evidence-bearing packages: (2.1) immutable artifact/parser
-and field profile, (2.2) preview/mapping/reconciliation, (2.3) correction,
-authorization and audit controls, (2.4) optional Sheet bootstrap, and (2.5)
-PostgreSQL concurrency/recovery/runtime-role evidence plus the supervised real-
-snapshot rehearsal. The gate closes only when all required packages are
-accepted; completion of the Sheet package alone is not milestone completion.
+is managed as four evidence-bearing packages: (2.1) immutable artifact/parser
+and field profile, (2.2) preview/identity/mapping/reconciliation, (2.3) import
+authorization, provenance and audit controls, and (2.4) PostgreSQL
+concurrency/recovery/runtime-role evidence plus the supervised real-snapshot
+rehearsal. Phase 2 does not migrate Sheet-era character state and does not
+create a generic interim state store. The gate closes only when all four
+packages and their operational evidence are accepted.
 
 Deliver:
 
@@ -1194,22 +1293,21 @@ Deliver:
 - immutable snapshot provenance, checksum, triggering-actor and audit records;
 - stable external mappings;
 - validation and reconciliation reports;
-- a versioned Foundry field profile classifying fields as database-authoritative
-  comparison, snapshot-only roll input, selectable Council correction, or
-  ignored;
+- a versioned Foundry field profile classifying snapshot paths, target field
+  ownership and current migration state without creating a second editable
+  representation;
 - repeatable/idempotent imports;
 - no writes to Foundry or Google Sheets.
 
-Some database-authoritative homebrew values exist only in Google Sheets today.
-Because the live population is small, validated manual bootstrap entry is the
-default migration path for those values. A general Sheet migration framework is
-not required. Existing Sheet-import code may be reused or narrowed for a
-one-time import only when that is simpler than manual entry, and only for fields
-explicitly classified as Sheet-era/database-authoritative in the field profile.
-Foundry availability does not make a Sheet-authoritative value overwriteable by
-the snapshot. The bootstrap must preview and validate every value, write only
-PostgreSQL, and create no ongoing Sheet authority. The existing Sheets connector
-remains untouched because the live Discord bot still requires it.
+Some target database-authoritative homebrew values exist only in Google Sheets
+today. They remain on the accepted legacy path until the package introducing
+their typed domain model migrates them. Phase 2 may report their presence or a
+Foundry disagreement, but must not copy them into PostgreSQL, make them
+selectable for correction, or create a generic migration framework. The
+existing Sheets connector remains untouched because the live Discord bot still
+requires it. Existing production writes continue until their package-specific
+cutover; "legacy" does not mean globally read-only while the replacement is
+absent.
 
 Acceptance:
 
@@ -1227,13 +1325,12 @@ Acceptance:
   Actors and ambiguous mappings are reported;
 - repeated imports do not create duplicates;
 - import failure cannot partially commit;
-- stale or concurrent import/correction previews apply nothing;
+- stale or concurrent import previews apply nothing;
 - preview and dry-run modes persist no character or mapping changes;
-- database-owned field disagreements produce warnings that Foundry should be
-  updated manually and do not overwrite PostgreSQL by default;
-- a Council correction may copy only explicitly selected, allowlisted Foundry
-  values into PostgreSQL after a before/after preview and records an atomic,
-  append-only audit event;
+- target database-owned field disagreements are reported without creating or
+  changing an editable PostgreSQL value **only when an accepted typed database
+  value exists**; otherwise the report records `legacy_authority_deferred` with
+  the owning migration package and performs no equality comparison;
 - snapshot-only fields remain readable for calculations without becoming a
   second managed representation in PostgreSQL;
 - calculations identify the snapshot and field-profile versions they used and
@@ -1242,11 +1339,8 @@ Acceptance:
   separate Council correction changes that state;
 - every applied character and mapping is traceable to the immutable snapshot
   checksum and triggering actor;
-- any optional Sheet bootstrap reads only fields explicitly classified as
-  Sheet-era/database-authoritative, never writes Google Sheets, and is not used
-  after bootstrap;
 - the restricted runtime database role cannot update, delete or truncate audit
-  and transaction-history records;
+  and import-history records;
 - rollback/recovery and snapshot-retention procedures are documented;
 - a maintainer-supervised rehearsal with the real immutable snapshot produces a
   reviewed reconciliation report without committing the artifact as a fixture;
@@ -1254,8 +1348,8 @@ Acceptance:
 
 Mandatory Phase 2 tests:
 
-- valid synthetic snapshot preview and apply, including the supervised bootstrap
-  path without a separate approval;
+- valid synthetic snapshot preview and apply creating only snapshot provenance,
+  character identity and external mappings;
 - checksum mismatch after any byte is changed;
 - oversized, excessively nested, unknown-shape and path-bearing input is refused
   before a database transaction begins;
@@ -1271,20 +1365,17 @@ Mandatory Phase 2 tests:
 - stale preview after a database edit, field-profile change, folder change or
   snapshot change, each committing nothing;
 - two concurrent applies of the same or overlapping snapshot cannot duplicate
-  characters, mappings, corrections or audit effects;
+  characters, mappings, import records or audit effects;
 - an Actor missing from a later snapshot warns without deletion, deactivation
   or unmapping;
-- database-owned field mismatches produce a Foundry-out-of-date warning while
-  matching fields produce no warning;
-- selectable Council correction defaults every field to unselected, refuses
-  unknown or snapshot-only fields, applies selected allowlisted fields
-  atomically, and records before/after values, reason, actor and checksum;
-- one Council member can execute standard, protected and compensating
-  corrections; protected confirmation requires no second actor;
-- correction tests cover every database-managed field, including protected
-  identity/progression facts and append-only balance/history corrections;
-- Council can read and search correction audit records while update and delete
-  attempts are denied;
+- already-migrated database-owned fields produce a Foundry-out-of-date warning
+  on mismatch and no warning on a match; legacy fields produce
+  `legacy_authority_deferred`, name their owning package, and are never reported
+  as matching or different without an authoritative comparison value;
+- no Phase 2 API, service or repository can persist a Sheet-era field or copy a
+  Foundry comparison value into database-managed current state;
+- Council and Platform Administrators can read and search import audit records
+  while update and delete attempts are denied;
 - snapshot-only skill proficiency and Actor-stat inputs are available to roll
   calculations without creating independently editable database fields, and
   the result records its snapshot/profile provenance;
@@ -1292,21 +1383,45 @@ Mandatory Phase 2 tests:
   the defined typed refusal rather than a default value;
 - every supported snapshot path and database field has exactly one applicable
   profile/correction classification, and an unknown new path fails closed;
-- bootstrap requires the explicit flag and supervisor, refuses a non-empty
-  target, and cannot run again after successful initialization;
-- optional Sheet bootstrap refuses non-allowlisted fields and cannot let a
-  Foundry snapshot replace a Sheet-era/database-authoritative bootstrap value;
-  validated manual bootstrap produces the same database state;
+- import tests prove the resulting PostgreSQL dataset contains no generic
+  character-state, balance or transaction rows and no second editable copy of a
+  legacy Sheet field;
 - parser failure, database constraint failure and injected mid-import failure,
   each leaving characters and mappings unchanged, writing no success audit, and
   recording at most one safe attempted/refused audit event;
-- injected audit-write failure rolls back the corresponding import/correction;
+- injected audit-write failure rolls back the corresponding import;
 - direct runtime-role `UPDATE`, `DELETE` and `TRUNCATE` attempts against audit
   and transaction-history tables are rejected by PostgreSQL; and
 - database constraints preventing two records from claiming the same
   world/Actor external identity, exercised against PostgreSQL.
 
-Review gate: data integrity and migration safety.
+Required operational evidence before the gate:
+
+- a signed reconciliation report from a maintainer-supervised preview of the
+  real export, accounting for every Actor as mapped, create-candidate or
+  explicitly unresolved, with zero unexplained identity discrepancy;
+- an upgrade/downgrade/upgrade migration rehearsal against a disposable
+  PostgreSQL database;
+- a backup and restore rehearsal proving the pre-import state can be restored
+  and the importer can be rerun without duplicate identity or audit effects;
+- direct restricted-runtime-role denial of `UPDATE`, `DELETE` and `TRUNCATE`
+  against every append-only Phase 2 table; and
+- independent review closure of every blocking security, identity, atomicity,
+  migration and recovery finding.
+
+Review gate: data integrity, identity and migration safety. The Acceptance
+Authority records the decision; passing automated tests alone does not close
+the gate.
+
+For this gate, “signed reconciliation report” means a dated Data Owner
+attestation stored under `docs/review/` that records the export SHA-256, exporter
+and profile versions, selected world/folder, total Actors and the count and
+identifier of every mapped, create-candidate and explicitly unresolved Actor.
+It records the disposition and reason for every unresolved identity and states
+that no artifact or real Actor payload was committed. The attestation may use
+stable external IDs and counts but no unnecessary player data. The Data Owner's
+name and approval date are the signature; the Acceptance Authority references
+that attestation in the gate record.
 
 ### Phase 3 — Authentication, read-only member portal, and Council administration
 
@@ -1363,11 +1478,9 @@ Deliver:
 - Platform-Administrator folder selection for snapshot imports, defaulting to
   `/actors/Characters (active)`;
 - reviewable field-profile controls showing which snapshot fields are used as
-  read-only roll inputs, compared with database authority, eligible for a
-  selected Council correction, or ignored;
-- standard, protected and compensating Council correction controls for every
-  database-managed current-state field;
-- Council-and-administrator-visible immutable correction, snapshot-import and
+  read-only roll inputs, compared with an already-migrated database authority,
+  deferred to a named legacy migration package, or ignored;
+- Council-and-administrator-visible immutable snapshot-import and
   reconciliation audit log;
 - integrate the accepted Freedom Blades visual baseline from §12.1 into
   production Jinja templates and static assets;
@@ -1388,16 +1501,13 @@ Acceptance:
 - Platform Administrator alone cannot apply an import unless that user also has
   Guild Council authority;
 - the Council confirmation shows the checksum, world, selected folder, Actor
-  count, mappings, warnings and every selected database correction;
-- database-correction checkboxes default to unselected and cannot be enabled for
-  snapshot-only or unknown fields;
-- any one authorized Council member can correct every database-managed
-  current-state field through its assigned correction mode;
-- protected corrections require an explicit before/after confirmation but no
-  second person;
-- transaction/history-backed corrections append compensating records and never
-  rewrite or delete their original history;
-- Council members can search correction and import audit records but cannot
+  count, mappings and warnings; Phase 3 import cannot select or write an
+  unmigrated Sheet-era field;
+- no Phase 3 route or form mutates character game state; correction controls are
+  delivered by the typed package that owns the field and its cutover;
+- legacy fields display `migration deferred` and their owning package rather
+  than a fabricated comparison or correction control;
+- Council members can search import and reconciliation audit records but cannot
   modify or delete them;
 - snapshot import attempts and results are visible in the administrator audit
   view without exposing snapshot contents to unauthorized users;
@@ -1408,7 +1518,7 @@ Acceptance:
 Mandatory Phase 3 tests:
 
 - unauthenticated, non-member, ordinary-member, Council and
-  Platform-Administrator-only access for every import, correction, profile and
+  Platform-Administrator-only access for every import, profile and
   audit endpoint, checking direct HTTP calls as well as hidden controls;
 - Council role or guild membership revoked between preview and apply;
 - CSRF refusal, request/file-size limits, unsupported content type, malicious
@@ -1418,15 +1528,13 @@ Mandatory Phase 3 tests:
   new apply;
 - double-click, retry and two-browser concurrent apply return one result and one
   audit effect;
-- stale optimistic version after another Council correction applies nothing;
-- cross-character identifier substitution cannot read or mutate another record
-  outside the requested Council operation;
-- table-driven UI/application tests exercise standard, protected and
-  compensating correction for every field in the versioned field profile;
-- protected correction cannot be submitted without the dedicated confirmation
-  and reason, but succeeds with one Council member;
-- compensating correction changes the effective state while preserving the
-  original transaction/history rows;
+- cross-character identifier substitution cannot read another record outside
+  the requested Council operation;
+- direct HTTP and application-service tests prove no character-game-state
+  correction endpoint exists and forged submissions cannot mutate legacy or
+  database state;
+- every legacy field renders `migration deferred` plus the package named in the
+  controlled migration register, with no editable control;
 - Council and administrator can search audit records with bounded pagination;
   ordinary users and unrelated service principals cannot read them;
 - no application route or repository operation can update/delete an audit
@@ -1474,23 +1582,53 @@ ready.
 | Package | Outcome | Package-specific predecessor | Gate |
 |---|---|---|---|
 | 5.0 Migration and cutover harness | feature flags, comparison telemetry, idempotency/audit conventions and common rollback procedure | Phase 4 gate | first-mutation and cutover-control review |
-| 5.1 `/info` | database-backed read path with linked-character authorization | 5.0, OD-16/17 resolved | read-path authorization review |
-| 5.2 `/xchange` | atomic, idempotent currency exchange | 5.0 and money/ledger foundation | first economy-mutation review |
-| 5.3 Lifestyle and scheduled accrual | interactive lifestyle behavior, Living Cost schedule/history/job, catch-up, monitoring and authority cutover | 5.0; OD-03/04 closed; effective-dated activation history | scheduled-economy and cutover review |
+| 5.1 Character profile and `/info` | typed character/profile/proficiency schema; package-owned Sheet migration and reconciliation; database-backed read path with linked-character authorization | Phase 3 authentication/security gate, 5.0, OD-16/17 resolved | profile-migration and read-path authorization review |
+| 5.2 Wallet and `/xchange` | typed wallet/ledger schema; package-owned balance migration and reconciliation; atomic, idempotent currency exchange | 5.0 | first economy-migration/mutation review |
+| 5.3 Lifestyle and scheduled accrual | typed lifestyle schema; package-owned migration and reconciliation; interactive behavior, Living Cost schedule/history/job, catch-up, monitoring and authority cutover | 5.0; OD-03/04 closed; effective-dated activation history | scheduled-economy and cutover review |
 | 5.4 Mining and work | characterized deterministic rules and atomic ledger effects | 5.0 and rule decisions | rules/economy review |
-| 5.5 Learning | learning projects, prerequisites, progress and corrections | 5.0; OD-09 and OD-28 closed | learning-rules review |
-| 5.6a Catalogue and inventory foundation | pinned catalogue import, definitions/revisions, inventory and transactions | Phase 4; source/licensing approval | catalogue, migration and inventory-integrity review |
-| 5.6b Crafting | projects and atomic completion against recognized definitions | 5.6a; OD-05 closed | crafting-rules and atomicity review |
+| 5.5 Learning | typed learning/downtime/proficiency projects; package-owned Sheet migration including accountable decomposition of column V; prerequisites, progress and corrections | 5.0; OD-09 and OD-28 closed | learning migration/rules review |
+| 5.6a Catalogue and inventory foundation | pinned catalogue import, definitions/revisions, inventory and transactions; package-owned magic-item migration and reconciliation | Phase 4; source/licensing approval | catalogue, migration and inventory-integrity review |
+| 5.6b Crafting | typed crafting/CRP projects; package-owned migration, including the crafting portion handed off from column V; atomic completion against recognized definitions | 5.6a; OD-05 closed | crafting migration/rules and atomicity review |
 | 5.7 Sales | authorized atomic sale and ledger flow | 5.0, 5.6a where items are sold, OD-39 closed | authorization and financial-integrity review |
 | 5.8 Trades | authorized multi-character atomic trade and inventory transfer | 5.0, 5.6a, OD-39 closed | multi-actor atomicity review |
-| 5.9 Existing Bastion maintenance | migrated maintenance behavior and history | relevant lifestyle/resource packages | Bastion migration review; does not replace Phase 10 gate |
-| 5.10 Final bot cutover | reconciled package cutovers and verification window; Sheet rollback retained | every package in the agreed release scope approved | final bot-cutover review |
+| 5.9 Existing Bastion maintenance | typed existing Bastion state; package-owned Sheet migration/reconciliation; maintenance behavior and history | relevant lifestyle/resource packages | Bastion migration review; does not replace Phase 10 gate |
+| 5.10 Phase 5 bot-behavior cutover | reconciled cutover of Phase 5-approved bot behaviors and verification window; Sheet rollback retained for those behaviors | every Phase 5 package in the approved cutover scope | Phase 5 bot-behavior cutover review; does not authorize final Sheet retirement |
 
 Each package receives its own phase-plan record containing scope exclusions,
 work breakdown, three-point estimate, capacity, dependency owners, test mapping,
 rehearsal/cutover steps and contingency. A package may cut over only its own
 accepted behavior. Completion of one package does not imply completion of the
 Phase 5 umbrella or authorize a dependent package.
+
+The controlled allocation of every legacy character and player field is in
+[`docs/project-management/data-migration-register.md`](project-management/data-migration-register.md).
+No package is ready if one of its allocated rows lacks an exact source, typed
+target, transformation owner, reconciliation rule or gate. A register row may
+move between packages only through §0.2 change control; it may never have two
+write-authoritative targets.
+
+Controlled vocabulary sources and stewardship are recorded in
+[`docs/project-management/data-vocabulary-register.md`](project-management/data-vocabulary-register.md).
+A package using a vocabulary is not ready while its source identity, version,
+alias/merge policy, licensing/provenance, retirement behavior, steward or
+unresolved-value workflow is open.
+
+A migration package may not invent the events behind a legacy aggregate or
+date. Where the Sheet supplies only a counter, balance or latest date, migrate
+it as a typed, immutable opening/baseline fact with source, effective cutover
+instant and provenance. Normalized event history begins at cutover. A later
+aggregate may combine the accepted baseline and post-cutover history only by a
+documented deterministic rule. Historical event rows are created only from
+independently identifiable source records; no synthetic mission, attendance,
+campaign or project is manufactured to make a counter appear relational.
+
+No field may move from `Legacy` or `Shadow` to `Database` until its assigned
+correction workflow is accepted: current authorization is enforced; standard,
+protected or compensating semantics match the field profile; protected changes
+show dependent effects; history-backed changes append rather than rewrite;
+successful and refused attempts are safely audited; and stale/concurrent and
+runtime-role bypass tests pass. The owning package delivers this workflow even
+if a later phase adds a consolidated correction UI.
 
 Migrate in order:
 
@@ -1951,10 +2089,35 @@ before production use.
 
 Tests must never contact production Discord, Sheets, Foundry, or PostgreSQL.
 
+Every package that creates, migrates or mutates persistent state must add a
+package-specific matrix covering, where the condition is meaningful:
+
+- valid preview/apply and deterministic before/after facts;
+- unauthenticated, unauthorized, cross-object and revoked-role denial;
+- invalid, boundary, negative, oversized and unknown input;
+- duplicate request, retry, stale optimistic version and two concurrent actors;
+- database uniqueness, foreign-key, check and append-only enforcement against
+  PostgreSQL, not only fakes;
+- parser/external, mid-transaction, audit-write and commit failure, proving no
+  partial state and no false success;
+- migration dry-run, idempotent rerun, every source row/value accounted for,
+  explicit unresolved records, rollback and restored-backup rerun;
+- application and database runtime-role attempts to bypass history or
+  authorization;
+- safe monitoring states and logs without secrets or unrelated player data; and
+- a synthetic staging end-to-end path plus the named supervised operational
+  checks required by the package gate.
+
+A package plan may mark an item `not applicable` only with a written rationale
+accepted by its Independent Reviewer. It may not omit the row. Phases 6–11 and
+every Phase 5 migration package must trace this matrix to named tests before
+their definition of ready is accepted.
+
 ### 13.3 Review-gate evidence
 
 A phase with data import or Council mutation cannot close on unit tests alone.
-Its handoff must include:
+Its handoff must include the common evidence below plus boundary-specific
+evidence for every surface it actually exposes:
 
 - a traceability table mapping every acceptance criterion and mandatory scenario
   to one or more named automated tests or to a clearly identified supervised
@@ -1966,8 +2129,14 @@ Its handoff must include:
 - PostgreSQL integration tests for migrations, uniqueness, foreign keys,
   optimistic concurrency, idempotency, rollback and runtime-role audit
   immutability;
-- web security tests for authentication, current-role authorization, CSRF,
-  object-level authorization, input limits, escaping and stale submissions;
+- web surfaces: authentication, current-role authorization, CSRF, object-level
+  authorization, input limits, escaping and stale-submission tests;
+- Discord surfaces: interaction authorization, object ownership, defer/followup
+  behavior, duplicate interaction and safe-rendering tests;
+- CLI/operator surfaces: filesystem and artifact limits, authority, refusal,
+  exit-code, safe-output and non-interactive recovery tests;
+- database mutations: real PostgreSQL transaction, constraint, concurrent
+  outcome, restricted-role and recovery evidence;
 - deterministic synthetic snapshot fixtures covering the supported schema
   without real character data;
 - the narrow relevant suite followed by the full configured suite, with exact
@@ -2021,33 +2190,68 @@ recovery migration.
 
 ## 15. Google Sheets retirement
 
-Google Sheets is a temporary runtime dependency of the legacy Discord bot, not
-the character source for the Freedom Blades Manager. Character identity and
-snapshot-only Actor data come from Foundry. Fields classified as
-Sheet-era/database-authoritative may be entered manually or copied through a
-narrow, one-time, validated bootstrap. Do not build a general synchronization
-or migration framework around Google Sheets.
+Google Sheets is a temporary runtime dependency and the accepted legacy store
+for fields whose typed PostgreSQL package has not passed its migration/cutover
+gate. Character identity and snapshot-only Actor data come from Foundry. Do not
+copy Sheet-era state into a generic interim database representation or build a
+general synchronization framework around Google Sheets.
 
 Use these retirement stages:
 
 1. characterize the existing Sheet-backed bot behavior that must be preserved;
 2. import active characters from Foundry into PostgreSQL;
-3. manually enter or narrowly bootstrap the fields classified as
-   Sheet-era/database-authoritative and review their reconciliation report;
-4. implement the corresponding Manager application services and database-backed
-   bot/web behavior;
-5. compare the replacement behavior against the characterized legacy behavior;
-6. cut database-backed reads and writes over behind controlled feature flags;
-7. verify the Manager and bot operate correctly without Sheet-backed paths for
-   an agreed period;
-8. retain the Sheet connector, credential, and rollback path throughout that
-   verification window;
-9. after explicit maintainer approval, export/archive the Sheet and remove the
+3. for each field group, implement its typed domain model, constraints,
+   application service and package-specific migration;
+4. preview the migration, reconcile every source row/value, and obtain Data
+   Owner approval for all mappings and explicit unresolved exceptions;
+5. exercise migration rollback and database backup restoration, then apply the
+   migration atomically with immutable provenance and audit;
+6. compare database-backed behavior against characterized legacy behavior;
+7. cut that field group's reads and writes over behind controlled feature flags;
+8. verify the Manager and bot operate correctly without that Sheet-backed path
+   for the numeric verification period defined by the package plan;
+9. retain the Sheet connector, credential, source export and rollback path
+   throughout that verification window;
+10. after every field-group gate and explicit maintainer approval, archive the Sheet and remove the
    service-account credential, connector, and obsolete Sheet-backed code.
 
-Do not introduce dual writes between PostgreSQL and Google Sheets. PostgreSQL is
-authoritative for behavior after each approved cutover; the Sheet-backed path is
-a rollback implementation during verification, not a secondary data authority.
+Do not introduce dual writes between PostgreSQL and Google Sheets. Each package
+must publish: exact source columns, target tables and constraints; deterministic
+transformation rules; row/value reconciliation totals; idempotency keys;
+transaction boundaries and injected-failure tests; authorization and audit
+tests; backup, restore and application rollback steps; cutover flags; monitoring
+and rollback thresholds; and the time-bounded verification period. PostgreSQL
+is authoritative only after that package's approved cutover; the Sheet-backed
+path is then a rollback implementation during verification, not a secondary
+authority.
+
+For every authoritative multi-valued source, the package plan and migration report must also
+publish the reference, parent and junction/child tables; all foreign keys,
+primary/unique keys and delete behavior; vocabulary resolution and explicit
+unresolved-value handling; duplicate and ordering semantics; and source-entry
+to target-row control totals. Acceptance requires PostgreSQL tests proving
+foreign-key rejection, duplicate prevention, parent/history delete behavior and
+lossless idempotent migration. Serialized storage of authoritative
+multi-valued domain facts is a blocking schema finding. Reviewers must not apply
+that finding merely because an immutable evidence, audit, diagnostic, external
+payload or disposable-cache record contains bounded structured context; they
+must instead verify that the record fits the exceptions and cannot act as
+operational authority.
+
+The allocation, status and accountable migration package for every legacy field
+are controlled in
+[`docs/project-management/data-migration-register.md`](project-management/data-migration-register.md).
+Its machine-readable source is
+[`docs/project-management/data-migration-manifest.json`](project-management/data-migration-manifest.json).
+Automated checks require every inventoried character/player source and every
+profile field to have exactly one accountable disposition and a known package.
+The Data Owner verifies the manifest against the real headers before every
+migration-package baseline and before Sheet retirement.
+
+Phase 5.10 cuts over only the bot behaviors accepted within Phase 5. Final Sheet
+retirement is a separate gate and cannot occur while any manifest/register row
+is `Legacy`, `Shadow`, unexplained or allocated to an unaccepted later package,
+including Phase 8. No milestone name or partial bot cutover implies otherwise.
 
 ## 16. Claude Code working protocol
 
@@ -2190,16 +2394,34 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-1. Prepare the next Phase 2 package with Peter Duscha as Acceptance Authority,
-   a designated implementing agent, a separate reviewer where practical, and a
-   package-level effort range; no additional standing team is required.
-2. Close and re-review the Phase 2 mapped-name normalization defect without
-   weakening the fail-closed identity policy.
-3. Re-estimate the five remaining Phase 2 packages, including independent
-   review, remediation, PostgreSQL evidence and supervised rehearsal.
-4. Complete the immutable Foundry snapshot importer, exhaustive field profile,
-   reconciliation/correction controls and required operational evidence.
-5. Submit the complete Phase 2 gate package; Phase 3 remains not ready until the
-   Acceptance Authority records an approved data-integrity/migration gate.
-6. Maintain current decisions, risks, dependencies and forecast in
+1. Replace the superseded pre-v1.1 Phase 2 package plan and baseline a four-package
+   remediation plan with named implementer, Independent Reviewer, Data Owner and
+   Operations Owner; three-point estimates; review/remediation allowance;
+   environment readiness; and rehearsal windows.
+2. Remove ADR 0008's rejected generic state, balance, transaction, correction
+   and Sheet-bootstrap implementation while preserving immutable snapshot,
+   identity, mapping, authorization, provenance and audit behavior.
+3. Implement and test `legacy_authority_deferred`, remove impossible legacy
+   comparisons, and close all blocking independent-review findings.
+4. Exercise upgrade/downgrade/upgrade, backup/restore/rerun and direct
+   restricted-runtime-role denial in the named disposable or staging
+   environment.
+5. Conduct the maintainer-supervised real-export preview and store the Data
+   Owner attestation defined by the Phase 2 evidence contract; commit no real
+   Actor data or artifact.
+6. Submit the complete Phase 2 gate package; Phase 3 remains not ready until the
+   Acceptance Authority records an approved data-integrity/identity/migration
+   gate.
+7. Before Phase 3, baseline its read-only/security packages and prove that no
+   character-game-state correction surface exists.
+8. Maintain current decisions, risks, dependencies and forecast in
    `docs/project-management/` throughout delivery.
+
+The replacement Phase 2 plan is not ready for approval unless it records the
+named environment; named implementer, Independent Reviewer, Data Owner and
+Operations Owner; optimistic/likely/pessimistic effort and confidence; explicit
+review/remediation contingency; maintainer and staging availability windows;
+artifact/import size and runtime limits; reconciliation success thresholds;
+backup-restore success criteria; rollback triggers; runtime-role evidence
+method; monitoring/observation period; and the date or bounded window for the
+supervised real-export rehearsal.

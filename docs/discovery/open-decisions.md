@@ -1149,6 +1149,117 @@ matched option (a) and needed no change.
 
 ---
 
+### OD-41 — Phase 2 representation of database-managed current state · **CLOSED 2026-08-02**
+
+**Raised by** the I-02 implementation, which could not proceed without taking a
+position and therefore records the position rather than assuming it.
+
+**The question.** Phase 2 must let one Council member correct *every*
+database-managed current-state field, and must test every one. Those fields have
+no Phase 4/5 domain tables yet, and plan §7.3 says not to create every future
+table in the first migration. What representation should Phase 2 use?
+
+**What was implemented, pending a ruling.** A **profile-driven store**:
+`character_state_values` for standard and protected fields,
+`character_balances` plus append-only `character_transactions` for compensating
+ones, with the versioned field profile supplying the key set, the value type and
+the correction mode. The four fields that are already `characters` columns keep
+those columns. See [ADR 0008](../adr/0008-profile-driven-character-state.md),
+status **Proposed**.
+
+**Why it needs a maintainer.** It is a schema-identity decision. It trades a
+typed column's database-level constraints for application-level validation
+against the profile, and it defers normalization to the Phase 5 package that
+owns each field group. Both costs are stated in the ADR; neither is hidden.
+
+**The alternative.** Normalize each field group now — `wallet_balances`,
+`resource_transactions`, `character_proficiencies`, `lifestyle_states`,
+`bastions`, `character_items` and the rest — ahead of the rule decisions and use
+cases those packages carry. That is the design the platform ends up with; the
+objection is only to designing it now, against a guess.
+
+**Ruling by Peter Duscha, 2026-08-02:** reject ADR 0008. Phase 2 imports
+immutable snapshots, character identity and mappings and produces reconciliation
+evidence, but does not migrate Sheet-era state. Each field group migrates once
+into the typed model introduced by its owning package. The legacy path remains
+authoritative until that package's approved cutover; no dual writes are allowed.
+Controlled baseline v1.1 records the impact and acceptance criteria.
+
+**Downtime consequence:** `character.downtime_progress` (Sheet column V) is not
+corrected as opaque text in Phase 2. Its migration waits for the typed learning
+and crafting project models in their owning packages.
+
+---
+
+### OD-42 — Character display-name identity policy · **CLOSED 2026-08-02**
+
+**Raised by** I-05, the residual of I-01. The mapped-name normalization
+correction was accepted on 2026-08-02, but `characters.display_name` carries no
+database uniqueness rule, so the shared comparison policy in `domain/names.py`
+is enforced by the importer alone. Recording the position rather than assuming
+one is the point of this entry: the replacement Phase 2 plan needs a decided
+answer before another writer touches that column.
+
+**The question.** May two characters share a display name, and what must a
+name-based lookup do when it finds more than one candidate?
+
+**What the accepted record already establishes.** Three of the four parts are
+not open at all:
+
+- names are not identities — `.agents/AGENTS.md` § *Domain* (*"Use stable IDs
+  for actors and records. Display names are mutable and are not identities"*)
+  and plan §3 principle 6;
+- display labels never serve as keys — plan §7.3.1 (*"Reference identities use
+  stable internal IDs; display labels are mutable and never serve as foreign
+  keys"*);
+- a mapping is never established by name — [ADR 0006](../adr/0006-foundry-integration-boundary.md)
+  § *Mapping is Council-established, never inferred* (*"Never by name matching"*),
+  carried forward intact by its 2026-08-02 amendment.
+
+Plan §12 Phase 2 also lists *duplicate display name* among the scenarios the
+import must **report**, which presupposes that duplicates can occur.
+
+**What is genuinely open**, and therefore what this ruling adds: whether a
+duplicate is *permitted to persist* in PostgreSQL, and what a legacy name-based
+candidate lookup does when it finds several. The accepted record does not settle
+either, and silence has been read in two incompatible ways — as licence to add a
+unique constraint, and as licence to pick the first candidate.
+
+**Ruling by Peter Duscha, Acceptance Authority, 2026-08-02:** accepted as
+recommended.
+
+> *Display names are not unique identities. Multiple characters may share a
+> display name. Stable character IDs and external Actor IDs provide identity.
+> Any legacy name-based candidate lookup fails closed when more than one
+> candidate exists.*
+
+The Data Owner recommendation and the Acceptance Authority approval are the same
+person under the solo-maintainer operating model (plan §0.3). **I-05 is closed
+by this ruling.** No unique display-name constraint is added.
+
+**Consequences.**
+
+- No unique index or constraint is added to `characters.display_name`. A
+  uniqueness rule would make a legitimate in-world situation — two characters
+  called *Grim* — an import failure and a data-repair task.
+- The reconciliation candidate lookup must return **all** candidates rather than
+  one, and refuse the run when it finds more than one; the current single-value
+  claim lookup collapses duplicates and is a defect under this ruling.
+- Two Actors sharing a display name under distinct external IDs remain two
+  create candidates, and an unmapped Actor whose name is already claimed remains
+  a blocking issue requiring a deliberate Council mapping.
+- I-05 closes. R-01's residual narrows to the legacy bot's own comparison.
+
+**Alternative rejected.** A unique display-name constraint plus a stored
+identity key. It would enforce the comparison in the database, which is the
+attraction, but it forbids a situation the game permits and converts a display
+concern into an identity constraint — the exact confusion the rest of the
+accepted record removes.
+
+**Authority.** Data Owner recommendation, Acceptance Authority approval, per
+plan §17 (field/data ownership). Recorded 2026-08-02 with the acceptance of
+[`../review/phase-2-v1.5-remediation-plan.md`](../review/phase-2-v1.5-remediation-plan.md).
+
 ## H. Product scope
 
 ### OD-40 — Music platform work · **CLOSED 2026-07-31, AMENDED 2026-07-31**
@@ -1262,6 +1373,11 @@ gate-boundary half of OD-34.
 Council approval.)*
 *(OD-14 closed.)*
 
+**Blocking the Phase 2 gate:** no open OD entry. OD-41 closed 2026-08-02 by
+rejecting the generic store and adopting package-owned typed migrations; OD-42
+closed 2026-08-02 by ruling that display names are not unique identities and
+that ambiguous name-based candidate lookup fails closed.
+
 **Check independently:** OD-25.
 
 **Added by the Codex review of 2026-07-29:** OD-34 (legacy untagged CRP policy)
@@ -1300,7 +1416,7 @@ What remains, in the order it will be needed:
 | When | Decisions |
 |---|---|
 | Early Phase 1 | **Closed 2026-07-30:** OD-15 (Council-approved shared level), OD-21 (host-managed PostgreSQL 16), OD-22 (same-host staging with strict separation) |
-| Phase 2 | **None gate the review.** Approval rests on the plan §12 acceptance criteria and on correcting actual import/reconciliation findings. Still to carry forward: preserve and report F-S6 aggregate disagreements and F-S7's unruled deadline rather than treating either as authoritative policy |
+| Phase 2 | No open OD entry; approval rests on controlled baseline v1.1 §12 acceptance criteria and remediation/re-review of the import implementation. Still carry forward F-S6 aggregate disagreements and F-S7's unruled deadline rather than treating either as authoritative policy |
 | Phase 3 | OD-16 and OD-17; the §17 authorization parameters closed 2026-07-31. OD-17 is also required before any affected legacy bot mutation is migrated or cut over |
 | Write-enablement | Ownership settled by OD-13; implementation still requires the approved proposal and Council-approval controls |
 | Phase 5–8 | OD-03, OD-04, OD-05, OD-09, **OD-39 before 5.7 `/sale` and 5.8 `/trade`**, and OD-28 tribute item; OD-32 and OD-33 closed 2026-07-31 |

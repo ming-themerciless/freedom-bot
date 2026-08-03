@@ -154,6 +154,13 @@ external_actor_mappings = Table(
     Column("external_actor_id", String(64), nullable=False),
     Column("last_instance", String(255)),
     Column("relink_fingerprint", String(255), nullable=False),
+    # Which snapshot established this mapping, and which folder the Actor sat
+    # in. Provenance for plan §12 Phase 2: "every applied character and mapping
+    # is traceable to the immutable snapshot checksum and triggering actor".
+    # Nullable because a mapping may also be created by a deliberate Council
+    # link that no snapshot proposed.
+    Column("established_by_snapshot_id", UUID(as_uuid=True), ForeignKey("foundry_snapshots.id", ondelete="RESTRICT")),
+    Column("folder_id", String(64)),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("world_id", "external_actor_id"),
     UniqueConstraint("character_id", "world_id"),
@@ -215,6 +222,107 @@ audit_events = Table(
 )
 Index("ix_audit_events_entity", audit_events.c.entity_type, audit_events.c.entity_id, audit_events.c.occurred_at)
 Index("ix_audit_events_correlation_id", audit_events.c.correlation_id)
+
+#: Tables the application may only append to. The runtime role holds
+#: `SELECT, INSERT` on each, and a database trigger rejects `UPDATE`/`DELETE`
+#: even for the schema owner, so an accidental repair is a visible act of DDL
+#: rather than a quiet row edit.
+APPEND_ONLY_TABLES = (
+    "audit_events",
+    "foundry_snapshots",
+    "snapshot_imports",
+)
+
+foundry_snapshots = Table(
+    "foundry_snapshots",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    # The identity: SHA-256 of the artifact's original bytes, computed before
+    # parsing. One changed byte is a different snapshot, which is why this is
+    # unique rather than merely indexed.
+    Column("checksum", String(64), nullable=False, unique=True),
+    Column("size_bytes", Integer, nullable=False),
+    Column("schema_version", Integer, nullable=False),
+    Column("exporter_id", String(120), nullable=False),
+    Column("exporter_version", String(32), nullable=False),
+    Column("exported_at", DateTime(timezone=True), nullable=False),
+    Column("world_id", String(120), nullable=False),
+    Column("world_title", String(200), nullable=False),
+    Column("core_version", String(32), nullable=False),
+    Column("system_id", String(64), nullable=False),
+    Column("system_version", String(32), nullable=False),
+    Column("actor_count", Integer, nullable=False),
+    Column("selected_folder_ids", json_type, nullable=False),
+    # A reference into the restricted artifact store, never the bytes. Audit
+    # visibility does not by itself grant permission to download the artifact.
+    Column("artifact_location", Text),
+    Column("received_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("received_by_discord_user_id", BIGINT, ForeignKey("discord_users.id", ondelete="RESTRICT")),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    CheckConstraint("checksum ~ '^[0-9a-f]{64}$'", name="checksum_sha256_hex"),
+    CheckConstraint("size_bytes > 0", name="size_positive"),
+    CheckConstraint("actor_count >= 0", name="actor_count_non_negative"),
+    CheckConstraint("schema_version > 0", name="schema_version_positive"),
+)
+
+snapshot_imports = Table(
+    "snapshot_imports",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("snapshot_id", UUID(as_uuid=True), ForeignKey("foundry_snapshots.id", ondelete="RESTRICT"), nullable=False),
+    Column("folder_id", String(64), nullable=False),
+    Column("folder_path", Text, nullable=False),
+    Column("profile_version", String(64), nullable=False),
+    # The apply attempt's own key: a retry of the same request returns the
+    # original result instead of applying a second time.
+    Column("request_key", String(255), nullable=False, unique=True),
+    Column("status", String(20), nullable=False),
+    Column("mode", String(20), nullable=False),
+    Column("actor_discord_user_id", BIGINT, ForeignKey("discord_users.id", ondelete="RESTRICT")),
+    Column("actor_capability", String(30), nullable=False),
+    Column("supervisor", String(120)),
+    Column("created_count", Integer, nullable=False, server_default="0"),
+    Column("updated_count", Integer, nullable=False, server_default="0"),
+    Column("warning_count", Integer, nullable=False, server_default="0"),
+    Column("summary", json_type, nullable=False),
+    Column("occurred_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    CheckConstraint("status IN ('applied', 'refused')", name="status"),
+    CheckConstraint("mode IN ('bootstrap', 'council')", name="mode"),
+    CheckConstraint(
+        "actor_capability IN ('guild_council', 'platform_administrator', 'system')",
+        name="actor_capability",
+    ),
+    CheckConstraint("created_count >= 0 AND updated_count >= 0 AND warning_count >= 0", name="counts_non_negative"),
+)
+# The *input* identity of an import is (snapshot, folder, profile version).
+# Only an applied row claims it, so a refusal never blocks the retry that fixes
+# it, and a second apply of the same input cannot succeed twice.
+Index(
+    "uq_snapshot_imports_applied_input",
+    snapshot_imports.c.snapshot_id,
+    snapshot_imports.c.folder_id,
+    snapshot_imports.c.profile_version,
+    unique=True,
+    postgresql_where=snapshot_imports.c.status == "applied",
+)
+Index("ix_snapshot_imports_correlation_id", snapshot_imports.c.correlation_id)
+
+platform_initialization = Table(
+    "platform_initialization",
+    metadata,
+    # Exactly one row can ever exist: the primary key is a boolean constrained
+    # to true. The bootstrap disables itself by inserting it, and the
+    # constraint — not the application — is what makes that irreversible.
+    Column("singleton", Boolean, primary_key=True, server_default="true"),
+    Column("initialized_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("supervisor", String(120), nullable=False),
+    Column("snapshot_checksum", String(64)),
+    Column("profile_version", String(64), nullable=False),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    CheckConstraint("singleton", name="single_row"),
+    CheckConstraint("length(trim(supervisor)) > 0", name="supervisor_not_blank"),
+)
 
 idempotency_keys = Table(
     "idempotency_keys",

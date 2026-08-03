@@ -2,17 +2,34 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.orm import Session
 
-from application.audit import AuditEvent
+from application.audit import ActorCapability, AuditEvent
 from application.errors import ConcurrencyConflictError
 from application.imports import SheetRowMapping
+from application.snapshots import (
+    ExternalActorMapping,
+    ImportMode,
+    ImportStatus,
+    PlatformInitialization,
+    SnapshotImportRecord,
+    SnapshotRecord,
+)
 from domain.identity import Character, DiscordUser
 from domain.names import DisplayName
 
 from .mappers import character_from_row, discord_user_from_row, sheet_row_mapping_from_row
-from .tables import audit_events, characters, discord_users, sheet_row_mappings
+from .tables import (
+    audit_events,
+    characters,
+    discord_users,
+    external_actor_mappings,
+    foundry_snapshots,
+    platform_initialization,
+    sheet_row_mappings,
+    snapshot_imports,
+)
 
 
 class SqlAlchemyCharacterRepository:
@@ -155,6 +172,250 @@ class SqlAlchemySheetRowMappingRepository:
             .order_by(sheet_row_mappings.c.row_index)
         ).mappings().all()
         return tuple(sheet_row_mapping_from_row(row) for row in rows)
+
+
+class SqlAlchemyExternalActorMappingRepository:
+    """Deliberate links only. There is no lookup by name here, on purpose."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, mapping: ExternalActorMapping) -> None:
+        self._session.execute(
+            insert(external_actor_mappings).values(
+                id=mapping.id,
+                character_id=mapping.character_id,
+                world_id=mapping.world_id,
+                external_actor_id=mapping.external_actor_id,
+                relink_fingerprint=mapping.relink_fingerprint,
+                folder_id=mapping.folder_id,
+                established_by_snapshot_id=mapping.established_by_snapshot_id,
+            )
+        )
+
+    def get_by_actor(
+        self, world_id: str, external_actor_id: str
+    ) -> ExternalActorMapping | None:
+        row = (
+            self._session.execute(
+                select(external_actor_mappings).where(
+                    external_actor_mappings.c.world_id == world_id,
+                    external_actor_mappings.c.external_actor_id == external_actor_id,
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return _mapping_from_row(row) if row else None
+
+    def list_for_world(self, world_id: str) -> tuple[ExternalActorMapping, ...]:
+        rows = (
+            self._session.execute(
+                select(external_actor_mappings)
+                .where(external_actor_mappings.c.world_id == world_id)
+                .order_by(external_actor_mappings.c.external_actor_id)
+            )
+            .mappings()
+            .all()
+        )
+        return tuple(_mapping_from_row(row) for row in rows)
+
+
+class SqlAlchemySnapshotRepository:
+    """Append-only. An artifact is recorded once and never edited."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, record: SnapshotRecord) -> SnapshotRecord:
+        self._session.execute(
+            insert(foundry_snapshots).values(
+                id=record.id,
+                checksum=record.checksum,
+                size_bytes=record.size_bytes,
+                schema_version=record.schema_version,
+                exporter_id=record.exporter_id,
+                exporter_version=record.exporter_version,
+                exported_at=record.exported_at,
+                world_id=record.world_id,
+                world_title=record.world_title,
+                core_version=record.core_version,
+                system_id=record.system_id,
+                system_version=record.system_version,
+                actor_count=record.actor_count,
+                selected_folder_ids=list(record.selected_folder_ids),
+                artifact_location=record.artifact_location,
+                received_by_discord_user_id=record.received_by_discord_user_id,
+                correlation_id=record.correlation_id,
+            )
+        )
+        return record
+
+    def get_by_checksum(self, checksum: str) -> SnapshotRecord | None:
+        row = (
+            self._session.execute(
+                select(foundry_snapshots).where(
+                    foundry_snapshots.c.checksum == checksum
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return SnapshotRecord(
+            id=row["id"],
+            checksum=row["checksum"],
+            size_bytes=row["size_bytes"],
+            schema_version=row["schema_version"],
+            exporter_id=row["exporter_id"],
+            exporter_version=row["exporter_version"],
+            exported_at=row["exported_at"],
+            world_id=row["world_id"],
+            world_title=row["world_title"],
+            core_version=row["core_version"],
+            system_id=row["system_id"],
+            system_version=row["system_version"],
+            actor_count=row["actor_count"],
+            selected_folder_ids=tuple(row["selected_folder_ids"]),
+            artifact_location=row["artifact_location"],
+            received_by_discord_user_id=row["received_by_discord_user_id"],
+            correlation_id=row["correlation_id"],
+        )
+
+
+class SqlAlchemySnapshotImportRepository:
+    """Append-only. Two uniqueness rules, for the attempt and for the input."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, record: SnapshotImportRecord) -> None:
+        self._session.execute(
+            insert(snapshot_imports).values(
+                id=record.id,
+                snapshot_id=record.snapshot_id,
+                folder_id=record.folder_id,
+                folder_path=record.folder_path,
+                profile_version=record.profile_version,
+                request_key=record.request_key,
+                status=record.status.value,
+                mode=record.mode.value,
+                actor_discord_user_id=record.actor_discord_user_id,
+                actor_capability=record.actor_capability.value,
+                supervisor=record.supervisor,
+                created_count=record.created_count,
+                updated_count=record.updated_count,
+                warning_count=record.warning_count,
+                summary=dict(record.summary),
+                correlation_id=record.correlation_id,
+            )
+        )
+
+    def find_by_request_key(self, request_key: str) -> SnapshotImportRecord | None:
+        return self._one(snapshot_imports.c.request_key == request_key)
+
+    def find_applied(
+        self, snapshot_id: UUID, folder_id: str, profile_version: str
+    ) -> SnapshotImportRecord | None:
+        return self._one(
+            (snapshot_imports.c.snapshot_id == snapshot_id)
+            & (snapshot_imports.c.folder_id == folder_id)
+            & (snapshot_imports.c.profile_version == profile_version)
+            & (snapshot_imports.c.status == ImportStatus.APPLIED.value)
+        )
+
+    def _one(self, condition) -> SnapshotImportRecord | None:
+        row = (
+            self._session.execute(select(snapshot_imports).where(condition))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return SnapshotImportRecord(
+            id=row["id"],
+            snapshot_id=row["snapshot_id"],
+            folder_id=row["folder_id"],
+            folder_path=row["folder_path"],
+            profile_version=row["profile_version"],
+            request_key=row["request_key"],
+            status=ImportStatus(row["status"]),
+            mode=ImportMode(row["mode"]),
+            actor_capability=ActorCapability(row["actor_capability"]),
+            actor_discord_user_id=row["actor_discord_user_id"],
+            supervisor=row["supervisor"],
+            created_count=row["created_count"],
+            updated_count=row["updated_count"],
+            warning_count=row["warning_count"],
+            summary=row["summary"],
+            correlation_id=row["correlation_id"],
+        )
+
+
+class SqlAlchemyPlatformInitializationRepository:
+    """The one row whose existence disables the supervised bootstrap."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get(self) -> PlatformInitialization | None:
+        row = (
+            self._session.execute(select(platform_initialization))
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return PlatformInitialization(
+            supervisor=row["supervisor"],
+            profile_version=row["profile_version"],
+            correlation_id=row["correlation_id"],
+            snapshot_checksum=row["snapshot_checksum"],
+            initialized_at=row["initialized_at"],
+        )
+
+    def record(self, initialization: PlatformInitialization) -> None:
+        self._session.execute(
+            insert(platform_initialization).values(
+                singleton=True,
+                supervisor=initialization.supervisor,
+                snapshot_checksum=initialization.snapshot_checksum,
+                profile_version=initialization.profile_version,
+                correlation_id=initialization.correlation_id,
+            )
+        )
+
+    def is_dataset_empty(self) -> bool:
+        """No characters, mappings, snapshots or history exist yet.
+
+        Checked against the database rather than remembered, because the
+        bootstrap's precondition is a property of the dataset, not of this
+        process.
+        """
+        for table in (
+            characters,
+            external_actor_mappings,
+            foundry_snapshots,
+        ):
+            count = self._session.execute(
+                select(func.count()).select_from(table)
+            ).scalar_one()
+            if count:
+                return False
+        return True
+
+
+def _mapping_from_row(row) -> ExternalActorMapping:
+    return ExternalActorMapping(
+        id=row["id"],
+        character_id=row["character_id"],
+        world_id=row["world_id"],
+        external_actor_id=row["external_actor_id"],
+        relink_fingerprint=row["relink_fingerprint"],
+        folder_id=row["folder_id"],
+        established_by_snapshot_id=row["established_by_snapshot_id"],
+    )
 
 
 class SqlAlchemyAuditRepository:

@@ -18,9 +18,10 @@ which milestone it blocks. It does not restate or supersede a ruling.
 | OD-25 | Verification open | Operations Owner | Production readiness | Verify Foundry network exposure and record evidence |
 | OD-28 | Partly implemented | Product Owner | Phase 5.5 | Define auditable tribute-item mechanism |
 | OD-39 | Open | Product Owner / Security Reviewer | Phase 5.7/5.8 cutover | Close unauthenticated trade/sale mutation policy and interim control |
+| OD-41 | **Closed 2026-08-02** | Product Owner / Acceptance Authority | Phase 2 remediation | ADR 0008 rejected; the controlled migration register assigns every Sheet-era field, including `character.downtime_progress`, to one typed owning package |
+| OD-42 | **Closed 2026-08-02** | Data Owner / Acceptance Authority | Phase 2 remediation plan approval | Ruled: display names are not unique identities; multiple characters may share one; stable character IDs and external Actor IDs provide identity; any legacy name-based candidate lookup fails closed when more than one candidate exists. **No unique display-name constraint is added.** Closes I-05. Package R2 corrects the single-value claim lookup to return every candidate and refuse on more than one |
 
 All other OD entries marked closed or ruled remain decisions, not open actions.
 The Delivery Lead reviews this index before baselining every phase. A decision is
 closed only when the authoritative OD entry records the ruling, date, rationale
 and affected requirements; an implementation does not silently make policy.
-

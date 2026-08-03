@@ -31,8 +31,9 @@ acceptance criteria is *"maintainer approves architecture ADRs"* (plan §12).
 | [0003](0003-postgresql-and-alembic.md) | PostgreSQL as the authoritative store, Alembic for migrations | **Accepted** |
 | [0004](0004-discord-oauth2-authentication.md) | Discord OAuth2 authentication and server-side sessions | **Accepted** |
 | [0005](0005-identifier-and-quantity-representation.md) | Identifier, money and quantity representation | **Accepted** |
-| [0006](0006-foundry-integration-boundary.md) | Foundry integration boundary | **Accepted** |
+| [0006](0006-foundry-integration-boundary.md) | Foundry integration boundary | **Accepted, amended 2026-08-02** |
 | [0007](0007-field-ownership-and-conflict-policy.md) | Field ownership and conflict policy | **Accepted** |
+| [0008](0008-profile-driven-character-state.md) | Profile-driven storage for database-managed character state | **Rejected 2026-08-02** |
 
 ## Maintainer approval checklist (Phase 0 gate)
 
@@ -70,6 +71,20 @@ deleted:
   off the instance; one service principal rather than three.
 
 **All seven accepted 2026-07-30.** No residual questions remain inside any of them.
+
+**Amendment and addition, 2026-08-02.** The maintainer rulings for the Phase 2
+Foundry snapshot milestone required two changes:
+
+- **0006 was amended in place**, not superseded. Its rejection of offline
+  snapshot import and its `"_id": null` premise no longer hold for a
+  Council-produced export bundle; every other decision — no LevelDB, no
+  Manager-initiated live access, world-not-instance identity, exact version
+  tuple, platform-owned stable IDs, no write-back — is carried forward verbatim.
+  The amendment is recorded as its own section, with the withdrawn reasoning
+  kept.
+- **0008 was proposed and rejected 2026-08-02.** Phase 2 does not use a generic
+  state store. Each typed domain package migrates its fields once and owns its
+  reconciliation, correction, cutover and recovery evidence.
 
 ## Format
 

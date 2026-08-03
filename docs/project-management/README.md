@@ -1,6 +1,6 @@
 # Project governance
 
-Status: Accepted with baseline v1.0 on 2026-08-02
+Status: Accepted with controlled baseline v1.5 on 2026-08-02
 
 This directory contains the management controls for the Freedom Blades
 Platform. The technical scope remains governed by
@@ -11,10 +11,19 @@ Platform. The technical scope remains governed by
 Peter Duscha is the Product Sponsor, Acceptance Authority, Product Owner, Data
 Owner, Operations Owner and Delivery Lead. Agents may implement, coordinate and
 independently review work. For each package, Peter designates an implementing
-agent as working Technical Lead and, where practical, a different agent as
-Independent Reviewer. Security-sensitive packages receive a separate security-
-focused review. Agent reviews are recommendations; Peter records gate and risk-
-acceptance decisions.
+agent as working Technical Lead.
+
+**At a mandatory review checkpoint — every gate in the implementation plan's
+§16.4 reviewer-checkpoint list, and every gate whose subject row in the gate-
+authority table below requires an Independent Reviewer recommendation — an
+Independent Reviewer who did not implement the work is required.** If no such
+reviewer is available, the package remains `deferred`; it is not approved,
+conditionally approved, or self-reviewed by its implementer. The phrase *where
+practical* applies only to reviews that are not mandated by those two lists,
+such as optional second opinions on non-gated work.
+
+Security-sensitive packages receive a separate security-focused review. Agent
+reviews are recommendations; Peter records gate and risk-acceptance decisions.
 
 Capacity means the availability of one maintainer for decisions, operational
 checks and gate approval plus agent delivery/review capacity. It does not imply

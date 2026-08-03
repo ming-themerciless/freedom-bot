@@ -19,8 +19,11 @@ MIGRATED_TABLES = {
     "discord_membership_roles",
     "discord_users",
     "external_actor_mappings",
+    "foundry_snapshots",
     "idempotency_keys",
+    "platform_initialization",
     "sheet_row_mappings",
+    "snapshot_imports",
 }
 
 

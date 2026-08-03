@@ -1,5 +1,20 @@
 # Phase 2 — Review Submission (revision 7: one display-name comparison rule, shared by every layer)
 
+> **Superseded for the milestone conclusion, 2026-08-02.** This document is the
+> accepted record of the **Sheet identity slice** and of issue I-01 (the
+> mapped-name normalization correction, accepted on commit `1695122`). It is
+> retained unchanged as that record.
+>
+> It is **not** a Phase 2 gate submission. Its Sheet-first framing — that the
+> Sheet is the character importer and that completing the Sheet slice closes
+> Phase 2 — was superseded by the maintainer rulings of 2026-08-02: character
+> identity comes from the immutable Foundry snapshot, and the Sheet is at most a
+> narrow one-time bootstrap for the fields it alone holds. §13's "Status"
+> section below should be read with that correction in mind.
+>
+> The current submission for the Foundry snapshot milestone is
+> [phase-2-i-02-submission.md](phase-2-i-02-submission.md).
+
 Status: **The mapped-name normalization correction was independently reviewed
 by Codex and accepted by Peter Duscha on 2026-08-02; I-01 is closed.** Every
 finding raised within the approved Phase 2 review gate — *data integrity and

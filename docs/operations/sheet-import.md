@@ -1,10 +1,28 @@
-# Sheet character identity import
+# Narrow one-time Sheet-era bootstrap
 
-The Phase 2 importer copies **character identity only** — short name, long
+> **Amended 2026-08-02.** The maintainer rulings moved character identity to the
+> immutable Foundry snapshot and made PostgreSQL the authority for Sheet-era
+> fields. This tool is no longer *the* character importer: it is a **narrow,
+> one-time bootstrap** for the fields the Sheet holds and Foundry does not, and
+> `--apply` closes permanently once the Manager is initialized. The default
+> migration path for those values is **validated manual entry** through a
+> Guild Council correction; this tool exists because the same four fields would
+> otherwise be typed out by hand for every active character.
+>
+> The Foundry snapshot import is documented separately in
+> [foundry-snapshot-import.md](foundry-snapshot-import.md).
+
+The importer copies **character identity only** — short name, long
 name, level and the active flag — from the `Characters` tab into PostgreSQL. It
 does not import money, downtime, skills, items or bastions, and it does not
 create character access: who owns a character is a Guild Council decision
 ([OD-13], [OD-37]), not something the Sheet's player-name column settles.
+
+Every field it writes must be classified **Sheet-era/database-authoritative** in
+the versioned field profile. That is checked at startup against
+`domain/foundry_profile.py`: a widened importer refuses to run rather than
+writing something the Sheet does not own. There is no ongoing Sheet authority
+and no dual write.
 
 The Sheet is opened **read-only**. The tool reads one values range and never
 calls `batch_update`; the only write it can perform is to the database.
@@ -39,9 +57,23 @@ APP_ENVIRONMENT=development \
 ```
 
 That is a **dry run**: it reads, plans, writes into a transaction and rolls
-back. Add `--apply` to commit. `--tab` and `--range` exist for a differently
-named tab; the defaults are `Characters` and `A1:AL150`, and the range must
-start at the header row.
+back. `--tab` and `--range` exist for a differently named tab; the defaults are
+`Characters` and `A1:AL150`, and the range must start at the header row.
+
+Committing requires **both** `--apply` and `--supervisor`, and it is available
+only while the Manager is uninitialized:
+
+```bash
+DATABASE_URL='postgresql+psycopg://__APP_USER__@/freedom_dev' \
+APP_ENVIRONMENT=development \
+  ./venv/bin/python -m tools.import_sheet_characters \
+    --apply --supervisor "Peter Duscha"
+```
+
+Once the supervised bootstrap has completed — that is, once
+`platform_initialization` holds its one row — this path exits `6` and stays
+closed. From then on these fields change through a Guild Council correction,
+which is the ordinary, audited route.
 
 The tool does not read `.env`. `DATABASE_URL` is given on the command line so
 the target database is visible in the command an operator types, rather than
@@ -60,6 +92,7 @@ the production database.
 | `3` | The Sheet could not be read — network, credential, quota or permission. |
 | `4` | The database could not be reached or refused the work. |
 | `5` | A conflict: a concurrent import, or a row edited while the run was in progress. |
+| `6` | The Manager is already initialized, so the one-time bootstrap path is closed. Change these fields through a Guild Council correction instead. |
 
 Codes `3`–`5` print a short instruction and nothing else. They deliberately
 carry no connection string, credential, SQL statement, Google response body or
