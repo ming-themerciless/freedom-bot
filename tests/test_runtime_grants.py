@@ -2,10 +2,17 @@
 
 A new table that nobody grants is a runtime failure; a new audit table that is
 granted UPDATE or DELETE silently breaks the append-only rule in
-`.agents/AGENTS.md`. Both are checked against the template here, and the
-denials are additionally exercised **against the live restricted role** in
-`test_runtime_grants_live.py` — template review alone was the weaker evidence
-this milestone was previously criticised for.
+`.agents/AGENTS.md`. Both are checked against the template here.
+
+**What this file does and does not prove.** It reads the template as text. That
+is enough to catch a table nobody listed and a grant nobody intended, and it is
+the only way to check a statement that has not been run. It proves nothing about
+what PostgreSQL concludes: privileges are cumulative, arrive through role
+membership and through PUBLIC, and can be granted by anything else that touches
+the cluster. Finding O-1 was precisely a case where the text said one thing and
+the effective privileges were another. The decisive evidence is
+`test_runtime_grants_live.py`, which seeds hostile PUBLIC grants, applies this
+template and then asks the server.
 """
 from __future__ import annotations
 
@@ -98,6 +105,37 @@ def test_the_append_only_set_matches_the_schema_and_the_triggers():
     for table in SCHEMA_TABLES:
         assert f'"{table}"' in migration, f"{table} has no append-only trigger"
         assert f"CREATE TRIGGER {{table}}_append_only" in migration
+
+
+def test_every_retained_table_has_its_public_privileges_revoked():
+    """O-1: PUBLIC is normalised explicitly, for every table.
+
+    Revoking from the runtime role cannot take away a privilege the role holds
+    *through* PUBLIC, so before this the template's claim to have "handled
+    rights held by PUBLIC" was false. Text-level check only; the effective
+    privileges are proven in `test_runtime_grants_live.py`.
+    """
+    revoked = granted_tables(
+        r"REVOKE\s+ALL\s+PRIVILEGES\s+ON(?P<tables>.*?)FROM\s+PUBLIC"
+    )
+
+    assert revoked == set(metadata.tables), (
+        "a retained table's PUBLIC privileges are never revoked: "
+        f"{set(metadata.tables) - revoked}"
+    )
+
+
+def test_public_is_not_left_able_to_create_in_the_schema():
+    assert "REVOKE CREATE ON SCHEMA PUBLIC FROM PUBLIC" in statements()
+
+
+def test_the_template_makes_no_grant_to_public():
+    """The runtime role is the only grantee; PUBLIC is only ever revoked from."""
+    body = statements()
+
+    for line in body.splitlines():
+        if line.strip().startswith("GRANT"):
+            assert "TO PUBLIC" not in line, line
 
 
 def test_no_credential_is_embedded_in_the_template():

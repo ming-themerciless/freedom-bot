@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from application.audit import ActorCapability, AuditEvent
 from application.errors import ConcurrencyConflictError
+from application.idempotency import IdempotencyRecord, IdempotencyStatus
 from application.imports import SheetRowMapping
 from application.snapshots import (
     ExternalActorMapping,
@@ -15,6 +16,7 @@ from application.snapshots import (
     PlatformInitialization,
     SnapshotImportRecord,
     SnapshotRecord,
+    SnapshotSource,
 )
 from domain.identity import Character, DiscordUser
 from domain.names import DisplayName
@@ -26,6 +28,7 @@ from .tables import (
     discord_users,
     external_actor_mappings,
     foundry_snapshots,
+    idempotency_keys,
     platform_initialization,
     sheet_row_mappings,
     snapshot_imports,
@@ -246,6 +249,8 @@ class SqlAlchemySnapshotRepository:
                 selected_folder_ids=list(record.selected_folder_ids),
                 artifact_location=record.artifact_location,
                 received_by_discord_user_id=record.received_by_discord_user_id,
+                received_via=record.received_via.value,
+                submitted_by_principal=record.submitted_by_principal,
                 correlation_id=record.correlation_id,
             )
         )
@@ -280,6 +285,8 @@ class SqlAlchemySnapshotRepository:
             selected_folder_ids=tuple(row["selected_folder_ids"]),
             artifact_location=row["artifact_location"],
             received_by_discord_user_id=row["received_by_discord_user_id"],
+            received_via=SnapshotSource(row["received_via"]),
+            submitted_by_principal=row["submitted_by_principal"],
             correlation_id=row["correlation_id"],
         )
 
@@ -299,6 +306,7 @@ class SqlAlchemySnapshotImportRepository:
                 folder_path=record.folder_path,
                 profile_version=record.profile_version,
                 request_key=record.request_key,
+                operation_digest=record.operation_digest,
                 status=record.status.value,
                 mode=record.mode.value,
                 actor_discord_user_id=record.actor_discord_user_id,
@@ -340,6 +348,7 @@ class SqlAlchemySnapshotImportRepository:
             folder_path=row["folder_path"],
             profile_version=row["profile_version"],
             request_key=row["request_key"],
+            operation_digest=row["operation_digest"],
             status=ImportStatus(row["status"]),
             mode=ImportMode(row["mode"]),
             actor_capability=ActorCapability(row["actor_capability"]),
@@ -350,6 +359,55 @@ class SqlAlchemySnapshotImportRepository:
             warning_count=row["warning_count"],
             summary=row["summary"],
             correlation_id=row["correlation_id"],
+        )
+
+
+class SqlAlchemyIdempotencyRepository:
+    """Receipts for completed operations. Insert and read, never update.
+
+    `(scope, key)` is unique in the database, so two concurrent requests
+    carrying one key cannot both write a receipt: the loser arrives here as
+    `UniquenessConflict("idempotency_key.scope_key")` and re-reads the winner's
+    row rather than assuming what it says.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def add(self, record: IdempotencyRecord) -> None:
+        self._session.execute(
+            insert(idempotency_keys).values(
+                id=record.id,
+                scope=record.scope,
+                key=record.key,
+                request_hash=record.request_hash,
+                status=record.status.value,
+                response=None if record.response is None else dict(record.response),
+            )
+        )
+
+    def find(self, scope: str, key: str) -> IdempotencyRecord | None:
+        row = (
+            self._session.execute(
+                select(idempotency_keys).where(
+                    (idempotency_keys.c.scope == scope)
+                    & (idempotency_keys.c.key == key)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return IdempotencyRecord(
+            id=row["id"],
+            scope=row["scope"],
+            key=row["key"],
+            # psycopg returns `bytes` for `bytea`; `memoryview` appears with some
+            # drivers and would compare unequal to the digest the caller holds.
+            request_hash=bytes(row["request_hash"]),
+            status=IdempotencyStatus(row["status"]),
+            response=row["response"],
         )
 
 

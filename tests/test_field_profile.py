@@ -21,6 +21,7 @@ from application.foundry.extraction import (
     registered_roll_inputs,
 )
 from domain.field_profile import (
+    DifferenceDirection,
     FieldAuthority,
     FieldProfile,
     FieldProfileError,
@@ -173,6 +174,52 @@ def test_the_one_comparable_field_answers_with_a_real_rule():
         PROFILE.comparison_for("character.display_name")
         is Comparison.NORMALIZED_TEXT
     )
+
+
+# -- B-2: a comparable field must state which record a difference makes stale --
+
+
+def test_a_field_with_database_authority_must_declare_its_difference_direction():
+    """No default, because the default would be a guess about authorship.
+
+    The rejected shape is the one that shipped: authority implied "the platform
+    is right, update Foundry", which for a Foundry-authored field is an
+    instruction to undo a legitimate change.
+    """
+    with pytest.raises(FieldProfileError, match="which record a difference makes stale"):
+        ProfileField(
+            key="character.something_new",
+            label="Something a later package migrates",
+            authority=FieldAuthority.DATABASE,
+            comparison=Comparison.NORMALIZED_TEXT,
+        )
+
+
+def test_a_deferred_field_may_not_declare_a_difference_direction():
+    with pytest.raises(FieldProfileError, match="difference makes stale"):
+        ProfileField(
+            key="character.something_deferred",
+            label="Deferred",
+            authority=FieldAuthority.LEGACY_DEFERRED,
+            owning_package="5.1",
+            difference_direction=DifferenceDirection.FOUNDRY_OUT_OF_DATE,
+        )
+
+
+def test_the_display_name_difference_makes_the_platform_record_stale():
+    display_name = PROFILE.profile_field("character.display_name")
+
+    assert (
+        display_name.difference_direction
+        is DifferenceDirection.PLATFORM_DISPLAY_NAME_STALE
+    )
+    assert not display_name.stales(DifferenceDirection.FOUNDRY_OUT_OF_DATE)
+
+
+@pytest.mark.parametrize("direction", list(DifferenceDirection))
+def test_every_direction_names_the_issue_code_it_is_reported_under(direction):
+    """One fact, not two kept in step by hand."""
+    assert direction.value in {"foundry_out_of_date", "platform_display_name_stale"}
 
 
 def test_level_is_reported_but_never_comparable():

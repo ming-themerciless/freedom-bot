@@ -280,6 +280,66 @@ only rollback is Google's own version history. That is worth stating plainly:
 **there is currently no tested recovery procedure for the live game data.**
 Establishing one is part of Phase 1, not a later concern.
 
+## 6a. Addendum 2026-08-04 — the Foundry snapshot submission endpoint
+
+The Phase 2 I-03 package adds one HTTP route, and it changes this topology in a
+small and specific way: **a Foundry instance becomes an outbound HTTPS client of
+this application**, where previously nothing flowed between them at all.
+
+```text
+   Foundry instance (browser client, module)
+              │ HTTPS, bearer service credential
+              ▼
+          ┌───────┐        ┌────────────────────────────────┐
+          │ Caddy │───────▶│ snapshot submission endpoint   │
+          │  :443 │  proxy │ WSGI, loopback (ADR 0009)      │
+          └───────┘        └───────────────┬────────────────┘
+                                           │
+                          ┌────────────────┴─────────────────┐
+                          ▼                                  ▼
+              /srv/freedom/snapshots               PostgreSQL
+              restricted artifact store         checksum + provenance
+              0700 dir, 0600 files              (no artifact bytes)
+```
+
+What this does **not** change:
+
+- **the platform still never dials Foundry.** The direction is one way, from a
+  Foundry client to this application, initiated by a person pressing a button;
+- **no world storage, LevelDB or compendium file is opened** by either side;
+- **the three instances stay one world.** The bundle carries no instance, host
+  or port, so which front door submitted it is not part of any identity
+  (ADR 0006, §*The world is the identity*).
+
+Operational requirements, all detailed in
+[foundry-snapshot-submission.md](foundry-snapshot-submission.md):
+
+- Caddy must allow a **64 MiB** request body on this route and a read timeout
+  above the module's 120 s upload timeout. A mismatch cuts off a legitimate
+  submission before the application can explain why.
+- `FREEDOM_SNAPSHOT_ARTIFACT_ROOT` must be an absolute directory **outside this
+  repository**, on a filesystem included in the host's encrypted backups. It
+  holds every exported Actor's mechanics.
+- `FREEDOM_SNAPSHOT_PRINCIPALS` holds the **digest** of each credential, never
+  the credential. Rotation and revocation are a configuration change plus a
+  reload. The credential itself is held by the submitting GM and entered per
+  submission; it is **not** stored in Foundry, because a Foundry world setting's
+  value is delivered to every client that joins the world.
+- `FREEDOM_SNAPSHOT_ALLOWED_ORIGINS` must name the exact Foundry origins, because
+  this is a **cross-origin browser** call. Unless Foundry and the endpoint share
+  an origin, the browser preflights it and refuses the POST unless the endpoint
+  answers. Empty is the default and means no browser origin may submit.
+- **Caddy must pass `OPTIONS` through and add no CORS header of its own.** The
+  application owns that policy, and two `Access-Control-Allow-Origin` headers on
+  one response are rejected by browsers outright.
+
+**No production process runs this endpoint yet.** ADR 0009 records why:
+`tools/snapshot_api.py` is a loopback-only rehearsal server, and Phase 3 supplies
+the managed `freedom-web` service. The Council preview route is inert until the
+Phase 3 authentication boundary exists, and answers `503` rather than being
+served by something invented for the purpose — **that is a blocker to exposing
+the preview route in production**, and not to the submission endpoint.
+
 ## 7. Open questions
 
 | # | Question |

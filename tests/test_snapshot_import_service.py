@@ -1,19 +1,46 @@
 """Apply: authorization at apply time, atomicity, idempotency, staleness."""
 from __future__ import annotations
 
+from pathlib import Path
+from uuid import uuid4
+
 import pytest
 
 from application.authorization import AuthorizationContext, NotAuthorizedError
 from application.foundry.import_service import (
     ImportRefused,
     SnapshotImportService,
+    request_key_digest,
 )
+from application.foundry.reconciliation import (
+    ComparableFieldReaders,
+    ReconciliationConfigurationError,
+)
+from application.audit import ActorCapability
 from application.snapshots import ImportMode, ImportStatus
+from domain.field_profile import (
+    DifferenceDirection,
+    FieldAuthority,
+    FieldProfile,
+    ProfileField,
+    SnapshotField,
+    SnapshotMode,
+)
 from domain.foundry import OBSERVED_DEPLOYMENT
 from domain.foundry_profile import PROFILE
+from domain.identity import Character
+from domain.snapshot_values import Comparison
 from tests import foundry_fixtures as fx
 from tests import snapshot_harness as harness
-from tests.fakes import InjectedFailure
+from tests.fakes import (
+    FakeAuthorization,
+    FakeStore,
+    InjectedFailure,
+    unit_of_work_factory,
+)
+
+#: A character to read comparable values off, for the reader-coverage test.
+_CHARACTER = Character(id=uuid4(), display_name="Reader Coverage Probe")
 
 
 def apply_once(bench, *, request_key="req-1", document=None, user=harness.COUNCIL_USER, **kwargs):
@@ -679,48 +706,856 @@ def test_each_injected_failure_point_leaves_no_partial_state(failure_point):
     assert successes == []
 
 
-def test_the_audit_payload_contains_only_allowlisted_keys():
+def test_the_audit_payload_matches_the_declared_policy():
     """Safe audit content, plan §6.5.
 
-    An allowlist rather than a denylist: a new payload key has to be considered
-    and added here, which is the point at which somebody notices they are about
-    to write an Actor's data into an append-only table.
+    The substance of this moved to `tests/test_audit_payload_policy.py` under
+    finding I-2: one action accepting any subset of an allowlist was not a
+    policy. What remains here is the link — an applied import writes a payload
+    its action's policy accepts — so a reader of the apply tests is pointed at
+    where the rule actually lives.
     """
+    from application.foundry.audit_policy import IMPORT_APPLIED, POLICIES
+
     bench = harness.build()
 
     outcome = apply_once(bench)
 
     applied = next(
-        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+        e for e in bench.store.audit_events if e.action == IMPORT_APPLIED
     )
-    allowed = {
-        "snapshot_checksum",
-        "folder_id",
-        "folder_path",
-        "profile_version",
-        "exporter",
-        "canonical_encoding",
-        "actors",
-        "mapped",
-        "unmapped",
-        "blocked",
-        "absent",
-        "errors",
-        "warnings",
-        "issue_codes",
-        "fields_out_of_date",
-        "legacy_authority_deferred",
-        "mode",
-        "supervisor",
-        "request_key",
-        "preview_token",
-        "characters_created",
+    policy = POLICIES[IMPORT_APPLIED]
+    assert policy.required <= set(applied.payload)
+    assert set(applied.payload) <= policy.allowed
+    assert outcome.applied
+
+
+# -- I-3: an unreadable comparable field is a composition fault ----------------
+#
+# `_compare_fields` used to raise `LookupError` the first time a run reached a
+# database-authority field with no registered reader. That is the wrong moment:
+# an operator has already produced and confirmed a preview, and the failure is
+# an untyped one that says nothing useful about configuration. The invariant now
+# holds at construction, so a service that cannot read its own comparable fields
+# never begins work.
+
+
+def unreadable_profile() -> FieldProfile:
+    """A profile giving database authority to a field nothing can read."""
+    return FieldProfile(
+        version="test-unreadable-field",
+        fields={
+            "character.mystery": ProfileField(
+                key="character.mystery",
+                label="A field a later package migrated",
+                authority=FieldAuthority.DATABASE,
+                comparison=Comparison.NORMALIZED_TEXT,
+                difference_direction=DifferenceDirection.FOUNDRY_OUT_OF_DATE,
+            )
+        },
+        snapshot_fields=(
+            SnapshotField(
+                path="system.mystery",
+                mode=SnapshotMode.REPORTED,
+                profile_field="character.mystery",
+            ),
+        ),
+    )
+
+
+def test_readers_must_cover_every_comparable_field_in_the_profile():
+    with pytest.raises(ReconciliationConfigurationError) as refusal:
+        ComparableFieldReaders({}, profile=unreadable_profile())
+
+    message = str(refusal.value)
+    assert "character.mystery" in message
+    assert "test-unreadable-field" in message
+    # A configuration error, not a leak: it names field keys and the profile
+    # version and nothing about a database, an artifact or an Actor.
+    for unsafe in ("SELECT", "psycopg", "Traceback", "postgresql://"):
+        assert unsafe not in message
+
+
+def test_the_service_refuses_to_be_constructed_with_an_unreadable_field():
+    """The decisive assertion: it fails *at construction*, not at apply."""
+    store = FakeStore()
+
+    with pytest.raises(ReconciliationConfigurationError, match="character.mystery"):
+        SnapshotImportService(
+            unit_of_work_factory(store),
+            deployment=OBSERVED_DEPLOYMENT,
+            profile=unreadable_profile(),
+            authorization=FakeAuthorization.with_council(harness.COUNCIL_USER),
+        )
+
+
+def test_the_accepted_profile_composes_a_complete_reader_set():
+    readers = ComparableFieldReaders.default(PROFILE)
+
+    for profile_field in PROFILE.comparable_fields():
+        assert readers.read(profile_field.key, _CHARACTER) is not None
+
+
+def test_the_domain_profile_holds_no_persistence_reader():
+    """`FieldProfile` stays independent of `Character`, per I-3.
+
+    The readers are an application-layer composition concern. A profile that
+    knew how to read a `Character` would be the domain depending on
+    persistence, which the architecture rule in `.agents/AGENTS.md` forbids.
+    """
+    import domain.field_profile as field_profile
+
+    source = Path(field_profile.__file__).read_text(encoding="utf-8")
+    assert "Character" not in source
+    assert "domain.identity" not in source
+    for profile_field in PROFILE.fields.values():
+        assert not hasattr(profile_field, "read")
+        assert not hasattr(profile_field, "reader")
+
+
+# -- B-1: a request key is bound to the operation it was spent on --------------
+#
+# The defect the independent review found: `find_by_request_key` returned the
+# earlier record on the key alone. A caller could therefore present a *different*
+# artifact, folder, profile or exporter under a spent key and receive the first
+# import's identity and correlation ID beside the second's checksum and its own
+# report — one receipt describing two operations, written to append-only
+# history. Idempotency now means same key **and** same bound operation.
+
+
+def two_folder_document():
+    return fx.bundle(
+        folders=(
+            fx.folder(fx.ACTIVE_FOLDER_ID, "Characters (active)"),
+            fx.folder(fx.ARCHIVE_FOLDER_ID, "Characters (retired)"),
+        ),
+        selected_folder_ids=(fx.ACTIVE_FOLDER_ID, fx.ARCHIVE_FOLDER_ID),
+        actors=(
+            fx.actor(fx.FIRST_ACTOR_ID),
+            fx.actor(fx.SECOND_ACTOR_ID, name="Other", folder_id=fx.ARCHIVE_FOLDER_ID),
+        ),
+    )
+
+
+def test_the_operation_fields_classify_every_bound_input():
+    """A new bound input cannot be silently left out of the operation identity.
+
+    `PreviewBinding`'s fields are the bound inputs. Each is either part of the
+    operation's identity or explicitly one of the two that cannot be — the
+    volatile aggregate versions, and the request key itself.
+    """
+    from application.foundry.import_service import OPERATION_FIELDS, PreviewBinding
+
+    bound = {
+        name for name in PreviewBinding.__annotations__ if not name.startswith("_")
     }
 
-    assert set(applied.payload) <= allowed, (
-        f"unexpected audit payload key(s): {set(applied.payload) - allowed}"
+    assert set(OPERATION_FIELDS) <= bound
+    assert bound - set(OPERATION_FIELDS) == {"aggregate_versions", "request_key"}
+
+
+def test_the_binding_and_the_apply_compute_the_same_operation_digest():
+    """One digest, computed two ways, or the check proves nothing."""
+    from application.foundry.import_service import operation_digest
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-1")
+    snapshot = bench.imports.parse(artifact)
+
+    assert preview.binding.operation_digest() == operation_digest(
+        {
+            "snapshot_checksum": snapshot.checksum.hex_digest,
+            "world_id": snapshot.world.world_id,
+            "folder_id": fx.ACTIVE_FOLDER_ID,
+            "folder_path": snapshot.folder_identity(fx.ACTIVE_FOLDER_ID).path,
+            "profile_version": PROFILE.version,
+            "exporter": snapshot.exporter.describe(),
+        }
     )
-    rendered = repr(applied.payload)
-    for leaked in ("Synthetic Human", "paladin", "Entertainer", "Brightlantern"):
-        assert leaked not in rendered
-    assert outcome.applied
+
+
+def test_the_same_key_and_the_same_input_returns_the_original_result():
+    """The case idempotency exists for: a retry, not a second import."""
+    bench = harness.build()
+    artifact = bench.artifact()
+
+    first = apply_once(bench, request_key="req-1")
+    # A genuine retry re-previews and re-applies the identical operation.
+    retry_preview = bench.imports.preview(artifact, request_key="req-1")
+    second = bench.imports.apply(
+        artifact, retry_preview, discord_user_id=harness.COUNCIL_USER
+    )
+
+    assert second.duplicate is True
+    assert second.applied is False
+    assert second.import_id == first.import_id
+    assert second.correlation_id == first.correlation_id
+    # Exactly one durable effect.
+    assert len(bench.store.characters) == 1
+    assert len(bench.store.snapshot_imports) == 1
+    assert len(bench.store.external_actor_mappings) == 1
+
+
+# -- B-1R: a retry returns the *original* result, not a fresh one -------------
+#
+# The defect the re-review found. `_duplicate_of` combined the original import's
+# durable facts — its id, correlation id and counts — with a reconciliation
+# report computed against the database at retry time. Immediately after an
+# import those two describe different moments: the original report says "one
+# unmapped Actor, one create candidate" and the retry's says "already mapped".
+# The test that used to live here asserted only that the report was
+# service-generated and carried the same checksum, which the defect satisfied.
+
+
+def retry_of(bench, artifact, *, request_key="req-1"):
+    """A genuine retry: re-preview and re-apply the identical operation."""
+    preview = bench.imports.preview(artifact, request_key=request_key)
+    return preview, bench.imports.apply(
+        artifact, preview, discord_user_id=harness.COUNCIL_USER
+    )
+
+
+def test_a_retry_returns_result_facts_equal_to_the_original_applys():
+    """The contract, stated as the equality it is."""
+    bench = harness.build()
+    artifact = bench.artifact()
+    first = apply_once(bench, request_key="req-1")
+
+    _, second = retry_of(bench, artifact)
+
+    assert second.duplicate is True
+    assert second.result_facts() == first.result_facts()
+    # Including the reconciliation, which is where the two used to disagree.
+    assert second.reconciliation == first.reconciliation
+    assert second.reconciliation.unmapped == 1
+    assert second.reconciliation.mapped == 0
+
+
+def test_a_retrys_facts_are_the_ones_the_original_import_recorded():
+    """Read from the immutable row, not recomputed and not from the caller."""
+    bench = harness.build()
+    artifact = bench.artifact()
+    first = apply_once(bench, request_key="req-1")
+    record = bench.store.snapshot_imports[0]
+
+    _, second = retry_of(bench, artifact)
+
+    assert second.import_id == record.id
+    assert second.correlation_id == record.correlation_id
+    assert second.created_count == record.created_count
+    assert second.warning_count == record.warning_count
+    assert second.operation_digest == record.operation_digest
+    # The stored summary *is* the returned reconciliation, both times.
+    assert record.summary == first.reconciliation.summary()
+    assert record.summary == second.reconciliation.summary()
+
+
+def test_a_retry_is_unchanged_after_unrelated_state_has_moved(monkeypatch):
+    """The moment the original defect is visible, and then some.
+
+    After the first apply the Actor is mapped, so a reconciliation run now
+    reports it as mapped where the original reported an unmapped create
+    candidate. Unrelated characters and a name collision move it further. None of
+    it may reach the retry's result.
+    """
+    bench = harness.build()
+    artifact = bench.artifact()
+    first = apply_once(bench, request_key="req-1")
+
+    # Unrelated later state: another character, and one that claims the imported
+    # Actor's display name — which would block a fresh reconciliation outright.
+    bench.add_character("Unrelated Later Character")
+    bench.add_character(harness.FIXTURE_DISPLAY_NAME)
+
+    _, second = retry_of(bench, artifact)
+
+    assert second.result_facts() == first.result_facts()
+    assert second.reconciliation.blocked == 0
+    assert second.reconciliation.errors == 0
+
+
+def test_a_retry_does_not_use_the_callers_preview_report():
+    """Neither the object nor its facts, even when the caller alters them.
+
+    The preview handed to the retry carries a report claiming a hundred created
+    Actors and a blocking error. It is the caller's object; a receipt built from
+    it would be a caller-authored record of a Council import.
+    """
+    from dataclasses import replace as replace_dataclass
+
+    from application.foundry.reconciliation import (
+        IssueSeverity,
+        ReconciliationIssue,
+    )
+    from application.foundry.import_service import SnapshotPreview
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    first = apply_once(bench, request_key="req-1")
+
+    retry_preview = bench.imports.preview(artifact, request_key="req-1")
+    tampered_report = replace_dataclass(
+        retry_preview.report,
+        entries=retry_preview.report.entries * 100,
+        issues=(
+            ReconciliationIssue(
+                code="dangling_mapping",
+                message="fabricated",
+                severity=IssueSeverity.ERROR,
+            ),
+        ),
+    )
+    tampered_preview = SnapshotPreview(
+        binding=retry_preview.binding,
+        report=tampered_report,
+        selectable_folders=retry_preview.selectable_folders,
+    )
+
+    second = bench.imports.apply(
+        artifact, tampered_preview, discord_user_id=harness.COUNCIL_USER
+    )
+
+    assert second.result_facts() == first.result_facts()
+    assert second.reconciliation.actors == 1
+    assert second.reconciliation.errors == 0
+    assert second.report is None
+
+
+def test_the_duplicate_path_cannot_be_handed_a_report_at_all():
+    """The structural half: there is no parameter to pass one through.
+
+    A signature that accepts an original result is a signature somebody can pass
+    the wrong one to. This asserts the shape rather than trusting the callers.
+    """
+    import inspect
+
+    from application.foundry.import_service import SnapshotImportService
+
+    parameters = inspect.signature(SnapshotImportService._duplicate_of).parameters
+
+    assert set(parameters) == {"self", "record", "unit_of_work"}
+
+
+def test_a_retry_writes_no_second_record_character_mapping_or_audit():
+    bench = harness.build()
+    artifact = bench.artifact()
+    apply_once(bench, request_key="req-1")
+    before = (
+        list(bench.store.snapshot_imports),
+        dict(bench.store.characters),
+        list(bench.store.external_actor_mappings),
+        list(bench.store.audit_events),
+    )
+
+    retry_of(bench, artifact)
+
+    assert list(bench.store.snapshot_imports) == before[0]
+    assert dict(bench.store.characters) == before[1]
+    assert list(bench.store.external_actor_mappings) == before[2]
+    assert list(bench.store.audit_events) == before[3]
+    applied = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+    ]
+    assert len(applied) == 1
+
+
+def test_an_unreadable_original_summary_is_refused_not_invented():
+    """Fail closed: no facts are better than fabricated ones.
+
+    The only way a stored summary can fail to read back is a version skew
+    between the code that wrote it and the code reading it. The answer is a typed
+    refusal naming the applied import, never a receipt whose reconciliation was
+    made up to fill the gap.
+    """
+    from dataclasses import replace as replace_dataclass
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    apply_once(bench, request_key="req-1")
+    bench.store.snapshot_imports[0] = replace_dataclass(
+        bench.store.snapshot_imports[0],
+        summary={"snapshot_checksum": "a" * 64},
+    )
+
+    preview = bench.imports.preview(artifact, request_key="req-1")
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert refusal.value.code == "original_result_unavailable"
+    assert "missing key" in str(refusal.value)
+    # Still exactly one applied import; the refusal claimed no state.
+    applied = [
+        r for r in bench.store.snapshot_imports if r.status is ImportStatus.APPLIED
+    ]
+    assert len(applied) == 1
+
+
+def test_the_same_key_with_a_different_artifact_is_refused():
+    bench = harness.build()
+    apply_once(bench, request_key="req-1")
+
+    tampered = bench.artifact(
+        fx.bundle(actors=(fx.actor(fx.FIRST_ACTOR_ID, name="Somebody Else"),))
+    )
+    preview = bench.imports.preview(tampered, request_key="req-1")
+
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(tampered, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert refusal.value.code == "request_key_conflict"
+    assert "the snapshot artifact" in str(refusal.value)
+    # One durable import, and it is still the first one.
+    applied = [r for r in bench.store.snapshot_imports if r.status is ImportStatus.APPLIED]
+    assert len(applied) == 1
+    assert len(bench.store.characters) == 1
+
+
+def test_the_same_key_with_a_different_folder_is_refused():
+    bench = harness.build()
+    document = two_folder_document()
+    artifact = bench.artifact(document)
+    preview = bench.imports.preview(
+        artifact, request_key="req-1", folder_id=fx.ACTIVE_FOLDER_ID
+    )
+    bench.imports.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    # Same artifact, same key, the *other* selected folder.
+    other = bench.imports.preview(
+        artifact, request_key="req-1", folder_id=fx.ARCHIVE_FOLDER_ID
+    )
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(
+            artifact,
+            other,
+            discord_user_id=harness.COUNCIL_USER,
+            folder_id=fx.ARCHIVE_FOLDER_ID,
+        )
+
+    assert refusal.value.code == "request_key_conflict"
+    assert "the selected folder" in str(refusal.value)
+    # The archived Actor was not imported under the active folder's key.
+    assert len(bench.store.characters) == 1
+
+
+def test_the_same_key_with_a_changed_profile_version_is_refused():
+    from dataclasses import replace as replace_dataclass
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    apply_once(bench, request_key="req-1")
+
+    # A new profile version is exactly what a re-classified field produces.
+    later = SnapshotImportService(
+        bench.factory,
+        deployment=OBSERVED_DEPLOYMENT,
+        profile=replace_dataclass(PROFILE, version="2099-01-01.1"),
+        authorization=bench.authorization,
+    )
+    preview = later.preview(artifact, request_key="req-1")
+
+    with pytest.raises(ImportRefused) as refusal:
+        later.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert refusal.value.code == "request_key_conflict"
+    assert "the field-profile version" in str(refusal.value)
+
+
+def test_a_conflicting_key_returns_no_receipt_for_the_earlier_import():
+    """The specific defect: no mixed receipt, not even a partly correct one."""
+    bench = harness.build()
+    first = apply_once(bench, request_key="req-1")
+
+    tampered = bench.artifact(
+        fx.bundle(actors=(fx.actor(fx.FIRST_ACTOR_ID, name="Somebody Else"),))
+    )
+    preview = bench.imports.preview(tampered, request_key="req-1")
+
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(tampered, preview, discord_user_id=harness.COUNCIL_USER)
+
+    # An exception, so there is no outcome object at all — and the refusal
+    # carries neither the earlier import's id nor its correlation id.
+    rendered = str(refusal.value)
+    assert str(first.import_id) not in rendered
+    assert str(first.correlation_id) not in rendered
+    assert refusal.value.report is not None
+
+
+def test_a_conflicting_key_writes_a_refusal_and_no_success_audit():
+    bench = harness.build()
+    apply_once(bench, request_key="req-1")
+    applied_before = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+    ]
+
+    tampered = bench.artifact(
+        fx.bundle(actors=(fx.actor(fx.FIRST_ACTOR_ID, name="Somebody Else"),))
+    )
+    preview = bench.imports.preview(tampered, request_key="req-1")
+    with pytest.raises(ImportRefused):
+        bench.imports.apply(tampered, preview, discord_user_id=harness.COUNCIL_USER)
+
+    applied_after = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+    ]
+    refusals = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.refused"
+    ]
+    assert applied_after == applied_before
+    assert len(refusals) == 1
+    assert refusals[0].payload["refusal_code"] == "request_key_conflict"
+    assert refusals[0].payload["applied"] is False
+
+
+def test_a_refused_attempt_records_the_operation_it_attempted():
+    bench = harness.build()
+    artifact = bench.artifact(two_folder_document())
+    preview = bench.imports.preview(
+        artifact, request_key="req-1", folder_id=fx.ACTIVE_FOLDER_ID
+    )
+
+    # The administrator changes the selected folder before the apply: a stale
+    # preview, which is refused and recorded.
+    with pytest.raises(ImportRefused):
+        bench.imports.apply(
+            artifact,
+            preview,
+            discord_user_id=harness.COUNCIL_USER,
+            folder_id=fx.ARCHIVE_FOLDER_ID,
+        )
+
+    # The refusal row keys itself apart from the caller's key, so the corrected
+    # retry is not mistaken for it — and it still records what was attempted.
+    refused = [r for r in bench.store.snapshot_imports if r.status is ImportStatus.REFUSED]
+    assert len(refused) == 1
+    assert refused[0].request_key != "req-1"
+    # Keyed by the digest of the caller's key rather than by the key (S-1): a
+    # refused row is never looked up by key, so it keeps no copy of the text.
+    assert refused[0].request_key.startswith(
+        f"refused:{request_key_digest('req-1')}:"
+    )
+    assert "req-1" not in refused[0].request_key
+    assert refused[0].operation_digest == preview.binding.operation_digest()
+    # …and it does not satisfy an idempotency lookup, so the corrected retry
+    # under the same key is not answered with this refusal.
+    assert bench.store.snapshot_imports[0].request_key != "req-1"
+
+
+def test_an_over_long_request_key_still_produces_a_recordable_refusal():
+    """A refusal must survive its own key, or the record of it is lost.
+
+    The refused key is now fixed-width by construction — a prefix, a digest and
+    a correlation id — so the column bound holds for any accepted key rather than
+    by truncating the caller's text to fit.
+    """
+    from application.foundry.import_service import _refused_key
+    from application.snapshots import REQUEST_KEY_MAX_LENGTH
+
+    key = "k" * REQUEST_KEY_MAX_LENGTH
+    refused = _refused_key(key, uuid4())
+
+    assert len(refused) <= REQUEST_KEY_MAX_LENGTH
+    assert refused.startswith(f"refused:{request_key_digest(key)}:")
+    assert "kkk" not in refused
+
+
+def test_two_refusals_of_the_same_key_are_two_distinct_rows():
+    """Or recording the second refusal would itself be a uniqueness violation."""
+    from application.foundry.import_service import _refused_key
+
+    first = _refused_key("req-1", uuid4())
+    second = _refused_key("req-1", uuid4())
+
+    assert first != second
+    assert first.split(":")[1] == second.split(":")[1]
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "x" * 256,
+        "req\x00-1",
+        "req\n-1",
+        "req\x1b[31m-1",
+        "   ",
+    ],
+    ids=["too-long", "null-byte", "newline", "escape-sequence", "blank"],
+)
+def test_a_hostile_request_key_is_refused_where_it_arrives(hostile: str):
+    """It is written verbatim into the idempotency lookup column.
+
+    So it is validated as input rather than trusted as an opaque handle, and the
+    refusal happens at `preview` — before any parsing, reading or writing. This
+    bounds the *column*; keeping the text out of audit history is
+    `request_key_digest`'s job (S-1), which the audit-policy tests cover.
+    """
+    bench = harness.build()
+    artifact = bench.artifact()
+
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.preview(artifact, request_key=hostile)
+
+    assert refusal.value.code == "invalid_request_key"
+    assert bench.store.snapshot_imports == []
+    assert bench.store.audit_events == []
+
+
+def test_the_record_itself_refuses_an_unwritable_request_key():
+    """The last line of defence, below the service's own validation."""
+    from application.snapshots import SnapshotImportRecord
+
+    with pytest.raises(ValueError, match="printable text"):
+        SnapshotImportRecord(
+            snapshot_id=uuid4(),
+            folder_id="f",
+            folder_path="/actors/x",
+            profile_version=PROFILE.version,
+            request_key="req\x00-1",
+            operation_digest="a" * 64,
+            status=ImportStatus.APPLIED,
+            mode=ImportMode.COUNCIL,
+            actor_capability=ActorCapability.GUILD_COUNCIL,
+            summary={},
+            correlation_id=uuid4(),
+        )
+
+
+def test_the_record_itself_refuses_an_absent_operation_digest():
+    from application.snapshots import SnapshotImportRecord
+
+    with pytest.raises(ValueError, match="SHA-256 digest of the operation"):
+        SnapshotImportRecord(
+            snapshot_id=uuid4(),
+            folder_id="f",
+            folder_path="/actors/x",
+            profile_version=PROFILE.version,
+            request_key="req-1",
+            operation_digest="",
+            status=ImportStatus.APPLIED,
+            mode=ImportMode.COUNCIL,
+            actor_capability=ActorCapability.GUILD_COUNCIL,
+            summary={},
+            correlation_id=uuid4(),
+        )
+
+
+# -- I-1: a lost race is translated, never guessed at --------------------------
+
+
+def lose_to(bench, *, on: str, rule: str, winner):
+    """Make the next apply lose a race on `rule`, after `winner` has committed.
+
+    The callable form of the injection hook is what makes the ordering right:
+    the winning transaction commits *at the moment* this attempt fails, so the
+    losing service resolves the conflict against a database that already holds
+    the winner — exactly as a real concurrent apply would.
+    """
+    from application.errors import UniquenessConflict
+
+    def fail():
+        # One-shot: a race is lost once. Clearing the factory's injection means
+        # the *resolution* transaction — which is a new unit of work — runs
+        # against the store for real, which is the behaviour under test.
+        bench.factory.fail_on = None
+        bench.factory.failure = None
+        winner()
+        return UniquenessConflict(rule)
+
+    bench.factory.fail_on = on
+    bench.factory.failure = fail
+
+
+def test_a_lost_request_key_race_returns_the_winner_as_a_typed_duplicate():
+    """The loser re-reads the winning row rather than assuming anything."""
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-1")
+
+    # The winner is a second service over the same store, applying the identical
+    # operation under the identical key. It commits as this attempt inserts.
+    rival = SnapshotImportService(
+        unit_of_work_factory(bench.store),
+        deployment=OBSERVED_DEPLOYMENT,
+        profile=PROFILE,
+        authorization=bench.authorization,
+    )
+    won: list = []
+
+    def winner():
+        rival_preview = rival.preview(artifact, request_key="req-1")
+        won.append(
+            rival.apply(artifact, rival_preview, discord_user_id=harness.COUNCIL_USER)
+        )
+
+    lose_to(
+        bench, on="snapshot_imports", rule="snapshot_import.request_key", winner=winner
+    )
+
+    loser = bench.imports.apply(
+        artifact, preview, discord_user_id=harness.COUNCIL_USER
+    )
+
+    assert won[0].applied is True
+    # Typed, and internally consistent: it points at the winning row and at
+    # nothing of its own. Compared whole (B-1R) rather than field by field — the
+    # loser's result is the winner's original result, reconciliation included.
+    assert loser.duplicate is True
+    assert loser.applied is False
+    assert loser.result_facts() == won[0].result_facts()
+    assert loser.report is None
+    # Exactly one durable effect.
+    assert len(bench.store.snapshot_imports) == 1
+    assert len(bench.store.characters) == 1
+    assert len(bench.store.external_actor_mappings) == 1
+
+
+def test_a_lost_input_race_under_a_different_key_is_also_a_typed_duplicate():
+    """Overlapping input, different key: still one effect, still typed."""
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-mine")
+    rival = SnapshotImportService(
+        unit_of_work_factory(bench.store),
+        deployment=OBSERVED_DEPLOYMENT,
+        profile=PROFILE,
+        authorization=bench.authorization,
+    )
+    won: list = []
+
+    def winner():
+        rival_preview = rival.preview(artifact, request_key="req-theirs")
+        won.append(
+            rival.apply(artifact, rival_preview, discord_user_id=harness.COUNCIL_USER)
+        )
+
+    lose_to(
+        bench,
+        on="external_actor_mappings",
+        rule="external_actor_mapping.world_actor",
+        winner=winner,
+    )
+
+    loser = bench.imports.apply(
+        artifact, preview, discord_user_id=harness.COUNCIL_USER
+    )
+
+    assert loser.duplicate is True
+    # A truthful duplicate *of the actual winner*: the whole original result,
+    # not the loser's own reconciliation wearing the winner's identifiers.
+    assert loser.result_facts() == won[0].result_facts()
+    assert loser.report is None
+    assert len(bench.store.characters) == 1
+    assert len(bench.store.external_actor_mappings) == 1
+    applied = [
+        r for r in bench.store.snapshot_imports if r.status is ImportStatus.APPLIED
+    ]
+    assert len(applied) == 1
+
+
+def test_an_unresolvable_conflict_is_refused_rather_than_called_a_duplicate():
+    """Nothing this operation can name won, so a duplicate receipt would lie."""
+    from application.errors import UniquenessConflict
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-1")
+
+    # A collision with no corresponding winning import row: whatever claimed the
+    # mapping, it was not an import of this operation.
+    bench.factory.fail_on = "external_actor_mappings"
+    bench.factory.failure = UniquenessConflict("external_actor_mapping.world_actor")
+
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert refusal.value.code == "concurrent_import"
+    assert bench.store.characters == {}
+    applied = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+    ]
+    assert applied == []
+
+
+def test_a_conflicting_key_claimed_concurrently_is_refused_not_duplicated():
+    """The B-1 check applies on the concurrent path too, not only the early one."""
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-1")
+
+    other = bench.artifact(
+        fx.bundle(actors=(fx.actor(fx.SECOND_ACTOR_ID, name="Somebody Else"),))
+    )
+    rival = SnapshotImportService(
+        unit_of_work_factory(bench.store),
+        deployment=OBSERVED_DEPLOYMENT,
+        profile=PROFILE,
+        authorization=bench.authorization,
+    )
+
+    def winner():
+        rival_preview = rival.preview(other, request_key="req-1")
+        rival.apply(other, rival_preview, discord_user_id=harness.COUNCIL_USER)
+
+    lose_to(
+        bench, on="snapshot_imports", rule="snapshot_import.request_key", winner=winner
+    )
+
+    with pytest.raises(ImportRefused) as refusal:
+        bench.imports.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert refusal.value.code == "request_key_conflict"
+
+
+def test_a_persistence_failure_is_never_resolved_into_a_duplicate():
+    """`PersistenceError` is a controlled boundary, not a conflict.
+
+    The distinction is the whole of the "must still roll back and surface
+    through a controlled application error boundary rather than being
+    mislabeled as a successful duplicate" requirement.
+    """
+    from application.errors import PersistenceError, UniquenessConflict
+
+    assert not issubclass(PersistenceError, UniquenessConflict)
+    assert not issubclass(UniquenessConflict, PersistenceError)
+
+    bench = harness.build()
+    artifact = bench.artifact()
+    preview = bench.imports.preview(artifact, request_key="req-1")
+    bench.factory.fail_on = "snapshot_imports"
+    bench.factory.failure = PersistenceError("40001")
+
+    with pytest.raises(PersistenceError) as failure:
+        bench.imports.apply(artifact, preview, discord_user_id=harness.COUNCIL_USER)
+
+    assert failure.value.sqlstate == "40001"
+    assert bench.store.characters == {}
+    assert bench.store.snapshot_imports == []
+    successes = [
+        e for e in bench.store.audit_events if e.action == "snapshot_import.applied"
+    ]
+    assert successes == []
+
+
+def test_every_refusal_code_is_declared():
+    """The refusal vocabulary is closed; an audit filter can rely on it."""
+    import ast
+    import inspect
+
+    from application.foundry import import_service
+
+    tree = ast.parse(inspect.getsource(import_service))
+    raised = {
+        node.args[0].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "ImportRefused"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+    }
+
+    assert raised, "no refusal codes were found; the scan is broken"
+    assert raised <= import_service.REFUSAL_CODES, (
+        f"undeclared refusal code(s): {raised - import_service.REFUSAL_CODES}"
+    )

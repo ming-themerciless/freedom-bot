@@ -37,14 +37,20 @@ from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from application.audit import ActorCapability, AuditEvent, AuditSource
+from application.foundry.audit_policy import (
+    BOOTSTRAP_COMPLETED,
+    BOOTSTRAP_REFUSED,
+    enforced,
+)
 from application.authorization import SupervisedBootstrap
 from application.repositories import UnitOfWork
 from application.snapshots import PlatformInitialization
 from domain.field_profile import FieldProfile
 
 BOOTSTRAP_ENTITY = "platform"
-BOOTSTRAP_COMPLETED = "bootstrap.completed"
-BOOTSTRAP_REFUSED = "bootstrap.refused"
+#: The action names are defined by `audit_policy` and re-exported here. One
+#: definition, so an action cannot exist under a name its policy does not cover.
+__all__ = ["BOOTSTRAP_COMPLETED", "BOOTSTRAP_REFUSED", "BootstrapGate"]
 
 
 class BootstrapUnavailable(RuntimeError):
@@ -145,17 +151,28 @@ class BootstrapGate:
                 source=AuditSource.IMPORT,
                 actor_capability=ActorCapability.SYSTEM,
                 correlation_id=correlation_id,
-                payload={
-                    "supervisor": supervisor.supervisor,
-                    "profile_version": self._profile.version,
-                    "snapshot_checksum": snapshot_checksum,
-                },
+                payload=enforced(
+                    BOOTSTRAP_COMPLETED,
+                    {
+                        "supervisor": supervisor.supervisor,
+                        "profile_version": self._profile.version,
+                        "snapshot_checksum": snapshot_checksum,
+                    },
+                ),
             )
         )
         return initialization
 
-    def record_refusal(self, *, reason: str, supervisor: str, code: str) -> UUID:
-        """One safe attempted/refused event, in its own transaction."""
+    def record_refusal(self, *, supervisor: str, code: str) -> UUID:
+        """One safe attempted/refused event, in its own transaction.
+
+        It used to take a free-text `reason` and write it into the payload. A
+        prose field is an unbounded channel into append-only history, and
+        `refusal_code` already carries the classification an operator filters
+        on, so the parameter was removed rather than grandfathered (I-2). The
+        explanation belongs in the refusal the caller raises, which is read
+        once, rather than in a row that is kept for ever.
+        """
         correlation_id = self._correlation_ids()
         with self._unit_of_work_factory() as unit_of_work:
             unit_of_work.audit.record(
@@ -166,12 +183,14 @@ class BootstrapGate:
                     source=AuditSource.IMPORT,
                     actor_capability=ActorCapability.SYSTEM,
                     correlation_id=correlation_id,
-                    payload={
-                        "supervisor": supervisor,
-                        "refusal_code": code,
-                        "reason": reason,
-                        "applied": False,
-                    },
+                    payload=enforced(
+                        BOOTSTRAP_REFUSED,
+                        {
+                            "supervisor": supervisor,
+                            "refusal_code": code,
+                            "applied": False,
+                        },
+                    ),
                 )
             )
             unit_of_work.commit()

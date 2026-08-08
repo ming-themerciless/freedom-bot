@@ -132,3 +132,44 @@ def test_the_report_names_the_snapshot_the_folder_and_the_profile():
     assert "would create  1" in rendered
     # No Actor field values leak into an operator's terminal.
     assert "Synthetic Human" not in rendered
+
+
+def test_a_duplicate_prints_the_original_imports_own_record():
+    """Not a fresh reconciliation of the database under an "already applied" line.
+
+    The duplicate outcome has no report of its own (finding B-1R): it reconciled
+    nothing. Printing the preview's report beside "already applied" would show
+    the operator today's database under a heading claiming to describe an import
+    from some earlier moment — and today's says the Actor is already mapped,
+    where the original said it was a create candidate.
+    """
+    from application.foundry.artifact import ingest_bytes
+    from application.foundry.import_service import SnapshotImportService
+    from domain.foundry import OBSERVED_DEPLOYMENT
+    from domain.foundry_profile import PROFILE
+    from tests.fakes import FakeAuthorization, FakeStore, unit_of_work_factory
+
+    store = FakeStore()
+    factory = unit_of_work_factory(store)
+    service = SnapshotImportService(
+        factory,
+        deployment=OBSERVED_DEPLOYMENT,
+        profile=PROFILE,
+        authorization=FakeAuthorization.with_council(1),
+    )
+    artifact = ingest_bytes(fx.encode(fx.bundle()))
+    service.apply(
+        artifact, service.preview(artifact, request_key="req-1"), discord_user_id=1
+    )
+    retry_preview = service.preview(artifact, request_key="req-1")
+    duplicate = service.apply(artifact, retry_preview, discord_user_id=1)
+
+    rendered = cli.render(retry_preview, duplicate)
+
+    assert "Already applied" in rendered
+    # The original's counts: one Actor, created by that import.
+    assert "created       1" in rendered
+    assert "already mapped  0" in rendered
+    # …which is precisely what a reconciliation run now would *not* say.
+    assert retry_preview.report.facts().mapped == 1
+    assert "Synthetic Human" not in rendered

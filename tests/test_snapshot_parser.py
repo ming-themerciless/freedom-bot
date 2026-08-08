@@ -33,7 +33,7 @@ def test_a_contract_shaped_bundle_parses():
     snapshot = parse(fx.bundle())
 
     assert snapshot.schema_version == 1
-    assert snapshot.exporter.describe() == "freedom-blades-export 1.0.0"
+    assert snapshot.exporter.describe() == "freedom-blades-export 1.0.2"
     assert snapshot.world.world_id == "the-guild"
     assert snapshot.exported_at.tzinfo is not None
     assert [str(a.actor_id) for a in snapshot.actors] == [fx.FIRST_ACTOR_ID]

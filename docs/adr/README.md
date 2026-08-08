@@ -34,6 +34,7 @@ acceptance criteria is *"maintainer approves architecture ADRs"* (plan §12).
 | [0006](0006-foundry-integration-boundary.md) | Foundry integration boundary | **Accepted, amended 2026-08-02** |
 | [0007](0007-field-ownership-and-conflict-policy.md) | Field ownership and conflict policy | **Accepted** |
 | [0008](0008-profile-driven-character-state.md) | Profile-driven storage for database-managed character state | **Rejected 2026-08-02** |
+| [0009](0009-snapshot-submission-http-boundary.md) | The snapshot submission HTTP boundary | **Accepted 2026-08-04** |
 
 ## Maintainer approval checklist (Phase 0 gate)
 
@@ -85,6 +86,23 @@ Foundry snapshot milestone required two changes:
 - **0008 was proposed and rejected 2026-08-02.** Phase 2 does not use a generic
   state store. Each typed domain package migrates its fields once and owns its
   reconciliation, correction, cutover and recovery evidence.
+
+**Addition, 2026-08-04. 0009 was proposed and accepted the same day.** The
+Phase 2 I-03 snapshot submission package needs one HTTP route, and 0009 records
+why it is a stdlib WSGI application rather than the FastAPI stack 0002 names for
+the Phase 3 web application. It **narrows the scope of 0002 for one endpoint
+without changing it**: FastAPI remains the recorded choice for the web
+application, and the WSGI application mounts inside it unchanged.
+
+Two limits on that acceptance are worth restating, because an accepted ADR is
+easy to read as more than it is:
+
+- it accepts the **architectural decision**, not the Phase 2 I-03
+  implementation, which still requires independent implementation review and a
+  separate security-focused review; and
+- it **authorizes no further HTTP surface**. A second route is a new decision,
+  and the Phase 3 authentication and web-security gate still governs anything
+  browser-facing.
 
 ## Format
 

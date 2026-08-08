@@ -51,6 +51,7 @@ external Actor ID and is unaffected either way (OD-42).
 from __future__ import annotations
 
 from domain.field_profile import (
+    DifferenceDirection,
     FieldAuthority,
     FieldProfile,
     ProfileField,
@@ -114,6 +115,12 @@ def _fields() -> dict[str, ProfileField]:
             label="Character name (short)",
             authority=FieldAuthority.DATABASE,
             comparison=Comparison.NORMALIZED_TEXT,
+            # Players rename in Foundry. The platform's copy was written from an
+            # earlier Actor name, so a difference makes the *platform* record
+            # stale — never the Foundry Actor. Declared here so the
+            # reconciliation reads the direction off the field rather than
+            # assuming one from the authority.
+            difference_direction=DifferenceDirection.PLATFORM_DISPLAY_NAME_STALE,
             source=(
                 "Written by the snapshot import at character creation from the "
                 "Actor name. A later difference is a rename notice: the platform "

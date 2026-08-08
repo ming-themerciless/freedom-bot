@@ -25,6 +25,27 @@ The exporter is **not distributed**. It serves one deployment, so it owes no
 third party backwards compatibility, and the Manager pins the exact tuple it
 accepts.
 
+### 0.1 The implementation, and how it reaches the Manager
+
+The exporter is [`foundry-module/`](../../foundry-module/README.md), a Foundry
+v14 module. Its canonical encoder and bundle builder are pure and are tested
+without a running Foundry instance; `tests/test_exporter_contract.py` feeds
+their real output to the Manager's real parser, so the two implementations of
+this contract cannot drift apart unnoticed.
+
+**Transport is not part of this contract, and this contract does not change
+because of it.** The bundle below is identical whether it is carried as a file
+or POSTed. Two routes exist:
+
+| Route | Status | Where |
+|---|---|---|
+| direct HTTPS submission from the module | **the supported workflow** | [operations](../operations/foundry-snapshot-submission.md) |
+| browser download, then an operator command | fallback and diagnosis | [import operations](../operations/foundry-snapshot-import.md) |
+
+A submitted artifact is validated by the server against every rule below,
+independently of anything the client claimed, and becomes a **pending** record.
+Submission applies nothing; §4 is unchanged.
+
 ## 1. Encoding and canonicalisation
 
 Comparison and content-addressing require that the same world state produces the
@@ -48,6 +69,17 @@ artifact and calls the result the same snapshot. Canonicalisation is the
 exporter's obligation: it makes two exports of an unchanged world compare equal,
 and it is not something the Manager may apply retroactively.
 
+### 1.1 Boundary projection of undefined
+
+Foundry `Document#toObject()` passes through schema defaults such as dnd5e's
+`initial: undefined` for optional properties. To map these cleanly into JSON:
+
+- At the Foundry source boundary (`world-source.js`), a plain object's own
+  enumerable property whose value is `undefined` is **skipped while constructing a new projected result**; the source object and its property are unchanged.
+- An `undefined` element inside an **array** is **refused** (`undefined_array_element`).
+- Any `undefined` value reaching the canonical encoder (`canonical.js`) remains an
+  exporter defect and is **refused** (`undefined_value`).
+
 Nesting depth may not exceed **64**. An artifact may not exceed **64 MiB** — a
 real Actor is 1.1–3.3 MB of JSON ([foundry-mapping.md](../discovery/foundry-mapping.md)
 F-F5), so this bounds a plausible active folder with headroom while keeping the
@@ -63,7 +95,7 @@ been validated by anyone.
 {
   "schema": "freedom-blades.foundry-export",
   "schemaVersion": 1,
-  "exporter": { "id": "freedom-blades-export", "version": "1.0.0" },
+  "exporter": { "id": "freedom-blades-export", "version": "1.0.2" },
   "exportedAt": "2026-08-02T09:15:00Z",
   "world": {
     "id": "the-guild",
@@ -214,7 +246,29 @@ imported artifact and its audit record are never edited or overwritten.
 ## 5. Fixtures
 
 Automated tests use small **synthetic** bundles built by
-`tests/foundry_fixtures.py`, shaped like this contract and holding invented
-Actors. Real Council snapshots are operational inputs and are never committed —
-`.gitignore` already excludes `fvtt-Actor-*.json`, and this contract adds no
-route by which a real bundle could enter the repository.
+`tests/foundry_fixtures.py` on the Python side and
+`foundry-module/tests/fixtures.mjs` on the JavaScript side, both shaped like this
+contract and both holding invented Actors. Real Council snapshots are operational
+inputs and are never committed — `.gitignore` already excludes
+`fvtt-Actor-*.json`, and this contract adds no route by which a real bundle could
+enter the repository.
+
+There is deliberately **no committed golden artifact**. A checked-in expected
+bundle is a third implementation of this contract: correct on the day it is
+written and silently stale afterwards, because nothing regenerates it.
+`tests/test_exporter_contract.py` executes the exporter's real serialization
+path instead and hands the result to the real parser.
+
+## 6. Selection: what a single exporter run carries
+
+§2.5 permits 1–8 selected folders, and the Manager supports that range. The
+shipped module exports **exactly one** folder per run, and the Actors it
+includes are the **direct children** of that folder.
+
+Direct membership is not a simplification, it is the only reading §2.6 admits:
+every Actor's `folderId` must be in `selectedFolderIds`, so an Actor sitting in a
+sub-folder of the selection would carry a `folderId` that is not selected, and
+the Manager refuses exactly that with `actor_outside_selection`. Rather than let
+an operator discover this from a count that looks low, the module shows the
+selected folder's sub-folder count before confirmation and states that their
+Actors are not included.

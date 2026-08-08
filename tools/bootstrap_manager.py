@@ -132,7 +132,43 @@ def build_services(engine, *, deployment: SupportedDeployment):
 
 
 def render(preview, outcome=None) -> str:
-    report = (outcome.report if outcome else preview.report)
+    """What this run did, printed from the run's own record of it.
+
+    A rehearsal and a fresh apply both have a full reconciliation report, so they
+    print the per-issue detail. A **duplicate** does not: it reconciled nothing,
+    and its result is the bounded facts the original import recorded (finding
+    B-1R). Printing the preview's report beside "already applied" would show the
+    operator a reconciliation of the database as it is now under a heading that
+    claims to describe an import from some earlier moment — the same mixing of
+    two instants the finding is about. So a duplicate prints the original's
+    facts and its issue *codes*, and says which import they came from.
+    """
+    if outcome is not None and outcome.report is None:
+        lines = _facts_lines(outcome.reconciliation)
+    else:
+        lines = _report_lines(outcome.report if outcome else preview.report)
+    lines.append("")
+    if outcome is not None and outcome.applied:
+        lines.append(
+            f"Applied. {outcome.created_count} character(s) created, "
+            f"correlation {outcome.correlation_id}."
+        )
+    elif outcome is not None and outcome.duplicate:
+        lines.append(
+            "Already applied. This exact snapshot, folder and profile version "
+            "had been imported; nothing changed. The counts above are the "
+            f"original import's own record (import {outcome.import_id}, "
+            f"correlation {outcome.correlation_id})."
+        )
+    else:
+        lines.append(
+            "Rehearsal. Nothing was written. Re-run with --bootstrap and "
+            "--supervisor to apply."
+        )
+    return "\n".join(lines)
+
+
+def _report_lines(report) -> list[str]:
     lines = [
         f"Snapshot:       {report.snapshot_checksum}",
         f"Exporter:       {report.exporter}",
@@ -150,23 +186,32 @@ def render(preview, outcome=None) -> str:
     for issue in report.issues:
         marker = "ERROR " if issue.is_error else "warn  "
         lines.append(f"  {marker} [{issue.code}] {issue.message}")
-    lines.append("")
-    if outcome is not None and outcome.applied:
-        lines.append(
-            f"Applied. {outcome.created_count} character(s) created, "
-            f"correlation {outcome.correlation_id}."
-        )
-    elif outcome is not None and outcome.duplicate:
-        lines.append(
-            "Already applied. This exact snapshot, folder and profile version "
-            "had been imported; nothing changed."
-        )
-    else:
-        lines.append(
-            "Rehearsal. Nothing was written. Re-run with --bootstrap and "
-            "--supervisor to apply."
-        )
-    return "\n".join(lines)
+    return lines
+
+
+def _facts_lines(facts) -> list[str]:
+    """The durable facts of an import that has already been applied.
+
+    Codes rather than messages, because a message is written for one moment by
+    the run that produced it and this is not that run. The codes are the closed
+    vocabulary an operator filters on, and they were recorded at the time.
+    """
+    lines = [
+        f"Snapshot:       {facts.snapshot_checksum}",
+        f"Exporter:       {facts.exporter}",
+        f"Folder:         {facts.folder_path} ({facts.folder_id})",
+        f"Field profile:  {facts.profile_version}",
+        "",
+        f"  actors        {facts.actors}",
+        f"  created       {facts.unmapped}",
+        f"  already mapped{facts.mapped:>3}",
+        f"  blocked       {facts.blocked}",
+        f"  absent        {facts.absent}",
+        "",
+        f"{facts.errors} error(s), {facts.warnings} warning(s), as recorded:",
+    ]
+    lines.extend(f"         [{code}]" for code in facts.issue_codes)
+    return lines
 
 
 def main(argv: Sequence[str] | None = None) -> int:

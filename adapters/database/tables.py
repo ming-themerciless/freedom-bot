@@ -258,8 +258,23 @@ foundry_snapshots = Table(
     Column("artifact_location", Text),
     Column("received_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("received_by_discord_user_id", BIGINT, ForeignKey("discord_users.id", ondelete="RESTRICT")),
+    # How the artifact arrived, and who presented it. An operator ran a command
+    # as themselves; a module presented a submit-only service credential and no
+    # human at all. `received_by_discord_user_id` cannot express the second, so
+    # a record written on that path would otherwise name nobody.
+    Column("received_via", String(20), nullable=False, server_default="operator"),
+    Column("submitted_by_principal", String(64)),
     Column("correlation_id", UUID(as_uuid=True), nullable=False),
     CheckConstraint("checksum ~ '^[0-9a-f]{64}$'", name="checksum_sha256_hex"),
+    CheckConstraint(
+        "received_via IN ('operator', 'foundry_module')", name="received_via"
+    ),
+    # Attribution is required on the module path and forbidden on the operator
+    # path, so a row can never claim a chain of custody it did not have.
+    CheckConstraint(
+        "(received_via = 'foundry_module') = (submitted_by_principal IS NOT NULL)",
+        name="module_submission_names_its_principal",
+    ),
     CheckConstraint("size_bytes > 0", name="size_positive"),
     CheckConstraint("actor_count >= 0", name="actor_count_non_negative"),
     CheckConstraint("schema_version > 0", name="schema_version_positive"),
@@ -275,7 +290,19 @@ snapshot_imports = Table(
     Column("profile_version", String(64), nullable=False),
     # The apply attempt's own key: a retry of the same request returns the
     # original result instead of applying a second time.
+    #
+    # The only column that holds the caller's key verbatim, and it holds it
+    # because an exact match is what the idempotency lookup does. Audit rows
+    # carry a one-way `request_key_digest` instead (finding S-1), and a refused
+    # attempt is keyed by that digest too, so the text is written once per
+    # applied attempt and nowhere else.
     Column("request_key", String(255), nullable=False, unique=True),
+    # …and what that key was spent on. The key alone identifies the attempt; it
+    # does not identify the *operation*, so on its own it let a different
+    # artifact, folder or profile be presented under an old key and receive the
+    # original receipt (finding B-1). Stored immutably beside the key so a retry
+    # can be told from a reuse without trusting anything the caller passes.
+    Column("operation_digest", String(64), nullable=False),
     Column("status", String(20), nullable=False),
     Column("mode", String(20), nullable=False),
     Column("actor_discord_user_id", BIGINT, ForeignKey("discord_users.id", ondelete="RESTRICT")),
@@ -294,6 +321,7 @@ snapshot_imports = Table(
         name="actor_capability",
     ),
     CheckConstraint("created_count >= 0 AND updated_count >= 0 AND warning_count >= 0", name="counts_non_negative"),
+    CheckConstraint("operation_digest ~ '^[0-9a-f]{64}$'", name="operation_digest_sha256_hex"),
 )
 # The *input* identity of an import is (snapshot, folder, profile version).
 # Only an applied row claims it, so a refusal never blocks the retry that fixes

@@ -42,7 +42,7 @@ def test_a_roll_input_carries_the_snapshot_and_profile_it_came_from():
     assert result.value == {"acr": 0, "ath": 1, "prc": 2}
     assert result.provenance.profile_version == PROFILE.version
     assert len(result.provenance.checksum) == 64
-    assert result.provenance.exporter == "freedom-blades-export 1.0.0"
+    assert result.provenance.exporter == "freedom-blades-export 1.0.2"
 
 
 def test_provenance_renders_as_facts_a_result_can_record():

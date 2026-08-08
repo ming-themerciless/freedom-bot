@@ -11,8 +11,51 @@
 -- REVOKE on a retained append-only table is not, which is why the two lists
 -- below are checked against the live schema by `tests/test_runtime_grants.py`
 -- rather than maintained by eye.
+--
+-- ## PUBLIC (finding O-1)
+--
+-- An earlier revision claimed its `REVOKE ... FROM __APP_ROLE__` statements
+-- "handled rights held by PUBLIC". They did not, and could not: revoking from a
+-- role does not touch a privilege the role holds *through* PUBLIC. Every member
+-- of PUBLIC is every role in the cluster, the runtime role included, so a single
+-- `GRANT ... ON audit_events TO PUBLIC` — from a migration, a recovery session
+-- or a well-meaning operator — would have given the runtime role UPDATE and
+-- DELETE on append-only history with nothing here to take it away.
+--
+-- The fix is the explicit normalisation below: every retained table has all
+-- privileges revoked from PUBLIC before the intended grants are issued. This is
+-- a no-op on a clean cluster, which is the point — it makes the ACL state a
+-- property of applying this template rather than of nothing ever having gone
+-- wrong. `tests/test_runtime_grants_live.py` seeds hostile PUBLIC grants,
+-- applies this file, and then asserts the *effective* privileges through
+-- `has_table_privilege`, so the evidence is what PostgreSQL concludes rather
+-- than what this text says.
 
 GRANT USAGE ON SCHEMA public TO __APP_ROLE__;
+
+-- PUBLIC gets no ability to create objects in the schema. (PostgreSQL 15 and
+-- later no longer grant this by default; it is stated here so the template is
+-- also correct against an older cluster or one that has drifted.)
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
+-- Normalise PUBLIC on every retained table, before granting anything. Ordering
+-- matters: a REVOKE issued after the GRANTs below would still be correct, but
+-- reading it in this order is what makes "the runtime role holds exactly what
+-- the next two statements give it" true on the page as well as in the cluster.
+REVOKE ALL PRIVILEGES ON
+    discord_users,
+    discord_guild_memberships,
+    discord_membership_roles,
+    characters,
+    character_access,
+    external_actor_mappings,
+    sheet_row_mappings,
+    idempotency_keys,
+    audit_events,
+    foundry_snapshots,
+    snapshot_imports,
+    platform_initialization
+FROM PUBLIC;
 
 -- Operational tables: the application creates, reads and maintains these.
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -32,14 +75,16 @@ TO __APP_ROLE__;
 --
 -- TRUNCATE is revoked here rather than trigger-blocked, so the owner can still
 -- reset a disposable test database while the runtime role cannot empty history.
--- REVOKE after GRANT is deliberate and not redundant: PUBLIC may hold rights
--- these statements would otherwise leave in place.
 GRANT SELECT, INSERT ON
     audit_events,
     foundry_snapshots,
     snapshot_imports,
     platform_initialization
 TO __APP_ROLE__;
+
+-- REVOKE after GRANT is deliberate and not redundant: it is what makes the
+-- append-only set explicit at the point a reader is looking for it, and it
+-- would take back an UPDATE or DELETE mistakenly added to the GRANT above.
 REVOKE UPDATE, DELETE, TRUNCATE ON audit_events FROM __APP_ROLE__;
 REVOKE UPDATE, DELETE, TRUNCATE ON foundry_snapshots FROM __APP_ROLE__;
 REVOKE UPDATE, DELETE, TRUNCATE ON snapshot_imports FROM __APP_ROLE__;

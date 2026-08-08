@@ -72,6 +72,46 @@ def grant_statements() -> list[str]:
     ]
 
 
+#: Every retained table, for the PUBLIC-drift evidence. Kept as a literal rather
+#: than read from the metadata so that a table quietly dropped from the ORM does
+#: not quietly drop out of the hostile-grant seeding too.
+RETAINED_TABLES = (
+    "discord_users",
+    "discord_guild_memberships",
+    "discord_membership_roles",
+    "characters",
+    "character_access",
+    "external_actor_mappings",
+    "sheet_row_mappings",
+    "idempotency_keys",
+    "audit_events",
+    "foundry_snapshots",
+    "snapshot_imports",
+    "platform_initialization",
+)
+
+#: What the runtime role must not end up holding on append-only history,
+#: however it might have come by it.
+PROHIBITED_PRIVILEGES = ("UPDATE", "DELETE", "TRUNCATE")
+
+
+def apply_template(connection) -> None:
+    for statement in grant_statements():
+        connection.execute(text(statement))
+
+
+def seed_hostile_public_grants(connection) -> None:
+    """The drift the template must be able to undo.
+
+    `GRANT ALL ... TO PUBLIC` is not a hypothetical: PUBLIC includes every role
+    in the cluster, so one such statement — from a migration, a restore, a
+    recovery session — hands the runtime role UPDATE, DELETE and TRUNCATE on
+    append-only history without naming it.
+    """
+    for table in RETAINED_TABLES:
+        connection.execute(text(f"GRANT ALL PRIVILEGES ON {table} TO PUBLIC"))
+
+
 @pytest.fixture()
 def restricted(migrated_database):
     """A connection with the restricted role assumed, reset afterwards.
@@ -179,3 +219,199 @@ def test_the_restricted_role_cannot_create_a_table(restricted):
         restricted.execute(text("CREATE TABLE runtime_role_probe (id int)"))
 
     assert sqlstate(denial.value) == INSUFFICIENT_PRIVILEGE
+
+
+# --- O-1: PUBLIC ACL drift cannot widen the runtime role ----------------------
+#
+# These are the decisive evidence for finding O-1. They do not parse SQL: they
+# put the cluster into the state the template claims to handle, apply the
+# template, and then ask PostgreSQL what the runtime role can actually do.
+# `has_table_privilege` answers with the role's *effective* privilege, which is
+# the union of what it was granted directly, what it inherits through role
+# membership, and what it holds through PUBLIC — so it is the only question
+# whose answer means anything here.
+
+
+def effective(connection, table: str, privilege: str) -> bool:
+    return connection.execute(
+        text("SELECT has_table_privilege(:role, :table, :privilege)"),
+        {"role": RUNTIME_ROLE, "table": table, "privilege": privilege},
+    ).scalar_one()
+
+
+def public_holds(connection, table: str, privilege: str) -> bool:
+    """Whether PUBLIC itself still holds `privilege`, per the table's ACL."""
+    return connection.execute(
+        text(
+            "SELECT EXISTS (SELECT 1 FROM aclexplode("
+            "  COALESCE((SELECT relacl FROM pg_class c "
+            "            JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "            WHERE c.relname = :table AND n.nspname = 'public'), "
+            "           '{}'::aclitem[])"
+            ") a WHERE a.grantee = 0 AND a.privilege_type = :privilege)"
+        ),
+        {"table": table, "privilege": privilege},
+    ).scalar_one()
+
+
+@pytest.fixture()
+def role_required(migrated_database):
+    engine = migrated_database
+    with engine.begin() as owner:
+        exists = owner.execute(
+            text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+            {"role": RUNTIME_ROLE},
+        ).scalar()
+    if not exists:
+        pytest.skip(f"{RUNTIME_ROLE} does not exist")
+    return engine
+
+
+def test_hostile_public_grants_would_widen_the_role_if_nothing_revoked_them(
+    role_required,
+):
+    """The premise, proven rather than assumed.
+
+    If this failed, the rest of the O-1 evidence would be vacuous — it would be
+    proving that a revoke removed something that was never there.
+    """
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        for privilege in PROHIBITED_PRIVILEGES:
+            assert effective(owner, "audit_events", privilege), (
+                f"a PUBLIC grant did not confer {privilege}; the premise of the "
+                "O-1 evidence does not hold on this server"
+            )
+
+
+@pytest.mark.parametrize("table", APPEND_ONLY_TABLES)
+@pytest.mark.parametrize("privilege", PROHIBITED_PRIVILEGES)
+def test_the_template_removes_public_drift_from_append_only_tables(
+    role_required, table, privilege
+):
+    """Seed the drift, apply the template, ask the server."""
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+
+        assert not effective(owner, table, privilege), (
+            f"{RUNTIME_ROLE} can still {privilege} {table} after the template "
+            "was applied over hostile PUBLIC grants"
+        )
+        assert not public_holds(owner, table, privilege), (
+            f"PUBLIC still holds {privilege} on {table}"
+        )
+
+
+@pytest.mark.parametrize("table", RETAINED_TABLES)
+def test_the_template_leaves_public_holding_nothing_on_any_retained_table(
+    role_required, table
+):
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            assert not public_holds(owner, table, privilege), (
+                f"PUBLIC still holds {privilege} on {table}"
+            )
+
+
+def test_the_template_preserves_the_runtime_roles_intended_operations(
+    role_required,
+):
+    """Normalising PUBLIC must not take away what the role is meant to have."""
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+
+        for table in (
+            "characters",
+            "external_actor_mappings",
+            "discord_users",
+            "idempotency_keys",
+        ):
+            for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                assert effective(owner, table, privilege), (
+                    f"{RUNTIME_ROLE} lost {privilege} on {table}"
+                )
+        for table in APPEND_ONLY_TABLES:
+            assert effective(owner, table, "SELECT")
+            assert effective(owner, table, "INSERT")
+
+
+def test_the_template_is_idempotent_over_repeated_application(role_required):
+    """It is applied after every migration, so applying it twice must be safe."""
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+        apply_template(owner)
+
+        assert effective(owner, "characters", "UPDATE")
+        for privilege in PROHIBITED_PRIVILEGES:
+            assert not effective(owner, "audit_events", privilege)
+
+
+def test_public_drift_cannot_let_the_runtime_role_delete_the_initialization_row(
+    role_required,
+):
+    """The specific escalation O-1 names: re-opening the supervised bootstrap.
+
+    `platform_initialization` holds one row whose existence is what disables the
+    one-time bootstrap. A role able to delete it could run the bootstrap again,
+    which is why the table is in the append-only set despite having no trigger.
+    """
+    with role_required.begin() as owner:
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+
+        assert not effective(owner, "platform_initialization", "DELETE")
+        assert not effective(owner, "platform_initialization", "TRUNCATE")
+        assert not effective(owner, "platform_initialization", "UPDATE")
+        assert effective(owner, "platform_initialization", "INSERT")
+
+
+def test_the_denials_still_hold_as_the_role_after_public_drift(migrated_database):
+    """Effective-privilege answers and actual statements must agree.
+
+    `has_table_privilege` is a catalogue query; this executes the statement as
+    the role, over a cluster that had hostile PUBLIC grants applied to it, so
+    the two independent methods have to reach the same conclusion.
+    """
+    engine = migrated_database
+    with engine.begin() as owner:
+        exists = owner.execute(
+            text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+            {"role": RUNTIME_ROLE},
+        ).scalar()
+        if not exists:
+            pytest.skip(f"{RUNTIME_ROLE} does not exist")
+        seed_hostile_public_grants(owner)
+        apply_template(owner)
+
+    connection = engine.connect()
+    try:
+        for table in APPEND_ONLY_TABLES:
+            for statement in (
+                f"UPDATE {table} SET correlation_id = correlation_id",
+                f"DELETE FROM {table}",
+                f"TRUNCATE {table}",
+            ):
+                # Re-assumed for every statement, and not once at the top:
+                # `SET ROLE` is transactional, so the rollback each denial
+                # requires would silently hand the rest of the loop back to the
+                # owner — which can delete from an empty table quite happily,
+                # and the test would pass while proving nothing.
+                connection.execute(text(f"SET ROLE {RUNTIME_ROLE}"))
+                assert (
+                    connection.execute(text("SELECT current_role")).scalar()
+                    == RUNTIME_ROLE
+                )
+                with pytest.raises(ProgrammingError) as denial:
+                    connection.execute(text(statement))
+                assert sqlstate(denial.value) == INSUFFICIENT_PRIVILEGE, statement
+                connection.rollback()
+    finally:
+        connection.rollback()
+        connection.execute(text("RESET ROLE"))
+        connection.close()

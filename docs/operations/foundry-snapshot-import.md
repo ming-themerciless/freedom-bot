@@ -23,15 +23,30 @@ something is wrong with the invocation, not with the world.
 
 ## 2. Producing the artifact (Guild Council)
 
-1. In the Foundry client, run the Freedom Blades export macro/module.
-2. Select the folder or folders to export. The initial one is
-   `Characters (active)`; the bundle may carry up to eight.
-3. Save the file with a plain name ending in `.json` — no directories, no
-   second extension. `the-guild-2026-08-02.json` is a good name;
-   `snapshot.json.exe` and `../snapshot.json` are refused.
+**The supported workflow is direct submission from the Foundry module**, which
+needs no file, no SSH and no server path. It is documented separately in
+[foundry-snapshot-submission.md](foundry-snapshot-submission.md); read that
+first. A submitted snapshot is already stored and already has a checksum and
+provenance row, so §3 below is only the file-based fallback.
+
+The rest of this section is that **fallback**, for when the endpoint is
+unavailable or a submission needs diagnosing:
+
+1. In the Foundry client, press *Submit Freedom Blades Snapshot* and choose
+   **Download JSON** instead of Submit. The bytes are the same validated,
+   checksummed document the submission would have sent.
+2. Select the folder to export. The initial one is `Characters (active)`.
+3. Keep the file name the module generated, or rename it to a plain name ending
+   in `.json` — no directories, no second extension.
+   `the-guild-2026-08-02.json` is a good name; `snapshot.json.exe` and
+   `../snapshot.json` are refused.
 4. Hand the file to the operator over a channel the Council is comfortable
    with. It contains every exported Actor's mechanics, so treat it as an
    operational record, not as a chat attachment.
+
+`Export to Compendium` is **not** this, and the `Actors (shared)` compendium is
+**not** a source: it is a copy that may be stale. The module reads the live
+world.
 
 Never commit an artifact to this repository. `.gitignore` excludes
 `fvtt-Actor-*.json`, and committed fixtures are synthetic by construction.
@@ -55,8 +70,17 @@ Read the report before doing anything else:
   the platform already holds. Establish the mapping deliberately — never let
   the importer guess;
 - **`foundry_out_of_date`** means the database and the Foundry Actor disagree
-  on a database-owned field. Somebody should update the **Foundry** Actor. The
-  platform writes nothing back;
+  on a field the *platform* authors, so the Foundry Actor has drifted from it.
+  Somebody should update the **Foundry** Actor. The platform writes nothing
+  back. No field carries this direction in Phase 2; the code exists for the
+  fields later packages migrate;
+- **`platform_display_name_stale`** means the Actor was **renamed in Foundry**
+  and the platform's display record still holds the earlier name. Foundry is
+  where a character is renamed, so Foundry is correct and the platform copy is
+  the stale one. **Do not rename the Foundry Actor back.** Identity is the
+  external Actor id, so the character stays mapped to the same Actor (OD-42),
+  and Phase 2 reports the rename without updating anything — the display record
+  is corrected by the package that owns it (5.1);
 - **`unable_to_compare`** is neither agreement nor disagreement. The commonest
   causes are a field never bootstrapped, a multiclassed Actor, a nonzero
   electrum balance, and an item with no stable catalogue identity;
@@ -103,6 +127,51 @@ Re-applying the same artifact to the same folder under the same profile version
 is a **successful no-op**: the database's partial unique index on
 (snapshot, folder, profile version) makes a second apply impossible, and the
 service returns a typed duplicate result.
+
+### What a duplicate result contains, and what it deliberately does not
+
+A duplicate is the **original import's own result**, read back from the
+immutable `snapshot_imports` row: its import id, correlation id, operation
+digest, counts and the reconciliation summary that import recorded. It is not a
+fresh reconciliation, and reading it as one is the mistake to avoid — a
+reconciliation run today reports the imported Actors as *already mapped*,
+because the import mapped them, while the original correctly reported them as
+create candidates.
+
+So a duplicate has **no per-issue report**. `python -m tools.bootstrap_manager`
+prints the recorded counts and the recorded issue *codes* for it, and names the
+import they came from. If you need the narrative detail of what an import saw at
+the time, it is in that run's output; if you need to know what the database
+looks like now, run a rehearsal (no `--bootstrap`), which reconciles and writes
+nothing.
+
+## 5a. What identifies an attempt in permanent history
+
+Three identifiers appear in audit rows, and they answer different questions:
+
+| Identifier | Answers | Notes |
+|---|---|---|
+| `correlation_id` | which events belong to **this attempt** | new for every attempt, including a retry |
+| `operation_digest` | **what was applied** — checksum, world, folder id and path, profile version, exporter | excludes the request key and the volatile aggregate versions |
+| `request_key_digest` | which attempts share a **request key** | a one-way, domain-separated SHA-256 of the key |
+
+The request key itself is caller-supplied text. It is stored verbatim in exactly
+one place — `snapshot_imports.request_key`, because an exact match is what the
+idempotency lookup does — and **never** in an audit payload, an import summary or
+a refusal message. To find the audit history for a key you hold, digest it the
+same way the application does:
+
+```bash
+./venv/bin/python -c \
+  'import sys; from application.foundry.import_service import request_key_digest; \
+   print(request_key_digest(sys.argv[1]))' "$REQUEST_KEY"
+```
+
+Do not paste a request key into a ticket, a chat channel or a shell history file
+if it might carry a person's name or anything else private. The platform stops
+it reaching permanent history; it cannot stop an operator copying it somewhere
+else. A refused attempt is recorded under `refused:<digest>:<correlation id>`,
+which keeps two refusals of one key distinct without keeping the text.
 
 ## 6. Snapshot retention — documented separately from the audit record
 
@@ -160,7 +229,26 @@ This is outside the application and cannot be presented as ordinary history.
 The runtime role has no `UPDATE`, `DELETE` or `TRUNCATE` on those tables and
 therefore cannot reach this path at all.
 
+## 7a. Where an artifact came from
+
+`foundry_snapshots.received_via` distinguishes the two chains of custody, and
+`submitted_by_principal` names the credential on the second:
+
+| `received_via` | Means | Attribution |
+|---|---|---|
+| `operator` | a file placed on the host and imported with `tools.bootstrap_manager` | the operator who ran the command, plus `received_by_discord_user_id` where one applies |
+| `foundry_module` | an HTTPS submission from the Foundry module | `submitted_by_principal` — there is no acting Discord user on that path |
+
+A database check constraint keeps the pair consistent in both directions, so a
+row can never claim a chain of custody it did not have. Both columns are
+append-only along with the rest of the table.
+
 ## 8. Migrations
+
+Migration `0004_snapshot_submission_provenance` adds `received_via` and
+`submitted_by_principal`; see
+[foundry-snapshot-submission.md](foundry-snapshot-submission.md) §9 for its
+upgrade, downgrade and recovery notes.
 
 Migration `0002_foundry_snapshot_and_identity` adds the snapshot, import and
 initialization tables, the provenance columns on `external_actor_mappings`, and
@@ -200,4 +288,6 @@ tables. Downgrading discards Phase 2 data by design; take the backup.
 - every created character has a mapping whose
   `established_by_snapshot_id` points at that snapshot; and
 - the audit events carry the acting user, the capability, the correlation ID
-  and the checksum.
+  and the checksum; and
+- no audit payload contains a raw request key — it carries
+  `request_key_digest` and `operation_digest` instead (§5a).

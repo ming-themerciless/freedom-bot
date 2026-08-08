@@ -4,6 +4,14 @@ The fake unit of work models the one behaviour those tests depend on that a
 dictionary does not have: uncommitted work disappears. Each `with` block edits
 a copy of the store and publishes it only on `commit()`, so a test can assert
 that a dry run left nothing behind without needing PostgreSQL.
+
+The fake repositories raise `UniquenessConflict` with the **same rule names**
+the SQLAlchemy adapter translates PostgreSQL constraint violations into
+(`adapters/database/translation.py`). That is what lets an application-service
+test exercise the conflict-resolution path at all: a fake that raised a generic
+`ValueError` could only ever prove that something failed. It does not replace
+the PostgreSQL evidence — a fake cannot lose a real race — and the two-connection
+tests in `test_snapshot_database.py` remain the proof that the rules fire.
 """
 from __future__ import annotations
 
@@ -12,7 +20,8 @@ from uuid import UUID
 
 from application.audit import AuditEvent
 from application.authorization import AuthorizationContext
-from application.errors import ConcurrencyConflictError
+from application.errors import ConcurrencyConflictError, UniquenessConflict
+from application.idempotency import IdempotencyRecord
 from application.imports import SheetRowMapping
 from application.snapshots import (
     ExternalActorMapping,
@@ -35,6 +44,7 @@ class FakeStore:
     external_actor_mappings: list[ExternalActorMapping] = field(default_factory=list)
     snapshots: dict[str, SnapshotRecord] = field(default_factory=dict)
     snapshot_imports: list[SnapshotImportRecord] = field(default_factory=list)
+    idempotency: dict[tuple[str, str], IdempotencyRecord] = field(default_factory=dict)
     initialization: PlatformInitialization | None = None
 
     def copy(self) -> FakeStore:
@@ -46,6 +56,7 @@ class FakeStore:
             external_actor_mappings=list(self.external_actor_mappings),
             snapshots=dict(self.snapshots),
             snapshot_imports=list(self.snapshot_imports),
+            idempotency=dict(self.idempotency),
             initialization=self.initialization,
         )
 
@@ -152,18 +163,12 @@ class FakeExternalActorMappingRepository:
                 existing.world_id == mapping.world_id
                 and existing.external_actor_id == mapping.external_actor_id
             ):
-                raise ValueError(
-                    "external_actor_mappings uniqueness violated for "
-                    f"{mapping.world_id}/{mapping.external_actor_id}."
-                )
+                raise UniquenessConflict("external_actor_mapping.world_actor")
             if (
                 existing.world_id == mapping.world_id
                 and existing.character_id == mapping.character_id
             ):
-                raise ValueError(
-                    "A character already has a mapping in "
-                    f"{mapping.world_id}."
-                )
+                raise UniquenessConflict("external_actor_mapping.character_world")
         self._store.external_actor_mappings.append(mapping)
 
     def get_by_actor(
@@ -192,7 +197,7 @@ class FakeSnapshotRepository:
 
     def add(self, record: SnapshotRecord) -> SnapshotRecord:
         if record.checksum in self._store.snapshots:
-            raise ValueError(f"Snapshot {record.checksum} already exists.")
+            raise UniquenessConflict("foundry_snapshot.checksum")
         self._store.snapshots[record.checksum] = record
         return record
 
@@ -207,14 +212,14 @@ class FakeSnapshotImportRepository:
     def add(self, record: SnapshotImportRecord) -> None:
         for existing in self._store.snapshot_imports:
             if existing.request_key == record.request_key:
-                raise ValueError("snapshot_imports.request_key uniqueness violated.")
+                raise UniquenessConflict("snapshot_import.request_key")
             if (
                 record.status.value == "applied"
                 and existing.status.value == "applied"
                 and (existing.snapshot_id, existing.folder_id, existing.profile_version)
                 == (record.snapshot_id, record.folder_id, record.profile_version)
             ):
-                raise ValueError("uq_snapshot_imports_applied_input violated.")
+                raise UniquenessConflict("snapshot_import.applied_input")
         self._store.snapshot_imports.append(record)
 
     def find_by_request_key(self, request_key: str) -> SnapshotImportRecord | None:
@@ -237,6 +242,22 @@ class FakeSnapshotImportRepository:
         return None
 
 
+class FakeIdempotencyRepository:
+    """`(scope, key)` uniqueness, with the adapter's own rule name."""
+
+    def __init__(self, store: FakeStore) -> None:
+        self._store = store
+
+    def add(self, record: IdempotencyRecord) -> None:
+        identity = (record.scope, record.key)
+        if identity in self._store.idempotency:
+            raise UniquenessConflict("idempotency_key.scope_key")
+        self._store.idempotency[identity] = record
+
+    def find(self, scope: str, key: str) -> IdempotencyRecord | None:
+        return self._store.idempotency.get((scope, key))
+
+
 class FakePlatformInitializationRepository:
     def __init__(self, store: FakeStore) -> None:
         self._store = store
@@ -246,7 +267,7 @@ class FakePlatformInitializationRepository:
 
     def record(self, initialization: PlatformInitialization) -> None:
         if self._store.initialization is not None:
-            raise ValueError("platform_initialization already holds its one row.")
+            raise UniquenessConflict("platform_initialization.singleton")
         self._store.initialization = initialization
 
     def is_dataset_empty(self) -> bool:
@@ -268,6 +289,17 @@ class FakeUnitOfWork:
         #: Set by a test to make one repository call fail, so an injected
         #: failure can be shown to roll the whole transaction back.
         self.fail_on: str | None = None
+        #: What it fails *with*. An exception, or a zero-argument callable
+        #: returning one — the callable form lets a test run a side effect (such
+        #: as committing the row that won a race) at the moment of failure.
+        self.failure: object | None = None
+
+    def build_failure(self, name: str) -> BaseException:
+        if self.failure is None:
+            return InjectedFailure(f"injected {name} failure")
+        if callable(self.failure):
+            return self.failure()
+        return self.failure  # type: ignore[return-value]
 
     def __enter__(self) -> FakeUnitOfWork:
         self._pending = self._committed.copy()
@@ -290,6 +322,9 @@ class FakeUnitOfWork:
         )
         self.snapshot_imports = _failing(
             FakeSnapshotImportRepository(self._pending), self, "snapshot_imports"
+        )
+        self.idempotency = _failing(
+            FakeIdempotencyRepository(self._pending), self, "idempotency"
         )
         self.initialization = FakePlatformInitializationRepository(self._pending)
         return self
@@ -314,7 +349,15 @@ class FakeUnitOfWork:
 
 
 class _FailingProxy:
-    """Wraps a repository so a named unit of work can be made to fail on it."""
+    """Wraps a repository so a named unit of work can be made to fail on it.
+
+    `failure` chooses *what* it fails with. It defaults to `InjectedFailure`,
+    which is what the atomicity matrix wants: an arbitrary mid-transaction fault
+    with no meaning attached. A conflict test sets it to the typed exception the
+    real adapter would raise, and may pass a callable — which is how a test can
+    commit the *winning* row at the exact moment this attempt loses, reproducing
+    the ordering of a real race without threads.
+    """
 
     def __init__(self, wrapped: object, unit: FakeUnitOfWork, name: str) -> None:
         self._wrapped = wrapped
@@ -328,7 +371,7 @@ class _FailingProxy:
 
         def call(*args, **kwargs):
             if self._unit.fail_on == self._name:
-                raise InjectedFailure(f"injected {self._name} failure")
+                raise self._unit.build_failure(self._name)
             return target(*args, **kwargs)
 
         return call
@@ -394,9 +437,11 @@ def unit_of_work_factory(store: FakeStore):
     def factory() -> FakeUnitOfWork:
         unit = FakeUnitOfWork(store)
         unit.fail_on = factory.fail_on  # type: ignore[attr-defined]
+        unit.failure = factory.failure  # type: ignore[attr-defined]
         units.append(unit)
         return unit
 
     factory.units = units  # type: ignore[attr-defined]
     factory.fail_on = None  # type: ignore[attr-defined]
+    factory.failure = None  # type: ignore[attr-defined]
     return factory

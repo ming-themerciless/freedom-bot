@@ -4,6 +4,7 @@ from typing import Protocol
 from uuid import UUID
 
 from application.audit import AuditEvent
+from application.idempotency import IdempotencyRecord
 from application.imports import SheetRowMapping
 from application.snapshots import (
     ExternalActorMapping,
@@ -91,6 +92,19 @@ class SnapshotImportRepository(Protocol):
     ) -> SnapshotImportRecord | None: ...
 
 
+class IdempotencyRepository(Protocol):
+    """Receipts for completed operations, keyed by scope and caller key.
+
+    There is deliberately no `update`: a record is written when its operation
+    commits and never changed afterwards. A receipt that could be rewritten
+    would let a later request quietly redefine what an earlier one returned.
+    """
+
+    def add(self, record: IdempotencyRecord) -> None: ...
+
+    def find(self, scope: str, key: str) -> IdempotencyRecord | None: ...
+
+
 class PlatformInitializationRepository(Protocol):
     def get(self) -> PlatformInitialization | None: ...
 
@@ -109,6 +123,7 @@ class UnitOfWork(Protocol):
     external_actor_mappings: ExternalActorMappingRepository
     snapshots: SnapshotRepository
     snapshot_imports: SnapshotImportRepository
+    idempotency: IdempotencyRepository
     initialization: PlatformInitializationRepository
 
     def __enter__(self) -> UnitOfWork: ...

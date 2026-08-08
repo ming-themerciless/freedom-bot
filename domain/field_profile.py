@@ -11,7 +11,7 @@ one of each that applies to it.
 
 | Profile field gets | Meaning |
 |---|---|
-| `database_authority` | an accepted typed PostgreSQL value exists, so a real comparison is possible and a difference warns that the Foundry Actor is out of date |
+| `database_authority` | an accepted typed PostgreSQL value exists, so a real comparison is possible and the field's own `difference_direction` says which side a difference makes stale |
 | `legacy_authority_deferred` | no accepted typed PostgreSQL authority exists yet. The field names the migration package that owns it, and **no equality comparison is performed or reported** |
 
 The split matters. A path says *where a value is read from*; a field says *what
@@ -26,7 +26,7 @@ model and passes its migration/cutover gate (plan §6.2, §12 Phase 5). ADR 0008
 profile-driven store was rejected on 2026-08-02, and with it every notion that
 the profile could authorise a write.
 
-Four properties are enforced here rather than trusted:
+Five properties are enforced here rather than trusted:
 
 1. **Unknown paths are reported and are never readable as classified.**
    `classify` answers `None` for a path no rule covers, and `unknown_paths`
@@ -40,6 +40,11 @@ Four properties are enforced here rather than trusted:
    it as "no difference". Absence of authority is not agreement.
 4. **A deferred field names its owning package**, and the package must be one
    the controlled migration manifest recognises.
+5. **A field with database authority states which record a difference makes
+   stale.** `difference_direction` has no default, so a new comparable field
+   cannot inherit "Foundry is out of date" from the field that happened to be
+   written first. `character.display_name` is authored in Foundry and its
+   difference means the *platform's* display record is stale.
 
 The profile carries a **version**, and that version is stored on every preview,
 import, comparison and calculation. Changing any row changes the version, which
@@ -72,13 +77,41 @@ class SnapshotMode(Enum):
 class FieldAuthority(Enum):
     """Who is entitled to answer for a field's current value today."""
 
-    #: An accepted typed PostgreSQL value exists. A difference is a real
-    #: difference and warns that the Foundry Actor is out of date.
+    #: An accepted typed PostgreSQL value exists, so a difference is a real
+    #: difference. *Which side* the difference makes stale is the field's own
+    #: `difference_direction` and is not implied by this classification.
     DATABASE = "database_authority"
     #: No accepted typed PostgreSQL authority exists. The accepted legacy path
     #: remains authoritative until the owning package migrates the field once
     #: into its normalized relational model (plan §1, §15; baseline v1.1/v1.5).
     LEGACY_DEFERRED = "legacy_authority_deferred"
+
+
+class DifferenceDirection(Enum):
+    """Which record a difference makes stale, per field.
+
+    Database authority means the platform holds an accepted typed value. It does
+    **not** follow that the platform's value is the newer one, and treating the
+    two as the same thing is how a report ends up telling an operator to undo a
+    change a player legitimately made.
+
+    Each member's value is the reconciliation issue code raised for it, so a
+    field's declared direction and the code an operator reads are the same fact
+    rather than two that have to be kept in step by hand. A future field
+    authored outside the platform adds a member here; it must not borrow
+    `PLATFORM_DISPLAY_NAME_STALE`, which names one specific field's evidence.
+    """
+
+    #: The platform is where the value is authored and maintained, so a
+    #: difference means the Foundry Actor has drifted from it. The operator's
+    #: remedy is to update Foundry.
+    FOUNDRY_OUT_OF_DATE = "foundry_out_of_date"
+    #: `character.display_name` only. Foundry is where players rename a
+    #: character, and the import wrote the platform's copy from an *earlier*
+    #: Actor name — so a difference means the platform display record has not
+    #: caught up. Identity is the external Actor id and is unaffected (OD-42),
+    #: and there is nothing for the operator to undo in Foundry.
+    PLATFORM_DISPLAY_NAME_STALE = "platform_display_name_stale"
 
 
 class FieldProfileError(ValueError):
@@ -97,6 +130,11 @@ class ProfileField:
     #: nothing to compare against, and declaring a rule for it would invite a
     #: caller to use one.
     comparison: Comparison = Comparison.NOT_COMPARABLE
+    #: Which record a difference makes stale. Required for a `DATABASE` field
+    #: and forbidden for a deferred one. Required rather than defaulted because
+    #: the default would be a guess about authorship, and the wrong guess tells
+    #: an operator to undo a legitimate change on the other side.
+    difference_direction: DifferenceDirection | None = None
     #: The migration package accountable for this field, from
     #: `docs/project-management/data-migration-register.md`. Required for a
     #: deferred field so a report can name who will migrate it, and forbidden
@@ -126,6 +164,12 @@ class ProfileField:
                     "There is no accepted typed value to compare against, so a "
                     "rule here could only produce a fabricated verdict."
                 )
+            if self.difference_direction is not None:
+                raise FieldProfileError(
+                    f"{self.key}: a deferred field declares which record a "
+                    "difference makes stale. No difference can be established "
+                    "for it, so the declaration could only be acted on wrongly."
+                )
         else:
             if self.owning_package:
                 raise FieldProfileError(
@@ -138,10 +182,22 @@ class ProfileField:
                     f"{self.key}: a field with database authority declares no "
                     "comparison rule, so nothing could ever be reported for it."
                 )
+            if self.difference_direction is None:
+                raise FieldProfileError(
+                    f"{self.key}: a field with database authority does not say "
+                    "which record a difference makes stale. Database authority "
+                    "is not by itself a claim that the platform holds the newer "
+                    "value, and assuming it does would tell an operator to undo "
+                    "a change made on the other side."
+                )
 
     @property
     def is_deferred(self) -> bool:
         return self.authority is FieldAuthority.LEGACY_DEFERRED
+
+    def stales(self, direction: DifferenceDirection) -> bool:
+        """Whether a difference in this field makes `direction`'s record stale."""
+        return self.difference_direction is direction
 
 
 @dataclass(frozen=True, slots=True)

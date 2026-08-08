@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+
 from application.foundry.reconciliation import ActorOutcome, IssueSeverity
 from domain.foundry_profile import PROFILE
 from domain.snapshot_values import ComparisonOutcome
@@ -179,6 +181,135 @@ def test_a_matching_display_name_produces_no_difference():
     assert entry.differences == ()
 
 
+# -- B-2: which record a rename makes stale ------------------------------------
+#
+# `domain/foundry_profile.py` has always said that players rename in Foundry and
+# that a difference therefore means the *platform's* display record is stale.
+# The reconciliation used to route every difference through
+# `foundry_out_of_date`, tell the operator PostgreSQL was authoritative and ask
+# them to update Foundry — which is an instruction to undo the rename. These
+# tests pin the direction rather than merely the existence of a difference.
+
+
+def renamed(bench, *, was="Old Name", now="Brand New Name"):
+    character = bench.add_character(was, actor_id=fx.FIRST_ACTOR_ID)
+    document = fx.bundle(actors=(fx.actor(name=now),))
+    return character, preview(bench, document).report
+
+
+def test_a_foundry_rename_reports_the_platform_display_record_as_stale():
+    bench = harness.build()
+
+    character, report = renamed(bench)
+    entry = report.entries[0]
+
+    assert entry.stale_platform_display_name is True
+    stale = [i for i in report.issues if i.code == "platform_display_name_stale"]
+    assert len(stale) == 1
+    assert stale[0].severity is IssueSeverity.WARNING
+    assert stale[0].character_id == character.id
+    assert stale[0].actor_id == fx.FIRST_ACTOR_ID
+
+
+def test_a_foundry_rename_never_reports_foundry_as_out_of_date():
+    """The specific wrong answer, named."""
+    bench = harness.build()
+
+    _, report = renamed(bench)
+    entry = report.entries[0]
+    comparison = next(
+        c for c in entry.comparisons if c.field_key == "character.display_name"
+    )
+
+    assert "foundry_out_of_date" not in issue_codes(report)
+    assert comparison.differs is True
+    assert comparison.warns_foundry_is_out_of_date is False
+    assert comparison.stales_platform_display_name is True
+
+
+def test_a_foundry_rename_never_advises_changing_foundry():
+    """Read as prose, because prose is what an operator acts on."""
+    bench = harness.build()
+
+    _, report = renamed(bench)
+    message = next(
+        i.message for i in report.issues if i.code == "platform_display_name_stale"
+    )
+
+    lowered = message.lower()
+    assert "do not change the foundry actor" in lowered
+    for instruction in (
+        "update the foundry actor",
+        "rename the foundry actor",
+        "revert",
+    ):
+        assert instruction not in lowered
+    # …and it says the identity survived, which is the operator's real question.
+    assert "identity" in lowered and "mapped" in lowered
+
+
+def test_a_foundry_rename_leaves_the_character_mapped_and_unmodified():
+    bench = harness.build()
+
+    character, report = renamed(bench)
+    entry = report.entries[0]
+
+    assert entry.outcome is ActorOutcome.MAPPED
+    assert entry.character_id == character.id
+    # Phase 2 writes no character field. The rename is a report, not an update.
+    assert bench.store.characters[character.id].display_name == "Old Name"
+    assert bench.store.characters[character.id].version == 0
+    assert not report.blocked
+
+
+def test_a_rename_summary_names_the_direction_but_neither_name():
+    bench = harness.build()
+
+    _, report = renamed(bench, was="Aurelia Vance", now="Aurelia Stormcaller")
+    summary = report.summary()
+
+    assert summary["fields_differing"] == ["character.display_name"]
+    assert summary["stale_platform_display_names"] == 1
+    assert "platform_display_name_stale" in summary["issue_codes"]
+    assert "foundry_out_of_date" not in summary["issue_codes"]
+    # Value-minimized: the direction is recorded, the two names are not.
+    rendered = repr(summary)
+    for name in ("Aurelia", "Vance", "Stormcaller"):
+        assert name not in rendered
+
+
+def test_a_matching_name_counts_no_stale_platform_display_record():
+    bench = harness.build()
+    bench.add_character(FIXTURE_NAME, actor_id=fx.FIRST_ACTOR_ID)
+
+    report = preview(bench).report
+
+    assert report.summary()["stale_platform_display_names"] == 0
+    assert report.entries[0].stale_platform_display_name is False
+
+
+def test_the_profile_declares_the_direction_rather_than_the_reconciliation():
+    """The direction is a property of the field, checked at its source.
+
+    If a later package gives another field database authority, it must state its
+    own direction: `ProfileField` refuses to construct without one.
+    """
+    from domain.field_profile import DifferenceDirection
+
+    display_name = PROFILE.profile_field("character.display_name")
+
+    assert (
+        display_name.difference_direction
+        is DifferenceDirection.PLATFORM_DISPLAY_NAME_STALE
+    )
+    assert display_name.stales(DifferenceDirection.PLATFORM_DISPLAY_NAME_STALE)
+    # The enum member's value *is* the issue code, so the two cannot drift.
+    assert (
+        DifferenceDirection.PLATFORM_DISPLAY_NAME_STALE.value
+        == "platform_display_name_stale"
+    )
+
+
 # -- identity ambiguity, OD-42 -------------------------------------------------
 
 
@@ -338,3 +469,111 @@ def test_the_import_summary_carries_counts_and_identifiers_but_no_actor_values()
     # No Actor field value rides into the record the audit event quotes.
     for leaked in ("Synthetic Human", "paladin", "Entertainer", "3345"):
         assert leaked not in rendered
+
+
+# -- the durable facts: what a stored summary can be read back as (B-1R) -------
+#
+# `snapshot_imports.summary` is what an already-applied import can be answered
+# with on a retry, so it has to be a value with a type rather than whatever a
+# `jsonb` column happens to hold. These cover the two directions and the refusals
+# in between.
+
+
+def test_the_summary_is_exactly_the_rendering_of_the_facts():
+    """One producer. A second renderer could drift from what is stored."""
+    bench = harness.build()
+    bench.add_character(FIXTURE_NAME, actor_id=fx.FIRST_ACTOR_ID)
+
+    report = preview(bench).report
+
+    assert report.summary() == report.facts().summary()
+
+
+def test_facts_round_trip_through_a_stored_summary():
+    from application.foundry.reconciliation import ReconciliationFacts
+
+    bench = harness.build()
+    bench.add_character(FIXTURE_NAME, actor_id=fx.FIRST_ACTOR_ID)
+    facts = preview(bench).report.facts()
+
+    # Through JSON as well as through the dataclass, because that is the trip a
+    # `jsonb` column actually makes: tuples arrive back as lists.
+    import json
+
+    restored = ReconciliationFacts.from_summary(json.loads(json.dumps(facts.summary())))
+
+    assert restored == facts
+    assert restored.summary() == facts.summary()
+
+
+def test_a_summary_missing_a_declared_key_is_refused():
+    from application.foundry.reconciliation import (
+        ReconciliationFacts,
+        ReconciliationFactsError,
+    )
+
+    bench = harness.build()
+    summary = preview(bench).report.summary()
+    del summary["issue_codes"]
+
+    with pytest.raises(ReconciliationFactsError, match="missing key"):
+        ReconciliationFacts.from_summary(summary)
+
+
+def test_a_summary_carrying_an_undeclared_key_is_refused():
+    """A key nobody declared means a version this code cannot faithfully read."""
+    from application.foundry.reconciliation import (
+        ReconciliationFacts,
+        ReconciliationFactsError,
+    )
+
+    bench = harness.build()
+    summary = {**preview(bench).report.summary(), "actor_names": ["Somebody"]}
+
+    with pytest.raises(ReconciliationFactsError, match="undeclared key"):
+        ReconciliationFacts.from_summary(summary)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("actors", "1"),
+        ("actors", True),
+        ("actors", -1),
+        ("canonical_encoding", 1),
+        ("issue_codes", "absent_from_snapshot"),
+        ("issue_codes", [1]),
+        ("legacy_authority_deferred", ["character.race"]),
+        ("legacy_authority_deferred", {"character.race": 5}),
+        ("snapshot_checksum", 42),
+    ],
+    ids=lambda value: repr(value),
+)
+def test_a_mistyped_summary_value_is_refused_rather_than_coerced(key, value):
+    from application.foundry.reconciliation import (
+        ReconciliationFacts,
+        ReconciliationFactsError,
+    )
+
+    bench = harness.build()
+    summary = {**preview(bench).report.summary(), key: value}
+
+    with pytest.raises(ReconciliationFactsError):
+        ReconciliationFacts.from_summary(summary)
+
+
+def test_reading_a_summary_back_never_quotes_what_it_held():
+    """The failure is read by an operator; the row's content is not for it."""
+    from application.foundry.reconciliation import (
+        ReconciliationFacts,
+        ReconciliationFactsError,
+    )
+
+    summary = {"snapshot_checksum": "a" * 64, "MARKER-KEY": "MARKER-VALUE"}
+
+    with pytest.raises(ReconciliationFactsError) as failure:
+        ReconciliationFacts.from_summary(summary)
+
+    assert "MARKER-KEY" in str(failure.value)  # a key, which is a name
+    assert "MARKER-VALUE" not in str(failure.value)  # never the value
+    assert "a" * 64 not in str(failure.value)

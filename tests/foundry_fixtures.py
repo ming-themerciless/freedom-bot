@@ -178,7 +178,7 @@ def bundle(
     return {
         "schema": "freedom-blades.foundry-export",
         "schemaVersion": schema_version,
-        "exporter": exporter or {"id": "freedom-blades-export", "version": "1.0.0"},
+        "exporter": exporter or {"id": "freedom-blades-export", "version": "1.0.2"},
         "exportedAt": exported_at,
         "world": world
         or {
