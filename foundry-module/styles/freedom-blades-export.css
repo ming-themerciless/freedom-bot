@@ -1,0 +1,38 @@
+/*
+ * Minimal, local styling. No web font, no CDN, no image, no runtime network
+ * dependency of any kind — a Foundry client must be able to render this with no
+ * outbound request whatsoever.
+ *
+ * Colours are inherited from the active Foundry theme wherever possible, so the
+ * control does not fight a user's light or dark preference.
+ */
+
+.freedom-blades-export-control {
+  display: block;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.freedom-blades-export-deployment {
+  font-size: var(--font-size-12, 0.75rem);
+  opacity: 0.8;
+}
+
+.freedom-blades-export-warning {
+  font-size: var(--font-size-12, 0.75rem);
+  font-weight: bold;
+}
+
+/* The credential is entered per submission and stored nowhere (S-B-1), so the
+   note explaining that has to be readable rather than a footnote nobody sees. */
+.freedom-blades-export-credential-note {
+  font-size: var(--font-size-12, 0.75rem);
+  opacity: 0.8;
+}
+
+/* A visible focus ring matters here: the control is keyboard reachable and the
+   action it starts is not trivially undoable from Foundry's side. */
+.freedom-blades-export-control:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
