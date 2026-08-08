@@ -163,6 +163,23 @@ export function classifyFailureDisposition(error) {
     return FailureDisposition.LOCAL_REFUSAL;
   }
   if (error instanceof TransportError) {
+    // A response status is a transport fact. Server-supplied codes must never
+    // turn a definitive 4xx refusal into a local or indeterminate failure.
+    if (typeof error.status === "number") {
+      if (error.status >= 500) {
+        return FailureDisposition.RETRY_SAME_KEY;
+      }
+      if (error.status >= 400 && error.status < 500) {
+        if (
+          error.code === "concurrent_submission" ||
+          error.code === "original_result_unavailable"
+        ) {
+          return FailureDisposition.RETRY_SAME_KEY;
+        }
+        return FailureDisposition.DEFINITIVE_REFUSAL;
+      }
+      return FailureDisposition.DELIVERY_INDETERMINATE;
+    }
     if (
       error.code === "timeout" ||
       error.code === "network_failure" ||
@@ -176,17 +193,6 @@ export function classifyFailureDisposition(error) {
       error.code === "insecure_endpoint"
     ) {
       return FailureDisposition.LOCAL_REFUSAL;
-    }
-    if (typeof error.status === "number") {
-      if (
-        error.status >= 500 || error.code === "concurrent_submission"
-      ) {
-        return FailureDisposition.RETRY_SAME_KEY;
-      }
-      if (error.status >= 400 && error.status < 500) {
-        return FailureDisposition.DEFINITIVE_REFUSAL;
-      }
-      return FailureDisposition.DELIVERY_INDETERMINATE;
     }
     if (error.stage === "post_dispatch") {
       return FailureDisposition.DELIVERY_INDETERMINATE;
@@ -246,6 +252,12 @@ export async function prepareSnapshot({
     ? operationToken ?? standaloneOperation
     : null;
 
+  if (discardPinned && state && !activeOperation) {
+    throw new WorkflowError(
+      "workflow_in_progress",
+      "Another snapshot workflow is in progress. Finish it before discarding the pinned retry."
+    );
+  }
   if (discardPinned && state) {
     state.clear(activeOperation);
   }
@@ -529,7 +541,7 @@ export function describeReceipt(receipt, localChecksum) {
     : "recorded as pending";
   const short = String(receipt?.checksum ?? "").slice(0, 12);
   return (
-    `Snapshot ${state}. ${receipt?.actor_count ?? "?"} Actor(s), ` +
+    `Snapshot ${state}. ${receipt.actor_count} Actor(s), ` +
     `checksum ${short}…, ` +
     `${agreed ? "server and client checksums match" : "CHECKSUM DISAGREEMENT — tell an operator"}. ` +
     "A Guild Council member must review and apply it; nothing has been applied yet."

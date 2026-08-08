@@ -326,6 +326,7 @@ test("executeWorkflow transition: timeout, network_failure, and malformed_respon
 test("executeWorkflow transition: same-key server failures pin exact prepared snapshot", async () => {
   for (const code of [
     "concurrent_submission",
+    "original_result_unavailable",
     "storage_unavailable",
     "database_unavailable",
     "internal_error",
@@ -333,7 +334,9 @@ test("executeWorkflow transition: same-key server failures pin exact prepared sn
   ]) {
     const state = new PreparedSnapshotState();
     const game = fakeGame();
-    const status = code === "concurrent_submission" ? 409 : 503;
+    const status = ["concurrent_submission", "original_result_unavailable"].includes(code)
+      ? 409
+      : 503;
 
     await assert.rejects(
       executeWorkflow({
@@ -466,13 +469,31 @@ test("arbitrary or mutated disposition metadata cannot clear an uncertain delive
   );
 });
 
-test("status controls policy for server codes except concurrent submission", () => {
+test("status controls policy for server codes except spent-key same-key retries", () => {
   for (const code of [
     "storage_unavailable",
     "database_unavailable",
     "internal_error",
     "authentication_unavailable",
   ]) {
+    assert.equal(
+      classifyFailureDisposition(new TransportError(code, "Refused.", {
+        stage: "post_dispatch",
+        status: 400,
+      })),
+      FailureDisposition.DEFINITIVE_REFUSAL
+    );
+  }
+  for (const code of ["concurrent_submission", "original_result_unavailable"]) {
+    assert.equal(
+      classifyFailureDisposition(new TransportError(code, "Retry.", {
+        stage: "post_dispatch",
+        status: 409,
+      })),
+      FailureDisposition.RETRY_SAME_KEY
+    );
+  }
+  for (const code of ["timeout", "network_failure", "missing_credential"]) {
     assert.equal(
       classifyFailureDisposition(new TransportError(code, "Refused.", {
         stage: "post_dispatch",
@@ -899,6 +920,82 @@ test("standalone preparation cannot take authority from an in-flight workflow", 
   assert.equal(state.pinnedPrepared.checksum, standalone.checksum);
 });
 
+test("standalone explicit discard refuses visibly while a workflow is active", async () => {
+  const state = new PreparedSnapshotState();
+  const deferred = createDeferred();
+  const game = fakeGame();
+  const workflow = executeWorkflow({
+    game,
+    crypto: nodeCrypto,
+    folderId: ACTIVE_FOLDER_ID,
+    exporterVersion: "1.0.2",
+    supported: SUPPORTED,
+    state,
+    action: "submit",
+    endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+    credential: "principal.0123456789012345678901234567890123456789",
+    fetchImpl: async () => deferred.promise,
+  });
+
+  while (state.operation === null) await Promise.resolve();
+  await assert.rejects(
+    prepareSnapshot({
+      game,
+      crypto: nodeCrypto,
+      folderId: INACTIVE_FOLDER_ID,
+      exporterVersion: "1.0.2",
+      supported: SUPPORTED,
+      state,
+      discardPinned: true,
+    }),
+    (error) => error instanceof WorkflowError && error.code === "workflow_in_progress"
+  );
+
+  deferred.resolve({
+    ok: false,
+    status: 503,
+    json: async () => ({ error: { code: "storage_unavailable" } }),
+  });
+  await assert.rejects(workflow, (error) => error instanceof TransportError);
+});
+
+test("explicit discard and download prepares the selected folder without submitting", async () => {
+  const state = new PreparedSnapshotState();
+  const game = fakeGame();
+  await assert.rejects(
+    executeWorkflow({
+      game,
+      crypto: nodeCrypto,
+      folderId: ACTIVE_FOLDER_ID,
+      exporterVersion: "1.0.2",
+      supported: SUPPORTED,
+      state,
+      action: "submit",
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential: "principal.0123456789012345678901234567890123456789",
+      fetchImpl: async () => { throw new Error("connection reset"); },
+    }),
+    (error) => error instanceof TransportError
+  );
+  assert.equal(state.hasPinnedRetry(), true);
+
+  let downloaded;
+  const result = await executeWorkflow({
+    game,
+    crypto: nodeCrypto,
+    folderId: INACTIVE_FOLDER_ID,
+    exporterVersion: "1.0.2",
+    supported: SUPPORTED,
+    state,
+    action: "download",
+    discardPinned: true,
+    downloadPrepared: (prepared) => { downloaded = prepared; },
+  });
+  assert.equal(result.prepared.folderId, INACTIVE_FOLDER_ID);
+  assert.strictEqual(downloaded, result.prepared);
+  assert.equal(state.hasPinnedRetry(), false);
+});
+
 test("the cache remains strictly bounded to one entry through folder switches", async () => {
   const state = new PreparedSnapshotState();
   const game = fakeGame();
@@ -970,7 +1067,8 @@ test("credentials never enter prepared or cached state and are not retained by t
   assert.equal("credential" in prepared, false);
   assert.equal("submissionCredential" in prepared, false);
 
-  let credentialInput = "principal.0123456789012345678901234567890123456789";
+  const actualCredential = "principal.0123456789012345678901234567890123456789";
+  let credentialInput = actualCredential;
   assert.equal(JSON.stringify(prepared).includes(credentialInput), false);
   const fetchImpl = fakeFetch({
     status: "pending",
@@ -997,7 +1095,7 @@ test("credentials never enter prepared or cached state and are not retained by t
   }
 
   assert.equal(credentialInput, "");
-  assert.equal(JSON.stringify(state).includes("secret"), false);
+  assert.equal(JSON.stringify(state).includes(actualCredential), false);
 });
 
 test("state operation identity rejects stale completion and clear transitions", async () => {
@@ -1627,8 +1725,10 @@ test("executeWorkflow race 6: different prepared payloads overlap", async () => 
   const deferredA = createDeferred();
   const deferredB = createDeferred();
 
-  const fetchA = async () => deferredA.promise;
-  const fetchB = async () => deferredB.promise;
+  let requestA;
+  let requestB;
+  const fetchA = async (_url, init) => { requestA = init; return deferredA.promise; };
+  const fetchB = async (_url, init) => { requestB = init; return deferredB.promise; };
 
   try {
     const promiseA = executeWorkflow({
@@ -1662,7 +1762,7 @@ test("executeWorkflow race 6: different prepared payloads overlap", async () => 
       status: 201,
       json: async () => ({
         status: "pending",
-        checksum: "checksumB",
+        checksum: requestB.headers["X-Snapshot-SHA256"],
         actor_count: 1,
         duplicate: false,
       }),
@@ -1678,7 +1778,7 @@ test("executeWorkflow race 6: different prepared payloads overlap", async () => 
       status: 201,
       json: async () => ({
         status: "pending",
-        checksum: "checksumA",
+        checksum: requestA.headers["X-Snapshot-SHA256"],
         actor_count: 2,
         duplicate: false,
       }),

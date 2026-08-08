@@ -61,6 +61,7 @@ import {
 
 const MODULE_TITLE = "Freedom Blades";
 const snapshotState = new PreparedSnapshotState();
+let submissionDialogOpen = false;
 
 Hooks.once("init", () => {
   registerSettings(game);
@@ -76,6 +77,12 @@ Hooks.on("renderActorDirectory", (application, element) => {
   button.className = `${MODULE_ID}-control`;
   button.textContent = "Submit Freedom Blades Snapshot";
   button.addEventListener("click", () => {
+    if (submissionDialogOpen) {
+      ui.notifications.warn(
+        `${MODULE_TITLE}: a snapshot workflow is already open. Finish or cancel it first.`
+      );
+      return;
+    }
     void openSubmissionDialog();
   });
 
@@ -87,6 +94,16 @@ Hooks.on("renderActorDirectory", (application, element) => {
  * Choose a folder, confirm the exact scope, then submit or download.
  */
 async function openSubmissionDialog() {
+  if (submissionDialogOpen) return;
+  submissionDialogOpen = true;
+  try {
+    await openSubmissionDialogOnce();
+  } finally {
+    submissionDialogOpen = false;
+  }
+}
+
+async function openSubmissionDialogOnce() {
   const folders = describeSelectableFolders(game);
   if (folders.length === 0) {
     ui.notifications.warn(
@@ -122,6 +139,17 @@ async function openSubmissionDialog() {
           action: "submit",
           folderId: button.form.elements.folderId.value,
           credential: button.form.elements.submissionCredential.value,
+          discardPinned: true,
+        }),
+      },
+      {
+        action: "discard-and-download",
+        label: "Discard Pinned & Download Selected",
+        icon: "fa-solid fa-file-arrow-down",
+        callback: (event, button) => ({
+          action: "download",
+          folderId: button.form.elements.folderId.value,
+          credential: "",
           discardPinned: true,
         }),
       }
@@ -206,8 +234,9 @@ function buildDialogContent(folders, settings, hasPinnedRetry = false) {
     pinnedNote.className = `${MODULE_ID}-warning`;
     pinnedNote.textContent =
       "An unconfirmed submission attempt is pinned. Submitting will resend the exact " +
-      "unconfirmed payload. Choose 'Discard Pinned & Prepare New' to discard it and prepare " +
-      "current world state.";
+      "unconfirmed payload. Download fallback also uses that payload. Choose an explicit " +
+      "Discard action to abandon it and prepare the selected folder instead. Do not reload " +
+      "this page while a delivery is unconfirmed: retry state exists only for this page load.";
     container.append(pinnedNote);
   }
 

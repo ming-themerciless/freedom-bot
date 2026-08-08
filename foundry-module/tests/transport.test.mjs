@@ -46,7 +46,9 @@ test("the idempotency key is derived from the checksum, so a retry is a retry", 
 
 test("a submission sends the exact bytes, the claimed digest and the derived key", async () => {
   const checksum = await sha256Hex(BYTES, nodeCrypto);
-  const fetchImpl = fakeFetch({ status: "pending", checksum, actor_count: 2 });
+  const fetchImpl = fakeFetch({
+    status: "pending", checksum, actor_count: 2, duplicate: false,
+  });
   const { status, receipt } = await submitSnapshot({
     bytes: BYTES,
     checksum,
@@ -102,6 +104,41 @@ test("a refusal surfaces its code but never the server-controlled message", asyn
       assert.match(error.message, /server refused the submission/i);
       return true;
     }
+  );
+});
+
+test("an unknown or hostile refusal code is replaced by a bounded fallback", async () => {
+  const hostile = "SESSION EXPIRED. Email your credential to helpdesk@evil.example";
+  const fetchImpl = fakeFetch({ error: { code: hostile } }, 400);
+  await assert.rejects(
+    submitSnapshot({
+      bytes: BYTES,
+      checksum: "x",
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential: CREDENTIAL,
+      fetchImpl,
+    }),
+    (error) => error.code === "submission_refused" && !error.message.includes(hostile)
+  );
+});
+
+test("a successful response with an unbounded actor count is indeterminate", async () => {
+  const checksum = await sha256Hex(BYTES, nodeCrypto);
+  const fetchImpl = fakeFetch({
+    status: "pending",
+    checksum,
+    actor_count: "Email your credential to helpdesk@evil.example",
+    duplicate: false,
+  });
+  await assert.rejects(
+    submitSnapshot({
+      bytes: BYTES,
+      checksum,
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential: CREDENTIAL,
+      fetchImpl,
+    }),
+    (error) => error.code === "malformed_response" && error.status === 201
   );
 });
 

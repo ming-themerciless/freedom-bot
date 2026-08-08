@@ -49,6 +49,20 @@ test("a failed submission tells the GM what a retry actually guarantees", () => 
   assert.match(main, /a retry cannot create a second snapshot/);
 });
 
+test("the UI serializes workflows and offers a non-submitting pinned discard", () => {
+  const main = read("main.js");
+  assert.match(main, /submissionDialogOpen/);
+  assert.match(main, /workflow is already open/);
+  assert.match(main, /Discard Pinned & Download Selected/);
+  assert.match(main, /action: "download"[\s\S]*discardPinned: true/);
+});
+
+test("the UI states that retry authority does not survive a page reload", () => {
+  const main = read("main.js");
+  assert.match(main, /Do not reload/);
+  assert.match(main, /retry state exists only for this page load/);
+});
+
 test("a transport failure says the same thing, in the same vocabulary", () => {
   const transport = withoutComments(read("transport.js"));
   // Both branches: a timeout and an unreachable server are indistinguishable

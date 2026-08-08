@@ -67,6 +67,44 @@ export class TransportError extends Error {
 /** How long a submission may take before it is abandoned. */
 export const DEFAULT_TIMEOUT_MS = 120_000;
 
+/** Codes the reviewed server contract may expose to an operator. */
+const SERVER_REFUSAL_CODES = new Set([
+  "artifact_rejected",
+  "authentication_unavailable",
+  "checksum_mismatch",
+  "concurrent_submission",
+  "database_unavailable",
+  "internal_error",
+  "invalid_request_key",
+  "method_not_allowed",
+  "not_found",
+  "original_result_unavailable",
+  "request_key_conflict",
+  "storage_unavailable",
+  "unauthenticated",
+  "unauthorized",
+  "unsupported_deployment",
+]);
+
+function boundedRefusalCode(value) {
+  return typeof value === "string" && SERVER_REFUSAL_CODES.has(value)
+    ? value
+    : "submission_refused";
+}
+
+function isValidSuccessReceipt(receipt, checksum) {
+  return (
+    receipt !== null &&
+    typeof receipt === "object" &&
+    receipt.checksum === checksum &&
+    /^[0-9a-f]{64}$/.test(receipt.checksum) &&
+    Number.isInteger(receipt.actor_count) &&
+    receipt.actor_count >= 0 &&
+    receipt.actor_count <= 10_000 &&
+    typeof receipt.duplicate === "boolean"
+  );
+}
+
 /**
  * SHA-256 of exactly these bytes, as lower-case hex.
  *
@@ -207,7 +245,7 @@ export async function submitSnapshot({
   }
 
   if (!response.ok) {
-    const code = receipt?.error?.code ?? "submission_refused";
+    const code = boundedRefusalCode(receipt?.error?.code);
     throw new TransportError(
       code,
       "The Freedom Blades server refused the submission. Ask an operator to " +
@@ -216,6 +254,14 @@ export async function submitSnapshot({
         stage: "post_dispatch",
         status: response.status,
       }
+    );
+  }
+  if (!isValidSuccessReceipt(receipt, checksum)) {
+    throw new TransportError(
+      "malformed_response",
+      `The server answered ${response.status} with an invalid receipt. Ask an ` +
+        "operator to check the service log.",
+      { stage: "post_dispatch", status: response.status }
     );
   }
   return { status: response.status, receipt };

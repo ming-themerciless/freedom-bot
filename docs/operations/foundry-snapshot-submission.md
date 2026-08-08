@@ -1028,13 +1028,24 @@ unchanged and does not need reapplying.
 
 ### Foundry module client state
 
-The module keeps one prepared snapshot entry. A successful submission marks it
-`confirmed-reusable`; a timeout, network failure, malformed response, or
+The module keeps one prepared snapshot entry. Preparing validated bytes marks
+them `confirmed-reusable`; a timeout, network failure, malformed response, or
 retryable server failure marks it `unconfirmed-retry-pinned`. A pinned entry is
 never replaced by downloading JSON or by requesting a fresh preparation. The
-operator must choose **Discard Pinned & Prepare New**, which clears the entry
-before reading current world state. Retrying the pinned submission resends the
-same bytes, checksum and idempotency key.
+operator must choose **Discard Pinned & Prepare New** to prepare and submit
+current state, or **Discard Pinned & Download Selected** to prepare the chosen
+folder without submitting. Either clears the entry before reading current world
+state. Retrying the pinned submission resends the same bytes, checksum and
+idempotency key.
+
+The pin is deliberately held only in memory for the current Foundry page load;
+the raw snapshot is not written to a client-readable Foundry setting or browser
+storage. Do not reload or close the page while delivery is unconfirmed. A reload
+loses the client retry material and is not covered by the same-key guarantee.
+If it happens, stop rather than submitting current state under a new key and ask
+the platform operator to reconcile the earlier request. Whether this operational
+boundary is sufficient remains an explicit independent re-review question; it
+is not represented as durable recovery.
 
 Downloading is a fallback delivery channel only. It does not confirm a server
 submission and does not clear an existing pin. If the download itself fails,
