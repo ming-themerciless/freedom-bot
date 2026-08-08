@@ -15,6 +15,12 @@ append-only; a correction adds a new entry that supersedes an earlier one.
 | v1.5 clarification C-1 | 2026-08-02 | Peter Duscha | Splits RAID dependency D-01 into D-01a/D-01b, registers the I-05 identity ruling as proposed decision OD-42, corrects A-02/A-03 and the Phase 2 critical path for the now-existing restricted role and available example exports, and tightens the Independent Reviewer wording at mandatory checkpoints | No roadmap, phase order, release boundary, scope, authority, privacy, architecture, data-ownership or release criterion changes. Dependency granularity, evidence status and reviewer wording only; the reviewer change strengthens an existing control and weakens none | Prepared with the replacement Phase 2 remediation plan; independent review of that plan pending | **Accepted by Peter Duscha on 2026-08-02** |
 | v1.5 clarification C-2 | 2026-08-02 | Peter Duscha | Records four rulings taken with the acceptance of the replacement Phase 2 remediation plan: OD-42 (display-name identity policy, closing I-05); the disposition of `tools/import_sheet_characters.py`; the security-review assignment; and the timing of the §9.4 operational windows | No roadmap, phase order or release-boundary change. OD-42 confirms and completes an existing identity policy without adding a schema constraint; the CLI ruling reverts an uncommitted modification and allocates the tool's disposition to package 5.1, which the migration register already owns; the review and window rulings are delivery controls. Releases packages R1–R3 to start; R4 remains blocked on the §9.4 values | Recommendations from the working Technical Lead (Claude); independent review of the remediated implementation still required | **Accepted by Peter Duscha on 2026-08-02** |
 
+| v1.5 clarification C-3 | 2026-08-04 | Peter Duscha | Records the Phase 2 I-03 snapshot submission package: a Foundry v14 module, a scoped-service-principal HTTPS submission endpoint, restricted artifact storage and a Council preview contract | No roadmap, phase order or release-boundary change. Brings forward the **read-only submission half** of the Phase 7 module and its scoped credential, and introduces one non-browser HTTP route ahead of Phase 3 without creating any portal, session, OAuth or CSRF surface. Adds one additive, reversible migration (`0004`) and one proposed ADR (`0009`). Submission applies nothing; apply authority, field ownership and the Phase 2 gate evidence are unchanged | Package plan and impact assessment by the working Technical Lead (Claude), `docs/review/phase-2-i-03-package-plan.md`; **independent implementation review and separate security-focused review still required** | **Not yet decided.** Recorded for the Acceptance Authority |
+
+| v1.5 clarification C-4 | 2026-08-04 | Peter Duscha | Accepts ADR 0009: the snapshot submission endpoint is a stdlib WSGI application, and FastAPI is not introduced by the Phase 2 I-03 package | No roadmap, phase order or release-boundary change. ADR 0002 is unchanged — FastAPI remains the recorded choice for the Phase 3 web application, and the WSGI application mounts inside it unchanged. Adds no dependency. Accepts the architectural decision **only**: the I-03 implementation still requires independent implementation review and a separate security-focused review, and no further HTTP surface is authorized | Proposed by the working Technical Lead (Claude) in `docs/adr/0009-snapshot-submission-http-boundary.md`, with alternatives recorded | **Accepted by Peter Duscha on 2026-08-04** |
+| v1.5 clarification C-8 | 2026-08-05 | Peter Duscha | Accepts retention decision D-c for database-unclaimed raw Foundry snapshot artifacts | No scope, authority, architecture, phase-order or release-boundary change. Raw artifacts are retained at most 30 days and deleted sooner after their rehearsal, retry or incident closes; checksum, provenance and sanitized audit remain permanent | Operations procedure and I-03 package-plan amendment; independent implementation review remains required for the complete Phase 2 gate | **Accepted by Peter Duscha on 2026-08-05** |
+| v1.5 clarification C-9 | 2026-08-05 | Peter Duscha | Sets Phase 2 R4 observation and synthetic 500-Actor runtime thresholds | No scope, authority, architecture, phase-order or release-boundary change. Rehearsal observation is immediate verification followed by shutdown/cleanup; acceptance thresholds are 5 seconds preview and 5 seconds fresh apply on the named host | Synthetic PostgreSQL benchmark and Codex independent reproduction; real-export rehearsal remains pending | **Accepted by Peter Duscha on 2026-08-05** |
+
 ## v1.5 clarification C-2 — rulings recorded with the plan acceptance
 
 - **Replacement plan (D-1):** `docs/review/phase-2-v1.5-remediation-plan.md` is
@@ -171,6 +177,447 @@ it changes no roadmap or release boundary.
 - **Security/data authority:** no dual writes; legacy authority continues per
   field until an approved typed-package cutover. Existing production writes are
   not frozen prematurely.
+
+## v1.5 clarification C-3 — Phase 2 I-03 snapshot submission package
+
+Recorded 2026-08-04 by the working Technical Lead. **The Acceptance Authority
+has not decided it.** The full package plan and impact assessment is
+[`../review/phase-2-i-03-package-plan.md`](../review/phase-2-i-03-package-plan.md);
+this entry is the change-control summary the required-fields list below asks for.
+
+- **Affected requirements:** §6.3 and §6.4 (the artifact and its provenance),
+  §12 Phase 2 (import and reconciliation), §12 Phase 7 (the Foundry module and
+  its scoped credential), §12.0 (the Phase 3 gate releases production portal
+  integration), §7.1 (`service_principals`) and §9.2–9.3 (web and infrastructure
+  security).
+- **Reason:** the maintainer requires snapshot submission without SSH, without
+  locating a Foundry database and without manually placing a file on the server.
+- **Added scope:** `foundry-module/`; the submission application service;
+  restricted, content-addressed artifact storage; one WSGI route; a Council
+  preview contract; migration `0004`; ADR `0009`.
+- **Removed scope:** none. The file-based operator path remains, as a documented
+  fallback.
+- **Phase-boundary effect:** brings forward the **read-only submission half** of
+  Phase 7's module and scoped authentication. Live sync, retries, diagnostics,
+  Council shared-field proposals and every write-back remain unstarted, and no
+  Phase 7 gate criterion is claimed. Introduces one HTTP route ahead of Phase 3
+  that authenticates a bearer service credential rather than a browser session,
+  so no cookie, CSRF, OAuth, session or template surface is created. The Council
+  preview route is inert without a Phase 3 authentication composition and
+  answers `503`.
+- **Dependency and critical-path effect:** none claimed. Phase 2's gate still
+  requires the supervised active-folder rehearsal and the Data Owner
+  attestation, neither of which this package performs.
+- **Estimate and capacity:** not re-baselined here; the Delivery Lead owns the
+  forecast.
+- **New risks:** a persisted artifact class at rest (Actor mechanics), and a
+  credential held on Foundry clients. Both are assessed in the package plan §5
+  and controlled by restricted storage with documented retention, and by a
+  submit-only scope whose worst case is an unwanted **pending** artifact.
+- **Testing:** exporter canonicalisation and contract tests under `node --test`;
+  storage atomicity, containment and cleanup; HTTP authentication, limits,
+  checksum, idempotency and concurrency; preview authorization; PostgreSQL
+  constraint, concurrency and append-only evidence; and one cross-language
+  contract test binding the exporter's real output to the real parser.
+- **Migration:** `0004_snapshot_submission_provenance`, additive and reversible;
+  upgrade/downgrade/upgrade rehearsed against the disposable database. No
+  applied migration edited; no runtime grant changed.
+- **Security and data authority:** unchanged. Submission is not import. Apply
+  still requires a currently authorized Guild Council member and still re-checks
+  every bound input at commit. No field changes owner and none moves from
+  `legacy`.
+- **Operational effect:** a new artifact root with its own permissions,
+  retention and backup treatment; proxy body and timeout limits that must match
+  the 64 MiB artifact ceiling; credential issue, rotation and revocation
+  procedures. All in
+  [`../operations/foundry-snapshot-submission.md`](../operations/foundry-snapshot-submission.md).
+- **Product Owner recommendation:** pending.
+- **Technical Lead review:** the implementing agent is the working Technical
+  Lead and cannot approve its own recommendation.
+- **Independent and security review:** **both required and neither performed.**
+- **Acceptance Authority decision:** pending.
+
+## v1.5 clarification C-4 — Phase 2 I-03 independent-review remediation
+
+Recorded 2026-08-04 by the working Technical Lead. **The Acceptance Authority
+has not decided it, and no finding is closed on the implementer's authority.**
+Full record:
+[`../review/phase-2-i-03-remediation-submission.md`](../review/phase-2-i-03-remediation-submission.md);
+re-review request:
+[`../review/phase-2-i-03-remediation-review-request.md`](../review/phase-2-i-03-remediation-review-request.md).
+
+- **Affected requirements:** §9.2 (web security — CORS, credential handling),
+  §6.4 (restricted artifact storage), §12 Phase 2 and Phase 7 as amended by C-3.
+  No requirement changes ownership, authority or scope.
+- **Reason:** the two independent reviews of the I-03 package returned three
+  Blocking findings (B-1, S-B-1, S-B-2) and three others (I-1, I-2, S-I-1).
+  `../review/phase-2-i-03-codex-review.md` and
+  `../review/phase-2-i-03-codex-security-review.md`.
+- **Added scope:** `adapters/http/cors.py`; a per-submission credential prompt in
+  the Foundry module dialog; enforced artifact-storage preconditions with a
+  startup check; a truthful durability contract. One new configuration variable,
+  `FREEDOM_SNAPSHOT_ALLOWED_ORIGINS`.
+- **Removed scope:** the `submissionCredential` Foundry world setting. Foundry
+  14.365 delivers every world-scoped setting value to every connecting client
+  (`dist/packages/world.mjs`, an unfiltered `Setting.dump()`), and offers no
+  setting option that is a read boundary, so no setting can hold a secret.
+- **Alternatives considered and rejected:** a short-lived token exchange (a
+  second HTTP route, reserved to Peter under ADR 0009 — carried forward as
+  decision D-a); `scope: "client"` browser storage (leaves a reusable bearer at
+  rest in a browser profile for no benefit over a password manager).
+- **Phase-boundary effect:** none. No new route, no new capability, no new
+  caller, no Phase 3 surface. ADR 0009 carries a dated clarification that a CORS
+  preflight is the same route's contract rather than a second route.
+- **Dependency and critical-path effect:** none added. Phase 2 I-03 remains
+  behind independent implementation re-review and a separate security re-review,
+  and now also behind two maintainer-supervised checks (operations §8.1, §8.2).
+- **Estimate/forecast and capacity effect:** none recorded; this is remediation
+  inside an already-planned package.
+- **New or changed risks:** **R7 — the browser workflow is still unverified from
+  a real browser.** Recorded in the RAID register and in the package plan
+  amendment. Risks R1 and R2 of the package plan are strengthened rather than
+  changed.
+- **Testing effect:** module tests 78 (was 72); the six named narrow suites 220;
+  full Python suite 1788, zero skips. No formatter, linter or type checker was
+  run, because none is configured in this repository and none is installed.
+- **Migration effect:** none. No schema change, no new migration, no edited
+  migration; `alembic check` reports no new upgrade operations.
+- **Security effect:** removes a reusable bearer from state readable by every
+  client of the Foundry world; enforces restricted artifact storage against
+  pre-existing paths; adds a bounded, allowlisted browser-origin policy with no
+  cookie authority.
+- **Operational effect:** one new required configuration variable for the
+  browser workflow; **a deployment whose artifact root is permissive,
+  wrongly-owned, symlinked or on a filesystem that cannot `fsync` a directory
+  will now refuse to start**; credential rotation no longer touches Foundry; a
+  documented read-only procedure for identifying database-unclaimed artifacts.
+- **Product Owner recommendation:** pending.
+- **Technical Lead review:** the implementing agent is the working Technical
+  Lead and cannot approve its own recommendation.
+- **Independent and security review:** **both required and neither performed.**
+- **Acceptance Authority decision:** pending. Decisions D-a (short-lived token
+  exchange), D-b (whether this process may repair storage permissions) and D-c
+  (retention for database-unclaimed artifacts) are reserved to Peter.
+- **Superseded in part by C-5.** Two of the findings this entry described as
+  remediated were reopened by the second independent re-review. Read C-5 with
+  it; nothing in this entry closed a finding, and its I-1 and S-B-2 statements
+  are no longer the current position.
+
+## v1.5 clarification C-5 — Phase 2 I-03 second remediation (I-1, S-B-2)
+
+Recorded 2026-08-04 by the working Technical Lead, after the second independent
+implementation and security re-review of the I-03 remediation. **No finding is
+closed, no gate is claimed, and the Acceptance Authority has not decided it.**
+Full record: the same
+[`../review/phase-2-i-03-remediation-submission.md`](../review/phase-2-i-03-remediation-submission.md)
+and
+[`../review/phase-2-i-03-remediation-review-request.md`](../review/phase-2-i-03-remediation-review-request.md),
+both amended.
+
+- **Affected requirements:** §6.4 (restricted artifact storage), §12 Phase 2
+  operational evidence. No requirement changes ownership, authority or scope.
+- **Reason:** the re-review found two of the six findings still open. **I-1**:
+  the first remediation corrected the named messages and left the equivalent
+  claims in the unresolved-concurrency and replay refusal paths and in every
+  `ArtifactStorageError`, all of which can run after the artifact store has
+  already published bytes. **S-B-2**: the enforced storage checks were made by
+  pathname, so the validated root could be replaced between the check and each
+  later create, open, publish or directory `fsync`.
+- **Added scope:** a declared `StorageOutcome` on every storage failure, so what
+  a refusal claims about the store is a decision rather than an inherited
+  sentence; a root **directory descriptor** to which every filesystem operation
+  is anchored, with an explicit lifecycle owned by the composition root; a
+  startup check that no untrusted account can rename entries above the root; a
+  repository-wide regression check on the prohibited claim.
+- **Removed scope:** none.
+- **Alternatives considered and rejected:** another pathname re-check before each
+  use (moves the race window rather than removing it); repairing an unsafe root
+  (D-b remains Peter's and is unchanged); relying on `__del__` alone for the
+  descriptor's lifetime (explicit `close()` plus a context manager instead, with
+  finalization as a backstop only).
+- **Phase-boundary effect:** none. No new route, no new capability, no new
+  caller, no Phase 3 surface, no schema change.
+- **Dependency and critical-path effect:** none added. I-03 remains behind an
+  independent implementation re-review (I-1, and preservation of I-2), a
+  separate security re-review (S-B-2, and preservation of S-B-1/S-I-1) and the
+  two maintainer-supervised checks (operations §8.1, §8.2).
+- **Estimate/forecast and capacity effect:** none recorded; remediation inside
+  an already-planned package.
+- **New or changed risks:** R1 and R2 of the package plan are strengthened. The
+  residual is now stated precisely: the anchoring is proven against pathname
+  substitution and against type, owner and mode as this process observes them,
+  **not** by a cross-account experiment, and no automated test creates a second
+  POSIX account.
+- **Testing effect:** module tests 81 (was 78); the six named narrow suites 232;
+  full Python suite 1912, zero skips. Still no formatter, linter or type checker
+  configured or installed, and none was added.
+- **Migration effect:** none. No schema change, no new migration, no edited
+  migration; `alembic check` reports no new upgrade operations.
+- **Security effect:** a pathname replacement of the artifact root can no longer
+  redirect a create, open, publication, read or directory `fsync`; the
+  precondition that made such a replacement stageable is refused at startup; no
+  failure message asserts a filesystem state it did not establish.
+- **Operational effect:** **moving or replacing the artifact root now requires a
+  service restart** — the running service refuses `root_replaced` rather than
+  following the name. A deployment whose root has an ancestor writable by
+  another account, without the sticky bit, **will refuse to start**
+  (`root_ancestor_untrusted`). Both are documented in operations §5.6 and
+  `.env.example`.
+- **Product Owner recommendation:** pending.
+- **Technical Lead review:** the implementing agent is the working Technical
+  Lead and cannot approve its own recommendation.
+- **Independent and security review:** **both required and neither performed.**
+- **Acceptance Authority decision:** pending. D-a, D-b and D-c are unchanged and
+  remain reserved to Peter.
+- **Superseded in part by C-6.** The third re-review found the S-B-2 remediation
+  described here materially correct about *where* operations resolve, and found a
+  separate defect in *how* the final entry was published. C-6 also reopens the
+  I-1 statement above. Nothing in this entry closed a finding.
+
+## v1.5 clarification C-6 — Phase 2 I-03 third remediation (publication, I-1, test evidence)
+
+Recorded 2026-08-05 by the working Technical Lead, after the third independent
+implementation and security re-review. **No finding is closed, no gate is
+claimed, and the Acceptance Authority has not decided it.** Full record: the same
+[`../review/phase-2-i-03-remediation-submission.md`](../review/phase-2-i-03-remediation-submission.md)
+and
+[`../review/phase-2-i-03-remediation-review-request.md`](../review/phase-2-i-03-remediation-review-request.md),
+both amended again.
+
+- **Affected requirements:** §6.4 (immutable, content-addressed, restricted
+  artifact storage), §6.5 (atomicity), §12 Phase 2 operational evidence. No
+  requirement changes ownership, authority or scope.
+- **Reason:** three findings.
+  1. **Blocking — publication could overwrite an unvalidated entry.** The
+     anchoring accepted in C-5 fixed which directory the final entry was created
+     in. Publication itself remained `os.replace`, which is atomic about
+     *replacing*: a checksum-named entry appearing between the `_holds()` check
+     and the rename was removed and overwritten without being examined,
+     contradicting immutability, refusal-not-repair, evidence preservation and
+     "no artifact is implicitly deleted".
+  2. **Important — `StorageOutcome.UNRESOLVED` made an unproven claim.** The
+     conservative *default* asserted that nothing already held had been changed
+     or removed, which finding 1 made false.
+  3. **Important — the storage tests were not reproducible.** On the review host,
+     `/` and `/tmp` are owned by uid 65534, and the startup ancestor rule refused
+     32 tests before they reached their own assertions. The submitted count of
+     1912 could not be independently reproduced.
+- **Added scope:** publication by `os.link`, which creates the checksum entry or
+  fails `EEXIST` and never removes what is already there; full revalidation of a
+  concurrent winner through the anchored descriptor; a third `StorageOutcome`
+  (`PRESERVED`) distinguishing "an entry was refused and left as found" from
+  "there was nothing there"; a startup probe proving the filesystem supports
+  hard links *and* refuses a link over an existing name (`link_unsupported`);
+  `TrustedAncestors` as an injectable policy object so automated evidence is
+  hermetic; a structural guard making cleanup unable to name anything but a
+  temporary.
+- **Removed scope:** none. No route, no capability, no retention decision.
+- **Alternatives considered and rejected:** a pathname existence check followed
+  by `os.replace` (the same race in a different shape, and explicitly refused by
+  the review); `renameat2(RENAME_NOREPLACE)` (equivalent guarantee in one
+  syscall, but the standard library exposes no wrapper and a hand-rolled `ctypes`
+  syscall stub in the path holding every exported Actor's mechanics is a worse
+  trade than one extra `unlink` — recorded in operations §5.6 and the adapter
+  docstring); relaxing the production ancestor-ownership rule to make the tests
+  pass (treated as a security-policy change reserved to Peter, and **not made**);
+  broadly monkeypatching `os.stat`/`os.lstat` in the suite (would have stopped
+  the root and target checks testing real behaviour).
+- **Phase-boundary effect:** none. No new route, no new capability, no new
+  caller, no Phase 3 surface, no schema change.
+- **Dependency and critical-path effect:** none added. I-03 remains behind an
+  independent implementation re-review, a separate security re-review and the two
+  maintainer-supervised checks (operations §8.1, §8.2).
+- **Estimate/forecast and capacity effect:** none recorded.
+- **New or changed risks:** R-15 restated; new **R-16** (the artifact root's
+  filesystem must support hard links) and **R-17** (the ancestor rule is a
+  statement about the host and is a genuine deployment prerequisite that no test
+  seam removes). See the RAID register.
+- **Testing effect:** module tests 81, unchanged; the named narrow suites 372;
+  full Python suite **1941**, zero skips. The suite was additionally run under a
+  throwaway harness reporting `/` and `/tmp` as owned by uid 65534 — the review
+  host's condition — and passed there too, which is the evidence finding 3 asked
+  for. Still no formatter, linter or type checker configured or installed, and
+  none was added.
+- **Migration effect:** none. No schema change, no new migration, no edited
+  migration; `alembic check` reports no new upgrade operations.
+- **Security effect:** an entry under a checksum name that this service did not
+  write and has not validated can no longer be destroyed by a submission. A
+  concurrent writer of identical bytes converges rather than overwriting. No
+  failure message, including the conservative default, asserts a filesystem state
+  it did not establish.
+- **Operational effect:** **the artifact root must be on a filesystem supporting
+  hard links** (ext4, XFS, Btrfs, ZFS, tmpfs; not FAT/exFAT or some network
+  mounts). The service proves this at startup and refuses `link_unsupported`
+  otherwise. A new recovery procedure covers an unexpected entry found under a
+  checksum name — preserve it, do not delete it. Both are documented in
+  operations §5.6, §9 and `.env.example`.
+- **Product Owner recommendation:** pending.
+- **Technical Lead review:** the implementing agent is the working Technical
+  Lead and cannot approve its own recommendation.
+- **Independent and security review:** **both required and neither performed.**
+- **Acceptance Authority decision:** pending. D-a, D-b and D-c are unchanged and
+  remain reserved to Peter.
+
+## v1.5 clarification C-7 — Phase 2 I-03 fourth remediation (evidence accuracy, I-3R-1)
+
+Recorded 2026-08-05 by the working Technical Lead, after the third independent
+implementation and security re-review returned its reports. At submission no
+finding was closed and no gate was claimed. **The later independent re-review
+and Acceptance Authority decision closing I-3R-1 are recorded below; no I-03 or
+Phase 2 gate decision is implied.**
+Full record:
+[`../review/phase-2-i-03-fourth-remediation-submission.md`](../review/phase-2-i-03-fourth-remediation-submission.md),
+with the re-review request at
+[`../review/Handover information`](../review/Handover%20information).
+
+- **Affected requirements:** §6.4 (immutable, content-addressed, restricted
+  artifact storage) and §13.3 (review-gate evidence). No requirement changes
+  ownership, authority or scope, and no acceptance criterion is reinterpreted.
+- **Reason:** one Important **evidence-accuracy** finding, I-3R-1. The third
+  re-review accepted the publication mechanism, I-1, I-2, root anchoring, S-B-1
+  and S-I-1, and found that the third-remediation review request claimed "no
+  temporary survives success or an ordinary failure" on the grounds that
+  `_discard` runs on every path. Running `_discard` is not removal: it swallows
+  `OSError` by design, and
+  `test_a_failing_cleanup_leaves_the_published_artifact_alone` had already
+  proved that a *successful* store can leave one private `.incoming-*` hard
+  link. The implementation, the operations document and the test were right;
+  the review evidence was not, and a false structural-guarantee table could
+  have misled a storage-capacity or hygiene assessment.
+- **What is superseded:** the temporary-cleanup row of the third-remediation
+  structural-guarantee table, marked as superseded in place rather than
+  rewritten. **C-6 is not otherwise superseded** — it did not repeat the claim,
+  and the publication mechanism it records is unchanged and was not reopened.
+- **Added scope:** none in the service. The corrected contract is stated
+  consistently across the adapter docstring, the operations document,
+  `.env.example`, the review record and the controlled records; operations §5.6
+  gains "Temporary files left by a failed cleanup", a read-only, age-bounded,
+  link-count-aware detection procedure; three tests in
+  `tests/test_artifact_store.py` prove that procedure's rule against synthetic
+  files.
+- **Removed scope:** none.
+- **Alternatives considered and rejected:** making the old sentence true by
+  changing publication — rejected outright. The `os.link` design and the
+  test-only bounded ancestor walk were both accepted by the third re-review and
+  were not reopened, and no contradictory evidence was found. Making cleanup
+  failure fail the submission — rejected: it would turn a correctly published
+  artifact into a refusal over an `unlink`, which is the failure direction I-2
+  exists to prevent. Adding a listing or deletion capability to the service so
+  it could clean up after itself — rejected: it would broaden the service's
+  filesystem authority beyond "create a temporary, and unlink one created in
+  the attempt that is running", which is the property that makes a cleanup
+  failure structurally unable to delete an artifact.
+- **Dependency and critical-path effect:** none. The independent re-review was
+  completed on 2026-08-05; the remaining critical path is the supervised and
+  owner-controlled evidence followed by the Acceptance Authority's gate
+  decision.
+- **Estimate/forecast and capacity effect:** none.
+- **New or changed risks:** **R-18 added** — leftover temporaries accumulate
+  unnoticed and consume storage (Low/Low, Operations Owner). **R-9 in the
+  package plan sharpened**: "a failed cleanup cannot delete a published
+  artifact" was true and incomplete; what it can do is leave storage behind
+  that nobody is told about. **D-11 added** to the package plan: detection is an
+  operator procedure, deliberately not an application capability.
+- **Testing effect:** three new tests (94 in `tests/test_artifact_store.py`, was
+  91), all synthetic and read-only, exercising the documented `find` rule
+  through the real `find`. No test was deleted or weakened, and the existing
+  cleanup-failure test is preserved unchanged.
+- **Migration effect:** none. No schema, no migration, no data.
+- **Security effect:** none claimed. No security-relevant code or contract
+  changed — publication, anchoring, the credential boundary and the CORS policy
+  are untouched — so no new security re-review is requested. The security
+  reviewer's own third report had already described the best-effort cleanup
+  correctly.
+- **Operational effect:** operators gain a documented way to find leftover
+  temporaries and a rule for reading the link count before removing one; whoever
+  sizes the artifact filesystem is told that leftovers are possible after a
+  successful store. **How often the procedure should be run has not been
+  decided**, and nothing automates it.
+- **Product Owner recommendation:** pending.
+- **Technical Lead review:** the implementing agent is the working Technical
+  Lead and cannot approve its own recommendation.
+- **Independent and security review:** the narrow independent implementation
+  re-review was completed by Codex on 2026-08-05 and returned no Blocking,
+  Important or Optional finding; it confirms I-3R-1 is resolved and the final
+  traceability claims are truthful. Recorded in
+  `docs/review/phase-2-i-03-fourth-remediation-codex-re-review.md`. No further
+  security re-review was required, for the reason above.
+- **Acceptance Authority decision:** Peter Duscha accepted the independent
+  recommendation and closed I-3R-1 on 2026-08-05. This closes that finding only;
+  it does not accept I-03 or close the Phase 2 gate. D-a, D-b and D-c are
+  unchanged and remain reserved to Peter, and the retention question D-c also
+  covers how often leftover-temporary hygiene should run.
+
+## v1.5 clarification C-8 — database-unclaimed artifact retention D-c
+
+Recorded and accepted by Peter Duscha on 2026-08-05.
+
+- **Affected requirements:** Phase 2 rollback/recovery and snapshot-retention
+  acceptance criterion; I-03 restricted artifact operations.
+- **Reason:** database-unclaimed raw snapshots can be necessary for retry or
+  incident investigation but contain sensitive Actor mechanics and must not be
+  retained indefinitely.
+- **Added/removed scope:** none. This decides the lifetime of an existing
+  artifact class; it adds no route, mutation or automatic deletion.
+- **Decision:** retain a database-unclaimed raw snapshot for at most 30 days and
+  delete it sooner when its rehearsal, retry or incident closes. Preserve its
+  checksum, provenance and sanitized audit record permanently. Investigate and
+  report before deletion; the maximum does not authorize erasing evidence for
+  an open incident.
+- **Dependency and critical-path effect:** closes retention decision D-c. Other
+  Phase 2 supervised evidence, performance thresholds, owner recommendations
+  and the gate decision remain pending.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** narrows indefinite sensitive-artifact retention without
+  weakening incident evidence handling.
+- **Testing and migration effect:** none; policy/documentation only, no schema
+  or executable-code change.
+- **Security and operational effect:** bounds raw Actor-payload retention;
+  operations §5.6 carries the investigation and deletion procedure.
+- **Product/Data/Operations Owner recommendation:** accepted by Peter Duscha in
+  those roles for this decision only.
+- **Technical and independent review:** no implementation was introduced by the
+  decision. The complete Phase 2 package still requires its final independent
+  gate recommendation.
+- **Acceptance Authority decision:** **accepted by Peter Duscha on 2026-08-05.**
+  This accepts D-c only and does not accept I-03 or close Phase 2.
+
+## v1.5 clarification C-9 — Phase 2 R4 observation and runtime thresholds
+
+Recorded and accepted by Peter Duscha on 2026-08-05.
+
+- **Affected requirements:** Phase 2 remediation plan §9.4 items 3 and 4.
+- **Reason:** package R4 requires numeric observation and 500-Actor performance
+  thresholds rather than subjective terms.
+- **Decision:** use a zero-hour observation period with immediate post-run
+  verification, endpoint shutdown and disposable-state cleanup. Accept 5
+  seconds for preview and 5 seconds for fresh apply as Phase 2 rehearsal
+  thresholds on this named host.
+- **Evidence:** `docs/review/phase-2-r4-500-actor-benchmark.md`; Codex also ran
+  the exact benchmark from a verified-empty `freedom_test` database and
+  reproduced the 793.866 ms preview maximum, 1,313.291 ms fresh-apply maximum,
+  5-second recommendations and clean return to Alembic `0004`.
+- **Added/removed scope:** none. These are gate/rehearsal acceptance thresholds,
+  not production capacity promises, application timeouts or new monitoring.
+- **Dependency and critical-path effect:** closes §9.4 items 3 and 4. Items 1
+  and 2—the bounded maintainer/gate availability and real-export rehearsal
+  window—remain open and continue to block R4 readiness.
+- **Estimate/forecast and capacity effect:** no calendar forecast is created.
+- **Risk effect:** gives the rehearsal an objective performance refusal point;
+  host-specific synthetic evidence does not predict production capacity.
+- **Testing and migration effect:** 500-Actor harness and regression evidence;
+  no schema or migration change. Full suite reported 1,954 passed with one
+  dependency warning.
+- **Security and operational effect:** benchmark used synthetic data and the
+  local Unix-socket `freedom_test` database. Immediate cleanup retains no
+  rehearsal service or raw state for continuing observation.
+- **Product/Data/Operations Owner recommendation:** accepted by Peter Duscha in
+  those roles for this decision only.
+- **Technical and independent review:** Gemini produced the benchmark; Codex
+  reviewed its safety corrections and independently reproduced the threshold
+  inputs.
+- **Acceptance Authority decision:** **accepted by Peter Duscha on 2026-08-05.**
+  This closes only §9.4 items 3 and 4 and does not accept I-03 or Phase 2.
 
 ## Required fields for later entries
 

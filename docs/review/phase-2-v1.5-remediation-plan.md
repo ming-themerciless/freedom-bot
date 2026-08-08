@@ -1032,14 +1032,19 @@ and the gate cannot close without them.
 1. **Maintainer availability window** for decisions and gate approval.
 2. **Date or bounded window for the supervised real-export rehearsal.**
 3. **Monitoring / observation period** after the rehearsal before the gate
-   decision.
-4. **Preview and apply wall-clock runtime budget** for a 500-Actor artifact
-   (the size and structural limits are inherited; the runtime budget is not
-   stated anywhere in the accepted material).
+   decision. **Set 2026-08-05 by Peter Duscha:** zero hours; perform immediate
+   post-run verification, then stop the disposable endpoint and clean its
+   rehearsal state. There is no retained Phase 2 service/state for a longer
+   observation to measure.
+4. **Preview and apply wall-clock runtime budget** for a 500-Actor artifact.
+   **Set 2026-08-05 by Peter Duscha:** 5 seconds for preview and 5 seconds for a
+   fresh apply on this named host. These are Phase 2 rehearsal acceptance
+   thresholds, not production capacity promises or application timeouts. Based
+   on `phase-2-r4-500-actor-benchmark.md` and independently reproduced by
+   Codex.
 
-Item 4 is the one an implementer can help with: R4 can *measure* the actual
-preview and apply time against a synthetic 500-Actor artifact and propose a
-budget, but the accepted threshold remains the Operations Owner's to set.
+Items 3 and 4 are closed. Items 1 and 2 remain open until Peter schedules the
+supervised decision/gate session and real-export rehearsal.
 
 ---
 
