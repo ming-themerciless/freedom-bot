@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-09
+Status date: 2026-08-09 (updated after Rehearsal A)
 
 Baseline: v1.5; accepted by Peter Duscha on 2026-08-02
 
@@ -14,8 +14,8 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
 |---|---|---|---|
 | Phase 0 — Discovery and architecture | Accepted | Closed 2026-07-30 | `docs/discovery/phase-0-handoff.md`, `docs/review/phase-0-submission.md` |
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance is recorded at the head of `docs/review/phase-1-submission.md` |
-| Phase 2 — Import and reconciliation | In remediation; supervised rehearsal attempted 2026-08-06 and failed | Deferred | The accepted replacement plan remains controlling. Disposable migration, backup/restore, runtime-role and performance evidence passed. The real-export rehearsal exposed exporter defects; active-folder preview, Data Owner attestation, complete independent gate review, owner recommendations and the gate decision remain outstanding. |
-| Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-B-1, CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are now closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. CL3-O-3 remains open. The current build is **1.0.5** and has not been installed anywhere; the trialled 1.0.4 is a different build. Passing tests close no gate. |
+| Phase 2 — Import and reconciliation | In remediation; **Rehearsal A completed 2026-08-09**, Rehearsal B not run | Deferred | The accepted replacement plan remains controlling. Disposable migration, backup/restore, runtime-role and performance evidence passed. Rehearsal A now passes end to end on module 1.0.5 against a real 35-Actor export, including step 10, §8.1 and both halves of §8.2 — see `docs/review/phase-2-supervised-rehearsal-2026-08-09.md`. It returned four findings (`docs/review/phase-2-rehearsal-a-findings-2026-08-09.md`), of which RA-1 is gate-relevant: the field profile is not exhaustive against real data. Rehearsal A satisfies no gate criterion. Active-folder Rehearsal B, the Data Owner attestation, the field-profile maintainer review, complete independent gate review, owner recommendations and the gate decision remain outstanding. |
+| Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-B-1, CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are now closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. CL3-O-3 was closed on 2026-08-09 by executing the §9 query against PostgreSQL during Rehearsal A. The current build is **1.0.5**; it was installed on `foundry1` and `foundry3` on 2026-08-09 and is the build Rehearsal A exercised. The trialled 1.0.4 is a different build and is superseded everywhere. Passing tests close no gate. |
 | Phase 3 and later | Not ready | Not opened | Phase 2 gate and applicable decisions/dependencies must close first |
 | Frontend visual prototype | Status to be recorded by Product Owner | Separate visual gate | May proceed only within §12.1 constraints |
 
@@ -52,13 +52,20 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    `tools.bootstrap_manager`; a Council-authorized repeat apply has no CLI and
    is covered by automated tests. These are recommendations-supporting evidence
    and close no gate on their own.
-7. **Repeat the maintainer-supervised real-export rehearsal** after independent
-   acceptance of the lifecycle remediation. The 2026-08-06 attempt failed
-   during the inactive-folder duplicate check after recording six pending
-   snapshots; it was cleaned up without imports, characters or mappings. The
-   negative-origin observation, final confidentiality cleanup, inactive-folder
-   preview, active-folder gate preview and Data Owner attestation remain
-   incomplete.
+7. **Repeat the maintainer-supervised real-export rehearsal.** ~~Rehearsal A~~ —
+   **completed 2026-08-09** on module 1.0.5 against a real 35-Actor non-live
+   folder: submission, three-way checksum agreement, preview at 4.92 s with zero
+   errors, Foundry unchanged, step 10 landing on the corrected `duplicate =
+   false` hit, §8.1 both halves plus a credential rotation, and §8.2 positive
+   **and negative** — the origin allowlist had never previously been shown to be
+   load-bearing. Recorded in
+   [`../review/phase-2-supervised-rehearsal-2026-08-09.md`](../review/phase-2-supervised-rehearsal-2026-08-09.md);
+   findings in
+   [`../review/phase-2-rehearsal-a-findings-2026-08-09.md`](../review/phase-2-rehearsal-a-findings-2026-08-09.md).
+   A temporary public Caddy route was used and reverted. **Still outstanding:**
+   the active-folder Rehearsal B and the Data Owner attestation, plus RA-1 —
+   the field profile does not classify ten paths that real Actors carry, which
+   is a Phase 2 acceptance criterion in its own right.
 8. **Close the Phase 2 data-integrity, identity and migration-safety gate.**
 
 Running in parallel, releasing nothing: **Phase 2 I-03** (snapshot submission)
