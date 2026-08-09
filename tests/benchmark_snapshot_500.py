@@ -344,6 +344,38 @@ def calculate_stats(samples_ns: list[int]) -> TimingStats:
     )
 
 
+#: The Phase 2 gate criterion, in the only unit that survives a change of
+#: corpus — change-log C-11, which amends C-9.
+#:
+#: C-9 set thresholds in *seconds against an Actor count*, measured on synthetic
+#: Actors of 2,182 bytes. Rehearsal B then previewed real Actors of 508,975
+#: bytes each — 233x larger, and consistent with discovery finding F-F5, which
+#: had recorded "an actor is 1.1-3.3 MB of JSON" long before the benchmark was
+#: written. A 32-Actor real folder is 15x the bytes of the 500-Actor synthetic
+#: one, so a count-based threshold measures the corpus rather than the code.
+#:
+#: Throughput does not have that defect. Observed: 728 ms/MB synthetic (C-9),
+#: 587 ms/MB real (Rehearsal B). The limit is set with headroom for a shared
+#: host and catches what a threshold is actually for — an N+1 query or a
+#: quadratic parse, which change this number by an order of magnitude.
+THROUGHPUT_LIMIT_MS_PER_MB = 1200.0
+
+
+def throughput_ms_per_mb(duration_ms: float, byte_size: int) -> float:
+    return duration_ms / (byte_size / 1_000_000.0)
+
+
+def calculate_throughput_gate(stats: TimingStats, byte_size: int) -> dict[str, Any]:
+    """The gate criterion, reported whether or not it passes."""
+    observed = throughput_ms_per_mb(stats.max_ms, byte_size)
+    return {
+        "observed_ms_per_mb": round(observed, 1),
+        "limit_ms_per_mb": THROUGHPUT_LIMIT_MS_PER_MB,
+        "within_limit": observed <= THROUGHPUT_LIMIT_MS_PER_MB,
+        "measured_from": "slowest sample, not the median",
+    }
+
+
 def calculate_recommendation(stats: TimingStats) -> dict[str, Any]:
     p95_sec = stats.p95_ms / 1000.0
     max_sec = stats.max_ms / 1000.0
@@ -561,14 +593,34 @@ def run_benchmark() -> dict[str, Any]:
                     },
                 ),
                 (
+                    "throughput_gate",
+                    {
+                        "preview": calculate_throughput_gate(
+                            combined_preview_stats, len(raw_bytes)
+                        ),
+                        "apply": calculate_throughput_gate(
+                            combined_apply_stats, len(raw_bytes)
+                        ),
+                        "note": (
+                            "The Phase 2 gate criterion (change-log C-11). Expressed "
+                            "per megabyte because a count-based threshold measures the "
+                            "corpus rather than the code: this artifact's Actors are "
+                            "2 KB each and real ones are ~500 KB."
+                        ),
+                    },
+                ),
+                (
                     "threshold_recommendations",
                     {
                         "preview": prev_rec,
                         "apply": apply_rec,
                         "note": (
                             "Nearest-rank p95 over 7 samples equals sample maximum. "
-                            "Recommendations represent Phase 2 rehearsal acceptance thresholds "
-                            "on this host, awaiting Operations Owner (Peter Duscha) decision."
+                            "Wall-clock seconds on THIS synthetic corpus, retained as "
+                            "smoke-test context. Superseded as a gate criterion by "
+                            "throughput_gate above (C-11 amending C-9); a real folder "
+                            "of the same Actor count would be ~250 MB and could not "
+                            "meet these numbers."
                         ),
                     },
                 ),

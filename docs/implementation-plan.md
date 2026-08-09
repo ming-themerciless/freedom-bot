@@ -1434,6 +1434,16 @@ protected production route; frontend integration starts only against accepted
 route/view-model contracts. The phase target is revalidated after named backend,
 frontend, security, accessibility and review capacity is known.
 
+**Measured constraint on the Council preview route (change-log C-11).** Phase 2's
+Rehearsal B previewed a real 32-Actor active folder in **9.57 seconds** — a
+16.3 MB artifact, because a real Actor is roughly 0.5 MB of JSON and the folder
+will grow. The reconciliation preview therefore **cannot be a synchronous HTTP
+handler**: it needs a background job with a polled or streamed result, or a
+progressive response. This is a measurement from real data, not an estimate, and
+it precedes the route contract rather than being discovered during
+implementation. The throughput itself is healthy at 587 ms/MB; the constraint is
+about request duration, not about the parser.
+
 #### Phase 3 implementation and review responsibilities
 
 Keep implementation and review responsibilities distinct. The Product Owner and

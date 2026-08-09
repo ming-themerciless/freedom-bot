@@ -676,6 +676,61 @@ Rehearsal A.
   This closes RA-2 and accepts no implementation beyond it; it does not close
   the Phase 2 gate.
 
+## v1.5 correction C-11 — performance threshold restated per megabyte (amends C-9)
+
+Recorded 2026-08-09. Ruled by Peter Duscha the same day, on finding RA-5 from
+Rehearsal B.
+
+- **Affected requirements:** change-log **C-9** (Phase 2 remediation plan §9.4
+  items 3 and 4); `tests/benchmark_snapshot_500.py`;
+  `docs/review/phase-2-r4-500-actor-benchmark.md` as the evidence C-9 rests on.
+- **Reason:** C-9 accepted "5 seconds for preview and 5 seconds for fresh apply"
+  measured in wall-clock seconds against an **Actor count**, using synthetic
+  Actors of 2,182 bytes. Rehearsal B previewed real Actors of 508,975 bytes —
+  **233× larger** — and took 9.566 s, breaching the threshold while producing 0
+  errors, 0 warnings and a complete reconciliation. Throughput was **587 ms/MB
+  against the benchmark's 728 ms/MB**: the real run is *faster* per megabyte. A
+  count-based threshold measures the corpus, not the code. Discovery finding
+  F-F5 had already recorded that "an actor is 1.1–3.3 MB of JSON" before the
+  benchmark was written, so the corpus was known to be unrepresentative.
+- **Decision:** three parts.
+  1. The Phase 2 gate criterion is **throughput: ≤ 1,200 ms per megabyte**,
+     measured from the slowest sample. Observed 587 (real) and 728 (synthetic).
+  2. C-9's 5-second figures are **retained as synthetic smoke-test context and
+     are no longer gate criteria.** They are not deleted: they remain the record
+     of what was measured on that corpus.
+  3. The absolute 9.566 s is recorded as a **Phase 3 architecture input**, not a
+     Phase 2 pass/fail — see below.
+- **Alternatives considered:** re-baselining the wall-clock number against a
+  real-sized corpus, which keeps a figure that must be re-derived whenever the
+  folder grows; and dropping the threshold, which was explicitly rejected — it
+  is the only control that would catch an N+1 query or a quadratic parse.
+- **Added/removed scope:** none.
+- **Dependency and critical-path effect:** closes RA-5. Removes a breach that
+  would otherwise have had to be argued or waived at the gate.
+- **Estimate/forecast and capacity effect:** none. This is still not a
+  production capacity promise, exactly as C-9 said of itself.
+- **Risk effect:** replaces a criterion that could pass a bad implementation on
+  a small corpus, and fail a good one on a real corpus, with one that does
+  neither. **Phase 3 consequence:** at 9.566 s for 32 Actors and growing, the
+  Council preview cannot be a synchronous HTTP handler; it needs a background
+  job or progressive response. That constraint is now recorded in the plan's
+  Phase 3 section rather than waiting to be rediscovered during implementation.
+- **Testing effect:** `THROUGHPUT_LIMIT_MS_PER_MB` and a `throughput_gate`
+  block are in the benchmark harness, reported whether or not they pass. Three
+  new tests pin the unit, the breach reporting, and that the gate measures the
+  slowest sample rather than the median — a median would let one pathological
+  run hide behind six good ones. Suite: 1,784 passed, 208 skipped.
+- **Migration effect:** none.
+- **Security and operational effect:** none.
+- **Product/Data/Operations Owner recommendation:** accepted by Peter Duscha in
+  those roles for this decision.
+- **Technical Lead and specialist reviews:** proposed and implemented by Claude,
+  who also raised RA-5. **No independent review**; it goes to the Independent
+  Reviewer with the Phase 2 gate evidence.
+- **Acceptance Authority decision:** **ruled by Peter Duscha on 2026-08-09.**
+  Closes RA-5. Closes no gate.
+
 ## Required fields for later entries
 
 Every material entry must identify:

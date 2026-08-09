@@ -139,6 +139,59 @@ deliberately not committed — it is rehearsal scaffolding, not product.
 
 ---
 
+## RA-5 — the accepted performance threshold was calibrated against unrepresentative data — **gate-relevant**
+
+Added after Rehearsal B, 2026-08-09.
+
+Rehearsal B previewed the 32-Actor active folder in **9.566 s**, against the
+5-second preview threshold accepted in change-log **C-9**. The run was otherwise
+perfect: 0 errors, 0 warnings, all 32 Actors accounted for.
+
+The threshold is the problem, not the run:
+
+| | Synthetic benchmark (C-9) | Rehearsal B (real) |
+|---|---|---|
+| Artifact | 1,090,981 B / 500 Actors | 16,287,185 B / 32 Actors |
+| Bytes per Actor | 2,182 | **508,975 — 233×** |
+| Preview | 794 ms | 9,566 ms |
+| **Throughput** | **728 ms/MB** | **587 ms/MB** |
+
+Per megabyte the real run is *faster* than the benchmark. The implementation
+scales with bytes, as anyone would expect of a parser, and the threshold was
+expressed in Actor count against a corpus of 2 KB Actors.
+
+What makes this more than an oversight: **the project already knew.** Discovery
+finding F-F5 (`docs/discovery/foundry-mapping.md:159`) records "an actor is
+1.1–3.3 MB of JSON … it is genuine item volume". The benchmark contradicted an
+established finding about the data, and the accepted threshold inherited that
+error. A 500-Actor artifact of real Actors would be roughly 250 MB, not 1 MB.
+
+**Consequence for the gate:** C-9's thresholds cannot be used as an acceptance
+criterion in their current form. A run that satisfies every correctness
+criterion breaches them, and a run against 500 synthetic Actors would pass them
+while being 15× smaller than a real 32-Actor folder.
+
+**Disposition: RULED AND CLOSED, 2026-08-09** — change-log **C-11**, amending
+C-9. The threshold was kept, not scrapped, and restated in the unit that
+survives a change of corpus:
+
+1. The gate criterion is **throughput ≤ 1,200 ms/MB**, measured from the slowest
+   sample. Enforced and reported by `tests/benchmark_snapshot_500.py`
+   (`THROUGHPUT_LIMIT_MS_PER_MB`, `throughput_gate`), with four tests pinning
+   the unit, the breach reporting, and the use of the slowest sample rather than
+   the median.
+2. C-9's 5-second figures are retained as synthetic smoke-test context and are
+   **no longer gate criteria**. They are not deleted — they remain the record of
+   what that corpus measured.
+3. The absolute 9.566 s became a **Phase 3 architecture input**: the Council
+   preview route cannot be a synchronous HTTP handler. Recorded in the plan's
+   Phase 3 planning note.
+
+Waiving the breach case by case was considered and rejected: it converts a
+threshold into a formality.
+
+---
+
 ## Not findings, recorded because they were verified
 
 - The module never wrote to Foundry: Actor, Item and Folder counts and the

@@ -129,6 +129,41 @@ def test_stats_and_recommendation_calculation():
     assert rec["within_120s_timeout_budget"] is True
 
 
+def test_throughput_is_measured_per_megabyte_not_per_actor():
+    """C-11: the gate criterion must not move when the corpus changes.
+
+    The two observed corpora differ by 233x in bytes per Actor. A criterion in
+    seconds-per-Actor-count would have passed the synthetic run and failed the
+    real one at identical code quality; throughput does not.
+    """
+    synthetic = bm.throughput_ms_per_mb(793.866, 1_090_981)   # C-9 benchmark
+    real = bm.throughput_ms_per_mb(9_566.0, 16_287_185)       # Rehearsal B
+
+    assert 700 < synthetic < 760
+    assert 550 < real < 620
+    # The real run is faster per megabyte despite taking 12x the wall clock.
+    assert real < synthetic
+    assert max(synthetic, real) < bm.THROUGHPUT_LIMIT_MS_PER_MB
+
+
+def test_the_throughput_gate_reports_a_breach_rather_than_hiding_it():
+    slow = bm.calculate_stats([int(60e9)] * 7)  # 60 s for the artifact below
+    gate = bm.calculate_throughput_gate(slow, 1_000_000)
+
+    assert gate["within_limit"] is False
+    assert gate["observed_ms_per_mb"] == 60_000.0
+    assert gate["limit_ms_per_mb"] == bm.THROUGHPUT_LIMIT_MS_PER_MB
+
+
+def test_the_gate_measures_the_slowest_sample():
+    """A median would let one pathological run hide behind six good ones."""
+    uneven = bm.calculate_stats([int(1e9)] * 6 + [int(9e9)])
+    gate = bm.calculate_throughput_gate(uneven, 10_000_000)
+
+    assert gate["observed_ms_per_mb"] == 900.0  # from the 9 s sample, not the 1 s ones
+    assert gate["measured_from"] == "slowest sample, not the median"
+
+
 @pytest.mark.database
 def test_dirty_baseline_preservation_without_mutation(migrated_database, monkeypatch):
     """Regression test: a dirty baseline causes refusal without ANY truncate/delete mutation."""
