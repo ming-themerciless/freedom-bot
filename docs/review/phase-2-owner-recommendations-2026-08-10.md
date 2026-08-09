@@ -56,10 +56,13 @@ referred to Phase 3.
 | Performance | Change-log C-11: throughput ≤ 1,200 ms/MB, observed 587 real and 728 synthetic |
 | Migration and restore | upgrade/downgrade/upgrade and backup/restore/rerun, 2026-08-05, plus direct restricted-role denial of `UPDATE`, `DELETE`, `TRUNCATE` |
 
-One operations item is **not** closed: the temporary Caddy route published for
-the rehearsal was still present after the first revert attempt, because the
-backup it was restored from had been captured after the route was added. The
-clean source is `Caddyfile.phase2-active-backup-2026-08-06`.
+One operations item took two attempts and is now closed: the temporary Caddy
+route survived the first revert, because the backup it was restored from had
+itself been captured after the route was added. Reverted from
+`Caddyfile.phase2-active-backup-2026-08-06` at 2026-08-09 22:38 UTC and verified
+— no `via: 1.1 Caddy`, no CORS header, no body from that hostname. The lesson is
+recorded because a revert that silently does nothing is worth catching: verify
+the restore, not just the command.
 
 ## Product Owner
 

@@ -141,13 +141,18 @@ Two closures were validated by prediction, then observation:
 - **`foundry-module/scripts/canonical.js:15`** still describes the pre-C-10 key
   order in a comment. Deliberately not edited: changing the bytes of an
   installed, rehearsed 1.0.5 build for a comment is what CL3-I-2 warns against.
-- **Caddy** — a temporary public route (`freedom-blades.rpgworld.org`) was
-  published for the rehearsals because an SSH tunnel could not be made to work
-  from the maintainer's machine. It is credential-gated and its backend is
-  stopped, but **it is still in the live config**: the first revert restored a
-  backup that had itself been captured after the route was added. Clean source
-  is `Caddyfile.phase2-active-backup-2026-08-06`. One unsolicited `GET /` from
-  the internet was observed minutes after the route went up, answered `404`.
+- **Caddy — closed, and worth reading anyway.** A temporary public route
+  (`freedom-blades.rpgworld.org`) was published for the rehearsals because an SSH
+  tunnel could not be made to work from the maintainer's machine. It was
+  credential-gated throughout, and one unsolicited `GET /` from the internet was
+  observed minutes after it went up, answered `404`. **The first revert was a
+  silent no-op**: the backup it restored had itself been captured after the route
+  was added, so the route stayed live for about two hours after teardown.
+  Reverted from `Caddyfile.phase2-active-backup-2026-08-06` at 2026-08-09 22:38
+  UTC and verified by response headers — no `via: 1.1 Caddy`, no CORS header, no
+  body. A Cloudflare DNS record still resolves the name to an empty edge `200`
+  with no origin behind it. Recorded because a revert that appears to succeed and
+  does nothing is the shape of defect this package has found twice before.
 - The **fixture-guard test** recommended by
   `phase-2-i-03-fixture-identity-correction.md` remains untracked work.
 

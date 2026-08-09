@@ -86,8 +86,11 @@ Everything from commit `e1749db` onward, plus the standing Phase 2 package.
   still describes the pre-C-10 key-order rule in a comment. Deliberately not
   edited, to avoid changing the bytes of an installed, rehearsed 1.0.5 build for
   a comment.
-- **Caddy** — the temporary public route needs removing from the live config;
-  the first revert restored a backup that already contained it.
+- **Caddy** — closed. The temporary public route was reverted 2026-08-09 22:38
+  UTC, on the second attempt: the first restored a backup that had itself been
+  captured after the route was added. Verified — no `via: 1.1 Caddy` and no body
+  from that hostname. A Cloudflare DNS record still resolves it to an empty edge
+  `200` with no origin behind it.
 - The **fixture-guard test** recommended by
   `phase-2-i-03-fixture-identity-correction.md` remains untracked work.
 

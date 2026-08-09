@@ -64,15 +64,24 @@ and referred to the Acceptance Authority. **It is not waived here.**
 - [x] `freedom_test` truncated and verified: snapshots, audit events,
       idempotency keys, imports, characters and mappings all `0`, schema at
       `0004`.
-- [ ] Caddy reverted to `Caddyfile.pre-rehearsal-2026-08-09` — **maintainer
-      action, requires sudo**. The route currently answers `502`: the site block
-      is still present and its backend is gone.
-- [ ] Downloaded fallback, if any, deleted from the maintainer's workstation.
+- [x] **Caddy reverted 2026-08-09 22:38 UTC.** Restored from
+      `Caddyfile.phase2-active-backup-2026-08-06`, not from
+      `Caddyfile.pre-rehearsal-2026-08-09` — that backup had been captured after
+      the route was added, so the first revert attempt was a no-op and the route
+      stayed live for about two hours after teardown. Verified: the live config
+      is back to 440 bytes with no `freedom-blades` block; responses from that
+      hostname no longer carry `via: 1.1 Caddy`, no CORS header and no body, so
+      the request no longer reaches this host; `foundry1`, `2` and `3` all serve
+      normally. A Cloudflare DNS record still resolves the name and answers an
+      empty `200` from the edge — no origin behind it, worth deleting for
+      hygiene.
+- [x] Downloaded fallback deleted from the maintainer's workstation.
 
 ## Gate boundary
 
-Rehearsal B and its attestation are **two items** of §13.3 evidence. Outstanding
-for the Phase 2 gate: the recorded maintainer review of field profile
-`2026-08-09.1`, a ruling on RA-5, the independent review closure of every
-blocking finding — which does not exist and cannot be supplied by the party that
-implemented today's changes — and the Acceptance Authority's decision.
+Rehearsal B and its attestation are **two items** of §13.3 evidence. The field
+profile review and the RA-5 ruling were both recorded on 2026-08-10, and the
+attestation was signed the same day. Outstanding for the Phase 2 gate: the
+independent review closure of every blocking finding — which does not exist and
+cannot be supplied by the party that implemented these changes — and the
+Acceptance Authority's decision.

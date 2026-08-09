@@ -63,10 +63,9 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    [`../review/phase-2-supervised-rehearsal-2026-08-09.md`](../review/phase-2-supervised-rehearsal-2026-08-09.md);
    findings in
    [`../review/phase-2-rehearsal-a-findings-2026-08-09.md`](../review/phase-2-rehearsal-a-findings-2026-08-09.md).
-   A temporary public Caddy route was published for the session; **it is still
-   in the live config** and needs removing from
-   `Caddyfile.phase2-active-backup-2026-08-06`, because the first revert restored
-   a backup that already contained the route.
+   A temporary public Caddy route was published for the session and **reverted
+   2026-08-09 22:38 UTC**, on the second attempt: the first restored a backup
+   that had itself been captured after the route was added.
 7b. ~~**Rehearsal B — the active-folder gate rehearsal.**~~ — **completed
    2026-08-09.** 32 Actors, 0 errors, 0 warnings, every Actor accounted for,
    zero unexplained identity discrepancies, nothing applied. Records:
@@ -87,8 +86,8 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    which cannot come from Claude — the profile change, the canonical-order
    change, the threshold ruling and the CL3 fixes were all implemented by the
    party that raised them, at maintainer instruction; and the Acceptance
-   Authority's decision. One operational item is also open: removing the
-   temporary Caddy route from the live config.
+   Authority's decision. The temporary Caddy route was removed and
+   verified on 2026-08-09.
 
 Running in parallel, releasing nothing: **Phase 2 I-03** (snapshot submission)
 was independently reviewed on 2026-08-04 — three Blocking findings (B-1 the
