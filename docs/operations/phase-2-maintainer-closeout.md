@@ -15,14 +15,14 @@ Follow it from top to bottom. Do not skip a red stop condition.
 
 Phase 2 is finished only after all boxes in this list are checked:
 
-- [ ] four operating thresholds are decided and recorded;
-- [ ] field profile `2026-08-03.1` is reviewed and accepted or corrected;
-- [ ] the inactive-folder Foundry rehearsal passes;
-- [ ] the credential-confidentiality observation passes;
-- [ ] the real-browser origin observation passes positively and negatively;
-- [ ] the active-folder preview accounts for every Actor with zero unexplained
-      identity discrepancy;
-- [ ] a sanitized Data Owner attestation is written;
+- [x] four operating thresholds are decided and recorded — observation policy and retention (D-c) 2026-08-05; performance restated per megabyte by change-log **C-11** on 2026-08-09 after finding RA-5 showed the C-9 wall-clock figures were calibrated on unrepresentative data;
+- [x] field profile **`2026-08-09.1`** is reviewed and accepted — `docs/review/phase-2-field-profile-maintainer-review-2026-08-10.md`. (`2026-08-03.1` was superseded by finding RA-1; it was never reviewed and no longer needs to be.);
+- [x] the inactive-folder Foundry rehearsal passes — Rehearsal A, `docs/review/phase-2-supervised-rehearsal-2026-08-09.md`;
+- [x] the credential-confidentiality observation passes — §8.1 both halves, Rehearsal A section C;
+- [x] the real-browser origin observation passes positively and negatively — §8.2 both halves, Rehearsal A section D. The negative case had never been run before 2026-08-09;
+- [x] the active-folder preview accounts for every Actor with zero unexplained
+      identity discrepancy — Rehearsal B, 32 of 32, 0 errors and 0 warnings;
+- [x] a sanitized Data Owner attestation is written **and signed** 2026-08-10 — `docs/review/phase-2-data-owner-attestation-2026-08-09.md`;
 - [ ] an independent reviewer reviews the complete Phase 2 gate package;
 - [ ] Peter records the Data, Security, Operations and Product Owner
       recommendations;
@@ -590,8 +590,8 @@ As of 2026-08-09:
   the two builds must not share a string. Nothing has been installed anywhere
   as 1.0.5. The trial database was destroyed, so no stored row needs
   correcting;
-- no active-folder Data Owner attestation exists;
-- field profile `2026-08-03.1` has no recorded maintainer acceptance;
+- ~~no active-folder Data Owner attestation exists~~ — signed 2026-08-10, `docs/review/phase-2-data-owner-attestation-2026-08-09.md`;
+- ~~field profile `2026-08-03.1` has no recorded maintainer acceptance~~ — superseded: `2026-08-09.1` was reviewed and accepted on 2026-08-10;
 - the positive credential-confidentiality facts and allowed-origin browser
   path were observed; credential cleanup/revocation confirmation and the
   negative removed-origin browser path remain pending;

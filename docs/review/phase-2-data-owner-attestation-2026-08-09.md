@@ -117,9 +117,14 @@ stands in the record either way.
 > described in §4, that I raised it rather than waiving it, and that the
 > criterion was corrected by change-log C-11 on the same day.
 
-Signed: **_______________________** (Peter Duscha, Data Owner)
+Signed: **Peter Duscha**, Data Owner
 
-Date: **_______________**
+Date: **2026-08-10**
+
+The signature date is the Data Owner's local date (CEST). Every timestamp in
+§1 and in the run records is UTC, where the submission falls on 2026-08-09 at
+22:09:03 — 00:09 on 2026-08-10 local. The two dates describe the same evening
+and are not a discrepancy.
 
 ---
 
