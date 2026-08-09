@@ -56,7 +56,7 @@ same bytes, so the encoding is part of the contract rather than a convention:
 | Container | one JSON document |
 | Encoding | UTF-8, no byte-order mark |
 | Line ending | `\n` |
-| Object keys | sorted by Unicode code point, at every depth |
+| Object keys | ECMAScript own-property order at every depth: integer-index keys first, ascending numerically; then all other keys sorted by Unicode code point. See §1.0 |
 | Separators | `,` and `:` with no surrounding whitespace |
 | Array order | `folders` and `actors` sorted ascending by `id`; every other array keeps the order Foundry reports |
 | Numbers | JSON numbers; no `NaN`, no `Infinity`, no `-0` |
@@ -68,6 +68,41 @@ SHA-256 of those bytes, computed before parsing. It never re-serialises an
 artifact and calls the result the same snapshot. Canonicalisation is the
 exporter's obligation: it makes two exports of an unchanged world compare equal,
 and it is not something the Manager may apply retroactively.
+
+### 1.0 Why key order is ECMAScript's and not plain code-point order
+
+Changed 2026-08-09 after finding
+[RA-2](../review/phase-2-rehearsal-a-findings-2026-08-09.md). Until then this
+row read "sorted by Unicode code point, at every depth", and **no conforming
+exporter could satisfy it.**
+
+dnd5e keys scale-value advancements by class level, so a real Actor carries
+objects like `{"1": …, "4": …, "10": …}`. ECMAScript defines own-property order
+as integer-index keys first in ascending numeric order, then string keys; a
+browser exporter therefore emits `"1","4","10"` no matter how it sorts, because
+`Object.keys` has already reordered them. Code-point order wants `"1","10","4"`.
+The consequence was that `canonical_encoding` was reported false for every real
+world and true only for synthetic fixtures, which have no integer-like keys —
+so the flag was structurally unable to mean anything.
+
+The rule now matches what the only supported exporter can produce:
+
+- a key is an **integer index** if it is a canonical decimal integer in
+  `[0, 2**53 - 1]` — so `"01"`, `"-1"`, `"1.0"` and `" 1"` are ordinary string
+  keys, exactly as JavaScript treats them;
+- integer indices come first, ascending numerically;
+- every other key follows, sorted by Unicode code point.
+
+The second half is this contract's, not the language's: ECMAScript would use
+insertion order there, which is not a property a canonical form may depend on.
+
+What did **not** change: the Manager still preserves the original bytes and
+identifies an artifact by their SHA-256. Duplicate detection never depended on
+canonicalisation, because an exporter's output is deterministic — re-exporting
+an unchanged world yields identical bytes whatever the key order. What
+canonicalisation buys is comparability *between* exporters, which is why a
+non-canonical artifact is a warning naming the exporter and version, and never a
+refusal.
 
 ### 1.1 Boundary projection of undefined
 

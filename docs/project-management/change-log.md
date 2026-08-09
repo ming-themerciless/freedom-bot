@@ -619,6 +619,63 @@ Recorded and accepted by Peter Duscha on 2026-08-05.
 - **Acceptance Authority decision:** **accepted by Peter Duscha on 2026-08-05.**
   This closes only §9.4 items 3 and 4 and does not accept I-03 or Phase 2.
 
+## v1.5 correction C-10 — canonical key order in the Foundry export contract
+
+Recorded 2026-08-09. Ruled by Peter Duscha the same day, on finding RA-2 from
+Rehearsal A.
+
+- **Affected requirements:** `docs/rules/foundry-export-contract.md` §1
+  ("Object keys"), new §1.0; `application/foundry/parser.py:canonical_bytes`;
+  the `non_canonical_encoding` warning text in
+  `application/foundry/reconciliation.py`.
+- **Reason:** the contract required object keys "sorted by Unicode code point,
+  at every depth", and **no conforming exporter could satisfy it**. dnd5e keys
+  scale-value advancements by class level, so real Actors carry `{"1":…,"4":…,
+  "10":…}`; ECMAScript places integer-index keys first in ascending numeric
+  order, so a browser exporter emits `"1","4","10"` however it sorts. Verified
+  against the shipped module rather than assumed: `canonical.js` sorts the key
+  array to `["1","10","4"]` correctly, then rebuilds an object and the engine
+  reorders it on insertion. `canonical_encoding` was therefore false for every
+  real world and true only for synthetic fixtures — a flag structurally unable
+  to carry information.
+- **Decision:** adopt ECMAScript own-property order as the contract's canonical
+  order — integer-index keys (canonical decimal integers in `[0, 2**53-1]`)
+  first in ascending numeric order, then all other keys by Unicode code point.
+- **Alternatives considered:** require such maps to be emitted as JSON arrays,
+  which changes the wire shape and every consumer of it; or drop the
+  canonical-encoding claim entirely, which discards a genuine
+  cross-exporter comparability property. Both were rejected as larger than the
+  defect.
+- **Added/removed scope:** none. No field, aggregate, route or migration is
+  affected, and nothing became writable or comparable that was not before.
+- **Dependency and critical-path effect:** closes RA-2. **The Foundry module is
+  unchanged and requires no version bump** — the exporter always conformed to
+  the new rule; the contract had described something else. Module `1.0.5`
+  remains the installed, rehearsed build of record.
+- **Estimate/forecast and capacity effect:** none; no calendar forecast exists.
+- **Risk effect:** removes a permanently-false report that would have trained
+  operators to ignore a warning. The second half of the rule — string keys by
+  code point — is this contract's own, not ECMAScript's, because the language
+  would use insertion order there and a canonical form may not depend on that.
+- **Testing effect:** four new parser tests pin numeric-before-string ordering,
+  the array-index definition (`"01"`, `"-1"`, `"1.0"` are string keys), and
+  recursion through nested lists and objects. Full suite 1,781 passed, 208
+  skipped (database-dependent, no `TEST_DATABASE_URL` in this session).
+- **Migration effect:** none. Artifact identity is the SHA-256 of the original
+  bytes and is untouched; the Manager still never re-serialises an artifact.
+  Duplicate detection never depended on canonicalisation.
+- **Security and operational effect:** none. The warning text was also
+  corrected: it claimed "two exports of an unchanged world will not compare
+  equal", which was false — an exporter's own output is deterministic.
+- **Product/Data/Operations Owner recommendation:** accepted by Peter Duscha in
+  those roles for this decision.
+- **Technical Lead and specialist reviews:** implemented by Claude, who also
+  raised RA-2. **It carries no independent review**; it is part of the set going
+  to the Independent Reviewer with the Phase 2 gate evidence.
+- **Acceptance Authority decision:** **ruled by Peter Duscha on 2026-08-09.**
+  This closes RA-2 and accepts no implementation beyond it; it does not close
+  the Phase 2 gate.
+
 ## Required fields for later entries
 
 Every material entry must identify:

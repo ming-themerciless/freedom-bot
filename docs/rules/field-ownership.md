@@ -7,7 +7,7 @@ answers again. ADR 0008 was **rejected** on 2026-08-02 and controlled baseline
 v1.1/v1.5 removed Sheet-era migration from Phase 2; this document records the
 resulting classification.
 
-Profile version: **`2026-08-03.1`** — implemented in
+Profile version: **`2026-08-09.1`** — implemented in
 [`domain/foundry_profile.py`](../../domain/foundry_profile.py), with the types
 and invariants in [`domain/field_profile.py`](../../domain/field_profile.py).
 
@@ -32,6 +32,30 @@ conflating them is what produced the rejected design.
 The profile classifies **current authority**, because that is what an import is
 entitled to act on. Target ownership is recorded below as context and never as
 permission.
+
+### What changed at profile version `2026-08-09.1`
+
+Rehearsal A previewed a real 35-Actor export on 2026-08-09 and found ten paths
+the profile did not classify (finding
+[RA-1](../review/phase-2-rehearsal-a-findings-2026-08-09.md)). The behaviour was
+correct — unclassified paths are reported and never written — but Phase 2
+acceptance requires the profile to be exhaustive against supported data, and it
+was not. Only real data could show this: no synthetic fixture carried these
+paths.
+
+| Change | Reason |
+|---|---|
+| `system.favorites.*` and `system.favorites[].*` classified **snapshot-only** | The character sheet's favourites bar. Foundry client presentation, not game state; nothing rolls from it and the platform will never own it |
+| `system.source.*` classified **snapshot-only** | Sourcebook provenance (`book`, `custom`, `license`, `page`, `revision`, `rules`). The platform records provenance by snapshot checksum, not by publisher citation |
+
+Two rules are needed for favourites, not one: a path inside an array element is
+spelled `system.favorites[].id`, and the `system.favorites.*` prefix does not
+match it, because the next character is `[` rather than `.`. Combining them
+would silently restore the finding, so a test pins both prefixes.
+
+No field gained or lost an owner, no authority changed, and nothing became
+correctable. Bumping the version makes every outstanding preview stale, which is
+the intended effect of any profile edit.
 
 ### What changed at profile version `2026-08-03.1`
 

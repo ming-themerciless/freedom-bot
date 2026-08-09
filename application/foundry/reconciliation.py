@@ -645,9 +645,12 @@ def reconcile(
                 code="non_canonical_encoding",
                 message=(
                     "The artifact is not in the contract's canonical encoding. "
-                    "It is still a valid snapshot with its own identity, but two "
-                    "exports of an unchanged world will not compare equal until "
-                    "the exporter canonicalises its output."
+                    "It is still a valid snapshot with its own identity, and "
+                    "byte-for-byte duplicate detection is unaffected: an "
+                    "exporter's own output is deterministic, so re-exporting an "
+                    "unchanged world still yields the same bytes. What this "
+                    "warns about is comparability *between* exporters. Report "
+                    "it with the exporter id and version."
                 ),
                 severity=IssueSeverity.WARNING,
             )

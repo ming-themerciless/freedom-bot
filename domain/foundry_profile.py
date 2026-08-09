@@ -1,4 +1,4 @@
-"""The Freedom Blades field profile, version `2026-08-03.1`.
+"""The Freedom Blades field profile, version `2026-08-09.1`.
 
 This module is **data**: the one place that says, for every supported snapshot
 path, what the platform does with it, and for every field a path feeds, what the
@@ -9,6 +9,35 @@ with it.
 The version string is stored on every preview, import, comparison and
 calculation. Editing any row below is a profile change: it must bump the
 version, and doing so makes every outstanding preview stale.
+
+## What changed at `2026-08-09.1`
+
+Rehearsal A on 2026-08-09 previewed a real 35-Actor export and found ten paths
+this profile did not classify — finding RA-1. `classify` answered `None` for
+each, which is the fail-closed answer and meant they were reported and never
+written; but Phase 2 acceptance requires the profile to be *exhaustive* against
+supported data, and it was not.
+
+Three subtree rules close that gap, all `SNAPSHOT_ONLY`:
+
+- `system.favorites.*` and `system.favorites[].*` — the character sheet's
+  favourites bar. Presentation state belonging to the Foundry client. It is not
+  game state, the platform will never own it, and no roll consumes it.
+- `system.source.*` — the Actor's sourcebook provenance (`book`, `custom`,
+  `license`, `page`, `revision`, `rules`). Reference metadata about where a
+  statblock came from; the platform records provenance by snapshot checksum, not
+  by publisher citation.
+
+Two rules are needed for favourites rather than one because a path under an
+array element is spelled `system.favorites[].id`, and a `system.favorites.*`
+prefix does not match it — the character after the prefix is `[`, not `.`.
+
+These are subtree rules, so a *new* path appearing under either subtree is
+classified rather than failing closed. That is the same trade the profile
+already makes for `system.attributes.*` and mundane inventory, and it is
+acceptable for the same reason: neither subtree can become owned state without a
+profile change, because `SNAPSHOT_ONLY` has no writable classification to
+promote to.
 
 ## What changed at `2026-08-03.1`
 
@@ -60,7 +89,7 @@ from domain.field_profile import (
 )
 from domain.snapshot_values import Comparison
 
-PROFILE_VERSION = "2026-08-03.1"
+PROFILE_VERSION = "2026-08-09.1"
 
 #: Embedded item types carrying physical possessions. Magic items are the subset
 #: of these whose `system.rarity` is a real rarity; everything else in the
@@ -389,6 +418,27 @@ def _snapshot_fields() -> tuple[SnapshotField, ...]:
             path="system.attributes.*",
             mode=SnapshotMode.SNAPSHOT_ONLY,
             note="Remaining Actor attributes: display and DM reference.",
+        ),
+        # RA-1: found by previewing a real export, not by a fixture. Two rules,
+        # because `system.favorites[].id` does not match a `system.favorites.*`
+        # prefix — the next character is `[`, not `.`.
+        SnapshotField(
+            path="system.favorites.*",
+            mode=SnapshotMode.SNAPSHOT_ONLY,
+            note="Character sheet favourites bar: Foundry client presentation.",
+        ),
+        SnapshotField(
+            path="system.favorites[].*",
+            mode=SnapshotMode.SNAPSHOT_ONLY,
+            note="Favourite entries (`id`, `sort`, `type`): presentation only.",
+        ),
+        SnapshotField(
+            path="system.source.*",
+            mode=SnapshotMode.SNAPSHOT_ONLY,
+            note=(
+                "Sourcebook provenance for the Actor. The platform records "
+                "provenance by snapshot checksum, not by publisher citation."
+            ),
         ),
         SnapshotField(
             path="system.traits.dr.*",

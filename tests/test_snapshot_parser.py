@@ -116,6 +116,41 @@ def test_canonical_encoding_is_reported_but_never_enforced():
     assert canonical_bytes(document) != loose
 
 
+def test_canonical_order_is_ecmascript_own_property_order():
+    """RA-2: integer-index keys sort numerically, ahead of every string key.
+
+    Found by previewing a real export, not by a fixture. dnd5e keys scale-value
+    advancements by class level, so a real Actor carries `{"1":…,"4":…,"10":…}`.
+    A browser exporter emits those numerically however it sorts, because
+    `Object.keys` hoists integer-index keys — so a lexicographic canonical form
+    (`"1","10","4"`) was one no conforming exporter could ever produce.
+    """
+    encoded = canonical_bytes({"scale": {"10": "c", "4": "b", "1": "a"}})
+
+    assert encoded == b'{"scale":{"1":"a","4":"b","10":"c"}}\n'
+
+
+def test_only_canonical_integer_keys_count_as_array_indices():
+    """`"01"`, `"-1"`, `"1.0"` and `" 1"` are string keys in JavaScript too."""
+    encoded = canonical_bytes(
+        {"2": "idx", "10": "idx", "01": "str", "-1": "str", "1.0": "str", "b": "str"}
+    ).decode()
+
+    assert encoded.index('"2"') < encoded.index('"10"')          # numeric, not "10" < "2"
+    assert encoded.index('"10"') < encoded.index('"-1"')         # indices before names
+    assert encoded.index('"-1"') < encoded.index('"01"') < encoded.index('"1.0"')
+    assert encoded.index('"1.0"') < encoded.index('"b"')
+
+
+def test_canonical_ordering_recurses_through_lists_and_objects():
+    """The generator bug this guards against encoded every object as `{}`."""
+    encoded = canonical_bytes(
+        {"outer": [{"10": {"z": 1, "a": 2}, "2": {}}], "a": {"b": {"c": 1}}}
+    ).decode()
+
+    assert encoded == '{"a":{"b":{"c":1}},"outer":[{"2":{},"10":{"a":2,"z":1}}]}\n'
+
+
 # -- shape ---------------------------------------------------------------------
 
 

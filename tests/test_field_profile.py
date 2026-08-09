@@ -457,6 +457,52 @@ def test_exact_rules_beat_prefix_rules_and_longer_prefixes_win():
     assert PROFILE.classify("system.traits.size").mode is SnapshotMode.SNAPSHOT_ONLY
 
 
+#: The exact paths a real 35-Actor export carried that profile `2026-08-03.1`
+#: could not classify (finding RA-1, Rehearsal A, 2026-08-09). Written out
+#: rather than generated, because the point of the test is that *these observed
+#: paths* are covered — a generated list would drift with the profile it guards.
+RA1_OBSERVED_PATHS = (
+    "system.favorites",
+    "system.favorites[].id",
+    "system.favorites[].sort",
+    "system.favorites[].type",
+    "system.source.book",
+    "system.source.custom",
+    "system.source.license",
+    "system.source.page",
+    "system.source.revision",
+    "system.source.rules",
+)
+
+
+@pytest.mark.parametrize("path", RA1_OBSERVED_PATHS)
+def test_the_paths_a_real_export_carried_are_classified(path: str):
+    """RA-1: the profile was not exhaustive against real data until 2026-08-09."""
+    rule = PROFILE.classify(path)
+
+    assert rule is not None, f"{path} is unclassified; classify returns fail-closed None"
+    assert rule.mode is SnapshotMode.SNAPSHOT_ONLY
+    assert rule.profile_field is None, (
+        f"{path} feeds a profile field, so it would be reported and compared; "
+        "presentation and provenance metadata must not become owned state"
+    )
+
+
+def test_favourites_needs_both_rules_because_of_the_array_spelling():
+    """A `system.favorites.*` prefix does not reach `system.favorites[].id`.
+
+    The next character after the prefix is `[`, not `.`, so `classify` would
+    answer `None`. This is the mistake RA-1 is easiest to re-introduce by
+    "tidying" the two rules into one.
+    """
+    prefixes = {
+        rule.prefix for rule in PROFILE.snapshot_fields if rule.is_prefix
+    }
+
+    assert "system.favorites" in prefixes
+    assert "system.favorites[]" in prefixes
+
+
 def test_the_alias_table_is_explicit_and_leaves_unknown_keys_alone():
     assert PROFILE.alias("disg") == "disguise"
     assert PROFILE.alias("scrolls") == "scroll"

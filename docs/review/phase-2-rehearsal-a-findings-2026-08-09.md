@@ -31,10 +31,18 @@ rather than anything the platform should own, so the likely resolution is an
 explicit snapshot-only classification rather than new owned state. That is a
 profile decision, not an implementation change.
 
-**Disposition:** classify the ten paths, bump the profile version, and record the
-maintainer review that Phase 2 has always required and has never had. Both are
-gate items already outstanding; this finding gives the first of them concrete
-content.
+**Disposition: CLASSIFIED, 2026-08-09.** All ten paths are now
+`SNAPSHOT_ONLY` in profile **`2026-08-09.1`**: `system.favorites.*`,
+`system.favorites[].*` (client presentation) and `system.source.*` (publisher
+provenance). None gained an owning package, because none will ever become
+platform state. `docs/rules/field-ownership.md` moved with the module — the
+doc-sync test refused the change until it did — and fourteen tests pin the
+observed paths and both favourites prefixes.
+
+**Still outstanding:** the *maintainer review* of the profile, which Phase 2
+acceptance has always required and which has never been recorded for any
+version. The classification above is a proposal accepted by the Data Owner on
+2026-08-09; the formal review record is a separate gate item.
 
 ## RA-2 — `canonical_encoding` cannot be true for any real world — **contract decision**
 
@@ -67,11 +75,24 @@ of an unchanged world will not compare equal until the exporter canonicalises it
 output" — **misstates the consequence** and should be corrected whichever way the
 contract goes.
 
-**Disposition:** a maintainer decision on
-`docs/rules/foundry-export-contract.md`. Three options: adopt ECMAScript
-own-property order as the canonical order; require such maps to be emitted as
-arrays; or drop the canonical-encoding claim and keep the flag as a report only.
-Nothing blocks on it today, because the flag is only reported.
+**Disposition: RULED AND CLOSED, 2026-08-09.** Peter Duscha adopted ECMAScript
+own-property order as the contract's canonical order — change-log **C-10**.
+`docs/rules/foundry-export-contract.md` §1 and new §1.0 carry the rule,
+`canonical_bytes` implements it, four parser tests pin it, and the misstated
+warning text is corrected.
+
+The mechanism was confirmed against the shipped module rather than inferred:
+`canonical.js` sorts the key array to `["1","10","4"]` exactly as the old
+contract demanded, then rebuilds an object, and the engine reorders it to
+`["1","4","10"]` on insertion; the serialiser then walks `Object.keys`
+deliberately unsorted. **The exporter always conformed to the rule the contract
+should have stated**, so the module is unchanged and keeps version `1.0.5`.
+
+One follow-up, deliberately not done today: the comment table in
+`foundry-module/scripts/canonical.js:15` still describes the old rule. Editing
+it would change the bytes of an installed, rehearsed build for a comment, which
+CL3-I-2 is a reason not to do casually. It should ride along with the next
+module change that bumps the version.
 
 ## RA-3 — a `401` on a large upload surfaces as `network_failure` — **diagnostic quality, bounded**
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -199,15 +199,64 @@ class ParsedSnapshot:
         )
 
 
+#: An object key JavaScript treats as an array index rather than a string key.
+#: ECMAScript's definition, not an approximation of it: a canonical decimal
+#: integer in `[0, 2**53 - 1]`, so `"01"`, `"1.0"`, `"-1"` and `" 1"` are
+#: ordinary string keys.
+_ARRAY_INDEX = re.compile(r"^(0|[1-9][0-9]*)$")
+_MAX_ARRAY_INDEX = 2**53 - 1
+
+
+def _is_array_index(key: str) -> bool:
+    return bool(_ARRAY_INDEX.match(key)) and int(key) <= _MAX_ARRAY_INDEX
+
+
+def _canonical_key_order(keys: Iterable[str]) -> list[str]:
+    """ECMAScript own-property order over an object's keys.
+
+    Integer-index keys first, ascending **numerically**; then every other key,
+    lexicographically. The second half is ours — ECMAScript would use insertion
+    order there, which is not a property a canonical form may depend on — but
+    the first half is the language's, and no exporter running in a browser can
+    deviate from it.
+    """
+    # Materialised: this walks `keys` twice, and a generator would be empty on
+    # the second pass — which silently encodes every object as `{}`.
+    all_keys = list(keys)
+    indices = sorted((k for k in all_keys if _is_array_index(k)), key=int)
+    names = sorted(k for k in all_keys if not _is_array_index(k))
+    return indices + names
+
+
+def _ordered(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            key: _ordered(value[key])
+            for key in _canonical_key_order(str(k) for k in value)
+        }
+    if isinstance(value, (list, tuple)):
+        return [_ordered(item) for item in value]
+    return value
+
+
 def canonical_bytes(document: Mapping[str, object]) -> bytes:
     """The contract's canonical encoding of a parsed document.
 
     Used only to *report* whether the artifact already matched it. The Manager
     never re-encodes an artifact and calls the result the same snapshot.
+
+    **Key order is ECMAScript's, not `sort_keys=True`** — RA-2, 2026-08-09.
+    The previous lexicographic order made this flag false for every real world:
+    dnd5e keys scale-value advancements by class level, so an Actor with a class
+    reaching level 10 carries `{"1": …, "4": …, "10": …}`, and a browser exporter
+    emits those numerically however it sorts, because `Object.keys` hoists
+    integer-index keys. Lexicographic order wanted `"1","10","4"`, which no
+    conforming JavaScript exporter can produce. A canonical form that the only
+    supported exporter cannot satisfy is a defect in the form.
     """
     text = json.dumps(
-        document,
-        sort_keys=True,
+        _ordered(document),
+        sort_keys=False,
         ensure_ascii=False,
         separators=(",", ":"),
         allow_nan=False,
