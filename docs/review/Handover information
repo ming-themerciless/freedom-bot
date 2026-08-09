@@ -1,309 +1,197 @@
-# Claude re-review request — R-1 through R-4 trial-finding remediation
+# Codex handover — independent review of the complete Phase 2 gate package
 
-Prepared: 2026-08-09
-Remediated by: Codex, implementer
-Prior trial and findings: Claude, independent implementation and security reviewer
-Decision authority: Peter Duscha
+Prepared: 2026-08-10
+Requested by: Peter Duscha, Acceptance Authority
+Implementer of the work under review: Claude
+Reviewer: Codex, as Independent Reviewer
+Repository: branch `docs/platform-plan`, through commit `189aaa0`
 
-## Role and requested outcome
+> This file previously held the Claude re-review request for R-1…R-4. That
+> review completed and is recorded in
+> `phase-2-i-03-r1-r4-claude-review.md`; the superseded request remains in Git
+> history. It was overwritten on the maintainer's instruction.
 
-Act as the independent Claude reviewer. Review only; do not modify
-implementation, tests, operations documentation, Foundry, databases,
-credentials, endpoints, real exports, or `docs/screenshots/`.
+---
 
-Codex confirmed the 1.0.4 implementation review, classified R-1 through R-3
-Important, and classified R-4 Blocking because the written recovery control
-could falsely report a miss for a duplicate submission. Review the remediations
-of all four findings and recommend whether they are closed. The earlier trial
-record remains below for context; do not re-review the accepted 1.0.4 lifecycle
-implementation except where these changes touch it.
+## 1. What is being asked
 
-## Remediation summary
+Recommend whether the **Phase 2 data-integrity, identity and migration-safety
+gate** may close.
 
-### R-1 — behavioural reload-warning coverage
+This is the review the implementation plan requires as §13.3 operational
+evidence — "independent review closure of every blocking security, identity,
+atomicity, migration and recovery finding". It is the last technical item before
+the Acceptance Authority's decision. Nine of the ten closeout criteria in
+`docs/operations/phase-2-maintainer-closeout.md` §1 are checked; this review is
+the tenth.
 
-Notification construction moved to the pure `failureNotification` seam. Its
-tests drive typed, unexpected, pinned and unpinned outcomes and assert the
-actual returned operator message. A separate wiring assertion requires the
-live `run` catch path to compute the post-failure pin state, pass it through
-`notifyFailure`, and pass it into the pure builder. Removing the live argument
-or the builder's behavior now fails.
+Do not close the gate. Recommend, and list any criterion you find unmet.
 
-### R-2 — bounded artifact-code diagnosis
+## 2. Read this before anything else
 
-`artifact_rejected` now shows a separately bounded `artifact_code`, such as
-`unsupported_deployment`, while continuing to suppress all server-authored
-prose. `SERVER_ARTIFACT_CODES` is held in exact cross-language equality with
-the server's `ARTIFACT_REFUSAL_CODES`; an unknown or hostile value remains
-hidden.
+**Nothing in this package has been independently reviewed, and the person who
+found most of the defects also fixed them.**
 
-### R-3 — scratch deployment pin
+On 2026-08-09/10, at the maintainer's explicit instruction — given to end a
+review cycle that had stopped producing value — Claude acted as both reviewer
+and implementer:
 
-The loopback-only `tools.snapshot_api` rehearsal launcher accepts four
-rehearsal-namespaced environment variables as one all-or-nothing deployment
-tuple. Partial, blank, overlong or unsafe values refuse startup. The default
-remains `OBSERVED_DEPLOYMENT`, production composition does not read the
-override, and startup prints the effective tuple for comparison with Foundry.
-The operations guide documents the scope and disposable-database requirement.
-
-### R-4 — duplicate-safe lost-pin reconciliation
-
-The recovery query now selects the current attempt's append-only
-`snapshot_submission.accepted` audit event by `audit_events.occurred_at`, then
-joins `audit_events.entity_id` (the checksum) to the all-time
-`foundry_snapshots` row. A duplicate therefore produces a current-window event
-joined to the original snapshot even when that snapshot's `received_at` is old.
-The result includes the audit payload's `duplicate` value.
-
-The miss rule requires this audit-event query to be repeated and return no
-accepted new or duplicate attempt before a fresh export can be authorized. The
-guide explicitly prohibits restoring a `foundry_snapshots.received_at` filter.
-Rehearsal A step 10 now requires the harder duplicate-response-loss case and an
-expected hit with `duplicate = true`.
-
-`tests/test_snapshot_recovery_documentation.py` requires the audit-to-snapshot
-checksum join, the attempt-time audit bounds, the absence of snapshot-time
-bounds, the duplicate output, and the duplicate-safe miss rule.
-
-## Required context
-
-- `.agents/AGENTS.md`
-- `docs/implementation-plan.md`, especially §13.3, §16.4 and §17
-- `docs/review/phase-2-i-03-lifecycle-1.0.4-claude-review.md`
-- `docs/review/phase-2-i-03-lifecycle-1.0.4-claude-security-review.md`
-- `docs/review/phase-2-i-03-fixture-identity-correction.md`
-- `docs/operations/foundry-snapshot-submission.md` §6 and §9
-- `foundry-module/scripts/notifications.js`
-- `foundry-module/scripts/transport.js`
-- `tools/snapshot_api.py`
-- `foundry-module/tests/notifications.test.mjs`
-- `tests/test_snapshot_api.py`
-- `tests/test_snapshot_recovery_documentation.py`
-- the current working-tree diff
-
-## Part 1 — the 1.0.4 code review, in one paragraph
-
-CL-B-1 is closed: `malformed_response` is delivery-indeterminate at any status,
-and on a `409` only a positively identified `request_key_conflict` is
-definitive. CL-B-2 is closed: an operation that begins with an unresolved pin
-re-authorises that pin on any failure that is not a Discard or an identified
-conflict. Verified through the production `executeWorkflow` path with 66
-reproductions plus 35 adversarial security cases, including byte and
-idempotency-key identity across a mutated world and a later clock, and
-operation-token races in both directions. No regression found. One Important
-finding remains open (CL2-I-1, below) and five Optional.
-
-Checks at remediation handoff: 8 `node --check`, **143 Node tests**, **1756
-Python passed / 208 skipped**, `git diff --check` clean.
-
-## Part 2 — the rehearsal trial, 2026-08-09
-
-### Environment
-
-Deliberately *not* the live Guild world. Module 1.0.4 was installed on the
-`foundry3` instance and activated by the maintainer in the scratch world `test`
-(dnd5e 5.3.3, core 14.365). The submission endpoint was published at
-`https://freedom-blades.rpgworld.org` through the existing Cloudflare + Caddy
-path, with a rehearsal-only fault injector between Caddy and the service. The
-disposable database `freedom_test` was emptied first. The folder submitted held
-14 Actors, all synthetic or maintainer-owned; no live Guild data was read.
-
-Two scratchpad tools were used and are **not** part of the repository:
-
-- a fault injector that forwards the complete POST upstream, waits for the
-  upstream response, then drops it and closes the connection; and
-- a launcher that composes the application with the deployment pin moved to
-  world `test`, using the documented `deployment` seam (see finding R-3).
-
-### What happened, in order
-
-| UTC | Event |
+| Raised by Claude | Then implemented by Claude |
 |---|---|
-| 15:22:59 | submission refused — my endpoint misconfiguration; audited |
-| 15:48:34 | submission refused — `artifact_rejected` / `unsupported_deployment` |
-| 16:02:40 | submission **accepted**, checksum `15893eed…`, 14 Actors |
-| 16:10:56 | fault armed |
-| 16:19:11 | submission **committed upstream, response dropped**, `bcc87c7c…` |
-| 16:19:11+ | operator saw `network_failure` **with the reload caution** |
-| — | pinned dialog state confirmed, then page reloaded, pin lost |
-| — | no fresh submission made; reconciliation run; **hit branch** |
+| CL3-I-1 (deployment override not bound to a disposable target) | the `APP_ENVIRONMENT=test` restriction |
+| CL3-I-2 (two builds sharing version 1.0.4) | the bump to 1.0.5 and the manifest-agreement test |
+| CL3-O-1 (docstring contradicting behaviour) | the corrected docstring |
+| RA-1 (field profile not exhaustive against real data) | the ten new classifications and profile `2026-08-09.1` |
+| RA-2 (canonical encoding unachievable by any JS exporter) | the ECMAScript ordering rule, change-log C-10 |
+| RA-5 (performance threshold calibrated on unrepresentative data) | the throughput criterion, change-log C-11 |
 
-Reconciliation returned exactly one row — `9a23a97d-c45d-421b-b91d-500d79fc2b04`,
-checksum `bcc87c7c…`, 14 Actors, `received_via = foundry_module` — a pending
-snapshot the browser never learned about. Nothing was applied throughout:
-`characters = 0`, `snapshot_imports = 0`.
+Every judgement in those rows is unchecked: the classification of the ten paths,
+the ordering rule, the throughput unit, the 1,200 ms/MB limit. Each is recorded
+in its own document as carrying no independent review. **Treat this section as
+the primary reason the review exists**, not as a disclaimer.
 
-The audit trail recorded all four attempts including the two refusals,
-append-only and in order.
+Claude's CL3-B-1 finding was, by contrast, implemented by Codex and then
+re-reviewed by Claude — that one has the normal separation.
 
-### Step 10 requirements, each satisfied
+## 3. Scope
 
-- the fault forwarded the complete POST and dropped only the downstream
-  response — `upstream_status=201 >>> RESPONSE DROPPED`;
-- upstream arrival is evidenced by the proxy record, the database row and the
-  audit event;
-- the service was **not** stopped, so the miss branch was not substituted;
-- the reload caution reached the operator at pin creation;
-- the pinned dialog state was observed before the reload and gone after;
-- no fresh submission was made before the question was answered; and
-- the reconciliation reached a recorded conclusion.
+Commits `e1749db`, `e2f0a4d`, `281dbec`, `e54e5c0`, `d21fee1`, `189aaa0`, plus
+the standing Phase 2 package they sit on.
 
-The §9 `psql` command ran **verbatim from the guide**. The `::timestamptz` casts
-and quoted literals survived `psql -c` intact, so the interpolation defect the
-1.0.4 remediation fixed is genuinely fixed.
+| Area | Artefacts |
+|---|---|
+| CL3 remediation | `phase-2-i-03-cl3-remediation.md` |
+| Rehearsal A (non-live folder, 35 Actors) | `phase-2-supervised-rehearsal-2026-08-09.md` |
+| Findings RA-1…RA-5 | `phase-2-rehearsal-a-findings-2026-08-09.md` |
+| Rehearsal B (active folder, 32 Actors) | `phase-2-supervised-rehearsal-b-2026-08-09.md` |
+| Signed attestation | `phase-2-data-owner-attestation-2026-08-09.md` |
+| Field-profile review | `phase-2-field-profile-maintainer-review-2026-08-10.md` |
+| Owner recommendations | `phase-2-owner-recommendations-2026-08-10.md` |
+| Baseline changes | `docs/project-management/change-log.md`, C-10 and C-11 |
+| Code | `domain/foundry_profile.py`, `application/foundry/parser.py`, `application/foundry/reconciliation.py`, `tools/snapshot_api.py`, `adapters/http/composition.py`, `tests/benchmark_snapshot_500.py` |
+| Contract and rules | `docs/rules/foundry-export-contract.md` §1 and new §1.0, `docs/rules/field-ownership.md` |
 
-## Findings from the trial — please classify
+A longer framing of the same request is
+`phase-2-gate-independent-review-request.md`. Where the two differ, this file is
+operative.
 
-### R-1 — CL-I-2 is now evidenced, and still has no test
+## 4. What actually happened, briefly
 
-The reload caution appeared in the live `network_failure` notification at the
-moment the pin was created, exactly as designed. This is the first behavioural
-confirmation of it.
+Both rehearsals ran on **module 1.0.5** against the live `the-guild` world,
+writing only to the disposable `freedom_test`.
 
-It remains untested. I demonstrated by mutation that deleting the `retryPinned`
-argument from the `notifyFailure` call site leaves **all 138 Node tests
-passing**, because `assert.match(main, /notifyFailure\([\s\S]*retryPinned/)` is
-satisfied by the function's own parameter declaration. A human in a browser is
-currently the only check that exists for the control the reload ruling rests on.
-Recommended: a behavioural seam. Claude classified this **Important**.
+**Rehearsal A** — 35 Actors, non-live folder. Submission with three-way checksum
+agreement (receipt, database row, stored artifact bytes, downloaded fallback);
+preview 0 errors / 4.92 s; Foundry unchanged; nothing in Git; §8.1 both halves
+plus a real credential rotation; **§8.2 positive and negative — the negative case
+had never been run in this project**; and step 10 with a genuinely indeterminate
+delivery, landing on the corrected `duplicate = false` hit.
 
-**Resolution under review:** implemented as a pure, behaviorally tested message
-builder plus a live-path wiring guard; see the remediation summary.
+**Rehearsal B** — 32 Actors, `Characters (active)`. Preview **0 errors, 0
+warnings**; 32 create-candidates, 0 already-mapped, 0 blocked, 0 absent; zero
+unexplained identity discrepancies; nothing applied.
 
-### R-2 — CL-O-2 costs real diagnostic time (recommend raising to Important)
+Two closures were validated by prediction, then observation:
 
-The 15:48 refusal carried
-`"artifact_code":"unsupported_deployment"` and the message *"world id 'test'
-(expected 'the-guild')"*. The module discarded both and showed
-`[artifact_rejected]: ask an operator to check the service log`. Two diagnostic
-round trips were spent on a cause the response had already named precisely.
-Claude classified this Optional on paper; on this evidence I recommend
-**Important**.
+- RA-1: Rehearsal A produced 35 `unknown_snapshot_path` warnings against profile
+  `2026-08-03.1`; Rehearsal B produced **zero** against `2026-08-09.1`, on a
+  second real folder the profile had never seen.
+- RA-2: Rehearsal A's artifact was non-canonical under the old rule; Rehearsal
+  B's is canonical under C-10, **from the same unchanged module**.
 
-**Resolution under review:** bounded `artifact_code` is now visible while
-server prose and unknown codes remain suppressed.
+## 5. Questions, in priority order
 
-### R-3 — the shipped rehearsal tool cannot be pointed at a scratch world
+1. **Is CL3-B-1 genuinely closed?** The §9 window now spans the whole unresolved
+   episode, and step 10 observed the hit branch against real data. Does any
+   reachable sequence still yield a false miss and authorise a second export?
+2. **Is the RA-1 classification correct?** Ten paths became `SNAPSHOT_ONLY` with
+   no owning package — `system.favorites*` and `system.source.*` — on the
+   argument that client presentation and publisher provenance will never be
+   platform state. Should any instead be `legacy_authority_deferred` with a
+   named package? Note both subtrees are prefix rules, so a *new* path under
+   them is classified rather than failing closed.
+3. **Is C-10's canonical order right and complete?** Integer-index keys ascending,
+   then string keys by code point. Check the array-index definition against
+   ECMAScript and `canonical_bytes` against the module's `canonical.js` for any
+   remaining disagreement.
+4. **Is C-11's criterion sound?** ≤ 1,200 ms/MB from the slowest sample,
+   replacing wall-clock seconds. Is the limit defensible? Does using the slowest
+   sample hold on a noisy host?
+5. **Is the attestation adequate §13.3 evidence?** Its §2 records an honest
+   weakness: every Actor is a create-candidate because the database was empty,
+   so **no identity conflict could arise**. Does that satisfy "accounting for
+   every Actor" as the plan intends, or does the gate need a reconciliation
+   against a populated database?
+6. **Is the field-profile review adequate?** Its record states it was a blanket
+   acceptance resting on the two rehearsals, not a field-by-field session.
+7. **Is anything claimed that was not done?** This package has two prior
+   evidence-accuracy findings — I-1 and I-3R-1 — where a document asserted more
+   than the code delivered. Please look for a third. `status.md` was reconciled
+   in `189aaa0` for exactly this reason and is worth checking.
 
-`build_application` takes `deployment` as a parameter whose docstring states it
-is a test seam and *"is read from no environment variable"*, and
-`tools/snapshot_api.py` passes no override. The pin is therefore always
-`OBSERVED_DEPLOYMENT` — world `the-guild`.
+## 6. Open items, declared rather than left to be found
 
-Consequence: with the shipped tooling, a rehearsal can only accept snapshots
-carrying the live world's identity. Rehearsal A as written (§6 step 2, "another
-explicitly chosen non-live folder") assumes the live world with a non-live
-folder. This makes rehearsing-with-real-data the path of least resistance, and
-is the most plausible explanation for the six real Guild exports found in
-`freedom_test` dated 2026-08-06.
+- **RA-3** — a `401` on a large upload surfaces to the operator as
+  `network_failure`, because the service rejects before draining the body.
+  Bounded to the `wsgiref` rehearsal launcher, which the operations guide already
+  says is not a production server. Referred to Phase 3, **not fixed**.
+- **RA-4** — a step 10 fault injector must fault the `POST`, never the CORS
+  preflight; faulting the preflight tests the miss branch instead. Learned the
+  hard way during the run. The operations guide does **not** yet say so.
+- **`foundry-module/scripts/canonical.js:15`** still describes the pre-C-10 key
+  order in a comment. Deliberately not edited: changing the bytes of an
+  installed, rehearsed 1.0.5 build for a comment is what CL3-I-2 warns against.
+- **Caddy** — a temporary public route (`freedom-blades.rpgworld.org`) was
+  published for the rehearsals because an SSH tunnel could not be made to work
+  from the maintainer's machine. It is credential-gated and its backend is
+  stopped, but **it is still in the live config**: the first revert restored a
+  backup that had itself been captured after the route was added. Clean source
+  is `Caddyfile.phase2-active-backup-2026-08-06`. One unsolicited `GET /` from
+  the internet was observed minutes after the route went up, answered `404`.
+- The **fixture-guard test** recommended by
+  `phase-2-i-03-fixture-identity-correction.md` remains untracked work.
 
-Recommended: a documented environment variable for the deployment pin.
-Suggested classification **Important** — it is an operational and data-exposure
-weakness rather than a code defect.
+## 7. Evidence boundary
 
-**Resolution under review:** the shipped loopback rehearsal launcher now has a
-complete, fail-closed, rehearsal-only deployment override and prints the
-effective tuple.
+- Rehearsals used **real Actor data** in the live world, writing only to
+  `freedom_test`. No character, mapping or import row was ever created. Both
+  artifacts and both credentials were shredded; the database is empty at `0004`.
+- The **208 skipped tests** are database-backed and skip without
+  `TEST_DATABASE_URL`. Same posture as every prior review; stated, not glossed.
+- Storage guarantees remain proven against same-process substitution, **not** a
+  cross-account experiment or a multi-process stress test. Neither is a gate
+  requirement.
+- **Rehearsal A satisfies no gate criterion.** Rehearsal B and its attestation
+  are two items of §13.3 evidence — not the gate.
+- The Data Owner's signature carries local date 2026-08-10; run timestamps are
+  UTC 2026-08-09. Same evening.
 
-### R-4 — a faulted duplicate produces a false MISS in the §9 procedure
-
-`duplicate = record is not None`; the existing row is returned unchanged and
-`received_at` keeps the **original** submission time. The §9 reconciliation
-filters strictly on `received_at` within a window around the attempt.
-
-So if the faulted attempt resubmitted bytes already stored, the row falls
-outside the window and the operator reads a **miss**. The documented miss rule
-then says *"only then may the operator authorize the GM to prepare and submit a
-fresh snapshot"* — which mints a new `exportedAt`, a new checksum and a genuine
-second pending row. That is precisely the duplicate-pending-artifact outcome the
-idempotency design exists to prevent.
-
-The trial avoided this by reloading before the faulted submission, forcing a
-fresh export. Codex classified this **Blocking** under §16.4's production-
-reliability head. The remediation under review anchors the attempt by its
-current audit event and joins that event's checksum to the all-time snapshot
-row, so it detects the duplicate without requiring the reloaded browser to
-remember the checksum.
-
-### R-5 — confirmations worth recording
-
-- **Cloudflare passes the service's JSON refusal bodies through unchanged.**
-  `method_not_allowed`, `unauthenticated` and `artifact_rejected` all arrived
-  intact with their `artifact_code`. The CDN-rewriting scenario that made CL-B-1
-  systematic does not occur in this deployment.
-- **The cross-origin preflight works for real** — `204` with an exact
-  `Access-Control-Allow-Origin`, and `403` with no permission header for a
-  foreign origin, both through Cloudflare.
-- **`exporter_version = 1.0.4`** is recorded in checksum-bearing history,
-  confirming the version-identity claim in a real deployment.
-- **CL2-O-3 confirmed in practice**: the §9 example needs a **fourth**
-  substitution (the database name) beyond the three the text names.
-- Cloudflare's ~100 s edge timeout is shorter than the module's 120 s. A 524 is
-  a 5xx, so the module pins rather than discarding — correct, but a slow
-  submission can pin for a reason that is not the service's.
-
-## Separate correction already applied
-
-`docs/review/phase-2-i-03-fixture-identity-correction.md` records that two real
-Foundry identifiers — a real Actor id and the real `Characters (active)` folder
-id — were committed in the test fixtures while those fixtures attested to being
-wholly invented. They were replaced with invented identifiers of the same shape
-across six test files and one contract specimen; discovery documents and
-historical review records were deliberately left intact. Both suites pass. The
-affected character belongs to the maintainer; no rotation was required.
-
-Please confirm the scope decision — specifically that leaving the identifiers in
-`docs/discovery/foundry-mapping.md`, ADR 0006 and the three historical review
-records is right, given AGENTS.md's compensating-action rule.
-
-## Evidence boundary — what this trial does and does not establish
-
-**It does not satisfy the Phase 2 gate, and should not be recorded as doing so.**
-
-- It ran against the scratch world `test` on `foundry3`, not the approved
-  environment, and used a launcher that relaxes the OD-14 deployment pin. The
-  pin's fail-closed behaviour was itself demonstrated (the 15:48 refusal), but
-  the run did not operate under it.
-- Rehearsal A steps 6 and 7 (preview, apply) were **not** performed: the preview
-  route is disabled until the Phase 3 authentication boundary exists.
-- Rehearsal B — the formal active-folder gate rehearsal — has not been run, and
-  no Data Owner attestation exists.
-- Step 10f (resubmit-identical returns `duplicate: true` with the same
-  `snapshot_id`) was deliberately **not** run: the reconciliation had just
-  instructed that no fresh submission be made, and honouring that instruction
-  mattered more than the extra data point. It should be a separate deliberate
-  check, and it bears on R-4.
-
-What it does establish is that the step 10 procedure is **executable as
-written**, that it reaches a correct conclusion, and that three of its
-supporting controls behave correctly in a real browser against a real service.
-
-## Reproduction
+## 8. Verification
 
 ```bash
-for file in foundry-module/scripts/*.js; do node --check "$file"; done
-node --test foundry-module/tests/*.test.mjs
-./venv/bin/python -m pytest -q
-git diff --check
+cd /opt/discord-bots/freedom-bot
+./venv/bin/python -m pytest -q                 # 1784 passed, 208 skipped
+node --test foundry-module/tests/*.test.mjs    # 143 passed
+for f in foundry-module/scripts/*.js; do node --check "$f"; done   # 8 files
+git diff --check                               # clean
+git log --oneline e1749db~1..HEAD
 ```
 
-Results at remediation handover: 8 syntax checks pass; **Node 143 passed, 0
-failed**; **Python 1756 passed, 208 skipped, 0 failed**; `git diff --check`
-clean.
+## 9. Constraints on this review
 
-The rehearsal environment was torn down after this handover was written:
-database reset, artifacts deleted, Caddy returned to its three original routes,
-both rehearsal processes stopped, the module endpoint setting cleared, and the
-disposable credential destroyed. No artifact, Actor name, mechanic or credential
-was committed. `docs/screenshots/` was not read at any point.
+- **Review only.** Do not modify implementation, tests, operations
+  documentation, gate records, Foundry, databases, credentials, endpoints, real
+  exports or `docs/screenshots/`.
+- Do not access Foundry or any real export. Nothing in this package requires it.
+- Do not record a gate decision. The Acceptance Authority does that, after your
+  recommendation.
+- If you find a blocking defect, say so plainly. The maintainer's stated goal was
+  to close Phase 2 on 2026-08-09/10; that is a reason to be careful, not a reason
+  to agree.
 
-## Suggested reviewer focus
+## 10. What a clean review releases
 
-1. Whether R-3 and R-4 are Important or Blocking. Both concern controls that
-   protect against a second pending artifact, which is the invariant this whole
-   package exists to hold, and both were invisible until the procedure was run.
-2. Whether R-1 should block acceptance or be a tracked follow-up.
-3. Whether the fixture-identity scope decision is right.
-4. Whether anything in the trial changes Claude's *accept* recommendation for
-   the 1.0.4 code itself. My view: it does not — every trial finding is in the
-   operational and documentation layer, not in the remediated code.
+The Acceptance Authority's Phase 2 gate decision, and nothing more. Phase 3
+additionally requires an accepted §12.1 visual direction, a named security
+reviewer distinct from the implementer, and OD-16 and OD-17 closed — none of
+which this package touches.

@@ -24,8 +24,9 @@ Phase 2 is finished only after all boxes in this list are checked:
       identity discrepancy — Rehearsal B, 32 of 32, 0 errors and 0 warnings;
 - [x] a sanitized Data Owner attestation is written **and signed** 2026-08-10 — `docs/review/phase-2-data-owner-attestation-2026-08-09.md`;
 - [ ] an independent reviewer reviews the complete Phase 2 gate package;
-- [ ] Peter records the Data, Security, Operations and Product Owner
-      recommendations;
+- [x] Peter records the Data, Security, Operations and Product Owner
+      recommendations — all four given 2026-08-10,
+      `docs/review/phase-2-owner-recommendations-2026-08-10.md`;
 - [ ] Peter records the final Phase 2 gate decision.
 
 The cross-account POSIX experiment and multi-process publication stress test are

@@ -3,8 +3,8 @@
 Date: 2026-08-10
 Recorded by: Peter Duscha, who holds all four accountable roles
 Prepared by: Claude, from the day's evidence; **each role's acceptance is the
-Data/Security/Operations/Product Owner's own and is marked below as given or
-outstanding**
+Data/Security/Operations/Product Owner's own.** All four were given on
+2026-08-10.
 
 Closeout runbook §13 asks for these four role recommendations before the gate
 decision. They are recommendations to the Acceptance Authority, not the decision
@@ -24,7 +24,7 @@ committed.
 
 ## Security Owner
 
-**Outstanding — requires an explicit yes.**
+**Given 2026-08-10.**
 
 The evidence offered for acceptance:
 
@@ -45,7 +45,7 @@ referred to Phase 3.
 
 ## Operations Owner
 
-**Outstanding — requires an explicit yes.**
+**Given 2026-08-10.**
 
 | Area | Evidence |
 |---|---|
@@ -63,7 +63,7 @@ clean source is `Caddyfile.phase2-active-backup-2026-08-06`.
 
 ## Product Owner
 
-**Outstanding — requires an explicit yes.**
+**Given 2026-08-10.** I accept the disposition of change-log entries C-3 through C-11, including C-10 and C-11 ruled the same day.
 
 Change-log entries for disposition: **C-3 through C-11**, including the two
 ruled today — **C-10** (ECMAScript canonical key order) and **C-11**
@@ -75,6 +75,11 @@ They cover the Phase 2 package as it stands at the end of 2026-08-09/10. They do
 **not** close the gate, and they do not substitute for the independent review,
 which does not exist yet and which none of today's implementers can supply.
 
-Signed: **_______________________** (Peter Duscha)
+Signed: **Peter Duscha**, holding the Data, Security, Operations and Product
+Owner roles
 
-Date: **_______________**
+Date: **2026-08-10**
+
+All four recommendations were given together. They are recommendations to the
+Acceptance Authority; the same person holds that role, and the gate decision is
+still a separate act that has not been performed.
