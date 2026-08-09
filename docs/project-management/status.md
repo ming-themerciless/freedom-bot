@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-09 (updated after Rehearsal A)
+Status date: 2026-08-10 (after Rehearsals A and B)
 
 Baseline: v1.5; accepted by Peter Duscha on 2026-08-02
 
@@ -14,7 +14,7 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
 |---|---|---|---|
 | Phase 0 — Discovery and architecture | Accepted | Closed 2026-07-30 | `docs/discovery/phase-0-handoff.md`, `docs/review/phase-0-submission.md` |
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance is recorded at the head of `docs/review/phase-1-submission.md` |
-| Phase 2 — Import and reconciliation | **Rehearsals A and B both completed 2026-08-09**; awaiting independent gate review | Deferred | Disposable migration, backup/restore and runtime-role evidence passed 2026-08-05. Rehearsal A (non-live folder, 35 Actors) passed end to end on module 1.0.5 including step 10, §8.1 and both halves of §8.2. Rehearsal B (active folder, 32 Actors) previewed with **0 errors, 0 warnings**, all 32 Actors accounted for, zero unexplained identity discrepancies, nothing applied. Five findings RA-1…RA-5; **all closed or ruled** (RA-1 profile `2026-08-09.1`; RA-2 change-log C-10; RA-5 change-log C-11; RA-3 referred to Phase 3; RA-4 a procedure note). The Data Owner attestation is drafted and **awaiting signature**. The attestation was **signed 2026-08-10**, and field profile `2026-08-09.1` was **reviewed and accepted** the same day. Seven of the ten closeout criteria now check. **Outstanding: the Security/Operations/Product Owner recommendations (drafted, awaiting explicit acceptance), the independent gate review — which none of today's implementers can supply — and the Acceptance Authority decision.** |
+| Phase 2 — Import and reconciliation | **Rehearsals A and B both completed 2026-08-09**; awaiting independent gate review | Deferred | Disposable migration, backup/restore and runtime-role evidence passed 2026-08-05. Rehearsal A (non-live folder, 35 Actors) passed end to end on module 1.0.5 including step 10, §8.1 and both halves of §8.2. Rehearsal B (active folder, 32 Actors) previewed with **0 errors, 0 warnings**, all 32 Actors accounted for, zero unexplained identity discrepancies, nothing applied. Five findings RA-1…RA-5; **all closed or ruled** (RA-1 profile `2026-08-09.1`; RA-2 change-log C-10; RA-5 change-log C-11; RA-3 referred to Phase 3; RA-4 a procedure note). The Data Owner attestation was **signed 2026-08-10** and field profile `2026-08-09.1` **reviewed and accepted** the same day. Seven of the ten closeout criteria now check. **Outstanding: the Security/Operations/Product Owner recommendations (drafted, awaiting explicit acceptance), the independent gate review — which none of today's implementers can supply — and the Acceptance Authority decision.** |
 | Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-B-1, CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are now closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. CL3-O-3 was closed on 2026-08-09 by executing the §9 query against PostgreSQL during Rehearsal A. The current build is **1.0.5**; it was installed on `foundry1` and `foundry3` on 2026-08-09 and is the build Rehearsal A exercised. The trialled 1.0.4 is a different build and is superseded everywhere. Passing tests close no gate. |
 | Phase 3 and later | Not ready | Not opened | Phase 2 gate and applicable decisions/dependencies must close first |
 | Frontend visual prototype | Status to be recorded by Product Owner | Separate visual gate | May proceed only within §12.1 constraints |
@@ -34,8 +34,9 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    2026-08-09 trial findings R-1…R-4 and CL3-B-1/I-1/I-2/O-1/O-2 are closed in
    `1.0.5`. Recorded in
    [`../review/phase-2-i-03-cl3-remediation.md`](../review/phase-2-i-03-cl3-remediation.md).
-   **CL3-O-3 remains open**, and the CL3-I/CL3-O changes were implemented by the
-   reviewer who raised them at maintainer instruction and therefore carry no
+   **CL3-O-3 was closed on 2026-08-09** by executing the §9 query against
+   PostgreSQL during Rehearsal A. The CL3-I/CL3-O changes were implemented by the
+   reviewer who raised them, at maintainer instruction, and therefore carry no
    independent review.
 5. **Independent gate review of the complete I-03 package and the Phase 2
    evidence**, closing every blocking security, identity, atomicity, migration,
@@ -62,26 +63,32 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    [`../review/phase-2-supervised-rehearsal-2026-08-09.md`](../review/phase-2-supervised-rehearsal-2026-08-09.md);
    findings in
    [`../review/phase-2-rehearsal-a-findings-2026-08-09.md`](../review/phase-2-rehearsal-a-findings-2026-08-09.md).
-   A temporary public Caddy route was used and reverted. **Still outstanding:**
-   the active-folder Rehearsal B and the Data Owner attestation, plus RA-1 —
-   the field profile does not classify ten paths that real Actors carry, which
-   is a Phase 2 acceptance criterion in its own right.
+   A temporary public Caddy route was published for the session; **it is still
+   in the live config** and needs removing from
+   `Caddyfile.phase2-active-backup-2026-08-06`, because the first revert restored
+   a backup that already contained the route.
 7b. ~~**Rehearsal B — the active-folder gate rehearsal.**~~ — **completed
    2026-08-09.** 32 Actors, 0 errors, 0 warnings, every Actor accounted for,
    zero unexplained identity discrepancies, nothing applied. Records:
    [`../review/phase-2-supervised-rehearsal-b-2026-08-09.md`](../review/phase-2-supervised-rehearsal-b-2026-08-09.md)
    and the drafted attestation
    [`../review/phase-2-data-owner-attestation-2026-08-09.md`](../review/phase-2-data-owner-attestation-2026-08-09.md),
-   **which the Data Owner has not yet signed**. Environment torn down:
-   credential and artifact shredded, `freedom_test` empty at `0004`. The
-   temporary Caddy route still needs reverting.
+   **signed by the Data Owner on 2026-08-10**. Environment torn down:
+   credential and artifact shredded, `freedom_test` empty at `0004`.
 8. **Close the Phase 2 data-integrity, identity and migration-safety gate.**
-   Remaining, in order: the attestation signature; the recorded maintainer
-   review of field profile `2026-08-09.1`; the **independent gate review**,
-   which cannot come from Claude — today's profile change, canonical-order
-   change, threshold ruling and CL3 fixes were all implemented by the reviewer
-   who raised them, at maintainer instruction; and the Acceptance Authority's
-   decision.
+   Seven of the ten closeout criteria in
+   [`../operations/phase-2-maintainer-closeout.md`](../operations/phase-2-maintainer-closeout.md)
+   §1 now check. Remaining, in order: the Security, Operations and Product Owner
+   recommendations, drafted in
+   [`../review/phase-2-owner-recommendations-2026-08-10.md`](../review/phase-2-owner-recommendations-2026-08-10.md)
+   and awaiting explicit acceptance; the **independent gate review**, requested
+   in
+   [`../review/phase-2-gate-independent-review-request.md`](../review/phase-2-gate-independent-review-request.md),
+   which cannot come from Claude — the profile change, the canonical-order
+   change, the threshold ruling and the CL3 fixes were all implemented by the
+   party that raised them, at maintainer instruction; and the Acceptance
+   Authority's decision. One operational item is also open: removing the
+   temporary Caddy route from the live config.
 
 Running in parallel, releasing nothing: **Phase 2 I-03** (snapshot submission)
 was independently reviewed on 2026-08-04 — three Blocking findings (B-1 the
@@ -251,16 +258,16 @@ onward do not start before step 3 is recorded.
 
 ## Next status update
 
-Update after the supervised rehearsal rerun. Do not mark it complete until the
-inactive-folder rerun, the corrected Rehearsal A step 10, the remaining browser
-observations, the active-folder preview and the sanitized Data Owner attestation
-are all recorded. The module must be reinstalled as `1.0.5`; the trialled 1.0.4
-is a different build.
+Update after the independent gate review returns. Until then the package is
+complete and unreviewed, which is the single most important fact on this page.
 
-**Nothing in the 2026-08-09 finding closures moves the Phase 2 gate.** What the
-gate still needs is operational evidence and two decisions, none of which an
-implementing or reviewing agent can supply: the rehearsal itself, the Data Owner
-attestation, the recorded maintainer review of field profile `2026-08-03.1`, the
-independent gate recommendation, and the Acceptance Authority's decision. Phase 3
-additionally needs an accepted §12.1 visual direction, a named security reviewer
-distinct from the implementer, and OD-16 and OD-17 closed.
+Previous instruction, now satisfied: the non-live-folder rerun, the corrected
+Rehearsal A step 10, the browser observations, the active-folder preview and the
+sanitized Data Owner attestation are all recorded, and the module was reinstalled
+as `1.0.5` before any of them.
+
+**Nothing recorded on 2026-08-09 or 2026-08-10 closes the Phase 2 gate.** What
+remains needs two people rather than more work: the Independent Reviewer, and the
+Acceptance Authority. Phase 3 additionally needs an accepted §12.1 visual
+direction, a named security reviewer distinct from the implementer, and OD-16 and
+OD-17 closed — none of which this package touches.
