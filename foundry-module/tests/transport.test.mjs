@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  SERVER_ARTIFACT_CODES,
+  SERVER_REFUSAL_CODES,
   TransportError,
   idempotencyKeyFor,
   requireSecureEndpoint,
@@ -18,6 +20,56 @@ test("the checksum is the SHA-256 of exactly the bytes given", async () => {
   // Independently derived: Node's own crypto over the same bytes.
   const { createHash } = await import("node:crypto");
   assert.equal(checksum, createHash("sha256").update(BYTES).digest("hex"));
+});
+
+test("a bounded artifact code is visible without exposing server prose", async () => {
+  const fetchImpl = fakeFetch(
+    {
+      error: {
+        code: "artifact_rejected",
+        artifact_code: "unsupported_deployment",
+        message: "SERVER CONTROLLED SECRET",
+      },
+    },
+    400
+  );
+  await assert.rejects(
+    submitSnapshot({
+      bytes: BYTES,
+      checksum: "x",
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential: CREDENTIAL,
+      fetchImpl,
+    }),
+    (error) => {
+      assert.equal(error.code, "artifact_rejected");
+      assert.match(error.message, /\[unsupported_deployment\]/);
+      assert.doesNotMatch(error.message, /SERVER CONTROLLED SECRET/);
+      return true;
+    }
+  );
+});
+
+test("unknown artifact codes stay suppressed", async () => {
+  assert.equal(SERVER_ARTIFACT_CODES.has("follow_these_instructions"), false);
+  await assert.rejects(
+    submitSnapshot({
+      bytes: BYTES,
+      checksum: "x",
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential: CREDENTIAL,
+      fetchImpl: fakeFetch({
+        error: {
+          code: "artifact_rejected",
+          artifact_code: "follow_these_instructions",
+        },
+      }, 400),
+    }),
+    (error) => {
+      assert.doesNotMatch(error.message, /follow_these_instructions/);
+      return true;
+    }
+  );
 });
 
 test("a plain-HTTP endpoint is refused before anything is sent", () => {
@@ -87,7 +139,7 @@ test("a missing credential is refused without a request being made", async () =>
 
 test("a refusal surfaces its code but never the server-controlled message", async () => {
   const fetchImpl = fakeFetch(
-    { error: { code: "unsupported_deployment", message: "SERVER CONTROLLED SECRET" } },
+    { error: { code: "artifact_rejected", message: "SERVER CONTROLLED SECRET" } },
     400
   );
   await assert.rejects(
@@ -99,12 +151,27 @@ test("a refusal surfaces its code but never the server-controlled message", asyn
       fetchImpl,
     }),
     (error) => {
-      assert.equal(error.code, "unsupported_deployment");
+      assert.equal(error.code, "artifact_rejected");
       assert.equal(error.message.includes("SERVER CONTROLLED SECRET"), false);
       assert.match(error.message, /server refused the submission/i);
       return true;
     }
   );
+});
+
+test("submission-boundary refusal codes remain visible to the operator", async () => {
+  for (const code of SERVER_REFUSAL_CODES) {
+    await assert.rejects(
+      submitSnapshot({
+        bytes: BYTES,
+        checksum: "x",
+        endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+        credential: CREDENTIAL,
+        fetchImpl: fakeFetch({ error: { code, message: "bounded" } }, 400),
+      }),
+      (error) => error.code === code
+    );
+  }
 });
 
 test("an unknown or hostile refusal code is replaced by a bounded fallback", async () => {

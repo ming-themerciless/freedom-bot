@@ -86,12 +86,20 @@ def build_application(
 ) -> Composition:
     """Compose the submission endpoint, or refuse to start.
 
-    `ancestors` is a test seam, in the same sense `deployment` is: it bounds the
-    startup walk over the directories *above* the artifact root, so that a test
-    about descriptor ownership is not also a test about who owns `/` on the
-    machine it runs on. **It is read from no environment variable.** Production
-    passes nothing and the store walks to `/` — see `TrustedAncestors` and
+    `ancestors` is a test seam: it bounds the startup walk over the directories
+    *above* the artifact root, so that a test about descriptor ownership is not
+    also a test about who owns `/` on the machine it runs on. **It is read from
+    no environment variable.** Production passes nothing and the store walks to
+    `/` — see `TrustedAncestors` and
     `docs/operations/foundry-snapshot-submission.md` §5.6.
+
+    `deployment` is **not** the same kind of seam, and an earlier revision of
+    this docstring said it was. This function reads no environment variable for
+    it and defaults to the controlled `OBSERVED_DEPLOYMENT` pin, so no
+    production composition path can be redirected at a scratch world. The
+    loopback rehearsal launcher `tools/snapshot_api.py` does accept one from
+    `FREEDOM_SNAPSHOT_REHEARSAL_*`, as an all-or-nothing tuple that it refuses
+    outside `APP_ENVIRONMENT=test` and its disposable database.
     """
     root = (environ.get(ARTIFACT_ROOT_VARIABLE) or "").strip()
     if not root:

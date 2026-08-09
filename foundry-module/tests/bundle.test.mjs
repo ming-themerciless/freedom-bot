@@ -109,7 +109,7 @@ test("the selected folder carries every ancestor, so a full path can be built", 
 
 test("a missing ancestor is refused rather than producing a partial path", () => {
   const orphaned = new Map([
-    [ACTIVE_FOLDER_ID, { id: ACTIVE_FOLDER_ID, name: "Active", parentId: "miss5eya6XVBAuIb" }],
+    [ACTIVE_FOLDER_ID, { id: ACTIVE_FOLDER_ID, name: "Active", parentId: "missQwErTyUiOpAs" }],
   ]);
   assert.throws(
     () => withAncestors(ACTIVE_FOLDER_ID, orphaned),
@@ -256,7 +256,7 @@ test("an empty selection is refused", () => {
 
 test("a selected folder absent from the folder list is refused", () => {
   const bundle = build();
-  bundle.selectedFolderIds = ["miss5eya6XVBAuIb"];
+  bundle.selectedFolderIds = ["missQwErTyUiOpAs"];
   assert.throws(
     () => validateBundle(bundle),
     (error) => error.code === "unknown_selected_folder"

@@ -104,14 +104,14 @@ been validated by anyone.
     "systemId": "dnd5e",
     "systemVersion": "5.3.3"
   },
-  "selectedFolderIds": ["smob5eya6XVBAuIb"],
+  "selectedFolderIds": ["actvQwErTyUiOpAs"],
   "folders": [
-    { "id": "smob5eya6XVBAuIb", "name": "Characters (active)", "parentId": null }
+    { "id": "actvQwErTyUiOpAs", "name": "Characters (active)", "parentId": null }
   ],
   "actors": [
     {
-      "id": "52ywI3ttEcgf9iBv",
-      "folderId": "smob5eya6XVBAuIb",
+      "id": "5tYuIoPaSdFgHj6K",
+      "folderId": "actvQwErTyUiOpAs",
       "name": "Synthetic Testcharacter",
       "system": { "…": "…" },
       "items": [ { "…": "…" } ]
@@ -186,7 +186,7 @@ parent cycle; a `selectedFolderIds` entry not present in `folders`; an empty
 `selectedFolderIds`.
 
 The initial selected folder is `Characters (active)`, folder ID
-`smob5eya6XVBAuIb` in the live world, with no sub-folders
+`actvQwErTyUiOpAs` in the live world, with no sub-folders
 ([foundry-mapping.md §7](../discovery/foundry-mapping.md#7-what-a-maintainer-had-to-supply--all-five-answered-2026-07-30)).
 
 ### 2.6 `actors`

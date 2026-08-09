@@ -59,8 +59,29 @@ test("the UI serializes workflows and offers a non-submitting pinned discard", (
 
 test("the UI states that retry authority does not survive a page reload", () => {
   const main = read("main.js");
+  const notifications = read("notifications.js");
   assert.match(main, /Do not reload/);
   assert.match(main, /retry state exists only for this page load/);
+  assert.match(
+    notifications,
+    /Do not reload or close this page while delivery is unconfirmed/
+  );
+});
+
+test("the dialog refuses an empty submission credential before running a workflow", () => {
+  const main = read("main.js");
+  assert.match(main, /credentialInput\.required = true/);
+  assert.match(main, /function submissionChoice/);
+  assert.match(main, /if \(!credential\.trim\(\)\)/);
+  assert.match(main, /return false/);
+  assert.match(main, /callback: \(event, button\) => submissionChoice/);
+});
+
+test("the live failure path passes its post-failure pin state to the message builder", () => {
+  const main = read("main.js");
+  assert.match(main, /const retryPinned = action === "submit" && snapshotState\.hasPinnedRetry\(\)/);
+  assert.match(main, /notifyFailure\([\s\S]*?retryPinned\s*\);/);
+  assert.match(main, /failureNotification\([\s\S]*?retryPinned,/);
 });
 
 test("a transport failure says the same thing, in the same vocabulary", () => {

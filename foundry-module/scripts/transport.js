@@ -67,29 +67,85 @@ export class TransportError extends Error {
 /** How long a submission may take before it is abandoned. */
 export const DEFAULT_TIMEOUT_MS = 120_000;
 
-/** Codes the reviewed server contract may expose to an operator. */
-const SERVER_REFUSAL_CODES = new Set([
+/** Codes the reviewed snapshot-submission boundary may expose to an operator. */
+export const SERVER_REFUSAL_CODES = new Set([
   "artifact_rejected",
-  "authentication_unavailable",
+  "artifact_too_large",
   "checksum_mismatch",
   "concurrent_submission",
   "database_unavailable",
+  "incomplete_body",
   "internal_error",
   "invalid_request_key",
+  "length_required",
+  "malformed_length",
   "method_not_allowed",
+  "missing_idempotency_key",
   "not_found",
   "original_result_unavailable",
+  "out_of_scope",
   "request_key_conflict",
   "storage_unavailable",
   "unauthenticated",
-  "unauthorized",
+  "unsupported_media_type",
+]);
+
+/** Bounded parser/deployment reasons carried beside `artifact_rejected`. */
+export const SERVER_ARTIFACT_CODES = new Set([
+  "actor_outside_selection",
+  "artifact_too_large",
+  "artifact_unreadable",
+  "binary_artifact",
+  "byte_order_mark",
+  "checksum_mismatch",
+  "duplicate_actor_id",
+  "duplicate_folder_id",
+  "duplicate_selected_folder",
+  "empty_artifact",
+  "empty_selection",
+  "excessive_nesting",
+  "folder_cycle",
+  "folder_not_selected",
+  "invalid_encoding",
+  "malformed_actor",
+  "malformed_actor_id",
+  "malformed_actors",
+  "malformed_exporter",
+  "malformed_folder_id",
+  "malformed_folders",
+  "malformed_json",
+  "malformed_selection",
+  "malformed_timestamp",
+  "malformed_world",
+  "missing_actor_id",
+  "missing_top_level_key",
+  "too_many_actors",
+  "too_many_folders",
+  "too_many_items",
+  "too_many_selected_folders",
+  "unexpected_top_level",
+  "unknown_actor_key",
+  "unknown_folder",
+  "unknown_parent_folder",
+  "unknown_selected_folder",
+  "unknown_top_level_key",
+  "unsafe_artifact_name",
+  "unsupported_container",
   "unsupported_deployment",
+  "unsupported_schema",
+  "unsupported_schema_version",
 ]);
 
 function boundedRefusalCode(value) {
   return typeof value === "string" && SERVER_REFUSAL_CODES.has(value)
     ? value
     : "submission_refused";
+}
+
+function boundedArtifactCode(value) {
+  return typeof value === "string" && SERVER_ARTIFACT_CODES.has(value)
+    ? value
+    : null;
 }
 
 function isValidSuccessReceipt(receipt, checksum) {
@@ -246,10 +302,15 @@ export async function submitSnapshot({
 
   if (!response.ok) {
     const code = boundedRefusalCode(receipt?.error?.code);
+    const artifactCode =
+      code === "artifact_rejected"
+        ? boundedArtifactCode(receipt?.error?.artifact_code)
+        : null;
     throw new TransportError(
       code,
-      "The Freedom Blades server refused the submission. Ask an operator to " +
-        "check the service log using the error code shown here.",
+      "The Freedom Blades server refused the submission" +
+        (artifactCode ? ` [${artifactCode}]` : "") +
+        ". Ask an operator to check the service log using the error code shown here.",
       {
         stage: "post_dispatch",
         status: response.status,

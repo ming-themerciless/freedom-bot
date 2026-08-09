@@ -78,9 +78,12 @@ def test_selectable_folders_are_a_bounded_set_the_manager_chooses_from():
 
     snapshot = parse(document)
 
+    # The order is the folder *id* sort, not the path sort: `selectable_folders`
+    # promises a stable order and takes it from `sorted(selected_folder_ids)`.
+    # ACTIVE's id sorts before ARCHIVE's, so it is listed first.
     assert [identity.path for identity in snapshot.selectable_folders()] == [
-        "/actors/Characters/Characters (retired)",
         "/actors/Characters/Characters (active)",
+        "/actors/Characters/Characters (retired)",
     ]
     assert len(snapshot.actors_in(fx.ACTIVE_FOLDER_ID)) == 1
     assert len(snapshot.actors_in(fx.ARCHIVE_FOLDER_ID)) == 1

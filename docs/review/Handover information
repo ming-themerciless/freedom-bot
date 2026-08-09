@@ -1,453 +1,309 @@
-# Independent review request — Foundry module PreparedSnapshot lifecycle
+# Claude re-review request — R-1 through R-4 trial-finding remediation
 
-Prepared for: **Codex, as Independent Reviewer**
-Prepared by: Claude, independent reviewer of the lifecycle remediation
-Requested by: Peter Duscha, Acceptance Authority
-Date: 2026-08-08
-State under review: `foundry-module/` as committed at **`f632722`** on branch
-`docs/platform-plan`, one commit ahead of `3abb5ba`. Not pushed.
+Prepared: 2026-08-09
+Remediated by: Codex, implementer
+Prior trial and findings: Claude, independent implementation and security reviewer
+Decision authority: Peter Duscha
 
-The module had been developed as an **untracked** directory, so the package, its
-lifecycle remediation and this review had no history behind them. It was
-committed *after* this review, unchanged — no file was edited to make the
-commit, and `node --test` is 126 passed / 0 failed from the tracked checkout.
+## Role and requested outcome
 
-**The commit is not acceptance.** `f632722` is a snapshot of
-reviewed-and-found-wanting code, not an approved baseline: every finding in
-section 4 is open against it, and no supervised rehearsal has been run. Fixes
-for whatever you confirm will land as follow-up commits on top of it.
+Act as the independent Claude reviewer. Review only; do not modify
+implementation, tests, operations documentation, Foundry, databases,
+credentials, endpoints, real exports, or `docs/screenshots/`.
 
-`git show f632722` is the whole module. The Phase 2 server-side changes it
-depends on (`adapters/`, `application/`, `docs/`, `tests/`) remain uncommitted
-in the working tree.
+Codex confirmed the 1.0.4 implementation review, classified R-1 through R-3
+Important, and classified R-4 Blocking because the written recovery control
+could falsely report a miss for a duplicate submission. Review the remediations
+of all four findings and recommend whether they are closed. The earlier trial
+record remains below for context; do not re-review the accepted 1.0.4 lifecycle
+implementation except where these changes touch it.
 
----
+## Remediation summary
 
-## 1. Your role, and its limits
+### R-1 — behavioural reload-warning coverage
 
-The previous agent delivered a remediation of the `PreparedSnapshot` lifecycle
-and asked for an independent review. I performed that review. This document
-hands **my findings** to you for a second, independent opinion.
+Notification construction moved to the pure `failureNotification` seam. Its
+tests drive typed, unexpected, pinned and unpinned outcomes and assert the
+actual returned operator message. A separate wiring assertion requires the
+live `run` catch path to compute the post-failure pin state, pass it through
+`notifyFailure`, and pass it into the pure builder. Removing the live argument
+or the builder's behavior now fails.
 
-You are asked to **verify or refute the findings below**, not to re-derive the
-whole package from scratch and not to implement fixes. Section 3 records what I
-checked and found sound, so you can spend your effort on section 4 rather than
-repeating work. If you disagree with a severity or think a finding is wrong,
-say so plainly — that is the point of asking you.
+### R-2 — bounded artifact-code diagnosis
 
-**You recommend; you do not approve.** Peter Duscha records the decision.
+`artifact_rejected` now shows a separately bounded `artifact_code`, such as
+`unsupported_deployment`, while continuing to suppress all server-authored
+prose. `SERVER_ARTIFACT_CODES` is held in exact cross-language equality with
+the server's `ARTIFACT_REFUSAL_CODES`; an unknown or hostile value remains
+hidden.
 
-Please classify per implementation plan §16.4 — **Blocking** (security, data
-loss, authorization, rule correctness, migration, atomicity, production
-reliability), **Important**, **Optional** — and distinguish implementation
-defects from missing rehearsal or acceptance evidence.
+### R-3 — scratch deployment pin
 
-Suggested filenames, matching the existing convention:
+The loopback-only `tools.snapshot_api` rehearsal launcher accepts four
+rehearsal-namespaced environment variables as one all-or-nothing deployment
+tuple. Partial, blank, overlong or unsafe values refuse startup. The default
+remains `OBSERVED_DEPLOYMENT`, production composition does not read the
+override, and startup prints the effective tuple for comparison with Foundry.
+The operations guide documents the scope and disposable-database requirement.
 
-- `docs/review/phase-2-i-03-lifecycle-codex-review.md`
-- `docs/review/phase-2-i-03-lifecycle-codex-security-review.md`
+### R-4 — duplicate-safe lost-pin reconciliation
 
----
+The recovery query now selects the current attempt's append-only
+`snapshot_submission.accepted` audit event by `audit_events.occurred_at`, then
+joins `audit_events.entity_id` (the checksum) to the all-time
+`foundry_snapshots` row. A duplicate therefore produces a current-window event
+joined to the original snapshot even when that snapshot's `received_at` is old.
+The result includes the audit payload's `duplicate` value.
 
-## 2. What was under review
+The miss rule requires this audit-event query to be repeated and return no
+accepted new or duplicate attempt before a fresh export can be authorized. The
+guide explicitly prohibits restoring a `foundry_snapshots.received_at` filter.
+Rehearsal A step 10 now requires the harder duplicate-response-loss case and an
+expected hit with `duplicate = true`.
 
-The implementer's remediation claimed to address six prior findings, in:
+`tests/test_snapshot_recovery_documentation.py` requires the audit-to-snapshot
+checksum join, the attempt-time audit bounds, the absence of snapshot-time
+bounds, the duplicate output, and the duplicate-safe miss rule.
 
-- `foundry-module/scripts/workflow.js`
+## Required context
+
+- `.agents/AGENTS.md`
+- `docs/implementation-plan.md`, especially §13.3, §16.4 and §17
+- `docs/review/phase-2-i-03-lifecycle-1.0.4-claude-review.md`
+- `docs/review/phase-2-i-03-lifecycle-1.0.4-claude-security-review.md`
+- `docs/review/phase-2-i-03-fixture-identity-correction.md`
+- `docs/operations/foundry-snapshot-submission.md` §6 and §9
+- `foundry-module/scripts/notifications.js`
 - `foundry-module/scripts/transport.js`
-- `foundry-module/scripts/main.js`
-- `foundry-module/tests/workflow.test.mjs`
-- `foundry-module/tests/transport.test.mjs`
-- `docs/operations/foundry-snapshot-submission.md`
+- `tools/snapshot_api.py`
+- `foundry-module/tests/notifications.test.mjs`
+- `tests/test_snapshot_api.py`
+- `tests/test_snapshot_recovery_documentation.py`
+- the current working-tree diff
 
-The six claims were: (1) download preserves a pinned retry; (2) standalone
-`prepareSnapshot` does not invalidate an in-flight `executeWorkflow`; (3)
-server-controlled refusal messages no longer reach `TransportError`; (4) failure
-classification follows the documented status table, with `concurrent_submission`
-as the only code-specific override; (5) weak tests strengthened; (6) the UI catch
-path distinguishes download failure from submission failure.
+## Part 1 — the 1.0.4 code review, in one paragraph
 
-**No code has been changed since.** The working tree is exactly as the
-implementer left it; I made no edits while reviewing.
+CL-B-1 is closed: `malformed_response` is delivery-indeterminate at any status,
+and on a `409` only a positively identified `request_key_conflict` is
+definitive. CL-B-2 is closed: an operation that begins with an unresolved pin
+re-authorises that pin on any failure that is not a Discard or an identified
+conflict. Verified through the production `executeWorkflow` path with 66
+reproductions plus 35 adversarial security cases, including byte and
+idempotency-key identity across a mutated world and a later clock, and
+operation-token races in both directions. No regression found. One Important
+finding remains open (CL2-I-1, below) and five Optional.
 
----
+Checks at remediation handoff: 8 `node --check`, **143 Node tests**, **1756
+Python passed / 208 skipped**, `git diff --check` clean.
 
-## 3. What I verified as sound — no need to repeat
+## Part 2 — the rehearsal trial, 2026-08-09
 
-Run from `foundry-module/`:
+### Environment
 
-| Check | Result |
+Deliberately *not* the live Guild world. Module 1.0.4 was installed on the
+`foundry3` instance and activated by the maintainer in the scratch world `test`
+(dnd5e 5.3.3, core 14.365). The submission endpoint was published at
+`https://freedom-blades.rpgworld.org` through the existing Cloudflare + Caddy
+path, with a rehearsal-only fault injector between Caddy and the service. The
+disposable database `freedom_test` was emptied first. The folder submitted held
+14 Actors, all synthetic or maintainer-owned; no live Guild data was read.
+
+Two scratchpad tools were used and are **not** part of the repository:
+
+- a fault injector that forwards the complete POST upstream, waits for the
+  upstream response, then drops it and closes the connection; and
+- a launcher that composes the application with the deployment pin moved to
+  world `test`, using the documented `deployment` seam (see finding R-3).
+
+### What happened, in order
+
+| UTC | Event |
 |---|---|
-| `node --check scripts/*.js` | clean |
-| `node --test tests/*.test.mjs` | **126 passed, 0 failed** |
-| `git diff --check` | clean |
+| 15:22:59 | submission refused — my endpoint misconfiguration; audited |
+| 15:48:34 | submission refused — `artifact_rejected` / `unsupported_deployment` |
+| 16:02:40 | submission **accepted**, checksum `15893eed…`, 14 Actors |
+| 16:10:56 | fault armed |
+| 16:19:11 | submission **committed upstream, response dropped**, `bcc87c7c…` |
+| 16:19:11+ | operator saw `network_failure` **with the reload caution** |
+| — | pinned dialog state confirmed, then page reloaded, pin lost |
+| — | no fresh submission made; reconciliation run; **hit branch** |
 
-The implementer's reported evidence is accurate; I reproduced all of it.
+Reconciliation returned exactly one row — `9a23a97d-c45d-421b-b91d-500d79fc2b04`,
+checksum `bcc87c7c…`, 14 Actors, `received_via = foundry_module` — a pending
+snapshot the browser never learned about. Nothing was applied throughout:
+`characters = 0`, `snapshot_imports = 0`.
 
-Claims **1, 2, 5 and 6 hold**. Specifically:
+The audit trail recorded all four attempts including the two refusals,
+append-only and in order.
 
-- a pinned entry survives download — `workflow.js:455` guards the `setConfirmed`
-  with `state.pinnedPrepared !== prepared`, and I confirmed the pin is preserved
-  through the production `executeWorkflow` path;
-- a standalone `prepareSnapshot` during a live workflow does not take authority —
-  `startStandaloneOperation` (`workflow.js:96-101`) returns `null` while
-  `_activeOperations` is non-empty, so the later `setConfirmed` is skipped;
-- every `set`/`clear` on `PreparedSnapshotState` is operation-token guarded,
-  including on early returns, and `executeWorkflow`'s `finally`
-  (`workflow.js:508-510`) releases the token on every throw path;
-- the credential never enters prepared or cached state.
+### Step 10 requirements, each satisfied
 
-**Claim 3 holds only for the `message` field.** Claim 4 does not hold. See F-1
-and F-2.
+- the fault forwarded the complete POST and dropped only the downstream
+  response — `upstream_status=201 >>> RESPONSE DROPPED`;
+- upstream arrival is evidenced by the proxy record, the database row and the
+  audit event;
+- the service was **not** stopped, so the miss branch was not substituted;
+- the reload caution reached the operator at pin creation;
+- the pinned dialog state was observed before the reload and gone after;
+- no fresh submission was made before the question was answered; and
+- the reconciliation reached a recorded conclusion.
 
----
+The §9 `psql` command ran **verbatim from the guide**. The `::timestamptz` casts
+and quoted literals survived `psql -c` intact, so the interpolation defect the
+1.0.4 remediation fixed is genuinely fixed.
 
-## 4. Findings
+## Findings from the trial — please classify
 
-### Blocking
+### R-1 — CL-I-2 is now evidenced, and still has no test
 
-#### F-1 · `409 original_result_unavailable` clears the pin, so the retry mints a new idempotency key
+The reload caution appeared in the live `network_failure` notification at the
+moment the pin was created, exactly as designed. This is the first behavioural
+confirmation of it.
 
-`workflow.js:186-188` classifies every 4xx as `DEFINITIVE_REFUSAL`, so
-`executeWorkflow` takes the `else` branch at `workflow.js:497` and calls
-`state.clear(opToken)`.
+It remains untested. I demonstrated by mutation that deleting the `retryPinned`
+argument from the `notifyFailure` call site leaves **all 138 Node tests
+passing**, because `assert.match(main, /notifyFailure\([\s\S]*retryPinned/)` is
+satisfied by the function's own parameter declaration. A human in a browser is
+currently the only check that exists for the control the reload ruling rests on.
+Recommended: a behavioural seam. Claude classified this **Important**.
 
-But `original_result_unavailable` is not a refusal.
-`application/foundry/submission.py:126` documents it as *"the stored receipt for
-an already-spent key could not be read back"* — the key **was** spent, so a
-submission exists. `adapters/http/wsgi.py:149` maps it to `409`.
+**Resolution under review:** implemented as a pure, behaviorally tested message
+builder plus a live-path wiring guard; see the remediation summary.
 
-Because the entry is cleared, the operator's next attempt re-prepares with a
-fresh `exportedAt` (`workflow.js:286`) → new checksum → new `Idempotency-Key`:
+### R-2 — CL-O-2 costs real diagnostic time (recommend raising to Important)
 
-```
-attempt 1: original_result_unavailable 409
-state after 409: empty (pin dropped: true)
-key attempt 1: foundry-module:255348e0ef026b83e7e9ace4cb78c7b6355857ba2a16d680b42f8238cbc7febe
-key attempt 2: foundry-module:005164fa68a81cbc501d1ac9e4d8e4f77a18874adf7c070718ce3a88bc288bac
-SAME idempotency key on retry: false
-```
+The 15:48 refusal carried
+`"artifact_code":"unsupported_deployment"` and the message *"world id 'test'
+(expected 'the-guild')"*. The module discarded both and showed
+`[artifact_rejected]: ask an operator to check the service log`. Two diagnostic
+round trips were spent on a cause the response had already named precisely.
+Claude classified this Optional on paper; on this evidence I recommend
+**Important**.
 
-That produces a **second pending artifact** for a submission the server already
-holds — precisely what `transport.js:13-20` ("Retries cannot create a second
-pending artifact") and the operations guide promise cannot happen.
+**Resolution under review:** bounded `artifact_code` is now visible while
+server prose and unknown codes remain suppressed.
 
-`concurrent_submission` is protected by the code override at `workflow.js:182`.
-`original_result_unavailable` carries the same "the key may already be spent"
-semantics and was omitted when remediation item 4 narrowed the override list to
-one code. `request_key_conflict` (also 409) is correctly definitive, because the
-operations guide says to use a new key there — so the fix is to add
-`original_result_unavailable` to the retry-same-key override, **not** to
-reclassify 409 wholesale.
+### R-3 — the shipped rehearsal tool cannot be pointed at a scratch world
 
-This is an implementation defect introduced by the remediation itself.
+`build_application` takes `deployment` as a parameter whose docstring states it
+is a test seam and *"is read from no environment variable"*, and
+`tools/snapshot_api.py` passes no override. The pin is therefore always
+`OBSERVED_DEPLOYMENT` — world `the-guild`.
 
-### Important
+Consequence: with the shipped tooling, a rehearsal can only accept snapshots
+carrying the live world's identity. Rehearsal A as written (§6 step 2, "another
+explicitly chosen non-live folder") assumes the live world with a non-live
+folder. This makes rehearsing-with-real-data the path of least resistance, and
+is the most plausible explanation for the six real Guild exports found in
+`freedom_test` dated 2026-08-06.
 
-#### F-2 · Server-supplied codes override the documented status table
+Recommended: a documented environment variable for the deployment pin.
+Suggested classification **Important** — it is an operational and data-exposure
+weakness rather than a code defect.
 
-`classifyFailureDisposition` tests `error.code` at `workflow.js:166-179`
-**before** it tests `error.status` at `workflow.js:180`. On any post-dispatch
-refusal, `error.code` is whatever the server put in `receipt.error.code`
-(`transport.js:210`), unvalidated. So six codes, not one, are code-specific
-overrides:
+**Resolution under review:** the shipped loopback rehearsal launcher now has a
+complete, fail-closed, rehearsal-only deployment override and prints the
+effective tuple.
 
-```
-HTTP 400 + server code timeout               -> delivery_indeterminate
-HTTP 400 + server code network_failure       -> delivery_indeterminate
-HTTP 400 + server code malformed_response    -> delivery_indeterminate
-HTTP 400 + server code missing_credential    -> local_refusal
-HTTP 400 + server code invalid_endpoint      -> local_refusal
-HTTP 400 + server code insecure_endpoint     -> local_refusal
-HTTP 400 + server code concurrent_submission -> retry_same_key
-HTTP 400 + server code internal_error        -> definitive_refusal   <- only one tested
-```
+### R-4 — a faulted duplicate produces a false MISS in the §9 procedure
 
-A server answering `400 {"error":{"code":"timeout"}}` gets its definitive refusal
-pinned as a retryable delivery. The local codes never carry a status, so the fix
-is ordering: test `typeof error.status === "number"` first.
+`duplicate = record is not None`; the existing row is returned unchanged and
+`received_at` keeps the **original** submission time. The §9 reconciliation
+filters strictly on `received_at` within a window around the attempt.
 
-The test at `tests/workflow.test.mjs:469` passes only because all four codes it
-exercises happen to miss the early branches.
+So if the faulted attempt resubmitted bytes already stored, the row falls
+outside the window and the operator reads a **miss**. The documented miss rule
+then says *"only then may the operator authorize the GM to prepare and submit a
+fresh snapshot"* — which mints a new `exportedAt`, a new checksum and a genuine
+second pending row. That is precisely the duplicate-pending-artifact outcome the
+idempotency design exists to prevent.
 
-#### F-3 · The server's error code still reaches the operator verbatim
+The trial avoided this by reloading before the faulted submission, forcing a
+fresh export. Codex classified this **Blocking** under §16.4's production-
+reliability head. The remediation under review anchors the attempt by its
+current audit event and joins that event's checksum to the all-time snapshot
+row, so it detects the duplicate without requiring the reloaded browser to
+remember the checksum.
 
-Remediation item 3 replaced the server's `message` with repository-owned prose,
-but `transport.js:210` copies `receipt.error.code` unchanged and `main.js:354`
-renders it. There is no allowlist, length cap or character validation, so the
-code *is* the message:
+### R-5 — confirmations worth recording
 
-```
-Freedom Blades [SESSION EXPIRED. Email your Freedom Blades credential to
-helpdesk@evil.example to restore access]: The Freedom Blades server refused the
-submission. Ask an operator to check the service log using the error code shown here.
-```
+- **Cloudflare passes the service's JSON refusal bodies through unchanged.**
+  `method_not_allowed`, `unauthenticated` and `artifact_rejected` all arrived
+  intact with their `artifact_code`. The CDN-rewriting scenario that made CL-B-1
+  systematic does not occur in this deployment.
+- **The cross-origin preflight works for real** — `204` with an exact
+  `Access-Control-Allow-Origin`, and `403` with no permission header for a
+  foreign origin, both through Cloudflare.
+- **`exporter_version = 1.0.4`** is recorded in checksum-bearing history,
+  confirming the version-identity claim in a real deployment.
+- **CL2-O-3 confirmed in practice**: the §9 example needs a **fourth**
+  substitution (the database name) beyond the three the text names.
+- Cloudflare's ~100 s edge timeout is shorter than the module's 120 s. A 524 is
+  a 5xx, so the module pins rather than discarding — correct, but a slow
+  submission can pin for a reason that is not the service's.
 
-Not an injection issue — I checked
-`client/applications/ui/notifications.mjs:108` on this host and `escape` defaults
-to `true`, so it renders as text. It is a **credential-phishing surface aimed at
-the one person holding the submit credential**, under exactly the threat model
-item 3 adopted.
+## Separate correction already applied
 
-The same gap exists on the success path: `describeReceipt` interpolates
-`receipt.actor_count` with only a `?? "?"` guard (`workflow.js:532`). `checksum`
-is correctly bounded by `.slice(0, 12)`; `actor_count` is not.
+`docs/review/phase-2-i-03-fixture-identity-correction.md` records that two real
+Foundry identifiers — a real Actor id and the real `Characters (active)` folder
+id — were committed in the test fixtures while those fixtures attested to being
+wholly invented. They were replaced with invented identifiers of the same shape
+across six test files and one contract specimen; discovery documents and
+historical review records were deliberately left intact. Both suites pass. The
+affected character belongs to the maintainer; no rotation was required.
 
-The test at `tests/transport.test.mjs:86` is named *"surfaces its code but never
-the server-controlled message"* and asserts only the message half, using a benign
-code.
+Please confirm the scope decision — specifically that leaving the identifiers in
+`docs/discovery/foundry-mapping.md`, ADR 0006 and the three historical review
+records is right, given AGENTS.md's compensating-action rule.
 
-#### F-4 · A pin locks the download fallback to the pinned folder, with no non-submitting escape
+## Evidence boundary — what this trial does and does not establish
 
-`prepareSnapshot` returns `state.pinnedPrepared` at `workflow.js:256-258` before
-reading `folderId` at all, so the pin is folder-blind:
+**It does not satisfy the Phase 2 gate, and should not be recorded as doing so.**
 
-```
-pinned folder      : smob5eya6XVBAuIb
-requested folderId : inac5eya6XVBAuIb
-downloaded folderId: smob5eya6XVBAuIb
-```
+- It ran against the scratch world `test` on `foundry3`, not the approved
+  environment, and used a launcher that relaxes the OD-14 deployment pin. The
+  pin's fail-closed behaviour was itself demonstrated (the 15:48 refusal), but
+  the run did not operate under it.
+- Rehearsal A steps 6 and 7 (preview, apply) were **not** performed: the preview
+  route is disabled until the Phase 3 authentication boundary exists.
+- Rehearsal B — the formal active-folder gate rehearsal — has not been run, and
+  no Data Owner attestation exists.
+- Step 10f (resubmit-identical returns `duplicate: true` with the same
+  `snapshot_id`) was deliberately **not** run: the reconciliation had just
+  instructed that no fresh submission be made, and honouring that instruction
+  mattered more than the extra data point. It should be a separate deliberate
+  check, and it bears on R-4.
 
-For submission this is disclosed by the dialog note (`main.js:207-210`). For
-download it is not — that note mentions only submitting. The operational
-consequence: the only button that clears a pin is **Discard Pinned & Prepare
-New**, which is `action: "submit"` (`main.js:120-126`). While the endpoint is
-down, that discard immediately re-pins, so the operator can never produce a
-fallback export of any *other* folder — the exact scenario operations guide §1
-says the fallback exists for.
+What it does establish is that the step 10 procedure is **executable as
+written**, that it reaches a correct conclusion, and that three of its
+supporting controls behave correctly in a real browser against a real service.
 
-Mitigation in place: the download notification names the real `folderPath`, so
-the operator is told which folder they actually got.
+## Reproduction
 
-#### F-5 · Concurrent submissions are unguarded, and a newer one silently drops an older indeterminate delivery
-
-`main.js:78-80` starts `openSubmissionDialog()` on every click with no in-flight
-guard, and `DialogV2.wait` does not prevent a second dialog. With the 120 s
-default timeout (`transport.js:68`), overlap is reachable by an impatient
-operator. When the two carry *different* payloads, the newer operation takes
-`_operation`, so the older attempt's `setPinnedRetry` fails its token check and
-returns `false` silently:
-
-```
-older attempt failed: network_failure (delivery indeterminate)
-state after both: confirmed-reusable | pin held: false
-```
-
-The operator sees the older failure notification, but the bytes and idempotency
-key it refers to are gone; pressing submit again mints a new key. Race 2
-(`tests/workflow.test.mjs:1177`) is safe only because both attempts share a
-payload and key; race 6 (`:1621`) covers different payloads with both
-*succeeding*. The older-fails/newer-succeeds cross-payload case is untested and
-is the one that loses a key.
-
-Related, worth documenting either way: `snapshotState` is a module-level `const`
-(`main.js:63`), so a browser reload discards any pin. The operations guide
-presents the pin as the mechanism that protects a retry; it survives only within
-one page lifetime.
-
-### Minor
-
-- **F-6** `prepareSnapshot({ state, discardPinned: true })` called standalone
-  during a live workflow silently no-ops: `startStandaloneOperation` returns
-  `null`, so `state.clear(null)` fails its token check and the pinned entry is
-  returned instead. Not reachable from the UI, which always routes through
-  `executeWorkflow`, but it is exported API — an explicit discard is not
-  guaranteed to take effect on every path.
-- **F-7** `confirmed-reusable` is set by *preparation* (`workflow.js:310-312`),
-  not by a confirmed submission. The operations guide (line 1032) says *"A
-  successful submission marks it `confirmed-reusable`"*. Pressing Download alone
-  leaves the state reading `confirmed-reusable`. The behaviour is a harmless
-  content cache; the name and the documentation both assert something stronger
-  than the code does.
-- **F-8** Test quality: `tests/workflow.test.mjs:1000` still asserts
-  `JSON.stringify(state).includes("secret") === false` — a literal-string check.
-  Item 5's upgrade to the actual credential value was applied to `prepared`
-  (`:984`) but not to `state`.
-
-### Optional
-
-- **F-9** The pinned early return at `workflow.js:256-258` skips
-  `state.finishOperation(standaloneOperation)` at `:314`. Harmless only because
-  `startStandaloneOperation` never adds its token to `_activeOperations`; if that
-  asymmetry is ever fixed, this leaks an active operation and permanently blocks
-  standalone preparation.
-- **F-10** For the same reason, two overlapping standalone preparations do not
-  exclude each other — the guard only sees workflow tokens.
-- **F-11** Exceptions thrown by `fetchImpl` *before* dispatch (a pasted
-  credential containing a header-invalid character makes `fetch` throw
-  synchronously) are labelled `network_failure` / `post_dispatch` at
-  `transport.js:183-192`, and are therefore pinned as an indeterminate delivery
-  for a request that never left the browser. Conservative, so safe; the message
-  ("could not reach the Freedom Blades server") is misleading.
-
----
-
-## 5. Reproducing the findings
-
-Every finding above is reproducible under `node --test` with no Foundry world,
-no credential and no network. Save as `foundry-module/repro.mjs` and run
-`node repro.mjs` from `foundry-module/`; delete it afterwards — it is not part
-of the suite, and since `f632722` that directory is tracked, so a leftover copy
-shows up as an untracked file.
-
-```js
-import { TransportError, submitSnapshot } from "./scripts/transport.js";
-import {
-  PreparedSnapshotState, executeWorkflow, prepareSnapshot,
-  classifyFailureDisposition, describeReceipt,
-} from "./scripts/workflow.js";
-import {
-  fakeGame, nodeCrypto, SUPPORTED, ACTIVE_FOLDER_ID, INACTIVE_FOLDER_ID,
-} from "./tests/fixtures.mjs";
-
-const endpoint = "https://freedom.example/api/v1/foundry/snapshots";
-const credential = "principal.0123456789012345678901234567890123456789";
-
-// F-2: server-supplied code overrides the documented status table.
-for (const code of ["timeout", "network_failure", "malformed_response",
-                    "missing_credential", "concurrent_submission", "internal_error"]) {
-  const e = new TransportError(code, "Refused.", { stage: "post_dispatch", status: 400 });
-  console.log(`400 + ${code.padEnd(22)} -> ${classifyFailureDisposition(e)}`);
-}
-
-// F-3: unbounded server-controlled code reaches the operator notification.
-await submitSnapshot({
-  bytes: new TextEncoder().encode("{}"), checksum: "x", endpoint, credential,
-  fetchImpl: async () => ({ ok: false, status: 400, json: async () => ({
-    error: { code: "SESSION EXPIRED. Email your credential to helpdesk@evil.example" } }) }),
-}).catch((e) => console.log(`\nFreedom Blades [${e.code}]: ${e.message}`));
-
-// F-3 (success path): unbounded receipt.actor_count.
-console.log("\n" + describeReceipt(
-  { checksum: "a".repeat(64), duplicate: false,
-    actor_count: "12 - WARNING: re-enter your credential at http://evil.example" },
-  "a".repeat(64)));
-
-// F-1: 409 original_result_unavailable clears the pin; the retry changes key.
-{
-  const state = new PreparedSnapshotState(); const game = fakeGame(); const keys = [];
-  const reply = async (u, init) => {
-    keys.push(init.headers["Idempotency-Key"]);
-    return { ok: false, status: 409,
-      json: async () => ({ error: { code: "original_result_unavailable" } }) };
-  };
-  const submit = () => executeWorkflow({ game, crypto: nodeCrypto,
-    folderId: ACTIVE_FOLDER_ID, exporterVersion: "1.0.2", supported: SUPPORTED,
-    state, action: "submit", endpoint, credential, fetchImpl: reply }).catch(() => {});
-  await submit();
-  console.log("\nstate after 409:", state.status, "| pin dropped:", !state.hasPinnedRetry());
-  await new Promise((r) => setTimeout(r, 1100));   // operator waits, presses Submit again
-  await submit();
-  console.log("same idempotency key on retry:", keys[0] === keys[1]);
-}
-
-// F-4: a pin is folder-blind, so download returns the pinned folder's bytes.
-{
-  const state = new PreparedSnapshotState(); const game = fakeGame();
-  await executeWorkflow({ game, crypto: nodeCrypto, folderId: ACTIVE_FOLDER_ID,
-    exporterVersion: "1.0.2", supported: SUPPORTED, state, action: "submit",
-    endpoint, credential, fetchImpl: async () => { throw new Error("unknown"); } }).catch(() => {});
-  let downloaded;
-  await executeWorkflow({ game, crypto: nodeCrypto, folderId: INACTIVE_FOLDER_ID,
-    exporterVersion: "1.0.2", supported: SUPPORTED, state, action: "download",
-    downloadPrepared: (p) => { downloaded = p; } });
-  console.log("\nrequested:", INACTIVE_FOLDER_ID, "| downloaded:", downloaded.folderId);
-}
-
-// F-5: a newer, different submission silently drops the older pin.
-{
-  const state = new PreparedSnapshotState(); const game = fakeGame();
-  const d = () => { let r, j; const p = new Promise((a, b) => { r = a; j = b; }); return { p, r, j }; };
-  const A = d(), B = d();
-  const pA = executeWorkflow({ game, crypto: nodeCrypto, folderId: ACTIVE_FOLDER_ID,
-    exporterVersion: "1.0.2", supported: SUPPORTED, state, action: "submit",
-    endpoint, credential, fetchImpl: async () => A.p });
-  await Promise.resolve();
-  const pB = executeWorkflow({ game, crypto: nodeCrypto, folderId: INACTIVE_FOLDER_ID,
-    exporterVersion: "1.0.2", supported: SUPPORTED, state, action: "submit",
-    endpoint, credential, fetchImpl: async () => B.p });
-  B.r({ ok: true, status: 201, json: async () => ({ checksum: "b", actor_count: 1 }) });
-  await pB; A.j(new Error("connection reset")); await pA.catch(() => {});
-  console.log("\nolder delivery indeterminate; pin held:", state.hasPinnedRetry());
-}
-
-// F-6: standalone discardPinned is silently ignored during a live workflow.
-{
-  const state = new PreparedSnapshotState();
-  const token = state.startOperation();
-  state.setPinnedRetry("f1", "cf1", { bytes: new Uint8Array([1]), marker: "PINNED" }, token);
-  const back = await prepareSnapshot({ game: null, crypto: null, folderId: "f1",
-    exporterVersion: "1.0.0", supported: {}, state, discardPinned: true });
-  console.log("\nafter discardPinned:true ->", state.status, "| returned:", back.marker);
-}
+```bash
+for file in foundry-module/scripts/*.js; do node --check "$file"; done
+node --test foundry-module/tests/*.test.mjs
+./venv/bin/python -m pytest -q
+git diff --check
 ```
 
----
+Results at remediation handover: 8 syntax checks pass; **Node 143 passed, 0
+failed**; **Python 1756 passed, 208 skipped, 0 failed**; `git diff --check`
+clean.
 
-## 6. Questions I would value a second opinion on
+The rehearsal environment was torn down after this handover was written:
+database reset, artifacts deleted, Caddy returned to its three original routes,
+both rehearsal processes stopped, the module endpoint setting cleared, and the
+disposable credential destroyed. No artifact, Actor name, mechanic or credential
+was committed. `docs/screenshots/` was not read at any point.
 
-1. **F-1 severity.** I called it Blocking because it creates a duplicate pending
-   artifact and defeats the module's stated idempotency guarantee. It requires
-   the stored-receipt-unreadable branch in `_replay`, which is rare. Is Blocking
-   right, or is it Important?
-2. **F-3 threat model.** Is a hostile or compromised platform server in scope at
-   all? Remediation item 3 adopted that model explicitly; if it is in scope, the
-   code field must be bounded the same way the message was. If it is not, item 3
-   was unnecessary and F-3 is moot. It should not be half-adopted.
-3. **F-4 versus the pin invariant.** Scoping the pin check to the requested
-   folder would fix the download trap but weakens "only an explicit discard
-   clears a pin". Is a separate **Discard Pinned & Download** button the better
-   resolution?
-4. **F-5 and the pin's durability.** Is an in-memory, per-page-load pin adequate
-   for the delivery-indeterminate case, or does the operations guide overstate
-   what it protects?
-5. Anything in section 3 you think I cleared too readily.
+## Suggested reviewer focus
 
----
-
-## 7. Boundaries and residual concerns
-
-Carried forward from the implementer's handoff and still true:
-
-- the module has **not** been installed into Foundry; the installed copy may be
-  an older version;
-- no real Foundry world, credential, endpoint or supervised rehearsal was used;
-- the module is now tracked at `f632722`, but the server-side Phase 2 code it
-  depends on is still uncommitted, so the **working tree** — not that commit
-  alone — is the reviewable state;
-- the transport assumes post-dispatch exceptions remain wrapped by
-  `transport.js`. A future unwrapped throw after dispatch would depend on the
-  conservative classifier default and should be covered if new transport paths
-  are added.
-
-Added by this review:
-
-- every finding above is an implementation defect reproducible without Foundry.
-  **None** substitutes for the missing rehearsal and acceptance evidence, which
-  remain outstanding separately;
-- I made no code changes. If findings are accepted, the implementer should fix
-  and re-submit for re-review.
-
----
-
-## 8. Unrelated operational note
-
-During this session the live Discord bot was found down and was restored. It is
-recorded here only so you are not misled by host state; **no repository content
-was changed** by it, and `git diff --summary` shows no mode changes.
-
-`models/exchange.py` was mode `0600` owned by `foundry`, while the service runs
-as `User=discordbot`. `ext/commands/xchange.py:9` imports it, `ext/loader.py`
-treats every extension as required, so startup failed with exit code 1 and
-`Restart=on-failure` looped it 24,235 times. The file had been unreadable to the
-service account since 2026-07-26; the running process held the module in memory,
-so the fault only surfaced at the 2026-08-07 11:34 reboot.
-
-Fixed by `chmod`. The same defect — files at `0600` and directories at `2700`,
-consistent with a `umask 077` session — was swept from `adapters/`, `domain/`,
-`migrations/`, `docs/`, `tests/` and three `application/*.py` files, which
-matters because the architecture in `AGENTS.md` has cogs importing from
-`domain/` and `adapters/` next. `alembic.ini`, `infra/postgresql/` and
-`.pytest_cache/` were deliberately left restricted. `.env` was world-readable and
-is now `0640`; **its Discord token and Google service-account key should be
-considered exposed and rotation is a maintainer decision.**
+1. Whether R-3 and R-4 are Important or Blocking. Both concern controls that
+   protect against a second pending artifact, which is the invariant this whole
+   package exists to hold, and both were invisible until the procedure was run.
+2. Whether R-1 should block acceptance or be a tracked follow-up.
+3. Whether the fixture-identity scope decision is right.
+4. Whether anything in the trial changes Claude's *accept* recommendation for
+   the 1.0.4 code itself. My view: it does not — every trial finding is in the
+   operational and documentation layer, not in the remediated code.

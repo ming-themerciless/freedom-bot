@@ -40,7 +40,7 @@ def test_checksums_compare_by_value():
 
 @pytest.mark.parametrize(
     "value",
-    ["", "short", "52ywI3ttEcgf9iB", "52ywI3ttEcgf9iBvv", "52ywI3ttEcgf9iB-", None],
+    ["", "short", "5tYuIoPaSdFgHj6", "5tYuIoPaSdFgHj6KK", "5tYuIoPaSdFgHj6-", None],
 )
 def test_a_document_id_must_be_16_alphanumeric_characters(value):
     with pytest.raises(InvalidIdentityError):
@@ -57,28 +57,28 @@ def test_a_document_id_refusal_explains_the_per_actor_export_trap():
 def test_actor_and_folder_ids_are_different_identities():
     # Structurally identical, semantically distinct: a folder id must never
     # compare equal to an actor id that happens to share its characters.
-    assert FoundryActorId("52ywI3ttEcgf9iBv") != FoundryFolderId("52ywI3ttEcgf9iBv")
-    assert FoundryActorId("52ywI3ttEcgf9iBv") == FoundryActorId("52ywI3ttEcgf9iBv")
+    assert FoundryActorId("5tYuIoPaSdFgHj6K") != FoundryFolderId("5tYuIoPaSdFgHj6K")
+    assert FoundryActorId("5tYuIoPaSdFgHj6K") == FoundryActorId("5tYuIoPaSdFgHj6K")
 
 
 def test_a_folder_identity_carries_its_path_as_well_as_its_id():
     identity = FolderIdentity(
-        folder_id=FoundryFolderId("smob5eya6XVBAuIb"),
+        folder_id=FoundryFolderId("actvQwErTyUiOpAs"),
         path="/actors/Characters/Characters (active)",
     )
 
-    assert "smob5eya6XVBAuIb" in identity.describe()
+    assert "actvQwErTyUiOpAs" in identity.describe()
     assert "Characters (active)" in identity.describe()
 
 
 def test_a_folder_path_must_be_absolute():
     with pytest.raises(InvalidIdentityError):
-        FolderIdentity(folder_id=FoundryFolderId("smob5eya6XVBAuIb"), path="Characters")
+        FolderIdentity(folder_id=FoundryFolderId("actvQwErTyUiOpAs"), path="Characters")
 
 
 def test_two_folders_sharing_a_name_are_different_identities():
-    left = FolderIdentity(FoundryFolderId("aaaa5eya6XVBAuIb"), "/actors/A/Active")
-    right = FolderIdentity(FoundryFolderId("bbbb5eya6XVBAuIb"), "/actors/B/Active")
+    left = FolderIdentity(FoundryFolderId("aaaaQwErTyUiOpAs"), "/actors/A/Active")
+    right = FolderIdentity(FoundryFolderId("bbbbQwErTyUiOpAs"), "/actors/B/Active")
 
     assert left != right
 

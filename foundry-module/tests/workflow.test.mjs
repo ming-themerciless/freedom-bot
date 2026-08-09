@@ -330,7 +330,6 @@ test("executeWorkflow transition: same-key server failures pin exact prepared sn
     "storage_unavailable",
     "database_unavailable",
     "internal_error",
-    "authentication_unavailable",
   ]) {
     const state = new PreparedSnapshotState();
     const game = fakeGame();
@@ -355,6 +354,46 @@ test("executeWorkflow transition: same-key server failures pin exact prepared sn
     );
 
     assert.equal(state.status, "unconfirmed-retry-pinned", `Code ${code} should pin retry`);
+  }
+});
+
+test("executeWorkflow keeps retry material for every unidentifiable 409", async () => {
+  const cases = [
+    { name: "empty object", fetchImpl: fakeFetch({}, 409) },
+    { name: "message only", fetchImpl: fakeFetch({ message: "conflict" }, 409) },
+    { name: "empty error", fetchImpl: fakeFetch({ error: {} }, 409) },
+    { name: "non-string code", fetchImpl: fakeFetch({ error: { code: 42 } }, 409) },
+    {
+      name: "non-JSON",
+      fetchImpl: async () => ({
+        ok: false,
+        status: 409,
+        json: async () => { throw new Error("not json"); },
+      }),
+    },
+  ];
+
+  for (const refusalCase of cases) {
+    const state = new PreparedSnapshotState();
+    await assert.rejects(
+      executeWorkflow({
+        game: fakeGame(),
+        crypto: nodeCrypto,
+        folderId: ACTIVE_FOLDER_ID,
+        exporterVersion: "1.0.3",
+        supported: SUPPORTED,
+        state,
+        action: "submit",
+        endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+        credential: "principal.0123456789012345678901234567890123456789",
+        fetchImpl: refusalCase.fetchImpl,
+      })
+    );
+    assert.equal(
+      state.status,
+      "unconfirmed-retry-pinned",
+      `${refusalCase.name} must preserve the possibly-spent key`
+    );
   }
 });
 
@@ -493,6 +532,22 @@ test("status controls policy for server codes except spent-key same-key retries"
       FailureDisposition.RETRY_SAME_KEY
     );
   }
+  for (const code of ["submission_refused", "unknown_server_code"]) {
+    assert.equal(
+      classifyFailureDisposition(new TransportError(code, "Unknown.", {
+        stage: "post_dispatch",
+        status: 409,
+      })),
+      FailureDisposition.RETRY_SAME_KEY
+    );
+  }
+  assert.equal(
+    classifyFailureDisposition(new TransportError("malformed_response", "Unreadable.", {
+      stage: "post_dispatch",
+      status: 400,
+    })),
+    FailureDisposition.DELIVERY_INDETERMINATE
+  );
   for (const code of ["timeout", "network_failure", "missing_credential"]) {
     assert.equal(
       classifyFailureDisposition(new TransportError(code, "Refused.", {
@@ -682,6 +737,59 @@ test("changed world while an unconfirmed retry is pinned, followed by explicit o
   assert.notEqual(prepFresh.checksum, initialPinned.checksum);
   assert.equal(prepFresh.exportedAt, "2026-08-06T22:10:00Z");
   assert.equal(state.status, "confirmed-reusable");
+});
+
+test("a failed retry preserves an earlier unconfirmed delivery unless conflict is identified", async () => {
+  const credential = "principal.0123456789012345678901234567890123456789";
+  const cases = [
+    { name: "blank credential", credential: "" },
+    { name: "rotated credential", fetchImpl: fakeFetch({ error: { code: "unauthenticated" } }, 401) },
+    { name: "gateway not found", fetchImpl: fakeFetch({ error: { code: "not_found" } }, 404) },
+    { name: "gateway method refusal", fetchImpl: fakeFetch({ error: { code: "method_not_allowed" } }, 405) },
+    { name: "endpoint cleared", endpoint: "" },
+    { name: "insecure endpoint", endpoint: "http://freedom.example/snapshots" },
+    { name: "malformed endpoint", endpoint: "not a url" },
+  ];
+
+  for (const retryCase of cases) {
+    const state = new PreparedSnapshotState();
+    await assert.rejects(executeWorkflow({
+      game: fakeGame(), crypto: nodeCrypto, folderId: ACTIVE_FOLDER_ID,
+      exporterVersion: "1.0.5", supported: SUPPORTED, state, action: "submit",
+      endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+      credential, fetchImpl: () => Promise.reject(new Error("lost response")),
+    }));
+    const pinned = state.pinnedPrepared;
+
+    await assert.rejects(executeWorkflow({
+      game: fakeGame(), crypto: nodeCrypto, folderId: ACTIVE_FOLDER_ID,
+      exporterVersion: "1.0.5", supported: SUPPORTED, state, action: "submit",
+      endpoint: retryCase.endpoint ?? "https://freedom.example/api/v1/foundry/snapshots",
+      credential: retryCase.credential ?? credential,
+      fetchImpl: retryCase.fetchImpl ?? fakeFetch({}),
+    }));
+
+    assert.equal(state.status, "unconfirmed-retry-pinned", retryCase.name);
+    assert.strictEqual(state.pinnedPrepared, pinned, retryCase.name);
+  }
+});
+
+test("an identified request-key conflict is the only retry refusal that clears a pin", async () => {
+  const state = new PreparedSnapshotState();
+  const options = {
+    game: fakeGame(), crypto: nodeCrypto, folderId: ACTIVE_FOLDER_ID,
+    exporterVersion: "1.0.5", supported: SUPPORTED, state, action: "submit",
+    endpoint: "https://freedom.example/api/v1/foundry/snapshots",
+    credential: "principal.0123456789012345678901234567890123456789",
+  };
+  await assert.rejects(executeWorkflow({
+    ...options, fetchImpl: () => Promise.reject(new Error("lost response")),
+  }));
+  await assert.rejects(executeWorkflow({
+    ...options,
+    fetchImpl: fakeFetch({ error: { code: "request_key_conflict" } }, 409),
+  }));
+  assert.equal(state.status, "empty");
 });
 
 test("meaningful Actor or embedded Item change invalidates reuse", async () => {

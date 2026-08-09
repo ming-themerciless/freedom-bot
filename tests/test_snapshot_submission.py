@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import re
 from pathlib import Path
 from uuid import UUID
 
@@ -294,6 +295,10 @@ def test_a_retry_never_creates_a_second_snapshot_or_artifact(service, store, art
     assert len(store.snapshots) == 1
     assert len(list(artifacts.root.glob("*.json"))) == 1
     assert len(store.idempotency) == 1
+    # A same-key retry replays the original receipt before the audit write.
+    # Lost-pin recovery must therefore include the first attempt's event.
+    assert len(store.audit_events) == 1
+    assert store.audit_events[0].payload["duplicate"] is False
 
 
 def test_same_key_different_bytes_is_a_typed_conflict(service, store):
@@ -320,6 +325,11 @@ def test_same_bytes_under_another_key_is_one_artifact_identity(
     assert len(list(artifacts.root.glob("*.json"))) == 1
     # Two attempts, two receipts, one artifact.
     assert len(store.idempotency) == 2
+    assert len(store.audit_events) == 2
+    assert [event.payload["duplicate"] for event in store.audit_events] == [
+        False,
+        True,
+    ]
 
 
 def test_the_stored_receipt_is_a_completed_record_of_what_was_returned(service, store):
@@ -993,6 +1003,72 @@ def test_the_declared_artifact_codes_are_exactly_the_parser_s(service):
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 found.add(first.value)
     assert found == set(ARTIFACT_REFUSAL_CODES)
+
+
+def test_foundry_module_refusal_codes_match_the_real_submission_boundary():
+    """A server boundary change cannot silently become a generic client error."""
+    root = Path(__file__).resolve().parents[1]
+    wsgi = ast.parse((root / "adapters/http/wsgi.py").read_text())
+    boundary_codes = set(REFUSAL_CODES)
+
+    # These are the WSGI paths that can answer a snapshot POST (plus routing
+    # refusals for the configured endpoint). Preview has its own caller and
+    # vocabulary and is deliberately excluded.
+    for node in wsgi.body:
+        if not isinstance(node, ast.ClassDef) or node.name != "SnapshotSubmissionApplication":
+            continue
+        for function in node.body:
+            if not isinstance(function, ast.FunctionDef) or function.name not in {
+                "__call__", "_route", "_submit"
+            }:
+                continue
+            for call in ast.walk(function):
+                if not isinstance(call, ast.Call) or not call.args:
+                    continue
+                called = getattr(call.func, "id", getattr(call.func, "attr", None))
+                first = call.args[0]
+                if (
+                    called == "_error"
+                    and isinstance(first, ast.Constant)
+                    and isinstance(first.value, str)
+                ):
+                    boundary_codes.add(first.value)
+
+    # Submission authorization supplies this typed dynamic code; artifact
+    # size is produced by both the WSGI read bound and parser classification.
+    boundary_codes.update({"out_of_scope", "artifact_too_large"})
+
+    transport = (root / "foundry-module/scripts/transport.js").read_text()
+    declaration = re.search(
+        r"SERVER_REFUSAL_CODES\s*=\s*new Set\(\[(.*?)\]\)",
+        transport,
+        re.DOTALL,
+    )
+    assert declaration is not None
+    module_codes = set(re.findall(r'"([a-z][a-z0-9_]*)"', declaration.group(1)))
+
+    assert module_codes == boundary_codes, (
+        f"missing from module: {sorted(boundary_codes - module_codes)}; "
+        f"not exposed by server: {sorted(module_codes - boundary_codes)}"
+    )
+
+
+def test_foundry_module_artifact_codes_match_the_parser_contract():
+    """A new diagnostic code cannot become hidden or attacker-controlled."""
+    root = Path(__file__).resolve().parents[1]
+    transport = (root / "foundry-module/scripts/transport.js").read_text()
+    declaration = re.search(
+        r"SERVER_ARTIFACT_CODES\s*=\s*new Set\(\[(.*?)\]\)",
+        transport,
+        re.DOTALL,
+    )
+    assert declaration is not None
+    module_codes = set(re.findall(r'"([a-z][a-z0-9_]*)"', declaration.group(1)))
+
+    assert module_codes == set(ARTIFACT_REFUSAL_CODES), (
+        f"missing from module: {sorted(set(ARTIFACT_REFUSAL_CODES) - module_codes)}; "
+        f"not emitted by server: {sorted(module_codes - set(ARTIFACT_REFUSAL_CODES))}"
+    )
 
 
 def test_both_submission_actions_have_an_enforced_payload_policy():

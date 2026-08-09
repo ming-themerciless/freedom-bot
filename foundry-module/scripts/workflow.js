@@ -163,6 +163,12 @@ export function classifyFailureDisposition(error) {
     return FailureDisposition.LOCAL_REFUSAL;
   }
   if (error instanceof TransportError) {
+    // This is the client's statement that it could not read the answer, not a
+    // server refusal. A status attached to an unreadable answer cannot make the
+    // delivery definitive.
+    if (error.code === "malformed_response") {
+      return FailureDisposition.DELIVERY_INDETERMINATE;
+    }
     // A response status is a transport fact. Server-supplied codes must never
     // turn a definitive 4xx refusal into a local or indeterminate failure.
     if (typeof error.status === "number") {
@@ -170,6 +176,15 @@ export function classifyFailureDisposition(error) {
         return FailureDisposition.RETRY_SAME_KEY;
       }
       if (error.status >= 400 && error.status < 500) {
+        // Every submission-path 409 concerns an idempotency key. Only a
+        // positively identified conflict proves that these bytes must not be
+        // retried under this key; an absent or unrecognised code may hide a
+        // spent key whose original result must be recovered by retrying it.
+        if (error.status === 409) {
+          return error.code === "request_key_conflict"
+            ? FailureDisposition.DEFINITIVE_REFUSAL
+            : FailureDisposition.RETRY_SAME_KEY;
+        }
         if (
           error.code === "concurrent_submission" ||
           error.code === "original_result_unavailable"
@@ -442,6 +457,10 @@ export async function executeWorkflow({
   downloadPrepared,
 }) {
   const opToken = state ? state.startOperation() : null;
+  // Remember whether this operation began with an unresolved delivery. A
+  // retry's later failure cannot establish that the earlier attempt did not
+  // arrive, so it must not erase that attempt's exact bytes and key.
+  const beganWithPinnedRetry = state?.hasPinnedRetry() === true;
 
   try {
     const prepared = await prepareSnapshot({
@@ -505,8 +524,27 @@ export async function executeWorkflow({
             prepared,
             opToken
           );
-        } else {
+        } else if (
+          !beganWithPinnedRetry ||
+          discardPinned ||
+          (
+            error instanceof TransportError &&
+            error.status === 409 &&
+            error.code === "request_key_conflict"
+          )
+        ) {
           state.clear(opToken);
+        } else {
+          // A blank credential, bad endpoint, authentication failure, or any
+          // other refusal on this retry says nothing about the earlier
+          // unconfirmed delivery. Re-authorize the existing pin for this
+          // operation instead of letting an ordinary failure destroy it.
+          state.setPinnedRetry(
+            prepared.folderId,
+            prepared.contentFingerprint,
+            prepared,
+            opToken
+          );
         }
       }
     throw error;

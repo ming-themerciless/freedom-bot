@@ -323,6 +323,27 @@ APP_ENVIRONMENT=test DATABASE_URL='postgresql+psycopg:///freedom_test' \
   ./venv/bin/python -m tools.snapshot_api --port 8757
 ```
 
+The launcher defaults to the controlled `the-guild` deployment pin. To rehearse
+against a deliberately selected scratch world, add the complete rehearsal-only
+tuple to the command above; a partial tuple refuses startup:
+
+```bash
+FREEDOM_SNAPSHOT_REHEARSAL_WORLD_ID='test' \
+FREEDOM_SNAPSHOT_REHEARSAL_CORE_VERSION='14.365' \
+FREEDOM_SNAPSHOT_REHEARSAL_SYSTEM_ID='dnd5e' \
+FREEDOM_SNAPSHOT_REHEARSAL_SYSTEM_VERSION='5.3.3'
+```
+
+Use these variables only with this loopback rehearsal launcher and a disposable
+database. They do not alter the production composition default, and the
+launcher enforces that scope rather than trusting it: a complete, well-formed
+tuple is **refused unless `APP_ENVIRONMENT=test`**, which in turn requires
+`DATABASE_URL` to name the disposable `freedom_test` database. An unset
+`APP_ENVIRONMENT` is refused for the same reason. Startup prints the effective
+accepted tuple; compare it with the module dialog before submitting. Omitting
+all four restores the controlled deployment pin, unconditionally and in every
+environment.
+
 It binds loopback only and refuses anything else. It prints the configured
 principal *ids*, the artifact root, the permitted browser origins and the port —
 never a secret, a digest or a database URL.
@@ -806,7 +827,22 @@ is the only thing that ever goes into configuration.
    the `Actors (shared)` compendium.
 9. Confirm nothing entered Git: `git status` shows no `.json` artifact, no dump,
    no log and no Actor content.
-10. Reset the disposable database and delete the raw artifact according to the
+10. Without changing the selected folder or exportable world state after the
+    successful submission in step 4, induce one unconfirmed **duplicate**
+    delivery with a rehearsal-only proxy fault that forwards the complete POST
+    to the service and drops or delays only the downstream response. The module
+    must reuse the confirmed prepared bytes from step 4; do not discard or
+    prepare a fresh export. Confirm from the sanitized upstream access record
+    that the POST reached the service; stopping the service before submission
+    is not this test, because that can exercise only the miss branch. Record the
+    first submission's UTC time and the last retry's UTC time, reload the
+    Foundry page so its in-memory retry is lost,
+    and execute the **Lost-pin reconciliation** in §9. The intended rehearsal
+    outcome is one hit with `duplicate = false`: the original attempt's audit
+    event resolves to the snapshot row. The same-key retry replays its receipt
+    without writing another audit event. Do not make a fresh submission during
+    this check. Record the sanitized conclusion, never the snapshot contents.
+11. Reset the disposable database and delete the raw artifact according to the
     recorded rehearsal decision.
 
 This proves transport and integration. **It does not satisfy the Phase 2 gate.**
@@ -1038,14 +1074,84 @@ folder without submitting. Either clears the entry before reading current world
 state. Retrying the pinned submission resends the same bytes, checksum and
 idempotency key.
 
+Once delivery is pinned, a failed retry does not clear it: an empty or rotated
+credential, an invalid endpoint, or a gateway `401`, `404`, or `405` says
+nothing about whether the earlier attempt arrived. Only an explicit Discard
+action, a successful receipt, or a positively identified
+`request_key_conflict` ends that unresolved retry state.
+
 The pin is deliberately held only in memory for the current Foundry page load;
 the raw snapshot is not written to a client-readable Foundry setting or browser
 storage. Do not reload or close the page while delivery is unconfirmed. A reload
 loses the client retry material and is not covered by the same-key guarantee.
 If it happens, stop rather than submitting current state under a new key and ask
-the platform operator to reconcile the earlier request. Whether this operational
-boundary is sufficient remains an explicit independent re-review question; it
-is not represented as durable recovery.
+the platform operator to perform the lost-pin reconciliation below. This is not
+durable client recovery: it is a read-only check of whether the server recorded
+the earlier request.
+
+#### Lost-pin reconciliation after an accidental reload
+
+The submitting GM gives the platform operator the exact `world_id` and a UTC
+window spanning the whole unresolved delivery episode: from the first
+submission of the pinned bytes through the last attempt before the reload. A
+retry of pinned bytes uses the same idempotency key, so it replays the original
+receipt without writing a new audit event; the first attempt's event is the
+server-side evidence that the bytes arrived. Do not send Actor data or a
+credential. The operator waits until the final request/timeout has finished,
+then runs this read-only query using an account permitted to read `audit_events`
+and `foundry_snapshots`:
+
+```bash
+psql -X -v ON_ERROR_STOP=1 freedom \
+  -c "SELECT s.id, s.checksum, s.actor_count, s.received_at, s.received_via,
+             a.correlation_id AS attempt_correlation_id,
+             a.occurred_at AS attempt_occurred_at,
+             a.payload->>'duplicate' AS duplicate
+      FROM audit_events AS a
+      JOIN foundry_snapshots AS s ON s.checksum = a.entity_id
+      WHERE a.action = 'snapshot_submission.accepted'
+        AND a.entity_type = 'foundry_snapshot'
+        AND a.source = 'foundry'
+        AND a.payload->>'world_id' = 'the-guild'
+        AND a.occurred_at >= '2026-08-08 19:00:00+00'::timestamptz
+        AND a.occurred_at <= '2026-08-08 19:05:00+00'::timestamptz
+      ORDER BY a.occurred_at;"
+```
+
+Replace all four example values: the database, world ID and both timestamps.
+Set the timestamps from the known bounds of the whole unresolved episode; do
+not widen them beyond those bounds merely to find a row. The time window
+applies to the append-only event for the first submission of these pinned
+bytes, not only to the last retry and not to the snapshot row's `received_at`.
+The checksum join is deliberate: it resolves that acceptance event to the
+all-time snapshot row. A module retry under the same key creates no new event;
+`duplicate = false` on the original event is therefore the expected result. A
+`duplicate = true` event is possible only when the same bytes arrived under a
+different key. Do not replace the audit-event window with a
+`foundry_snapshots.received_at` window.
+
+Interpret the result as follows:
+
+- Exactly one row attributable to the attempt means the server already holds
+  that pending snapshot. Record its `id`, checksum and receipt time in the
+  restricted operational record, tell the GM not to submit again, and continue
+  with the normal Council review of that row.
+- No row, after the final request has ended and the whole-episode audit-event
+  query has been repeated once, means the server did not record an accepted
+  pending snapshot during that episode. Record the miss. Only then may the
+  operator authorize the GM to prepare and submit a fresh snapshot.
+- More than one row, or any row that cannot be attributed to this attempt,
+  means the result is unresolved. Stop; do not authorize a fresh submission.
+  Correlate the fixed-category service/access logs and the rows' correlation
+  IDs under the incident procedure before deciding which pending snapshot the
+  Council should review.
+
+No fresh submission is permitted from the reload until one of the first two
+outcomes has been established and recorded. The checksum uniqueness constraint
+prevents identical bytes from becoming two rows; the whole-episode
+acceptance-event query detects the original accepted attempt even though later
+same-key retries are silent replays. Together, they prevent a new export with a
+new checksum from being submitted while the earlier outcome is unknown.
 
 Downloading is a fallback delivery channel only. It does not confirm a server
 submission and does not clear an existing pin. If the download itself fails,

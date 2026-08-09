@@ -19,6 +19,11 @@ service_account.json
 # see docs/discovery/fixture-strategy.md (fixtures are synthetic by construction).
 fvtt-Actor-*.json
 
+# Supervised rehearsal screenshots — maintainer-supplied browser evidence that
+# may show world, folder or Actor content. Retained outside version control and
+# referenced from the rehearsal record by description only.
+docs/screenshots/
+
 # Logs & tmp
 logs/
 *.log

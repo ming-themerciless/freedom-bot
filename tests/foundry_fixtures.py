@@ -19,11 +19,11 @@ from typing import Any
 
 from domain.foundry import OBSERVED_DEPLOYMENT
 
-ACTIVE_FOLDER_ID = "smob5eya6XVBAuIb"
-ARCHIVE_FOLDER_ID = "arch5eya6XVBAuIb"
-ROOT_FOLDER_ID = "root5eya6XVBAuIb"
+ACTIVE_FOLDER_ID = "actvQwErTyUiOpAs"
+ARCHIVE_FOLDER_ID = "archQwErTyUiOpAs"
+ROOT_FOLDER_ID = "rootQwErTyUiOpAs"
 
-FIRST_ACTOR_ID = "52ywI3ttEcgf9iBv"
+FIRST_ACTOR_ID = "5tYuIoPaSdFgHj6K"
 SECOND_ACTOR_ID = "9kQpZ2mNbVcXsAe1"
 THIRD_ACTOR_ID = "3fTgYhUjIkOlPq7W"
 

@@ -36,8 +36,8 @@ test("the running deployment tuple is read, never assumed", () => {
 
 test("only Actor folders are considered", () => {
   const game = fakeGame();
-  game.folders.push({ id: "jrnl5eya6XVBAuIb", name: "Notes", type: "JournalEntry", folder: null });
-  assert.equal(readFolders(game).has("jrnl5eya6XVBAuIb"), false);
+  game.folders.push({ id: "jrnlQwErTyUiOpAs", name: "Notes", type: "JournalEntry", folder: null });
+  assert.equal(readFolders(game).has("jrnlQwErTyUiOpAs"), false);
 });
 
 test("selectable folders carry stable id, full path and direct Actor count", () => {

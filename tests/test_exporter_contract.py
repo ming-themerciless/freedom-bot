@@ -34,9 +34,9 @@ EMITTER = MODULE / "tests" / "emit-golden.mjs"
 #: The folder ids the exporter's synthetic world uses. Kept here rather than
 #: imported, because importing them would mean parsing JavaScript from Python;
 #: `test_the_fixture_ids_match` asserts they are still the fixture's.
-ACTIVE_FOLDER_ID = "smob5eya6XVBAuIb"
-ROOT_FOLDER_ID = "root5eya6XVBAuIb"
-FIRST_ACTOR_ID = "52ywI3ttEcgf9iBv"
+ACTIVE_FOLDER_ID = "actvQwErTyUiOpAs"
+ROOT_FOLDER_ID = "rootQwErTyUiOpAs"
+FIRST_ACTOR_ID = "5tYuIoPaSdFgHj6K"
 SECOND_ACTOR_ID = "9kQpZ2mNbVcXsAe1"
 NESTED_ACTOR_ID = "7hJkLmNpQrStUvWx"
 
@@ -181,6 +181,21 @@ def test_the_fixture_ids_match_the_javascript_fixture():
         ("NESTED_ACTOR_ID", NESTED_ACTOR_ID),
     ):
         assert f'{name} = "{value}"' in source
+
+
+def test_both_module_manifests_declare_one_version():
+    """`exporter.version` reaches checksum-bearing audit history.
+
+    `main.js` feeds `module.json`'s version into the bundle, so it lands in
+    `foundry_snapshots.exporter_version`. Two builds sharing a version — or the
+    two manifests disagreeing — makes that history unable to say which module
+    produced a row, so the pair is pinned rather than kept in step by hand.
+    """
+    module = json.loads((MODULE / "module.json").read_text(encoding="utf-8"))
+    package = json.loads((MODULE / "package.json").read_text(encoding="utf-8"))
+
+    assert module["version"] == package["version"]
+    assert module["id"] == package["name"]
 
 
 def test_the_module_carries_no_dependency_lockfile_or_build_step():

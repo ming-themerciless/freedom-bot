@@ -569,7 +569,7 @@ Do not delete a file merely because it is named `.incoming-*`. Follow
 
 ## 16. Current starting point
 
-As of 2026-08-07:
+As of 2026-08-09:
 
 - automated tests and disposable PostgreSQL rehearsals pass;
 - I-3R-1 is closed;
@@ -577,10 +577,19 @@ As of 2026-08-07:
   version 1.0.1 reached submission after correcting the initial
   `undefined_value` refusal, then failed the duplicate-unchanged-submission
   check by producing new timestamps, checksums and pending snapshots;
-- local version 1.0.2 introduces a bounded prepared-snapshot lifecycle, but an
-  independent review found that retryable server failures and
-  delivery-indeterminate malformed responses still clear the exact prepared
-  retry; correction and independent review are required before reinstalling;
+- version 1.0.2 introduced a bounded prepared-snapshot lifecycle whose retry
+  and malformed-response paths an independent review reopened; 1.0.3 and 1.0.4
+  closed those findings, and 1.0.4 was recommended for acceptance as an
+  implementation;
+- **module version identity.** A 1.0.4 build was installed on the `foundry3`
+  instance for the 2026-08-09 rehearsal trial in the scratch world `test`. The
+  current repository build is **not** that build — it adds `notifications.js`,
+  changes the operator-visible failure text and surfaces `artifact_code` — and
+  is versioned **1.0.5** for that reason. `exporter.version` reaches
+  `foundry_snapshots.exporter_version` and checksum-bearing audit history, so
+  the two builds must not share a string. Nothing has been installed anywhere
+  as 1.0.5. The trial database was destroyed, so no stored row needs
+  correcting;
 - no active-folder Data Owner attestation exists;
 - field profile `2026-08-03.1` has no recorded maintainer acceptance;
 - the positive credential-confidentiality facts and allowed-origin browser

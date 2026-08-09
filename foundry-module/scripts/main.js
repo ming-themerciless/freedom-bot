@@ -50,6 +50,7 @@
 
 import { BundleError } from "./bundle.js";
 import { MODULE_ID, readSettings, registerSettings } from "./settings.js";
+import { failureNotification } from "./notifications.js";
 import { SourceError, describeSelectableFolders, mayExport } from "./world-source.js";
 import { TransportError } from "./transport.js";
 import {
@@ -124,23 +125,13 @@ async function openSubmissionDialogOnce() {
         label: "Retry Pinned Submission",
         icon: "fa-solid fa-rotate-right",
         default: true,
-        callback: (event, button) => ({
-          action: "submit",
-          folderId: button.form.elements.folderId.value,
-          credential: button.form.elements.submissionCredential.value,
-          discardPinned: false,
-        }),
+        callback: (event, button) => submissionChoice(button, false),
       },
       {
         action: "discard-and-submit",
         label: "Discard Pinned & Prepare New",
         icon: "fa-solid fa-trash-can",
-        callback: (event, button) => ({
-          action: "submit",
-          folderId: button.form.elements.folderId.value,
-          credential: button.form.elements.submissionCredential.value,
-          discardPinned: true,
-        }),
+        callback: (event, button) => submissionChoice(button, true),
       },
       {
         action: "discard-and-download",
@@ -160,12 +151,7 @@ async function openSubmissionDialogOnce() {
       label: "Submit to Freedom Blades",
       icon: "fa-solid fa-cloud-arrow-up",
       default: true,
-      callback: (event, button) => ({
-        action: "submit",
-        folderId: button.form.elements.folderId.value,
-        credential: button.form.elements.submissionCredential.value,
-        discardPinned: false,
-      }),
+      callback: (event, button) => submissionChoice(button, false),
     });
   }
 
@@ -204,6 +190,23 @@ async function openSubmissionDialogOnce() {
     // as this function rather than as long as whatever holds `choice`.
     choice.credential = "";
   }
+}
+
+/** Refuse an empty secret while the dialog still owns the form and its pin. */
+function submissionChoice(button, discardPinned) {
+  const credential = button.form.elements.submissionCredential.value;
+  if (!credential.trim()) {
+    ui.notifications.error(
+      `${MODULE_TITLE} [missing_credential]: Enter the submission credential before submitting.`
+    );
+    return false;
+  }
+  return {
+    action: "submit",
+    folderId: button.form.elements.folderId.value,
+    credential,
+    discardPinned,
+  };
 }
 
 /**
@@ -269,6 +272,7 @@ function buildDialogContent(folders, settings, hasPinnedRetry = false) {
   credentialInput.name = "submissionCredential";
   credentialInput.autocomplete = "off";
   credentialInput.spellcheck = false;
+  credentialInput.required = true;
   credentialInput.placeholder = "<principal id>.<secret>";
   credentialLabel.append(credentialInput);
   container.append(credentialLabel);
@@ -348,12 +352,14 @@ async function run(action, folderId, credential, settings, { discardPinned = fal
       );
     }
   } catch (error) {
+    const retryPinned = action === "submit" && snapshotState.hasPinnedRetry();
     notifyFailure(
       error,
       action === "download"
         ? "The download did not complete; no submission was attempted."
         : "Nothing was recorded or confirmed. Submitting the same export again is " +
-          "safe: a retry cannot create a second snapshot."
+          "safe: a retry cannot create a second snapshot.",
+      retryPinned
     );
   } finally {
     // The last reference this function holds. Anything the browser still has is
@@ -372,18 +378,22 @@ async function run(action, folderId, credential, settings, { discardPinned = fal
  *
  * @param {unknown} error
  * @param {string} reassurance
+ * @param {boolean} [retryPinned=false]
  */
-function notifyFailure(error, reassurance) {
+function notifyFailure(error, reassurance, retryPinned = false) {
   const known =
     error instanceof BundleError ||
     error instanceof SourceError ||
     error instanceof TransportError ||
     error instanceof WorkflowError;
-  if (known) {
-    ui.notifications.error(`${MODULE_TITLE} [${error.code}]: ${error.message}`);
-    return;
-  }
   ui.notifications.error(
-    `${MODULE_TITLE}: the snapshot could not be completed. ${reassurance}`
+    failureNotification({
+      title: MODULE_TITLE,
+      known,
+      code: known ? error.code : undefined,
+      message: known ? error.message : undefined,
+      reassurance,
+      retryPinned,
+    })
   );
 }

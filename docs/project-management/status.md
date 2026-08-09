@@ -1,6 +1,6 @@
 # Project status
 
-Status date: 2026-08-08
+Status date: 2026-08-09
 
 Baseline: v1.5; accepted by Peter Duscha on 2026-08-02
 
@@ -15,7 +15,7 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
 | Phase 0 — Discovery and architecture | Accepted | Closed 2026-07-30 | `docs/discovery/phase-0-handoff.md`, `docs/review/phase-0-submission.md` |
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance is recorded at the head of `docs/review/phase-1-submission.md` |
 | Phase 2 — Import and reconciliation | In remediation; supervised rehearsal attempted 2026-08-06 and failed | Deferred | The accepted replacement plan remains controlling. Disposable migration, backup/restore, runtime-role and performance evidence passed. The real-export rehearsal exposed exporter defects; active-folder preview, Data Owner attestation, complete independent gate review, owner recommendations and the gate decision remain outstanding. |
-| Phase 2 I-03 — snapshot submission | Lifecycle remediation `1.0.2` independently reviewed 2026-08-08; two Blocking lifecycle findings and three Important findings remain open | Deferred, with the Phase 2 gate | Codex reproduced the reviewed edge cases. A `409 original_result_unavailable` clears an already-spent key, and overlapping different-payload submissions or a page reload can lose the exact bytes/key for an indeterminate delivery. Server-code classification, response-field validation and folder-blind fallback download also require remediation. The module suite passes 126/126, but passing tests do not close these findings. See `docs/review/phase-2-i-03-lifecycle-codex-review.md` and the security-focused companion. No reinstall or rehearsal rerun occurs until fixes are independently re-reviewed. |
+| Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-B-1, CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are now closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. CL3-O-3 remains open. The current build is **1.0.5** and has not been installed anywhere; the trialled 1.0.4 is a different build. Passing tests close no gate. |
 | Phase 3 and later | Not ready | Not opened | Phase 2 gate and applicable decisions/dependencies must close first |
 | Frontend visual prototype | Status to be recorded by Product Owner | Separate visual gate | May proceed only within §12.1 constraints |
 
@@ -29,16 +29,19 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    and remains required at step 5.
 3. ~~**Acceptance Authority approval**~~ — recorded 2026-08-02, together with
    the OD-42/I-05 ruling and the three delivery rulings in change-log C-2.
-4. **Remediate the independently confirmed lifecycle findings.** The 2026-08-08
-   Codex review confirmed that `original_result_unavailable` loses a spent key
-   and upgraded cross-payload overlap/page-reload key loss to Blocking. It also
-   confirmed Important classifier-ordering, response-validation and fallback
-   download weaknesses. The implementation is checkpointed at `6db51e7`; the
-   reviewed module snapshot remains `f632722` until a focused fix is committed.
-5. **Independent re-review of the fixed implementation**, closing every
-   blocking security, identity, atomicity, migration, recovery and
-   evidence-accuracy finding. The 2026-08-08 review documents are findings, not
-   acceptance.
+4. ~~**Remediate the independently confirmed lifecycle findings.**~~ — done.
+   The 2026-08-08 findings were closed by module `1.0.3` and `1.0.4`, and the
+   2026-08-09 trial findings R-1…R-4 and CL3-B-1/I-1/I-2/O-1/O-2 are closed in
+   `1.0.5`. Recorded in
+   [`../review/phase-2-i-03-cl3-remediation.md`](../review/phase-2-i-03-cl3-remediation.md).
+   **CL3-O-3 remains open**, and the CL3-I/CL3-O changes were implemented by the
+   reviewer who raised them at maintainer instruction and therefore carry no
+   independent review.
+5. **Independent gate review of the complete I-03 package and the Phase 2
+   evidence**, closing every blocking security, identity, atomicity, migration,
+   recovery and evidence-accuracy finding. No such recommendation exists. The
+   2026-08-08 and 2026-08-09 review documents are findings and finding
+   closures, not acceptance.
 6. ~~**Operational evidence**: upgrade/downgrade/upgrade, backup/restore/rerun
    and direct `freedom_runtime_test` denial of `UPDATE`, `DELETE` and `TRUNCATE`
    against the final retained schema.~~ — **run 2026-08-05 against the
@@ -157,11 +160,16 @@ anchoring and the publication guarantee are proven against substitutions
 performed by the test process and against type, owner and mode as this process
 observes them, **not by a cross-account experiment and not by a multi-process
 stress test**.
-I-03 claims no Phase 2, Phase 3 or Phase 7 gate criterion. The prior review request is
-[`../review/Handover information`](../review/Handover%20information); the
-superseded for current execution by the `1.0.2` lifecycle remediation. Its
-independent review must finish **before** the rehearsal rerun, so that a blocking
-finding cannot invalidate further maintainer-supervised evidence.
+I-03 claims no Phase 2, Phase 3 or Phase 7 gate criterion. The controlling
+review request is
+[`../review/Handover information`](../review/Handover%20information) and its
+outcome is
+[`../review/phase-2-i-03-r1-r4-claude-review.md`](../review/phase-2-i-03-r1-r4-claude-review.md);
+the remediation of its findings is recorded in
+[`../review/phase-2-i-03-cl3-remediation.md`](../review/phase-2-i-03-cl3-remediation.md).
+The rehearsal rerun follows the finding closures rather than preceding them, so
+that a blocking finding cannot invalidate maintainer-supervised evidence — and
+it must use the corrected Rehearsal A step 10, not the version the trial ran.
 
 Phase 3 is baselined only after that gate, and then only once named owners,
 accepted frontend contracts and security-review capacity are available. Steps 4
@@ -221,8 +229,16 @@ onward do not start before step 3 is recorded.
 
 ## Next status update
 
-Update after remediation and independent re-review of the prepared-snapshot
-lifecycle findings. Do not mark
-the supervised rehearsal complete until the inactive-folder rerun, remaining
-browser observations, active-folder preview and sanitized Data Owner attestation
-are all recorded.
+Update after the supervised rehearsal rerun. Do not mark it complete until the
+inactive-folder rerun, the corrected Rehearsal A step 10, the remaining browser
+observations, the active-folder preview and the sanitized Data Owner attestation
+are all recorded. The module must be reinstalled as `1.0.5`; the trialled 1.0.4
+is a different build.
+
+**Nothing in the 2026-08-09 finding closures moves the Phase 2 gate.** What the
+gate still needs is operational evidence and two decisions, none of which an
+implementing or reviewing agent can supply: the rehearsal itself, the Data Owner
+attestation, the recorded maintainer review of field profile `2026-08-03.1`, the
+independent gate recommendation, and the Acceptance Authority's decision. Phase 3
+additionally needs an accepted §12.1 visual direction, a named security reviewer
+distinct from the implementer, and OD-16 and OD-17 closed.
