@@ -58,11 +58,16 @@ and referred to the Acceptance Authority. **It is not waived here.**
 
 ## Teardown
 
-- [ ] Launcher and fault proxy stopped.
-- [ ] Artifact deleted per the D-c retention decision.
-- [ ] `freedom_test` reset to empty at `0004`.
+- [x] Launcher and fault proxy stopped; no listener on 8757 or 8758.
+- [x] Credential shredded.
+- [x] Artifact shredded per the D-c retention decision; artifact root empty.
+- [x] `freedom_test` truncated and verified: snapshots, audit events,
+      idempotency keys, imports, characters and mappings all `0`, schema at
+      `0004`.
 - [ ] Caddy reverted to `Caddyfile.pre-rehearsal-2026-08-09` — **maintainer
-      action, requires sudo**.
+      action, requires sudo**. The route currently answers `502`: the site block
+      is still present and its backend is gone.
+- [ ] Downloaded fallback, if any, deleted from the maintainer's workstation.
 
 ## Gate boundary
 
