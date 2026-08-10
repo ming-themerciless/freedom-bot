@@ -5,6 +5,7 @@ refusal is a run that could not have partially committed.
 """
 from __future__ import annotations
 
+import unicodedata
 from copy import deepcopy
 
 import pytest
@@ -117,17 +118,47 @@ def test_canonical_encoding_is_reported_but_never_enforced():
 
 
 def test_canonical_order_is_ecmascript_own_property_order():
-    """RA-2: integer-index keys sort numerically, ahead of every string key.
+    """RA-2: array-index keys sort numerically, ahead of every string key.
 
     Found by previewing a real export, not by a fixture. dnd5e keys scale-value
     advancements by class level, so a real Actor carries `{"1":…,"4":…,"10":…}`.
     A browser exporter emits those numerically however it sorts, because
-    `Object.keys` hoists integer-index keys — so a lexicographic canonical form
+    `Object.keys` hoists array-index keys — so a lexicographic canonical form
     (`"1","10","4"`) was one no conforming exporter could ever produce.
     """
     encoded = canonical_bytes({"scale": {"10": "c", "4": "b", "1": "a"}})
 
     assert encoded == b'{"scale":{"1":"a","4":"b","10":"c"}}\n'
+
+
+def test_the_hoisted_range_ends_at_the_ecmascript_array_index_bound():
+    """C-12: only array indices are hoisted, and they end at `2**32 - 2`.
+
+    C-10 wrote the bound as `2**53 - 1`, which is the *integer index* — a
+    `String.prototype`/typed-array concept ordinary object enumeration never
+    consults. The consequence was a cross-language disagreement (finding I-1),
+    not merely a wrong word: the exporter treats `"5000000000"` as an ordinary
+    string key and emits it after `"10000000000"`, and this verifier sorted it
+    numerically and put it first, so a conforming export would have been
+    reported non-canonical.
+
+    `tests/test_exporter_contract.py` asserts the shipped module agrees with
+    every line below; this pins the verifier's own half.
+    """
+    assert canonical_bytes(
+        {"4294967295": "b", "4294967294": "a", "7": "small"}
+    ) == b'{"7":"small","4294967294":"a","4294967295":"b"}\n'
+
+    # The pair from the finding: numerically 5e9 < 1e10, by code point "1…" < "5…".
+    assert (
+        canonical_bytes({"5000000000": "five", "10000000000": "ten"})
+        == b'{"10000000000":"ten","5000000000":"five"}\n'
+    )
+
+    # The old bound's own values are ordinary string keys under the new one.
+    assert canonical_bytes(
+        {"9007199254740992": "b", "9007199254740991": "a", "11": "small"}
+    ) == b'{"11":"small","9007199254740991":"a","9007199254740992":"b"}\n'
 
 
 def test_only_canonical_integer_keys_count_as_array_indices():
@@ -140,6 +171,216 @@ def test_only_canonical_integer_keys_count_as_array_indices():
     assert encoded.index('"10"') < encoded.index('"-1"')         # indices before names
     assert encoded.index('"-1"') < encoded.index('"01"') < encoded.index('"1.0"')
     assert encoded.index('"1.0"') < encoded.index('"b"')
+
+
+def test_the_verifier_refuses_an_nfc_key_collision():
+    """Closed defect — `docs/review/phase-2-canonical-nfc-key-collision.md`.
+
+    The verifier used to emit a document carrying the same key twice, which is
+    not a canonical form of anything, while the exporter silently dropped one of
+    the two values. Both halves were fixed together in change-log C-16, exporter
+    `1.0.6`.
+
+    Refusal rather than a merge: the two source keys are different properties of
+    a Foundry document, and no rule in this repository says which one an
+    operator meant.
+
+    The two keys are written as escapes rather than as literal characters: they
+    are indistinguishable on screen, and a test whose point is that they differ
+    should not depend on an editor preserving that.
+    """
+    composed = "\u00e9"  # LATIN SMALL LETTER E WITH ACUTE
+    decomposed = "e\u0301"  # e + COMBINING ACUTE ACCENT
+    assert composed != decomposed
+    assert unicodedata.normalize("NFC", decomposed) == composed
+
+    for document in (
+        {composed: "first", decomposed: "second"},
+        {decomposed: "first", composed: "second"},
+    ):
+        assert len(document) == 2
+        with pytest.raises(SnapshotRejected) as refused:
+            canonical_bytes(document)
+        assert refused.value.code == "nfc_key_collision"
+
+
+def test_a_collision_refusal_names_its_path_and_never_a_value():
+    """A refusal message may say where, never what — as everywhere else here."""
+    composed = "\u00e9"
+    decomposed = "e\u0301"
+
+    with pytest.raises(SnapshotRejected) as refused:
+        canonical_bytes({"flags": {"world": {composed: "a", decomposed: "b"}}})
+
+    message = str(refused.value)
+    assert "$.flags.world" in message
+    assert "'a'" not in message and "'b'" not in message
+
+
+def test_one_non_nfc_key_is_normalised_rather_than_refused():
+    """Only a collision is ambiguous; a lone decomposed key has one NFC form.
+
+    The order matters as much as the form: `"e" + U+0301` sorts before `"z"` by
+    code point and `U+00E9` sorts after it, so an implementation that sorted the
+    pre-NFC form would emit these two keys the other way round.
+    """
+    decomposed = "e\u0301"
+
+    assert canonical_bytes({decomposed: 1, "z": 2}) == '{"z":2,"\u00e9":1}\n'.encode()
+
+
+def test_string_values_are_normalised_to_nfc_like_the_exporter_s():
+    """§1 normalises every string, not only keys — C-16.
+
+    Without this the verifier reproduced a decomposed value verbatim and
+    reported the artifact canonical, when the only supported exporter would have
+    emitted the composed form and therefore different bytes.
+    """
+    assert canonical_bytes({"name": "Ame\u0301lie"}) == b'{"name":"Am\xc3\xa9lie"}\n'
+
+
+def test_an_artifact_whose_keys_collide_under_nfc_is_refused_with_its_checksum():
+    """The refusal reaches `parse_snapshot`, and carries the bytes it refused.
+
+    Canonicalisation is otherwise only *reported*. A collision is the exception,
+    because such a document has no canonical form and no conforming exporter can
+    have produced it: `canonical.js` refuses it before any bytes exist.
+    """
+    colliding = fx.actor()
+    colliding["system"]["tools"] = {
+        "\u00e9": {"value": 1},
+        "e\u0301": {"value": 2},
+    }
+    artifact = ingest_bytes(fx.encode(fx.bundle(actors=(colliding,))))
+
+    with pytest.raises(SnapshotRejected) as refused:
+        parse_snapshot(artifact, deployment=OBSERVED_DEPLOYMENT)
+
+    assert refused.value.code == "nfc_key_collision"
+    # Refused artifacts are auditable against the exact bytes, like every other
+    # refusal in the parser.
+    assert refused.value.checksum == artifact.checksum
+
+
+#: `Number::toString` as the exporter emits it, against what `json.dumps` used
+#: to emit for the same value — C-17. The right-hand column is the whole defect:
+#: every row where the two differ was a conforming export reported
+#: non-canonical.
+#:
+#: `tests/test_exporter_contract.py` asserts the shipped module agrees with each
+#: of these; this pins the verifier's own half, as C-12's pair of tests does for
+#: key order.
+ECMASCRIPT_NUMBERS = [
+    # value, canonical text, what `json.dumps` wrote before C-17
+    (0.0, "0", "0.0"),
+    (-0.0, "0", "-0.0"),
+    (1.0, "1", "1.0"),
+    (1.5, "1.5", "1.5"),
+    (100.0, "100", "100.0"),
+    (0.0001, "0.0001", "0.0001"),
+    (1e-5, "0.00001", "1e-05"),
+    (1e-6, "0.000001", "1e-06"),
+    (1e-7, "1e-7", "1e-07"),
+    (1e-100, "1e-100", "1e-100"),
+    (5e-324, "5e-324", "5e-324"),
+    (1e15, "1000000000000000", "1000000000000000.0"),
+    (1e16, "10000000000000000", "1e+16"),
+    (1e20, "100000000000000000000", "1e+20"),
+    (1e21, "1e+21", "1e+21"),
+    (1.7976931348623157e308, "1.7976931348623157e+308", "1.7976931348623157e+308"),
+    (0.30000000000000004, "0.30000000000000004", "0.30000000000000004"),
+    (-1e-7, "-1e-7", "-1e-07"),
+    (-1e21, "-1e+21", "-1e+21"),
+    (123.456, "123.456", "123.456"),
+]
+
+
+@pytest.mark.parametrize(("value", "expected", "python"), ECMASCRIPT_NUMBERS)
+def test_numbers_are_encoded_as_ecmascript_writes_them(value, expected, python):
+    """C-17: `json.dumps` is a different function from `JSON.stringify`.
+
+    Python switches to exponent notation at `1e16` and below `1e-4`, ECMAScript
+    at `1e21` and below `1e-6`, and Python pads the exponent to two digits. The
+    third column records what this encoder used to produce, so the rows that
+    were wrong stay visible.
+    """
+    import json
+
+    assert json.dumps(value) == python  # the old behaviour, for the record
+    assert canonical_bytes({"n": value}) == f'{{"n":{expected}}}\n'.encode()
+
+
+def test_an_integer_literal_is_the_double_the_exporter_would_have_read():
+    """`json.loads` keeps an integer exactly; JavaScript has only doubles.
+
+    Re-encoding from Python's `int` would report an artifact canonical against
+    bytes no exporter could have produced, because a browser cannot hold
+    `9007199254740993` in the first place.
+    """
+    assert canonical_bytes({"n": 10**20}) == b'{"n":100000000000000000000}\n'
+    assert canonical_bytes({"n": 10**21}) == b'{"n":1e+21}\n'
+    assert canonical_bytes({"n": 2**53 + 1}) == b'{"n":9007199254740992}\n'
+
+
+def test_negative_zero_has_the_canonical_form_zero_and_is_not_refused():
+    """The exporter refuses to *produce* one; reading one is a different act.
+
+    By the time a document reaches this verifier the sign is already gone from
+    JSON — `-0` and `0` are one literal apart and one value. It therefore has a
+    canonical form, and an artifact spelling it the other way is reported
+    non-canonical like any other, rather than refused as an NFC collision or an
+    infinity is.
+    """
+    assert canonical_bytes({"n": -0.0}) == b'{"n":0}\n'
+
+
+def test_a_number_outside_the_double_range_is_refused_with_its_checksum():
+    """The second document that has no canonical form at all.
+
+    `1e999` reads as an infinity in both languages, JSON cannot express one, and
+    every encoding available — `null`, a clamp, the digits again — is a
+    different value. The exporter refuses it (`non_finite_number`) before any
+    bytes exist; this is the Manager's half. Before C-17 the same artifact
+    raised `ValueError` out of `json.dumps` and was not a refusal at all.
+    """
+    actor = fx.actor()
+    actor["system"]["placeholder"] = "REPLACE"
+    artifact = ingest_bytes(
+        fx.tamper(
+            fx.encode(fx.bundle(actors=(actor,))),
+            find=b'"REPLACE"',
+            replace=b"1e999",
+        )
+    )
+
+    with pytest.raises(SnapshotRejected) as refused:
+        parse_snapshot(artifact, deployment=OBSERVED_DEPLOYMENT)
+
+    assert refused.value.code == "non_finite_number"
+    assert refused.value.checksum == artifact.checksum
+    assert "$.actors" in str(refused.value)
+
+
+def test_an_exporter_shaped_number_is_reported_canonical_and_python_s_is_not():
+    """The end-to-end shape of C-17, on the flag itself rather than the encoder.
+
+    Both artifacts hold the same double. The first spells it as the exporter
+    does and is canonical; the second spells it as `json.dumps` did, and is the
+    artifact this Manager used to call canonical while calling the real one
+    non-canonical.
+    """
+    actor = fx.actor()
+    actor["system"]["placeholder"] = "REPLACE"
+    encoded = fx.encode(fx.bundle(actors=(actor,)))
+
+    def flag(literal: bytes) -> bool:
+        artifact = ingest_bytes(fx.tamper(encoded, find=b'"REPLACE"', replace=literal))
+        return parse_snapshot(
+            artifact, deployment=OBSERVED_DEPLOYMENT
+        ).canonical_encoding
+
+    assert flag(b"1e-7") is True
+    assert flag(b"1e-07") is False
 
 
 def test_canonical_ordering_recurses_through_lists_and_objects():

@@ -14,8 +14,8 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
 |---|---|---|---|
 | Phase 0 — Discovery and architecture | Accepted | Closed 2026-07-30 | `docs/discovery/phase-0-handoff.md`, `docs/review/phase-0-submission.md` |
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance is recorded at the head of `docs/review/phase-1-submission.md` |
-| Phase 2 — Import and reconciliation | **Rehearsals A and B both completed 2026-08-09**; awaiting independent gate review | Deferred | Disposable migration, backup/restore and runtime-role evidence passed 2026-08-05. Rehearsal A (non-live folder, 35 Actors) passed end to end on module 1.0.5 including step 10, §8.1 and both halves of §8.2. Rehearsal B (active folder, 32 Actors) previewed with **0 errors, 0 warnings**, all 32 Actors accounted for, zero unexplained identity discrepancies, nothing applied. Five findings RA-1…RA-5; **all closed or ruled** (RA-1 profile `2026-08-09.1`; RA-2 change-log C-10; RA-5 change-log C-11; RA-3 referred to Phase 3; RA-4 a procedure note). The Data Owner attestation was **signed 2026-08-10** and field profile `2026-08-09.1` **reviewed and accepted** the same day. All four owner recommendations were given 2026-08-10. **Nine of the ten closeout criteria now check; the tenth is the independent gate review**, which none of today's implementers can supply and which is handed over in `docs/review/Handover information`. After it, the Acceptance Authority's decision. |
-| Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-B-1, CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are now closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. CL3-O-3 was closed on 2026-08-09 by executing the §9 query against PostgreSQL during Rehearsal A. The current build is **1.0.5**; it was installed on `foundry1` and `foundry3` on 2026-08-09 and is the build Rehearsal A exercised. The trialled 1.0.4 is a different build and is superseded everywhere. Passing tests close no gate. |
+| Phase 2 — Import and reconciliation | **The independent gate review was performed 2026-08-09 and recommended the gate not be closed.** I-1 is closed; **B-1 is open after four remediations** and awaits independent **re**-review | Deferred | Disposable migration, backup/restore and runtime-role evidence passed 2026-08-05. Rehearsal A (non-live folder, 35 Actors) passed end to end on module 1.0.5 including step 10, §8.1 and both halves of §8.2. Rehearsal B (active folder, 32 Actors) previewed with **0 errors, 0 warnings**, all 32 Actors accounted for, zero unexplained identity discrepancies, nothing applied. Five rehearsal findings RA-1…RA-5; all closed or ruled (RA-1 profile `2026-08-09.1`; RA-2 change-log C-10, **corrected by C-12**; RA-5 change-log C-11; RA-3 referred to Phase 3; **RA-4's procedure note is now written into §6 step 10**). The Data Owner attestation was **signed 2026-08-10** and field profile `2026-08-09.1` **reviewed and accepted** the same day. **The independent review (`docs/review/Handover information`) then recommended against closing the gate**, on one Blocking finding (B-1, the lost-pin miss rule) and one Important finding (I-1, the canonical key boundary). Both are remediated in [`../review/phase-2-b-1-settlement-remediation.md`](../review/phase-2-b-1-settlement-remediation.md), 2026-08-10, and **carry no independent review**. The re-review of that record **accepted I-1 as closed and held B-1 open**: the settlement probe still inferred the endpoint's accept order from the client's issuance order, which the single-threaded server does not guarantee when the submission arrives through Caddy and the probe does not. A second remediation (S-B.1, change-log **C-14**) was **also held open**, because Caddy documents `caddy_http_requests_in_flight` as the requests *currently being handled* — not as evidence that the proxy is holding nothing — so the false miss remained reachable. B-1 was remediated a third time on 2026-08-10 — the probe and the gauge withdrawn, settlement the endpoint being stopped and staying stopped until the outcome is recorded, with a new step 4 to detect the residual after the restart (change-log **C-15**) — and the re-review **held it open again**: stopping the upstream does not settle a request the proxy holds and has not yet dialled upstream for, which makes its first dial after the restart, and "no upstream retry window" governs retries after a failed attempt rather than a first attempt that has not happened. Step 4 detected the resulting duplicate without preventing the false miss that authorized it. **B-1 was therefore remediated a fourth time on 2026-08-10 and is still open** (change-log **C-18**), on the maintainer's ruling between the two routes the reviewer offered: settlement now terminates the whole ingress path — the endpoint **and** Caddy, verified as absent processes rather than as drained ones — and step 4 brings the endpoint back behind a single-use route with the episode's own path retired, so a request held by a hop this host cannot terminate carries an address that no longer reaches the application. The cost is host-wide downtime for the duration of a reconciliation. That correction carries no review of any kind, and the reviewer's standing recommendation is that neither B-1 nor the gate be closed. Codex accepted the rest of the package: RA-1's `SNAPSHOT_ONLY` classifications, field profile `2026-08-09.1` and its maintainer review, C-11's throughput criterion, the signed active-folder attestation, and the Phase 3 disposition of RA-3. **The outstanding closeout criterion is the independent re-review**, then the Acceptance Authority's decision. No gate decision is recorded. |
+| Phase 2 I-03 — snapshot submission | Code findings closed through `1.0.5`; no independent gate recommendation exists | Deferred, with the Phase 2 gate | The 1.0.2 lifecycle findings were closed by 1.0.3/1.0.4, and 1.0.4 was recommended for acceptance as an implementation. The 2026-08-09 rehearsal trial in the scratch world `test` returned four findings; the CL3 re-review closed R-1…R-3 and raised one Blocking (CL3-B-1, a false-miss in the lost-pin procedure), two Important and three Optional. CL3-I-1, CL3-I-2, CL3-O-1 and CL3-O-2 are closed — see `docs/review/phase-2-i-03-cl3-remediation.md`, which also records that the CL3-I/CL3-O changes were made by the reviewer who raised them, at maintainer instruction, and carry no independent review. **CL3-B-1 was recorded as closed on 2026-08-09 and was not**: the independent review's finding B-1 established that the window correction left a second false miss, where the reconciliation query runs before a timed-out request's transaction commits. It is **not yet closed**: the settlement rule in `docs/review/phase-2-b-1-settlement-remediation.md` has been rewritten four times — C-13's S-A/S-B, C-14's S-B.1/S-B.2, C-15's stopped endpoint, and now **C-18**, which withdraws the endpoint-only stop as well and settles an episode by terminating the whole ingress path, with step 4 retiring the route the episode used. CL3-O-3 was closed on 2026-08-09 by executing the §9 query against PostgreSQL during Rehearsal A. `1.0.5` was installed on `foundry1` and `foundry3` on 2026-08-09 and is the build Rehearsal A exercised; **the current build is `1.0.6`**, installed on both instances on 2026-08-10, **with neither instance yet restarted**. **C-12 changed no module bytes**, so 1.0.5 remains the rehearsed build of record. **The NFC key-collision defect is fixed and the module is now `1.0.6`** (change-log **C-16**, 2026-08-10): the encoder normalised keys after sorting and could silently drop an exported value, and the verifier did not normalise keys at all and emitted a duplicate key for the same input. Both halves now refuse a collision with the new artifact code `nfc_key_collision`, the verifier also normalises string values, and the `xfail`/`todo` holds are removed. `docs/review/phase-2-canonical-nfc-key-collision.md` is closed. **`1.0.6` was installed on `foundry1` and `foundry3` on 2026-08-10 20:49 UTC** ([record](../review/phase-2-module-1.0.6-install-2026-08-10.md)), replacing `1.0.5`, which is retained as a rollback copy. Rehearsals A and B remain evidence for `1.0.5`, the build they exercised. **Neither instance has been restarted, so no supervised export may be taken yet**: until the restart the running servers still hold the module list they booted with, and `exporter.version` could still be stamped `1.0.5`. For every ASCII-keyed document — which is every artifact either rehearsal produced — `1.0.6` emits the same bytes as `1.0.5`. C-16 carries no independent review. **The independent review of the C-16 package returned one Blocking finding, now closed as change-log C-17**: the verifier encoded numbers with `json.dumps`, whose float formatting differs from `JSON.stringify`'s at both notation thresholds, so a conforming export carrying `1e20` or `1e-7` was reported non-canonical — the third instance of C-12's shape, and the first reachable by ordinary dnd5e fractional values. The verifier now implements `Number::toString`, reads every literal as the double the exporter would have, and refuses a literal outside the double range (`non_finite_number`) as the exporter does; contract §1.3 states the rule and the one deliberate asymmetry (`-0` is refused by the exporter and encoded as `0` by the Manager). **The exporter's output is unchanged byte for byte; the module is `1.0.7` only because the new code joins the client's bounded `SERVER_ARTIFACT_CODES` list, and `1.0.7` is not installed anywhere.** Install `1.0.7` in place of the staged, never-loaded `1.0.6` before the restart. C-17 carries no independent review. The trialled 1.0.4 is a different build and is superseded everywhere. Passing tests close no gate. |
 | Phase 3 and later | Not ready | Not opened | Phase 2 gate and applicable decisions/dependencies must close first |
 | Frontend visual prototype | Status to be recorded by Product Owner | Separate visual gate | May proceed only within §12.1 constraints |
 
@@ -31,18 +31,47 @@ reviewed and accepted on 2026-08-02. The milestone itself remains incomplete.
    the OD-42/I-05 ruling and the three delivery rulings in change-log C-2.
 4. ~~**Remediate the independently confirmed lifecycle findings.**~~ — done.
    The 2026-08-08 findings were closed by module `1.0.3` and `1.0.4`, and the
-   2026-08-09 trial findings R-1…R-4 and CL3-B-1/I-1/I-2/O-1/O-2 are closed in
+   2026-08-09 trial findings R-1…R-4 and CL3-I-1/I-2/O-1/O-2 are closed in
    `1.0.5`. Recorded in
    [`../review/phase-2-i-03-cl3-remediation.md`](../review/phase-2-i-03-cl3-remediation.md).
    **CL3-O-3 was closed on 2026-08-09** by executing the §9 query against
    PostgreSQL during Rehearsal A. The CL3-I/CL3-O changes were implemented by the
    reviewer who raised them, at maintainer instruction, and therefore carry no
-   independent review.
+   independent review. **CL3-B-1's 2026-08-09 closure was withdrawn** on the
+   independent review's finding B-1 and **remains open**. The settlement rule in
+   [`../review/phase-2-b-1-settlement-remediation.md`](../review/phase-2-b-1-settlement-remediation.md)
+   has been rewritten four times: the first three attempts were each held open by
+   re-review — the probe's accept-order inference, then Caddy's in-flight gauge,
+   then an endpoint-only stop that left a request the proxy had not yet dialled
+   upstream for — and the current rule settles an episode by **terminating the
+   whole ingress path**, endpoint and proxy, with step 4 retiring the route the
+   episode used (change-log **C-18**, with S-B and the endpoint-only stop both
+   withdrawn). None of the four carries independent review, and closing B-1 is the
+   reviewer's to do.
 5. **Independent gate review of the complete I-03 package and the Phase 2
    evidence**, closing every blocking security, identity, atomicity, migration,
-   recovery and evidence-accuracy finding. No such recommendation exists. The
-   2026-08-08 and 2026-08-09 review documents are findings and finding
-   closures, not acceptance.
+   recovery and evidence-accuracy finding. **Performed 2026-08-09 by Codex
+   (`../review/Handover information`), which recommended the gate not be
+   closed** on one Blocking finding (B-1) and one Important finding (I-1). Both
+   were remediated on 2026-08-10 in
+   [`../review/phase-2-b-1-settlement-remediation.md`](../review/phase-2-b-1-settlement-remediation.md).
+   The re-review of that record **closed I-1 and held B-1 open**, on the
+   settlement probe's ordering assumption; a second remediation (S-B.1,
+   change-log C-14) was held open in turn, because Caddy documents
+   `caddy_http_requests_in_flight` as the requests *currently being handled* and
+   not as a drain. B-1 was remediated a **third** time on 2026-08-10 — the probe
+   and the gauge withdrawn, settlement a stopped endpoint (change-log C-15) — and
+   that was held open too: stopping the upstream leaves a request the proxy holds
+   and has not yet dialled upstream for, which connects after the restart, and
+   step 4 detected the duplicate rather than preventing it. The **fourth**
+   remediation, on the maintainer's ruling between the two routes the reviewer
+   offered, terminates the whole ingress path and retires the episode's route
+   (change-log **C-18**). **B-1 is open**, and the reviewer also recommended the
+   Phase 2 gate not be closed. Every one of those changes
+   **carries no independent review**, so the step is **not complete**: an
+   independent **re**-review of the corrected package is required. No accepting
+   recommendation exists. The 2026-08-08 and 2026-08-09 review documents are
+   findings and finding closures, not acceptance.
 6. ~~**Operational evidence**: upgrade/downgrade/upgrade, backup/restore/rerun
    and direct `freedom_runtime_test` denial of `UPDATE`, `DELETE` and `TRUNCATE`
    against the final retained schema.~~ — **run 2026-08-05 against the
@@ -264,6 +293,19 @@ Previous instruction, now satisfied: the non-live-folder rerun, the corrected
 Rehearsal A step 10, the browser observations, the active-folder preview and the
 sanitized Data Owner attestation are all recorded, and the module was reinstalled
 as `1.0.5` before any of them.
+
+**Open deployment obligation, partly discharged:** the repository build is now
+`1.0.6` (change-log C-16). It was **installed on `foundry1` and `foundry3` on
+2026-08-10, 20:49 UTC**, replacing `1.0.5`, and the 1.0.5 trees are retained as a
+rollback copy — [`../review/phase-2-module-1.0.6-install-2026-08-10.md`](../review/phase-2-module-1.0.6-install-2026-08-10.md).
+**Neither instance has been restarted**, so the running servers still hold the
+module list they read at boot and an export taken now could still stamp
+`exporter.version` `1.0.5`. **No supervised export, rehearsal or submission may
+be performed until `foundry1` and `foundry3` are restarted** — which disconnects
+players and needs maintainer authorization — **and each module-management screen
+shows 1.0.6.** This does not invalidate Rehearsal A or B: both are evidence about
+the build they ran on, and `1.0.6` differs from `1.0.5` only for documents with
+non-NFC object keys, which neither artifact was shown to contain.
 
 **Nothing recorded on 2026-08-09 or 2026-08-10 closes the Phase 2 gate.** What
 remains needs two people rather than more work: the Independent Reviewer, and the

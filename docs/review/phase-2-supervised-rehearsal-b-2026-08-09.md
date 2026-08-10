@@ -47,6 +47,15 @@ Both were predicted before the run and could have failed:
   module actually emits. Rehearsal A's artifact was non-canonical under the old
   rule; this one is canonical under the new one, from the same unchanged module.
 
+  > **Note added 2026-08-10, on independent review finding I-1.** C-10 stated
+  > the array-index boundary as `2**53 - 1` instead of `2**32 - 2`, corrected as
+  > change-log **C-12**. **This observation is not disproved**: the artifact
+  > evidently held no key in the disputed range — canonical decimals of ten or
+  > more digits — so the verifier and the exporter agreed on it either way. What
+  > is corrected is the claim that C-10 was complete, not this run's result. The
+  > module is unchanged by C-12, so "from the same unchanged module" also still
+  > holds.
+
 ## One new finding
 
 **RA-5 — the preview took 9.566 s against C-9's accepted 5-second threshold.**

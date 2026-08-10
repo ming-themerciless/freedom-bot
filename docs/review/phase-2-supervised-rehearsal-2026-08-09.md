@@ -86,10 +86,30 @@ Maintainer-supervised, real export, real browser (Firefox).
       procedure states.
 - [x] No fresh submission was made during the reconciliation.
 
-**This is the CL3-B-1 closure by observation.** Under the superseded procedure
-the operator would have queried a window around the *retry*, found nothing,
-recorded a miss, and been authorised to prepare a fresh export — producing a
-second pending artifact for one real submission.
+**This observation closes the CL3-B-1 window defect, and nothing wider.** Under
+the superseded procedure the operator would have queried a window around the
+*retry*, found nothing, recorded a miss, and been authorised to prepare a fresh
+export — producing a second pending artifact for one real submission. The
+whole-episode window is what this run exercised, and it worked.
+
+> **Correction, 2026-08-10, on independent review finding B-1.** This paragraph
+> previously read "This is the CL3-B-1 closure by observation." It was not, and
+> the record should not have said so.
+>
+> **What this run did not exercise: the late-commit sequence.** The injected
+> fault dropped the *response* of a request the service had already served —
+> `upstream=200`, the replay path — so the acceptance event was committed before
+> the reconciliation query ran. That is the hit branch, and observing it says
+> nothing about the branch where the query runs while a transaction is still
+> open and the commit lands afterwards. A client timeout does not establish that
+> the server has stopped, and this run never tested a case where it mattered.
+>
+> That sequence is now covered by `tests/test_snapshot_recovery_settlement.py`
+> and guarded by the settlement condition added to §9 step 1; the corrected §9
+> step 10 records that inducing it against a live rehearsal is deliberately not
+> attempted. Nothing observed on 2026-08-09 is withdrawn — the hit branch, the
+> checksums, the single audit event and the silent same-key replay all stand.
+> What is withdrawn is the claim that observing them closed the finding.
 
 ## C. Credential-confidentiality observation (§8.1)
 

@@ -588,9 +588,28 @@ As of 2026-08-09:
   changes the operator-visible failure text and surfaces `artifact_code` — and
   is versioned **1.0.5** for that reason. `exporter.version` reaches
   `foundry_snapshots.exporter_version` and checksum-bearing audit history, so
-  the two builds must not share a string. Nothing has been installed anywhere
-  as 1.0.5. The trial database was destroyed, so no stored row needs
-  correcting;
+  the two builds must not share a string. Nothing had been installed anywhere
+  as 1.0.5 when this was written; it was installed on `foundry1` and `foundry3`
+  on 2026-08-09 and is the build both rehearsals exercised. The trial database
+  was destroyed, so no stored row needs correcting;
+- **`1.0.6` is installed on `foundry1` and `foundry3`, and the current build is
+  now `1.0.7`, which is not installed anywhere.** Change-log **C-16** fixed the
+  NFC key-collision defect in the canonical encoder, which changes module bytes
+  and therefore the version; 1.0.6 was installed 2026-08-10 20:49 UTC, replacing
+  1.0.5, with the replaced trees retained as a rollback copy, and
+  `docs/review/phase-2-module-1.0.6-install-2026-08-10.md` is the record. It
+  emits the same bytes as 1.0.5 for every document whose object keys are already
+  NFC — every ASCII key — so no rehearsal evidence is invalidated. Change-log
+  **C-17** then bumped the module to **`1.0.7`**: the fix itself is in the
+  Manager's verifier, and the module changes only because C-17's new refusal
+  code `non_finite_number` joins the client's bounded `SERVER_ARTIFACT_CODES`
+  list, so **1.0.7 exports byte-identical bundles to 1.0.6**. **Neither instance
+  has been restarted**, so no supervised export has been taken with either
+  build: install **1.0.7** in place of the staged 1.0.6, then authorize a restart
+  of pm2 processes `foundry1` and `foundry3`, confirm 1.0.7 on each
+  module-management screen, and only then perform a supervised export —
+  otherwise `exporter.version` is ambiguous, which is what CL3-I-2 exists to
+  prevent;
 - ~~no active-folder Data Owner attestation exists~~ — signed 2026-08-10, `docs/review/phase-2-data-owner-attestation-2026-08-09.md`;
 - ~~field profile `2026-08-03.1` has no recorded maintainer acceptance~~ — superseded: `2026-08-09.1` was reviewed and accepted on 2026-08-10;
 - the positive credential-confidentiality facts and allowed-origin browser

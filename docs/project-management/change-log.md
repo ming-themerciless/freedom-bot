@@ -624,6 +624,15 @@ Recorded and accepted by Peter Duscha on 2026-08-05.
 Recorded 2026-08-09. Ruled by Peter Duscha the same day, on finding RA-2 from
 Rehearsal A.
 
+> **Partly superseded by [C-12](#v15-correction-c-12--the-canonical-key-boundary-is-232--2-corrects-c-10),
+> 2026-08-10.** The direction below — ECMAScript own-property order rather than
+> plain code-point order — stands, and closing RA-2 stands. **The boundary
+> stated below is wrong**: `[0, 2**53-1]` is the *integer index*, and ordinary
+> object enumeration hoists only *array indices*, which end at `2**32 - 2`. The
+> "Decision" and "Testing effect" bullets below should be read as corrected by
+> C-12. This entry is left otherwise intact as the record of what was ruled on
+> 2026-08-09.
+
 - **Affected requirements:** `docs/rules/foundry-export-contract.md` §1
   ("Object keys"), new §1.0; `application/foundry/parser.py:canonical_bytes`;
   the `non_canonical_encoding` warning text in
@@ -730,6 +739,670 @@ Rehearsal B.
   Reviewer with the Phase 2 gate evidence.
 - **Acceptance Authority decision:** **ruled by Peter Duscha on 2026-08-09.**
   Closes RA-5. Closes no gate.
+
+## v1.5 correction C-12 — the canonical key boundary is `2**32 - 2` (corrects C-10)
+
+Recorded 2026-08-10 on **finding I-1** of the independent Phase 2 gate review
+(`docs/review/Handover information`). **Proposed; not yet ruled.**
+
+- **Affected requirements:** `docs/rules/foundry-export-contract.md` §1 and
+  §1.0; `application/foundry/parser.py` (`_MAX_ARRAY_INDEX`,
+  `_canonical_key_order`, `canonical_bytes`); change-log **C-10**, which this
+  entry corrects.
+- **Reason:** C-10 adopted ECMAScript own-property order but wrote the boundary
+  as "integer index … `[0, 2**53 - 1]`". `OrdinaryOwnPropertyKeys` hoists
+  **array indices** — `ToString(ToUint32(P))` is `P`, and `ToUint32(P) ≠
+  2**32 - 1` — which end at `4294967294`. An *integer index* is a
+  `String.prototype`/typed-array concept ordinary object enumeration never
+  consults. This was an **observed cross-language disagreement**, not a wording
+  slip: for `{"5000000000":…,"10000000000":…}` the shipped exporter emitted
+  `{"10000000000":…,"5000000000":…}` (both are ordinary string keys to it, so
+  code point decides) while the Python verifier sorted them numerically and
+  emitted the other order. Every artifact carrying a canonical decimal key of
+  ten or more digits would have been reported non-canonical against a
+  conforming exporter. The committed fixture could not see it: its
+  integer-looking keys are dnd5e class levels, which are array indices under
+  either rule.
+- **Decision:** the canonical order is array-index keys — canonical decimals in
+  `[0, 2**32 - 2]` — first in ascending numeric order, then every other key by
+  Unicode code point. The second half remains this contract's own, as C-10 said.
+- **Alternatives considered:** changing the exporter to sort all numeric-looking
+  keys numerically, which is impossible — the engine's hoisting is not
+  something a script can opt out of for an ordinary object; and emitting such
+  maps as arrays, rejected by C-10 already as larger than the defect.
+- **Added/removed scope:** none.
+- **Dependency and critical-path effect:** **the Foundry module is unchanged,
+  byte for byte, and keeps version `1.0.5`.** The exporter always implemented
+  the corrected rule — `canonical.js` sorts the key array by code point, rebuilds
+  an object, and the engine hoists exactly the array indices — so only the
+  verifier and the contract described something else. `1.0.5` remains the
+  installed, rehearsed build of record, and the rehearsals' evidence is
+  unaffected. `canonical.js`'s header comment still describes the *sort* rather
+  than the emitted order; it is deliberately not edited, because editing an
+  installed and rehearsed build's bytes under the same version is what the
+  version identity control (CL3-I-2) exists to prevent. Carried to the next
+  version bump.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes a false `canonical_encoding = false` for conforming
+  real exports — the same class of permanently-wrong report C-10 removed, one
+  boundary further out. **Rehearsal B's recorded `canonical_encoding = yes` is
+  not disproved**: the real artifact evidently held no key at this boundary. It
+  is the claim that C-10 was correct and complete that is corrected here.
+- **Testing effect:** a new `foundry-module/tests/emit-canonical.mjs` runs
+  caller-chosen documents through the shipped `canonicalBytes`, which is what
+  makes the boundary reachable from a cross-language test at all. Eight boundary
+  documents are asserted three ways in `tests/test_exporter_contract.py` — the
+  exporter's bytes, the verifier's bytes, and that they are equal — covering
+  `"0"`, `"4294967294"`, `"4294967295"`, `"5000000000"`/`"10000000000"`, the old
+  bound's own values, the noncanonical forms `"01"`, `"-1"`, `"1.0"`, `" 1"`,
+  `"+1"`, `"1e2"`, and recursion through nested objects and arrays. Mirrored in
+  `foundry-module/tests/canonical.test.mjs` and pinned for the verifier alone in
+  `tests/test_snapshot_parser.py`.
+- **Migration effect:** none. Artifact identity is still the SHA-256 of the
+  original bytes; no stored row changes.
+- **Security and operational effect:** none.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by Codex as independent
+  review finding I-1; implemented by Claude. Returns to the Independent Reviewer
+  with the corrected package.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+
+## v1.5 correction C-13 — lost-pin recovery requires settlement, not a timeout
+
+Recorded 2026-08-10 on **finding B-1** of the independent Phase 2 gate review.
+**Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  and §6 step 10; `docs/review/phase-2-i-03-cl3-remediation.md` and
+  `docs/review/phase-2-supervised-rehearsal-2026-08-09.md`, both of which
+  recorded CL3-B-1 as closed.
+- **Reason:** the procedure told the operator to wait until the final
+  "request/timeout has finished", query, repeat once, and then authorize a fresh
+  export on a miss. **A client timeout establishes only that the browser stopped
+  waiting.** The reload does not cancel the POST — `wsgiref.simple_server` runs
+  a handler to completion whether or not anyone is listening — so both queries
+  can run before the server transaction commits, both miss, a fresh export is
+  authorized, and the original commits afterwards. The fresh export carries its
+  own checksum, so the uniqueness constraint cannot merge them: one real
+  submission becomes two pending artifacts. The whole-episode window correction
+  (CL3-B-1) fixed a different false miss and left this one.
+- **Decision:** a miss may not be recorded until **settlement** is positively
+  established and recorded — either **S-A**, the process that served the episode
+  has exited (an exited process commits nothing), or **S-B**, that same process
+  has answered a later probe, which on a single-threaded server proves every
+  earlier handler already returned. Both are corroborated by `pg_stat_activity`
+  showing no transaction in flight. A fourth outcome, **Unsettled**, is added
+  beside hit/miss/ambiguous and is an incident, not a miss. The repeat-once rule
+  survives for operator error but is explicitly no longer what makes a miss safe.
+- **Alternatives considered:** a settlement *deadline* derived from the proxy's
+  `read_timeout`/`write_timeout`, rejected because those bound Caddy's patience
+  and not the upstream handler — `wsgiref.simple_server` enforces no request
+  deadline of its own, so the deadline would have been a guess wearing a
+  number's clothes. Also considered and rejected: persisting the pin so recovery
+  needs no server evidence, which the standing confidentiality constraint
+  forbids (no Actor data or credential in browser-readable Foundry settings).
+- **Added/removed scope:** none. No code path, route, schema or credential
+  changes; the endpoint behaves exactly as before.
+- **Dependency and critical-path effect:** reopens and then re-closes CL3-B-1.
+  **S-B is a property of `wsgiref.simple_server` and does not survive Phase 3's
+  concurrent `freedom-web` process**; replacing it is recorded as a Phase 3
+  obligation in §9. S-A holds under any server.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes the last reachable path from one real submission to
+  two pending artifacts. Costs a delay when settlement cannot be established,
+  which is the intended direction to fail in.
+- **Testing effect:** `tests/test_snapshot_recovery_settlement.py` reproduces
+  the late-commit sequence deterministically against the real submission service
+  (a gated `commit`, two misses while the transaction is open, the commit
+  landing afterwards), and exercises the settlement probe against a real
+  `wsgiref.simple_server` over the real WSGI application. That second test was
+  checked against a threaded server as a negative control and **fails** there
+  with the message the Phase 3 obligation predicts, so it is not vacuous.
+  `tests/test_snapshot_recovery_documentation.py` gains four tests pinning the
+  settlement step, the unsettled outcome and the Phase 3 note.
+- **Migration effect:** none.
+- **Security and operational effect:** operational only, and it is the point.
+  The probe is unauthenticated by design so that it is refused `401` before a
+  principal exists, writing no audit event, no snapshot row and no artifact —
+  recovery must not write. §6 step 10 also now states that the injector must
+  fault the POST rather than the CORS preflight (finding RA-4), and that step 10
+  does **not** exercise the late-commit case.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by Codex as independent
+  review finding B-1; implemented by Claude. Returns to the Independent Reviewer
+  with the corrected package.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+- **Superseded in part by C-14.** The re-review of this entry found S-B as
+  written still inferring accept order from issuance order. S-B is now two
+  conditions, S-B.1 and S-B.2; read C-14 with this entry. Nothing else here
+  changes, and S-A is untouched.
+
+## v1.5 correction C-14 — S-B needs proof the delivery path has drained
+
+Recorded 2026-08-10 on the **re-review of C-13**, which held finding B-1 open.
+**Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-B) and §5.4 (proxy configuration).
+- **Reason:** C-13's S-B argued that because the settlement probe is *issued*
+  after the episode's last attempt, a single-threaded server must *accept* it
+  after that attempt. That does not follow. `wsgiref.simple_server` guarantees
+  serial handling in **accept** order, and the submission reaches it through
+  Caddy while the probe is sent straight to loopback. A submission Caddy is
+  still holding has not reached the endpoint at all, so the endpoint can answer
+  the later probe first, the query can then miss, and the submission can be
+  accepted and commit afterwards — the same false miss C-13 set out to remove,
+  reached by a different route. `pg_stat_activity` cannot cover it either: a
+  request that has not reached the application has no backend to observe.
+- **Decision:** S-B becomes two conditions, and the second is worthless without
+  the first. **S-B.1** requires positive, recorded evidence that nothing can
+  still be delivered: the client is gone and the submitting GM confirms no
+  attempt since the episode's last; Caddy's `caddy_http_requests_in_flight`
+  gauge reads zero for every series of the server fronting this endpoint; and
+  the endpoint's current connections are recorded, each of them necessarily
+  established before the probe's. The gauge is labelled by server and handler
+  and not by route, so a host busy with unrelated traffic cannot satisfy it —
+  §9 states that as an honest "cannot establish" rather than working around it. **S-B.2**
+  is the probe, unchanged. The settlement argument is restated as an explicit
+  chain whose only claim about issuance order is the one S-B.1 observes. An
+  unreadable or non-zero in-flight counter is an **unsettled** episode, and §9
+  now states the maintainer-authorized way out of one: stopping the endpoint
+  process converts it into S-A.
+- **Alternatives considered:** a settlement deadline (rejected in C-13, and the
+  reasoning is unchanged). Replacing S-B outright with an application-level
+  in-flight or quiescence mechanism was considered and **deferred, not
+  rejected**: it is the better answer and it is already the recorded Phase 3
+  obligation, but it is a code change to the submission path during a gate
+  re-review, and S-B.1 is obtainable today from configuration and read-only
+  observation. §9 records that such a mechanism would retire S-B.1 as well.
+- **Added/removed scope:** §5.4 now requires Caddy's per-server metrics to be
+  enabled, so the counter S-B.1 reads exists. No code path, route, schema or
+  credential changes; the endpoint behaves exactly as before.
+- **Dependency and critical-path effect:** none beyond C-13's. S-B.1 depends on
+  Caddy being the only path to the endpoint and on it reporting what it holds;
+  §9 records both, and records that another hop in front of the endpoint
+  reopens the same gap.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** closes the remaining path from one real submission to two
+  pending artifacts. Costs a delay whenever drain cannot be evidenced, which is
+  the intended direction to fail in.
+- **Testing effect:** `tests/test_snapshot_recovery_settlement.py` gains two
+  tests. One reproduces the false miss S-B.1 exists to prevent — the probe's
+  connection accepted and answered, and both queries run, before the
+  submission's connection is made at all. The other establishes what S-B.1
+  buys: with the submission connected and sent but **not yet accepted, read or
+  handled**, the probe still cannot be answered first. That second test is the
+  case the C-13 test did not reach, because it waited until the submission was
+  already inside its commit. Both were checked against a threaded server as a
+  negative control; the ordering test fails there with the message the Phase 3
+  obligation predicts, and the false-miss reproduction passes there as it
+  should, since it does not depend on serial handling.
+  `tests/test_snapshot_recovery_documentation.py` gains three tests pinning
+  S-B.1, the §5.4 metrics requirement and the unsettled outcome's new trigger.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. The added evidence is two
+  read-only observations on loopback — Caddy's admin metrics and the socket
+  table — and the probe is unchanged and still writes nothing. Caddy's admin
+  API stays loopback-only.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by Codex when re-reviewing
+  C-13's remediation of B-1; implemented by Claude. **Carries no independent
+  review** and returns to the Independent Reviewer with the package.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+- **Superseded by C-15.** The re-review of this entry found that
+  `caddy_http_requests_in_flight` does not mean what S-B.1 needed it to mean.
+  S-B.1 and S-B.2 are both **withdrawn**; read C-15 instead. S-A survives, in a
+  corrected and stricter form.
+
+## v1.5 correction C-15 — settlement is a stopped endpoint, not an observed drain
+
+Recorded 2026-08-10 on the **re-review of C-14**, which held finding B-1 open for
+the third time. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1, step 3, a new step 4, and §5.4 (proxy configuration); §6 step 10's
+  settlement note.
+- **Reason:** C-14's S-B.1 rested on Caddy's `caddy_http_requests_in_flight`
+  reading zero as evidence that the proxy held nothing. Caddy documents that
+  gauge more narrowly, as the requests **currently being handled**
+  ([metrics](https://caddyserver.com/docs/metrics)). It does not cover a
+  connection Caddy has accepted whose request has not entered the instrumented
+  handler, nor body bytes still arriving over an established HTTP/1.1, HTTP/2 or
+  HTTP/3 connection; closing or reloading the Foundry page does not establish
+  that what the browser already transmitted has been consumed; and sampling the
+  gauge and then the socket table is two observations rather than one atomic
+  drain. So the false miss survived C-14: the submission has been sent but has
+  not entered the handler, the gauge reads zero, the query misses twice, and the
+  request is then handled and commits. C-13's S-A had a smaller version of the
+  same hole — it accepted "a process that started after the episode", and the
+  proxy can hand the episode's stranded request to a replacement process as
+  readily as to the original.
+- **Decision:** settlement stops being an observation of what is in flight and
+  becomes a **state**: the endpoint is not running, and does not run again until
+  the outcome has been recorded. The probe (S-B.2) and the gauge (S-B.1) are
+  **withdrawn**, and a settlement recorded from either is not a settlement. S-A
+  is now four recorded parts: the process that served the episode is gone
+  (`ps`/`ss`, by start time); **nothing is listening on the port**, a replacement
+  process being explicitly insufficient; the path through Caddy is confirmed dead
+  by a `502`/`503` from Caddy itself; and the endpoint stays down through the
+  query and the recording. `pg_stat_activity` corroboration is unchanged. The
+  argument is that every commit on this path begins with an accept, and an
+  unserved port accepts nothing — wherever the request happens to be. A new
+  **step 4** then covers the residual after the restart: following a fresh
+  submission, the step-2 query is re-run over the widened window, and a second
+  acceptance event whose checksum is not the fresh submission's is an
+  **ambiguous** outcome and a defect in this procedure, resolved by superseding
+  one artifact through the documented correction flow rather than by the Council
+  reviewing both.
+- **Alternatives considered:** an *actual* proxy drain — stopping Caddy or
+  removing the route — which stops new intake but takes down every other service
+  on the host to reconcile one snapshot, where stopping the endpoint alone is
+  both narrower and strictly stronger. An **application-level in-flight or
+  quiescence mechanism**, the reviewer's preferred answer, remains
+  **deferred, not rejected**: it is what §9 now records as the Phase 3
+  improvement, and it is the only way to settle an episode without a stop. A
+  settlement deadline stays rejected for C-13's reasons. Persisting the pin stays
+  rejected under the confidentiality constraint.
+- **Added/removed scope:** §5.4 no longer requires Caddy's per-server metrics —
+  nothing in the document reads them now — and instead requires that **no
+  upstream retry window** stand in front of the endpoint (`lb_try_duration` unset,
+  no second proxy or queue), because a hop that holds a refused request would let
+  a stranded submission arrive after the endpoint returns. Where metrics are kept
+  for monitoring, §5.4 now shows the current global `{ metrics }` form; the nested
+  `servers { metrics }` form still adapts on the installed Caddy 2.10.2 but
+  `caddy adapt` warns it is removed in the next major version. Step 4 is added
+  scope for the operator. No code path, route, schema or credential changes.
+- **Dependency and critical-path effect:** S-A no longer depends on the
+  endpoint's concurrency model, so it holds unchanged for Phase 3's `freedom-web`;
+  what was a Phase 3 *obligation to repair* becomes a Phase 3 *improvement*,
+  namely settling without taking the service down. It does depend on Caddy being
+  the single path and on that path failing a refused request, which §5.4 records.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes the reachable false miss that survived C-13 and C-14,
+  at the cost of a deliberate endpoint stop during recovery — acceptable for a
+  hand-started rehearsal process, and the reason the Phase 3 improvement is
+  recorded. Step 4 makes the remaining residual detectable rather than assumed
+  away.
+- **Testing effect:** `tests/test_snapshot_recovery_settlement.py` replaces the
+  two probe-ordering tests with the two that establish S-A against a real
+  `wsgiref.simple_server` over the real WSGI application: a submission
+  **connected, fully sent and waiting unaccepted** at the endpoint commits
+  nothing when the endpoint stops without serving it, and a delivery attempted
+  after the stop is refused at the socket while what committed before the stop
+  stays visible to the query. The first was checked against a negative control
+  that serves the queue instead of stopping — it fails there, so it discriminates
+  the stop. The late-commit reproduction and the withdrawn probe's false miss are
+  both retained. `tests/test_snapshot_recovery_documentation.py` pins the single
+  condition and its four parts, the named defects of both withdrawn conditions,
+  §5.4's retry-window requirement and non-deprecated metrics form, the unsettled
+  triggers, and step 4.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. Recovery still writes
+  nothing: the two remaining observations are read-only, and the confirming
+  request through Caddy cannot reach the application because the endpoint is
+  down. Stopping the endpoint is maintainer-authorized because it deliberately
+  aborts in-flight work — a rollback, not a loss.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by Codex when re-reviewing
+  C-14's remediation of B-1; implemented by Claude. **Carries no independent
+  review.** B-1 is **not** recorded as closed: the reviewer holds it open, and
+  closing it is the reviewer's to do.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+- **Superseded in part by C-18.** The re-review of this entry found the stop
+  correct and its **scope** wrong: it covers the endpoint and not the path in
+  front of it, so a request the proxy holds and has not yet dialled upstream for
+  survives the down window and commits after the restart. S-A.1 and S-A.2 survive;
+  **S-A.3 is withdrawn and inverted** — a `502` from Caddy now means Caddy is
+  running — and S-A.4 becomes S-D. Read C-18 instead.
+
+## v1.5 correction C-16 — an NFC key collision is a refusal, and both halves normalise keys
+
+Recorded 2026-08-10, on the open defect
+`docs/review/phase-2-canonical-nfc-key-collision.md` (found while remediating
+finding I-1) and on the maintainer instruction to fix both implementations
+together, add the refusal code and bump the exporter version before Phase 2
+closes. **Proposed; not yet ruled.**
+
+- **Affected requirements:** `docs/rules/foundry-export-contract.md` §1
+  ("Unicode") and a new §1.2; `foundry-module/scripts/canonical.js` (`normalise`,
+  header comment) and both module manifests, now **`1.0.6`**;
+  `foundry-module/scripts/transport.js` (`SERVER_ARTIFACT_CODES`);
+  `application/foundry/parser.py` (`_ordered`, new `_nfc_keys`, `canonical_bytes`,
+  `parse_snapshot`); `application/foundry/submission.py`
+  (`ARTIFACT_REFUSAL_CODES`); the review record above, which is closed by this
+  entry.
+- **Reason:** the encoder sorted an object's keys by their **pre**-NFC form and
+  inserted them under their **post**-NFC form. Two distinct keys sharing an NFC
+  form — `é` as U+00E9 and as U+0065 U+0301 — therefore wrote to the same
+  property of the result, the second write won, and **the first value was
+  silently dropped**, with no refusal, warning or record. That is precisely the
+  outcome `canonical.js`'s own header says the contract exists to make
+  impossible, and the one path in the encoder that lost data instead of refusing
+  (§1.1 refuses an `undefined` value and an `undefined` array element). The
+  Python verifier meanwhile did not normalise keys at all, so for the same input
+  it emitted a document carrying **the same key twice** — a canonical form of
+  nothing — and disagreed with the exporter for every non-NFC key. A third
+  cross-language disagreement after RA-2 and I-1, in the same family.
+- **Decision:** normalise before sorting, and **refuse a collision** in both
+  implementations under one new code, `nfc_key_collision`. A merge is not
+  available: the two keys are different properties of a Foundry document and no
+  rule in this repository says which one an operator meant. The Manager refuses
+  the artifact for the same reason, which makes this the one place
+  canonicalisation is enforced rather than reported — a colliding document has no
+  canonical form and cannot have come from a conforming exporter, where a merely
+  non-canonical one is a conforming exporter's bytes in another order and stays a
+  warning. The operator remedy is to rename one property in Foundry and export
+  again. A **single** non-NFC key is not a collision and is normalised, not
+  refused.
+- **Alternatives considered:** resolving the collision by keeping the first or
+  last key, rejected because the survivor would be chosen by the code-point order
+  of the pre-NFC forms — a property of neither the data nor the operator's
+  intent — and because it is data loss either way; refusing in the exporter only,
+  which would leave the verifier emitting an invalid duplicate-key form and
+  replace one cross-language disagreement with another; and normalising keys
+  without refusing in the Manager, rejected because a document with no canonical
+  form has nothing for `canonical_encoding` to report truthfully.
+- **Added/removed scope:** the verifier now also normalises **string values** to
+  NFC, which §1 always required and it never did. Without it the two
+  implementations still disagreed over the boundary this entry claims to close:
+  a decomposed value was reproduced verbatim and the artifact reported
+  canonical, when the exporter would have emitted the composed form and
+  different bytes. No field, route, schema or migration changes.
+- **Dependency and critical-path effect:** **the module changes, so it is
+  `1.0.6`**, and `1.0.5` is superseded. `exporter.version` reaches
+  `foundry_snapshots.exporter_version` and checksum-bearing audit history, so
+  two behaviourally different builds may not share a version string (CL3-I-2);
+  this is the version bump the C-12 comment correction was carried against, and
+  that correction is made here. **Rehearsals A and B were performed on `1.0.5`**
+  and remain the evidence of record for that build; before any further rehearsal
+  or supervised submission, `1.0.6` must be the build those instances actually
+  serve. It was installed on `foundry1` and `foundry3` on 2026-08-10 and recorded
+  in `docs/review/phase-2-module-1.0.6-install-2026-08-10.md`; **neither instance
+  has been restarted**, so until they are, an export could still stamp `1.0.5`. For every document whose keys are already NFC — which is every ASCII
+  key, and so every artifact either rehearsal produced — `1.0.6` emits **the same
+  bytes** as `1.0.5`: normalisation is the identity there, so sorting before or
+  after it cannot differ.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes the only path by which an Actor value could disappear
+  from an export without a refusal. **Reachability against real data was never
+  demonstrated and is still not claimed** — Foundry document keys are
+  predominantly ASCII schema names and ids, and neither rehearsal artifact was
+  examined for non-NFC keys; the candidates are `flags` namespaces and
+  user-supplied map keys. The fix is worth making regardless, because the
+  contract's claim is that data cannot vanish from an export without a refusal.
+  The new refusal is reachable by an artifact no conforming exporter produces,
+  so it cannot refuse a submission that would previously have been accepted and
+  correct.
+- **Testing effect:** the two tests that held the defect open are converted to
+  the fixed behaviour and now run — the node `todo` is a real test and the strict
+  `xfail` in `tests/test_snapshot_parser.py` is gone. `foundry-module/tests/canonical.test.mjs`
+  covers both insertion orders, a nested collision whose message names the path
+  and no value, a lone non-NFC key, and that normalisation precedes the sort.
+  `tests/test_snapshot_parser.py` mirrors all four for the verifier, pins NFC
+  normalisation of string values, and asserts `parse_snapshot` refuses a
+  colliding artifact **with its checksum attached**.
+  `tests/test_exporter_contract.py` adds an NFC boundary in the shape C-12
+  established: five documents asserted three ways — the shipped exporter's bytes,
+  the verifier's bytes, and that they are equal — plus one document both
+  implementations must refuse with the same code.
+  `foundry-module/tests/emit-canonical.mjs` reports a refusal as
+  `{"code":…,"index":…}` on stderr with exit 1, so the cross-language test can
+  assert *which* refusal rather than pattern-matching a stack trace.
+  `tests/test_snapshot_submission.py` already walks both modules' syntax trees
+  and holds `ARTIFACT_REFUSAL_CODES` and the module's `SERVER_ARTIFACT_CODES` to
+  exactly the parser's codes, so the new code had to be declared in all three
+  places to pass.
+- **Migration effect:** none. Artifact identity is still the SHA-256 of the
+  original bytes, no stored row changes, and no artifact previously accepted
+  becomes invalid.
+- **Security and operational effect:** operational only, and one deployment step:
+  install `1.0.6` before the next supervised export. Refusal messages name the
+  path and never a key's value, as every refusal in both files already does.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** the defect was found and recorded by
+  Claude on 2026-08-10 and confirmed by the independent reviewer, who ruled that
+  leaving the regression tests as `todo`/`xfail` left the release vulnerable and
+  directed that both implementations be fixed together. Implemented by Claude.
+  **Carries no independent review**, and goes to the Independent Reviewer with
+  the rest of the returned package.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+  This closes the defect record; it closes no gate.
+
+## v1.5 correction C-17 — canonical numbers are ECMAScript's, not `json.dumps`'s
+
+Recorded 2026-08-10 on the **Blocking finding** of the independent review of the
+C-16 package. **Proposed; not yet ruled.**
+
+- **Affected requirements:** `docs/rules/foundry-export-contract.md` §1
+  ("Numbers") and a new §1.3; `application/foundry/parser.py` (new `_double`,
+  `_shortest_decimal`, `_ecmascript_number`, `_serialise`; `_ordered` renamed
+  `_normalised`; `canonical_bytes`); `application/foundry/submission.py`
+  (`ARTIFACT_REFUSAL_CODES`); `foundry-module/scripts/transport.js`
+  (`SERVER_ARTIFACT_CODES`) and both module manifests, now **`1.0.7`**.
+- **Reason:** the verifier encoded numbers with `json.dumps`, whose float
+  formatting is a **different function** from `JSON.stringify`'s. Python
+  switches to exponent notation at `1e16` and below `1e-4` and zero-pads the
+  exponent; ECMAScript switches at `1e21` and below `1e-6` and does not. So the
+  exporter emits `100000000000000000000` and `1e-7` where the verifier emitted
+  `1e+20` and `1e-07`, and a conforming artifact containing either was reported
+  `canonical_encoding = false`. This is the third instance of one defect — after
+  C-12's key boundary and C-16's NFC boundary — in which both implementations
+  were self-consistent and disagreed with each other, and it is the same
+  consequence each time: the flag reports a defect in a conforming exporter, so
+  the canonical-contract remediation and the stable-export diagnostic it feeds
+  are not trustworthy. The earlier boundary tables could not see it: every
+  number in the golden bundle and in both of them is a small integer, which the
+  two languages format identically. `json.dumps` also wrote a Python `float`
+  `9.0` as `9.0`, which the exporter — having one number type — writes as `9`.
+- **Decision:** a contract number is an IEEE-754 double written as
+  `Number::toString` writes it, stated as a rule table in §1.3 rather than by
+  naming a library function. An integer literal is read as the double a browser
+  would have read it as, so an artifact carrying `9007199254740993` is reported
+  non-canonical against `9007199254740992`. A literal outside the double range
+  has no canonical form and is a **refusal** under the exporter's own code,
+  `non_finite_number`; `-0` does have one (`0`) and is reported, not refused,
+  which is a deliberate asymmetry with the exporter and is written down as one.
+- **Alternatives considered:** constraining the exporter to a number domain both
+  languages format alike — rejected, because the domain would exclude ordinary
+  dnd5e values and the exporter cannot control what Foundry holds; and matching
+  Python's formatting in the exporter, which is impossible for the same reason
+  C-12 gave for key order: `JSON.stringify` is `Number::toString` and a script
+  cannot opt an ordinary number out of it.
+- **Added/removed scope:** none.
+- **Dependency and critical-path effect:** **the exporter's output is unchanged,
+  byte for byte.** `canonical.js` has always delegated numbers to
+  `JSON.stringify`, so, as with C-12, only the verifier and the contract
+  described something else. The module bytes change for one reason only — the
+  new refusal code is added to the client's bounded `SERVER_ARTIFACT_CODES`
+  list — and that is a version bump to **`1.0.7`** under the version identity
+  control (CL3-I-2), not a change to what is exported. **`1.0.7` is not
+  installed.** `1.0.6` is on disk on `foundry1` and `foundry3` and neither
+  instance has been restarted, so no supervised export has been taken with it;
+  installing `1.0.7` in its place before the restart is the whole deployment
+  step, and both rehearsals remain evidence for `1.0.5`, the build they
+  exercised.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes a false `canonical_encoding = false` for conforming
+  real exports, one boundary further out again — and this one is reachable by
+  ordinary data, not only by a contrived key: dnd5e carries fractional values
+  (encumbrance multipliers, spell scaling, currency weight), and any of them
+  outside `[1e-4, 1e16)` produced the wrong flag. **Rehearsal B's recorded
+  `canonical_encoding = yes` is not disproved**; the real artifact evidently held
+  no number at these thresholds. The new refusal is reachable only by an artifact
+  no conforming exporter produces, so it cannot refuse a submission that would
+  previously have been accepted and correct — it replaces an uncaught
+  `ValueError` from `json.dumps(allow_nan=False)`, which was not a refusal at
+  all. Encoding is now a pure-Python pass rather than a C one: measured at
+  **+100 ms** on a 1.2 MB, 500-Actor bundle against the 5-second preview
+  threshold set by C-9 and the ~740 ms preview measured in
+  `docs/review/phase-2-r4-500-actor-benchmark.md`.
+- **Testing effect:** eleven number-boundary documents are asserted three ways in
+  `tests/test_exporter_contract.py` in the shape C-12 established — the shipped
+  exporter's bytes, the verifier's bytes, and that they are equal — covering both
+  notation thresholds from both sides, multi-digit exponents, both ends of the
+  double range, integer literals past `2**53`, negatives, decimal-point
+  placement, and recursion. A fortieth-value `PRECISION_SPREAD` asserts the two
+  languages compute the same shortest round-tripping digits, which is the half of
+  `Number::toString` neither implementation writes itself. Two further
+  cross-language tests pin the refusal both must raise and the one asymmetry.
+  `tests/test_snapshot_parser.py` pins the verifier's half as a twenty-row table
+  that also records what `json.dumps` used to write, and asserts the refusal
+  reaches `parse_snapshot` **with its checksum attached** and the end-to-end flag
+  for `1e-7` against `1e-07`. `foundry-module/tests/canonical.test.mjs` pins that
+  `serialise` delegates numbers to `JSON.stringify`. The syntax-tree tests in
+  `tests/test_snapshot_submission.py` again forced the new code to be declared in
+  all three places.
+- **Migration effect:** none. Artifact identity is still the SHA-256 of the
+  original bytes, no stored row changes, and no artifact previously accepted
+  becomes invalid.
+- **Security and operational effect:** operational, and one deployment step:
+  install `1.0.7` before the next supervised export, in place of the staged and
+  not-yet-loaded `1.0.6`. The refusal message names the path and never a value,
+  as every refusal in both files already does.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the independent reviewer
+  as the Blocking finding on the C-16 package; implemented by Claude. **Carries
+  no independent review**, and returns to the Independent Reviewer with the rest
+  of the package.
+- **Acceptance Authority decision:** **none recorded.** Awaiting the maintainer.
+
+## v1.5 correction C-18 — settlement terminates the whole ingress path, and step 4 retires the route
+
+Recorded 2026-08-10 on the **re-review of C-15**, which held finding B-1 open for
+the fourth time, and on the maintainer's ruling of 2026-08-10 between the two
+routes the reviewer offered. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1, step 3 and step 4, and §5.4 (proxy configuration); §6 step 10's
+  settlement note.
+- **Reason:** C-15 settled an episode by stopping the **upstream endpoint**. That
+  disposes of every request that had reached the endpoint, and not of a request the
+  proxy has accepted, or is still reading, and has **not yet dialled upstream
+  for**. Such a request is not in the endpoint's accept queue, so the stop does not
+  reach it, and it has made no upstream attempt, so §5.4's "no upstream retry
+  window" does not govern it either — that rule addresses a retry after a *refused*
+  dial, and this request's **first** dial has not happened. It happens whenever the
+  proxy gets to it, which under C-15's own step 4 can be after the endpoint has been
+  restarted; the episode then commits behind a settled miss that has already
+  authorized a fresh export. C-15's step 4 detects that afterwards, and **detection
+  is not prevention**. The same reading condemns C-15's **S-A.3**, which nobody had
+  questioned: it confirmed settlement by receiving a `502`/`503` from Caddy, and a
+  `502` is Caddy's own answer, so receiving one establishes that Caddy is running.
+- **Decision:** settlement remains a **state** rather than an observation, and
+  becomes a state of the whole path in three parts. **S-A** — the endpoint is not
+  running: S-A.1 the process that served the episode is gone, S-A.2 nothing is
+  listening on its port. **S-I** — the ingress in front of it is **terminated, not
+  drained**: S-I.1 no Caddy process exists, S-I.2 nothing is listening on `:80` or
+  `:443`, TCP and UDP, S-I.3 nothing will bring either back, S-I.4 confirmed from
+  off the host that the public name answers from no origin. **S-D** — all of it
+  stays down through steps 2 and 3 until the outcome is recorded. Termination
+  rather than a reload or a drain is the point: a reload leaves a running process
+  deciding what to do with what it already holds, which is what no observation
+  available to the operator can establish, and Caddy's grace period is not relied
+  upon because S-I.1 reads the absence of the process. **Step 4 gains the
+  prevention half**: after a settled miss the §5.4 `handle` block is removed and
+  the endpoint returns behind a single-use `/recovery/<nonce>/…` path, the
+  retirement is verified from off the host before the GM submits, and the GM
+  re-points the module's `submissionEndpoint`. A request held by a hop this host
+  cannot terminate then carries an address that no longer reaches the application.
+  The confirming query is unchanged and is now described as the detector behind the
+  preventer.
+- **Alternatives considered:** the reviewer offered two routes, and the maintainer
+  ruled for this one. The other — an **application-level mechanism that rejects
+  pre-settlement requests after restart**, such as a submission epoch or one-time
+  recovery token the endpoint requires — is deterministic and covers hops that
+  cannot be terminated, and it stays **deferred, not rejected**, as the Phase 3
+  improvement §9 already records. The reasons recorded with the ruling: it adds no
+  unreviewed code to the submission path during a gate re-review, where the
+  procedural route removes the class of claim the previous two remediations died on
+  rather than adding a new one; and it should be designed against Phase 3's
+  concurrent server rather than retrofitted to `wsgiref.simple_server`. Stopping
+  Caddy was considered and **rejected** by C-15 as too costly; that judgement is
+  reversed here, because the narrower stop it preferred does not settle the
+  question, so the comparison was never between two settlements. An *actual proxy
+  drain* — a reload, or removing the route and reloading — is rejected for the
+  reason above: it leaves the process running.
+- **Added/removed scope:** §5.4 requires a **terminable ingress** — one proxy, on
+  this host, under a supervisor the operator can stop — so that a hop added in
+  front of Caddy cannot appear unnoticed. The no-upstream-retry-window requirement
+  is **kept and bounded**: it is worth requiring, and it is explicitly no longer
+  what makes a miss safe. Route retirement and its verification are added scope for
+  the operator, as is stopping and restarting Caddy. No code path, schema or
+  credential changes; the recovery route is a temporary Caddyfile change restored
+  when the episode closes.
+- **Dependency and critical-path effect:** settlement no longer depends on whether
+  Caddy fails or holds a request whose dial is refused, nor on what the Cloudflare
+  edge does with a request it holds. It newly depends on the ingress being
+  terminable from this host. S-A, S-I and S-D are all independent of the endpoint's
+  concurrency model, so they hold unchanged for Phase 3's `freedom-web`.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** removes the reachable false miss that survived C-13, C-14 and
+  C-15, at the cost of **host-wide downtime** for the duration of a reconciliation:
+  Caddy fronts every service on this host, all three Foundry instances among them.
+  That is acceptable for a hand-started Phase 2 rehearsal and is the reason the
+  Phase 3 improvement is recorded. It also lengthens step 1 to seven recorded
+  conditions across two processes plus the database check, which makes the standing
+  question of whether **Unsettled** is reachable in practice harder rather than
+  easier.
+- **Observation, and two corrections it forced.** Caddy's half was exercised on
+  2026-08-10 against a real Caddy 2.10.2, on an isolated rig with `admin off` and a
+  stub upstream; the production instance was not stopped, reconfigured or reloaded.
+  The finding itself was **reproduced**: a request the proxy had accepted with no
+  upstream connection made survived the endpoint stop and was answered `201` after
+  the restart, and the same episode with the proxy terminated delivered nothing.
+  `uri strip_prefix` and the `502` inversion behaved as written. Two things did
+  not. **Step 4 expected a `404` from the retired path and gets an empty `200`**:
+  deleting a `handle` block produces whatever the rest of the site does with an
+  unmatched path, which on these hostnames would be Foundry's answer, so the
+  retirement is now the explicit `handle /api/v1/foundry/snapshots { respond 410 }`
+  and step 4 checks for `410`. And **S-I.2 can pass while S-I.1 fails**, which §9
+  now records with three timings rather than a caution.
+- **S-I exercised against the production Caddy, 2026-08-10**, in
+  maintainer-authorized windows. With one request held open on the origin's own
+  listener — accepted over TLS 1.3, unrouted, the state a lost-pin episode is
+  defined by — the listeners closed in **0.5 ms**, the process ended **4.3 s**
+  later, and the held connection **closed with nothing delivered**: S-I's core
+  claim, on the instance this procedure runs on rather than on a model. With
+  nothing in flight the same stop completed in **4 ms**, so **the delay tracks what
+  the proxy is holding rather than being a fixed cost**, and a rehearsal on an idle
+  host would show the fast case and teach the wrong expectation. The public name
+  answered `521` from Cloudflare throughout, on the submission path and the site
+  root alike — the edge's own answer, neither Caddy's `502` nor anything the
+  application could give — and the unit's `Restart=` is `no`. Production also
+  carries a **UDP `:443`** listener, which is what makes S-I.2's UDP check
+  necessary here rather than precautionary. Step 4's retirement against production
+  remains unobserved: it needs a route that does not currently exist there.
+- **Testing effect:** `tests/test_snapshot_recovery_settlement.py` gains two tests
+  that are **each other's control**: a real proxy holding a complete request it has
+  not dialled upstream for commits it across the restart when only the endpoint is
+  stopped — the regression test for the finding — and the same episode with the
+  proxy terminated as well ends with the request gone and nothing arriving after
+  the restart. Deleting the terminate call from the second makes it fail where the
+  proxy forwards, so the control is committed rather than described, which the
+  first three remediations could not say.
+  `tests/test_snapshot_recovery_documentation.py` gains two tests and updates six,
+  pinning S-I's four parts, the inverted `502` check, the stated cost, S-D, the
+  third withdrawn condition with its defect, §5.4's terminable-ingress requirement
+  and bounded retry window, and step 4's retirement, verification and ordering.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. Recovery still writes nothing:
+  every added observation is read-only, and the two requests made through the
+  public name are unauthenticated and empty and reach no application. The recovery
+  route is a second way in and is therefore single-use, verified, and removed when
+  the episode closes; §5.4 says so. Stopping Caddy is maintainer-authorized because
+  it takes the site down deliberately.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by Codex when re-reviewing
+  C-15's remediation of B-1; the route chosen by the maintainer; implemented by
+  Claude. **Carries no independent review**, and returns to the Independent
+  Reviewer with the package. B-1 is **not** recorded as closed: the reviewer holds
+  it open, and closing it is the reviewer's to do.
+- **Acceptance Authority decision:** **none recorded.** The maintainer ruled on the
+  route this entry takes; that is not a decision on the entry.
 
 ## Required fields for later entries
 

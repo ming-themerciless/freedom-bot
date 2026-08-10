@@ -119,6 +119,8 @@ export const SERVER_ARTIFACT_CODES = new Set([
   "malformed_world",
   "missing_actor_id",
   "missing_top_level_key",
+  "nfc_key_collision",
+  "non_finite_number",
   "too_many_actors",
   "too_many_folders",
   "too_many_items",

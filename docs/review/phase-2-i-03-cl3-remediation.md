@@ -26,7 +26,24 @@ none of them touches the submission service, the artifact store, the audit path
 or the database boundary — but a maintainer who wants them reviewed before the
 gate should commission that as its own pass.
 
-## CL3-B-1 — lost-pin reconciliation could report a false miss — **Closed**
+## CL3-B-1 — lost-pin reconciliation could report a false miss — **Reopened, then closed**
+
+> **Correction, 2026-08-10.** This section recorded CL3-B-1 as closed on
+> 2026-08-09. **It was not.** The independent gate review (finding B-1 in
+> `docs/review/Handover information`) established that the window correction
+> below fixes one false miss and leaves another: the operator was still told to
+> wait for the client's "request/timeout" to finish, and a client timeout proves
+> only that the browser stopped waiting, not that the server stopped processing.
+> A query run before a still-open transaction commits misses twice and authorizes
+> a fresh export anyway.
+>
+> The finding is remediated separately and later — see
+> [`phase-2-b-1-settlement-remediation.md`](phase-2-b-1-settlement-remediation.md),
+> which adds the settlement condition the §9 miss branch now requires. Read the
+> section below as the record of the *window* correction only. Its final
+> paragraph's verification claim stands for the three conditions the CL3 review
+> named; it was never a verification that the recovery contract as a whole was
+> sound, and it should not be read as one.
 
 The defect: `idempotencyKeyFor(checksum)` is derived, so a module retry of
 pinned bytes is always a *same-key* replay; the replay path returns before the

@@ -12,11 +12,17 @@
  *
  * | Rule | Without it |
  * |---|---|
- * | keys sorted by code point at every depth | key order follows insertion order, which follows whatever Foundry did last |
+ * | keys emitted in ECMAScript own-property order at every depth — array indices first, ascending numerically, then the rest by code point | key order follows insertion order, which follows whatever Foundry did last |
  * | `,` and `:` separators, no whitespace | pretty-printing changes every byte |
  * | NFC normalisation of every string | the same name typed two ways is two snapshots |
+ * | two keys sharing an NFC form are refused | one of them silently overwrites the other |
  * | one trailing LF, no BOM | the Manager refuses a BOM and pins the trailer |
  * | `folders` and `actors` sorted by id | collection iteration order is not a contract |
+ *
+ * The first row describes what is *emitted*, not the sort this file performs:
+ * `normalise` sorts by code point and rebuilds an object, and the engine hoists
+ * exactly the array-index keys on insertion. The distinction is what finding I-1
+ * (change-log C-12) turned on, and the correction is carried here as of `1.0.6`.
  *
  * `JSON.stringify` is deliberately **not** used for the document. Its
  * `replacer`/`space` options cannot express "sort at every depth", and — worse —
@@ -147,11 +153,34 @@ export function normalise(value, path = "$", seen = new Set()) {
       throw new CanonicalError("cycle", `${path} is part of a reference cycle.`);
     }
     const nested = new Set(seen).add(value);
+
+    // Normalise *before* sorting, and refuse a collision rather than resolving
+    // one. Two distinct keys can share an NFC form — `é` as U+00E9 and as
+    // U+0065 U+0301 — and inserting both under that form would let the second
+    // write silently discard the first value. That is the one path in this
+    // encoder that could drop exported data without a refusal, which is exactly
+    // what the header says the contract exists to prevent. A merge is not
+    // available: the two keys are different properties of a Foundry document
+    // and no rule here says which one an operator meant.
+    const sourceOf = new Map();
+    for (const key of Object.keys(value)) {
+      const canonicalKey = key.normalize("NFC");
+      if (sourceOf.has(canonicalKey)) {
+        throw new CanonicalError(
+          "nfc_key_collision",
+          `${path} has two keys that are different strings but share one ` +
+            "Unicode NFC form, so exporting both would silently drop one of " +
+            "their values. Rename one of them in Foundry and export again."
+        );
+      }
+      sourceOf.set(canonicalKey, key);
+    }
+
     const result = {};
-    for (const key of Object.keys(value).sort(compareCodePoints)) {
-      result[key.normalize("NFC")] = normalise(
-        value[key],
-        `${path}.${key}`,
+    for (const canonicalKey of Array.from(sourceOf.keys()).sort(compareCodePoints)) {
+      result[canonicalKey] = normalise(
+        value[sourceOf.get(canonicalKey)],
+        `${path}.${canonicalKey}`,
         nested
       );
     }
