@@ -45,6 +45,15 @@ Question 7 — "is anything claimed that was not done?" — found its third case
 CL3-B-1 was recorded as closed and was not, and Rehearsal A's record claimed a
 closure by observation that its step 10 could not have made. Both are corrected.
 
+**It has since found three more, all self-reported and all corrected below**, which
+is worth weighing when judging how much this package's prose should be trusted
+without checking: step 4 expected a `404` from the retired path and gets an empty
+`200`; the `5.4 s` shutdown figure was a rig measurement being read as a
+production one, and the first attempt to measure production measured an
+already-stopped service; and the `exporter.version`/`1.0.5` claim rested on
+process restarts when the registry reloads at world launch. Each was found by
+carrying out what the document said rather than by re-reading it.
+
 Codex accepted questions 2, 4, 5 and 6, and the declared Phase 3 disposition of
 RA-3. RA-4 is now written into §6 step 10.
 
@@ -55,8 +64,9 @@ implementations** — change-log **C-16**, contract **§1.2**, new refusal code
 `nfc_key_collision`, exporter **`1.0.6`**. The module bytes therefore change,
 which is also the version bump the `canonical.js` comment correction was being
 carried against; that comment is corrected in the same build. **`1.0.6` was
-installed on `foundry1` and `foundry3` on 2026-08-10, and neither instance has
-been restarted yet**, so no export may be taken from them until they are;
+installed on `foundry1` and `foundry3` on 2026-08-10** — since **superseded by
+`1.0.7`**, installed the same day, and the "neither has been restarted" caveat
+written here is corrected in the C-17 paragraph below;
 Rehearsals A and B remain evidence about `1.0.5`, the build they ran on. The reviewer's second point is also addressed: the advertised
 `npm test` script ran `node --test tests/`, which fails under Node 24 with
 `MODULE_NOT_FOUND`, and is now `node --test tests/*.test.mjs`.
@@ -114,10 +124,22 @@ through the shipped module and the real verifier in
 **The exporter's output is unchanged byte for byte** — `canonical.js` always
 delegated numbers to `JSON.stringify` — and the module is **`1.0.7`** solely
 because the new refusal code joins the client's bounded `SERVER_ARTIFACT_CODES`
-list. **`1.0.7` is not installed**: `1.0.6` is staged on `foundry1` and
-`foundry3` and neither instance has been restarted, so the deployment step is to
-install `1.0.7` in its place before the restart, and no rehearsal evidence
-changes. C-17 also records one deliberate asymmetry for review: `-0` is refused
+list. **`1.0.7` was installed on `foundry1` and `foundry3` on 2026-08-10 23:24:18
+UTC** ([record](phase-2-module-1.0.7-install-2026-08-10.md)); exactly two files
+differ from `1.0.6` and `canonical.js` is not one of them. No rehearsal evidence
+changes: Rehearsals A and B remain evidence about `1.0.5`.
+
+**A claim this request previously made is corrected there, and it is a question 7
+case found by carrying it out.** This document said neither instance had been
+restarted and that `exporter.version` "could still be stamped `1.0.5`". The
+processes had not been restarted — but `exporter.version` is read from
+`game.modules.get(MODULE_ID)?.version`, the **server's package registry**, which
+reloads when a **world is launched**, not when a process starts. Both instances
+launched worlds at 20:55 on 2026-08-10, six minutes after `1.0.6` went in, so the
+stamp was `1.0.6` from that moment. Both launched again at 23:40, after `1.0.7`,
+so the registry now holds `1.0.7` and the "no export until restarted" blocker is
+cleared. No export has been taken, so no artifact has been observed carrying
+`1.0.7`, and that is not claimed. C-17 also records one deliberate asymmetry for review: `-0` is refused
 by the exporter and encoded as `0` by the Manager, because producing a `-0` and
 reading a document in which the sign has already been lost to JSON are different
 acts.
@@ -275,9 +297,14 @@ Everything from commit `e1749db` onward, plus the standing Phase 2 package.
   claimed. `1.0.6` was **installed on `foundry1` and `foundry3` on 2026-08-10**,
   recorded in
   [`phase-2-module-1.0.6-install-2026-08-10.md`](phase-2-module-1.0.6-install-2026-08-10.md).
-  **New open item: neither instance has been restarted, so no supervised export
+  ~~**New open item: neither instance has been restarted, so no supervised export
   may be taken until they are** — before that, `exporter.version` could still be
-  stamped `1.0.5`.
+  stamped `1.0.5`.~~ **Closed and corrected 2026-08-10.** `1.0.7` superseded
+  `1.0.6` on both instances at 23:24 UTC, and both worlds were launched at 23:40,
+  which is what reloads the package registry `exporter.version` is read from. The
+  claim struck through was also wrong when written: both instances launched worlds
+  at 20:55, six minutes after `1.0.6` went in, so the stamp was `1.0.6` from then
+  and a process restart was never what governed it.
 - **Caddy** — closed. The temporary public route was reverted 2026-08-09 22:38
   UTC, on the second attempt: the first restored a backup that had itself been
   captured after the route was added. Verified — no `via: 1.1 Caddy` and no body

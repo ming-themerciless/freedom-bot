@@ -783,6 +783,11 @@ window** — with the service stopped, three things:
 | 9 | production carries a **UDP `:443` listener** as well as two TCP ones | S-I.2's UDP check is necessary on this host rather than a precaution; a socket table filtered to TCP would have missed a live listener |
 | 10 | with **no connection in flight**, the production process and both listeners were gone within **4 ms** of the stop | on its own, misleading — see below |
 | 11 | with **one request held open** on the origin's own listener, accepted over TLS 1.3 and unrouted: listeners gone in **0.5 ms**, process gone at **4.3 s**, and the held connection **closed with nothing delivered** | S-I's core claim, on the production instance rather than a model: terminating the proxy ends the request it was holding |
+| 12 | **step 4 phase 1, on the production Caddy**: with the block added to the real configuration file, `caddy validate` passing and a real reload, the retired path answered **`410`** and the recovery path **`401`**; all three Foundry sites were unaffected across the reload and the revert | step 4's two claims, on the production instance's own config, validate and reload path. Loopback-only: no public site block was edited and no internet-reachable route added |
+
+Every command, script and log behind rows 1–12 is reproduced in full in
+[`phase-2-b-1-settlement-observations-2026-08-10.md`](phase-2-b-1-settlement-observations-2026-08-10.md),
+so that question 4 can be acted on rather than taken on this record's word.
 
 **The first attempt at this window measured nothing**, and the correction is worth
 recording because it is the shape of defect this package keeps finding. The script
@@ -803,16 +808,14 @@ wrong expectation**. The gap between S-I.2 reading clean and S-I.1 coming true w
 numbers, the interpretation, and the instruction to read `ps` last and until it is
 empty.
 
-**Still not observed** — step 4's retirement against production, which needs a
-route that does not currently exist there; and an operator following the four
-steps. The first is scoped in
-[`phase-2-step-4-retirement-validation-plan.md`](phase-2-step-4-retirement-validation-plan.md),
-drafted 2026-08-10 and **not executed**: a loopback-only phase 1 that exercises the
-production Caddy's own configuration, `validate` and reload path while adding no
-internet-reachable route, and a maintainer-gated phase 2 that confirms the
-retirement through Cloudflare on the hostname a stranded request would carry, which
-re-creates the public exposure reverted on 2026-08-09 and is therefore a decision
-rather than a next step. §6 step 10 is where phase 2 belongs if it is run.
+**Still not observed** — step 4's retirement inside a **public** site block, and an
+operator following the four steps.
+[`phase-2-step-4-retirement-validation-plan.md`](phase-2-step-4-retirement-validation-plan.md)
+scopes both halves; **phase 1 was executed on 2026-08-10 and is row 12 above**.
+Phase 2 — the retirement inside the `foundry1` site, where the fall-through would
+reach Foundry rather than the rig's empty `200` — is **not run**: it re-creates the
+public exposure reverted on 2026-08-09 and is therefore a decision rather than a
+next step. §6 step 10 is where it belongs if it is taken.
 
 **Inferred, not claimed as observed** — that an operator following the four steps
 reaches the right conclusion.

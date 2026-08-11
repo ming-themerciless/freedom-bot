@@ -1218,11 +1218,12 @@ C-16 package. **Proposed; not yet ruled.**
   described something else. The module bytes change for one reason only — the
   new refusal code is added to the client's bounded `SERVER_ARTIFACT_CODES`
   list — and that is a version bump to **`1.0.7`** under the version identity
-  control (CL3-I-2), not a change to what is exported. **`1.0.7` is not
-  installed.** `1.0.6` is on disk on `foundry1` and `foundry3` and neither
-  instance has been restarted, so no supervised export has been taken with it;
-  installing `1.0.7` in its place before the restart is the whole deployment
-  step, and both rehearsals remain evidence for `1.0.5`, the build they
+  control (CL3-I-2), not a change to what is exported. **`1.0.7` was installed on
+  `foundry1` and `foundry3` on 2026-08-10 23:24:18 UTC**
+  ([record](../review/phase-2-module-1.0.7-install-2026-08-10.md)), replacing
+  `1.0.6`, and both worlds were launched at 23:40, which is what reloads the
+  package registry `exporter.version` is read from. No supervised export has been
+  taken with it, and both rehearsals remain evidence for `1.0.5`, the build they
   exercised.
 - **Estimate/forecast and capacity effect:** none.
 - **Risk effect:** removes a false `canonical_encoding = false` for conforming
@@ -1258,10 +1259,15 @@ C-16 package. **Proposed; not yet ruled.**
 - **Migration effect:** none. Artifact identity is still the SHA-256 of the
   original bytes, no stored row changes, and no artifact previously accepted
   becomes invalid.
-- **Security and operational effect:** operational, and one deployment step:
-  install `1.0.7` before the next supervised export, in place of the staged and
-  not-yet-loaded `1.0.6`. The refusal message names the path and never a value,
-  as every refusal in both files already does.
+- **Security and operational effect:** operational. The deployment step this
+  entry called for — install `1.0.7` in place of `1.0.6` before the next
+  supervised export — was **carried out on 2026-08-10**, and carrying it out
+  corrected a claim this entry made: `exporter.version` is read from the server's
+  package registry, which reloads at **world launch** rather than at process
+  start, so "neither instance has been restarted" never preserved `1.0.5`. Both
+  instances launched worlds at 20:55 that day, six minutes after `1.0.6` went in.
+  The refusal message names the path and never a value, as every refusal in both
+  files already does.
 - **Product/Data/Operations Owner recommendation:** **not yet given.**
 - **Technical Lead and specialist reviews:** raised by the independent reviewer
   as the Blocking finding on the C-16 package; implemented by Claude. **Carries

@@ -2,7 +2,8 @@
 
 Date drafted: 2026-08-10
 Drafted by: Claude, at the maintainer's request
-Status: **plan only. Not executed, and it authorizes nothing.**
+Status: **phase 1 executed 2026-08-10 and passed** — see "Phase 1 result" below.
+Phase 2 remains a plan only, and authorizes nothing.
 Relates to: finding **B-1**, change-log **C-18**,
 [`phase-2-b-1-settlement-remediation.md`](phase-2-b-1-settlement-remediation.md)
 § "B-1, fourth remediation"
@@ -103,6 +104,33 @@ http://127.0.0.1:9080 {
    endpoint.
 
 **No Actor data, no credential, no artifact, no submission, no real database.**
+
+### Phase 1 result — executed 2026-08-10, passed
+
+Run against the production Caddy with the endpoint up on `:8757`. The backup was
+taken first and verified free of the change, `caddy validate` passed, the reload
+took, and the revert ran from a `trap`:
+
+| Check | Wanted | Got |
+|---|---|---|
+| `foundry1/2/3.rpgworld.org` after the reload | unaffected | `302`, `302`, `302` |
+| retired path, `POST http://127.0.0.1:9080/api/v1/foundry/snapshots` | `410` | **`410`** |
+| recovery path, unauthenticated | `401` | **`401`** |
+| after the revert, the loopback port | nothing | connection refused |
+
+So the retirement holds and the recovery route reaches the application, on the
+production instance's own configuration file, `validate` and reload path. The
+unauthenticated `401` wrote nothing: no credential exists for the principal that
+was configured, and `adapters/http/wsgi.py:297` returns before any body read,
+principal or service call.
+
+The endpoint-down variant — recovery path answering `502` — was **not** run here.
+It is established on the rig (observation 6 in the appendix) and running it would
+have cost a second reload window for a claim already covered. Recorded as a
+deliberate omission rather than an oversight.
+
+Full log:
+[`phase-2-b-1-settlement-observations-2026-08-10.md`](phase-2-b-1-settlement-observations-2026-08-10.md).
 
 ## Phase 2 — the public site block, maintainer-gated
 
