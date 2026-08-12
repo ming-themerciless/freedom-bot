@@ -8,12 +8,14 @@ from __future__ import annotations
 import ast
 import hashlib
 import re
+from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 
 from adapters.artifacts.filesystem import FilesystemArtifactStore
+from application.admissions import AdmissionState
 from application.audit import ActorCapability, AuditSource
 from application.authorization import NotAuthorizedError
 from application.errors import PersistenceError, UniquenessConflict
@@ -36,7 +38,7 @@ from application.service_principals import ServicePrincipal, ServicePrincipalSco
 from application.snapshots import SnapshotSource
 from domain.foundry import OBSERVED_DEPLOYMENT
 from tests import foundry_fixtures as fx
-from tests.fakes import FakeStore, unit_of_work_factory
+from tests.fakes import FakeStore, admit, close_admission, unit_of_work_factory
 
 SUBMITTER = ServicePrincipal(
     principal_id="foundry-the-guild",
@@ -47,7 +49,13 @@ KEY = "foundry-module:test-key"
 
 @pytest.fixture()
 def store() -> FakeStore:
-    return FakeStore()
+    # An open admission generation for the submitting credential, exactly as
+    # `tools.submission_admission open` creates in a deployment. Without one the
+    # endpoint refuses every submission, which is the state a fresh install is
+    # in and which `test_submission_admission.py` covers on purpose.
+    store = FakeStore()
+    admit(store, SUBMITTER.principal_id)
+    return store
 
 
 @pytest.fixture()
@@ -349,6 +357,10 @@ def test_an_unreadable_stored_receipt_fails_closed(service, store):
         request_hash=spent.request_hash,
         status=spent.status,
         response={"status": "pending"},
+        # Carried over: only the *response* is being corrupted here. Dropping the
+        # admission would make this a test of the fence instead of a test of an
+        # unreadable receipt, and the fence has its own file.
+        admission_id=spent.admission_id,
     )
 
     with pytest.raises(SubmissionRefused) as refusal:
@@ -804,6 +816,9 @@ def test_an_unreadable_receipt_refusal_does_not_deny_the_earlier_submission(
         request_hash=record.request_hash,
         status=record.status,
         response={"status": "pending"},
+        # Only the response is being corrupted; the receipt still belongs to the
+        # generation that earned it.
+        admission_id=record.admission_id,
     )
 
     refusal = refuse(service, data=payload(), principal=SUBMITTER, request_key=KEY)
@@ -901,9 +916,20 @@ def test_no_refusal_this_service_can_raise_claims_the_filesystem_is_unchanged(
         request_hash=original.request_hash,
         status=original.status,
         response={"status": "pending"},
+        admission_id=original.admission_id,
     )
     record(data=payload(), principal=SUBMITTER, request_key="spent")
     store.idempotency[identity] = original
+
+    # C-24. The fence, reached the way an operator reaches it: the generation is
+    # closed between two submissions. Reopened afterwards — which no real
+    # deployment can do — because every later branch in this enumeration needs a
+    # credential that can still write.
+    admission = close_admission(store, SUBMITTER.principal_id)
+    record(data=payload(), principal=SUBMITTER, request_key="fenced")
+    store.submission_admissions[SUBMITTER.principal_id] = replace(
+        admission, state=AdmissionState.OPEN
+    )
 
     class Exploding:
         def __init__(self, wrapped):
@@ -1076,6 +1102,320 @@ def test_both_submission_actions_have_an_enforced_payload_policy():
     assert SUBMISSION_REFUSED in POLICIES
     assert "request_key" not in POLICIES[SUBMISSION_ACCEPTED].allowed
     assert "request_key" not in POLICIES[SUBMISSION_REFUSED].allowed
+
+
+# -- the one fenced replay boundary (review finding C-24-R1) ------------------
+#
+# A stored successful receipt is a durable acceptance being handed back, so the
+# invariant forbids returning one after the presenting credential's generation
+# has closed exactly as it forbids writing a new row. Two branches could return
+# one — an ordinary same-key retry, and recovery after a lost
+# `idempotency_key.scope_key` race — and only the first checked. These tests
+# cover both callers of the single boundary that now answers for them, and the
+# structural assertion that no third branch can appear.
+
+
+class _LosesTheKeyRace:
+    """The request-key race, as the loser experiences it.
+
+    `find` answers `None` because the winner had not committed when this
+    transaction looked, and `add` raises exactly the rule
+    `adapters/database/translation.py` produces for a real 23505. `on_conflict`
+    runs at the instant the race is lost, which is where a settlement commits in
+    the counterexample: the loser's transaction has just been rolled back, so it
+    holds no lock and nothing delays the closure.
+
+    Installed on the **first** unit of work only. Every later one — the fenced
+    replay, the refusal record — is the ordinary fake, so what the replay reads
+    is the winner's committed row and the admission's committed state.
+    """
+
+    def __init__(self, wrapped, on_conflict) -> None:
+        self._wrapped = wrapped
+        self._on_conflict = on_conflict
+
+    def find(self, scope, key):
+        return None
+
+    def add(self, record):
+        if self._on_conflict is not None:
+            self._on_conflict()
+        raise UniquenessConflict("idempotency_key.scope_key")
+
+
+class _RacingUnit:
+    def __init__(self, wrapped, on_conflict) -> None:
+        self._wrapped = wrapped
+        self._on_conflict = on_conflict
+
+    def __getattr__(self, name):
+        return getattr(self._wrapped, name)
+
+    def __enter__(self):
+        unit = self._wrapped.__enter__()
+        unit.idempotency = _LosesTheKeyRace(unit.idempotency, self._on_conflict)
+        return unit
+
+    def __exit__(self, *args):
+        return self._wrapped.__exit__(*args)
+
+
+def lose_the_key_race(service, factory, monkeypatch, *, on_conflict=None) -> None:
+    """Make this service's next submission lose the request-key race."""
+    opened = {"count": 0}
+
+    def build():
+        unit = factory()
+        opened["count"] += 1
+        return _RacingUnit(unit, on_conflict) if opened["count"] == 1 else unit
+
+    monkeypatch.setattr(service, "_unit_of_work_factory", build)
+
+
+def test_a_lost_key_race_cannot_replay_a_receipt_across_a_closure(
+    store, artifacts, monkeypatch
+):
+    """**The C-24-R1 counterexample.** Two requests, one key, then settlement.
+
+    The winner commits its receipt while the generation is open. The loser's
+    transaction is rolled back by the uniqueness conflict, releasing the shared
+    lock; settlement then closes the generation and commits; and only then does
+    the loser go looking for the winner's receipt.
+
+    Before the remediation it got one, because recovery from the race read the
+    row in a bare transaction: no lock, no admission, no generation check. The
+    invariant forbids that as squarely as it forbids a post-closure write, and
+    a module that received it would report success for an episode the operator
+    has already recorded as settled.
+    """
+    factory = unit_of_work_factory(store)
+    service = SnapshotSubmissionService(
+        factory, deployment=OBSERVED_DEPLOYMENT, artifacts=artifacts
+    )
+    winner = service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+    accepted = len(store.audit_events)
+
+    lose_the_key_race(
+        service,
+        factory,
+        monkeypatch,
+        on_conflict=lambda: close_admission(store, SUBMITTER.principal_id),
+    )
+
+    refusal = refuse(service, data=payload(), principal=SUBMITTER, request_key=KEY)
+
+    assert refusal.code == "admission_closed"
+    # Nothing of the loser's survives, and nothing of the winner's is retracted.
+    assert len(store.snapshots) == 1
+    assert len(store.idempotency) == 1
+    assert store.idempotency[(SUBMISSION_SCOPE, KEY)].response["snapshot_id"] == str(
+        winner.snapshot_id
+    )
+    accepted_events = [
+        event for event in store.audit_events if event.action == SUBMISSION_ACCEPTED
+    ]
+    assert len(accepted_events) == accepted
+
+
+def test_a_lost_key_race_replays_the_winner_while_the_generation_is_open(
+    store, artifacts, monkeypatch
+):
+    """The control. Without the closure the loser still gets its answer.
+
+    This is what makes the test above about the fence rather than about the
+    race: the same interleaving, one committed closure apart, and the ordinary
+    idempotent outcome is unchanged.
+    """
+    factory = unit_of_work_factory(store)
+    service = SnapshotSubmissionService(
+        factory, deployment=OBSERVED_DEPLOYMENT, artifacts=artifacts
+    )
+    winner = service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+
+    lose_the_key_race(service, factory, monkeypatch)
+    loser = service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+
+    assert loser.snapshot_id == winner.snapshot_id
+    assert loser.correlation_id == winner.correlation_id
+    assert loser.duplicate is True
+    assert len(store.snapshots) == 1
+    assert len(store.idempotency) == 1
+
+
+def test_a_lost_key_race_refuses_a_receipt_earned_by_another_admission(
+    store, artifacts, monkeypatch
+):
+    """The race path is bound to the *presenting* credential, not the record.
+
+    `(scope, key)` is one namespace across every credential, so the recovery
+    credential can lose a race for a key the old generation spent. Answering
+    would hand the new generation a receipt describing the old one's acceptance
+    — and it is the record's own `admission_id` that refuses, which is why
+    authorization may never be recovered from the row being replayed.
+    """
+    factory = unit_of_work_factory(store)
+    service = SnapshotSubmissionService(
+        factory, deployment=OBSERVED_DEPLOYMENT, artifacts=artifacts
+    )
+    service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+    close_admission(store, SUBMITTER.principal_id)
+    recovery = ServicePrincipal(
+        principal_id="foundry-the-guild-r1",
+        scopes=frozenset({ServicePrincipalScope.SUBMIT_SNAPSHOT}),
+    )
+    admit(store, recovery.principal_id, generation=2)
+
+    lose_the_key_race(service, factory, monkeypatch)
+    refusal = refuse(service, data=payload(), principal=recovery, request_key=KEY)
+
+    assert refusal.code == "admission_closed"
+    assert refusal.admission_generation == 2, "the generation it *does* hold"
+    assert len(store.idempotency) == 1
+
+
+def test_a_same_key_retry_refuses_a_receipt_earned_by_another_admission(
+    store, artifacts
+):
+    """The other caller of the boundary, reaching the same check.
+
+    An ordinary retry — no race at all — carrying a key the old generation spent
+    into a credential that holds a new one. `_store_and_record` no longer
+    answers this itself; it hands the question to the same fenced operation the
+    race uses, which is the point of the consolidation.
+    """
+    service = SnapshotSubmissionService(
+        unit_of_work_factory(store),
+        deployment=OBSERVED_DEPLOYMENT,
+        artifacts=artifacts,
+    )
+    service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+    close_admission(store, SUBMITTER.principal_id)
+    recovery = ServicePrincipal(
+        principal_id="foundry-the-guild-r1",
+        scopes=frozenset({ServicePrincipalScope.SUBMIT_SNAPSHOT}),
+    )
+    admit(store, recovery.principal_id, generation=2)
+
+    refusal = refuse(service, data=payload(), principal=recovery, request_key=KEY)
+
+    assert refusal.code == "admission_closed"
+    assert refusal.admission_generation == 2
+    assert len(store.idempotency) == 1
+
+
+def test_a_lost_key_race_still_refuses_a_key_spent_on_other_bytes(
+    store, artifacts, monkeypatch
+):
+    """Consolidation did not lose the digest check the race path always had."""
+    factory = unit_of_work_factory(store)
+    service = SnapshotSubmissionService(
+        factory, deployment=OBSERVED_DEPLOYMENT, artifacts=artifacts
+    )
+    service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+
+    lose_the_key_race(service, factory, monkeypatch)
+    refusal = refuse(
+        service,
+        data=payload(fx.bundle(actors=(fx.actor(fx.SECOND_ACTOR_ID),))),
+        principal=SUBMITTER,
+        request_key=KEY,
+    )
+
+    assert refusal.code == "request_key_conflict"
+
+
+def _module_tree() -> ast.Module:
+    return ast.parse(
+        (
+            Path(__file__).resolve().parents[1]
+            / "application"
+            / "foundry"
+            / "submission.py"
+        ).read_text()
+    )
+
+
+def _callers_of(module: ast.Module, names: set[str]) -> dict[str, set[str]]:
+    """For each name, the functions in this module that call it."""
+    found: dict[str, set[str]] = {name: set() for name in names}
+    for node in ast.walk(module):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for call in ast.walk(node):
+            if not isinstance(call, ast.Call):
+                continue
+            called = getattr(call.func, "id", getattr(call.func, "attr", None))
+            if called in found:
+                found[called].add(node.name)
+    return found
+
+
+def test_no_stored_receipt_is_returned_outside_the_one_fenced_boundary():
+    """**Review finding C-24-R1 as a structural assertion, not a habit.**
+
+    The defect was never a missing `if`. It was that two branches could each
+    turn a stored record back into a successful receipt, so the invariant lived
+    in whichever of them a later author remembered — and one of them did not.
+
+    So this enumerates the production paths mechanically instead of trusting a
+    reading. A `SubmissionReceipt` is constructed in exactly two places: the
+    acceptance that earns one, and the rebuild of a stored one. The rebuild is
+    called from exactly one place, and that place is the fenced boundary. A
+    future conflict-recovery branch that reads a receipt back for itself fails
+    here whether or not its author remembered the admission.
+    """
+    module = _module_tree()
+    callers = _callers_of(module, {"_replay", "from_payload", "SubmissionReceipt"})
+
+    assert callers["SubmissionReceipt"] == {"_store_and_record", "_replay"}, (
+        "a receipt is constructed by the acceptance that earns it and by the "
+        "rebuild of a stored one, and nowhere else"
+    )
+    assert callers["from_payload"] == {"_replay"}
+    assert callers["_replay"] == {"_fenced_replay"}
+
+
+def test_the_fenced_boundary_performs_the_whole_principal_bound_check():
+    """The boundary is only worth consolidating on if it is complete.
+
+    Named calls and attributes rather than behaviour, deliberately: the
+    behavioural tests above prove each check refuses, and this proves they are
+    all in the one operation those tests exercise — so removing one is a test
+    failure here even if some other path happens to still refuse.
+    """
+    module = _module_tree()
+    boundary = next(
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.FunctionDef) and node.name == "_fenced_replay"
+    )
+    called = {
+        getattr(call.func, "id", getattr(call.func, "attr", None))
+        for call in ast.walk(boundary)
+        if isinstance(call, ast.Call)
+    }
+    read = {node.attr for node in ast.walk(boundary) if isinstance(node, ast.Attribute)}
+
+    # The lock, taken before any receipt is read; the admission resolved from
+    # the authenticated principal's own id; the openness test; the check that
+    # the stored record was earned under that admission; and the digest check.
+    assert "hold_against_closure" in called
+    assert "find_for_principal" in called
+    assert "_replay" in called
+    assert {"principal_id", "is_open", "admission_id"} <= read
+
+    statements = [
+        node
+        for node in boundary.body
+        if isinstance(node, ast.With)
+    ]
+    assert statements, "the boundary must own one transaction"
+    first = statements[0].body[0]
+    assert (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Call)
+        and getattr(first.value.func, "attr", None) == "hold_against_closure"
+    ), "the fence lock must be the transaction's first statement"
 
 
 # -- receipt round trip -------------------------------------------------------

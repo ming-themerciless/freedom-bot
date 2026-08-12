@@ -200,6 +200,121 @@ SECRET=$(./venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))'
 The presented credential is `<principal id>.<secret>`. A secret shorter than 32
 characters is refused both at issue and at presentation.
 
+**A credential is not enough on its own — it also needs an admission
+generation.** Configuration decides which credentials authenticate; the
+`submission_admissions` table decides which of them may still turn a submission
+into a durable acceptance. A credential with no generation authenticates and is
+then refused `403 admission_closed`, which is the correct state for a deployment
+that has run migration 0005 and not yet opened one:
+
+```bash
+APP_ENVIRONMENT=production \
+DATABASE_URL='postgresql+psycopg://__OWNER_ROLE__@/freedom_production' \
+./venv/bin/python -m tools.submission_admission open \
+  --principal foundry-the-guild \
+  --operator 'A. Operator' \
+  --reason 'Initial generation for the Phase 2 submission endpoint.'
+
+# Confirm, and keep the output with the deployment record.
+APP_ENVIRONMENT=production \
+DATABASE_URL='postgresql+psycopg://__OWNER_ROLE__@/freedom_production' \
+./venv/bin/python -m tools.submission_admission show
+```
+
+<a id="admission-tool-prerequisites"></a>
+
+**Both halves of that environment are prerequisites, not decoration.**
+
+- **`APP_ENVIRONMENT` selects which database name is permitted**, and it
+  **defaults to `development`** exactly as it does for Alembic
+  ([database-development.md](database-development.md)). A command that omits it
+  can only ever reach `freedom_dev`; one that names `production` may only reach
+  `freedom_production`. `DatabaseSettings` refuses any other pairing *before*
+  connecting, so a mismatch costs a refusal (exit code 2) rather than a wrong
+  database. Substitute the environment being operated: `freedom_staging` under
+  `APP_ENVIRONMENT=staging`, `freedom_dev` under `development`.
+- **`__OWNER_ROLE__` is the role that owns `submission_admissions`** — the
+  migration/schema owner — and **not** the environment's restricted runtime login
+  role (`freedom_production_app` and its siblings). That role holds `SELECT` on
+  this table and nothing else, which is the control that keeps the fence
+  enforced rather than advisory, so it cannot open or close a generation and the
+  attempt is refused with exit code 4. Substitute the real role through the
+  deployment's secret-safe templating, the way
+  `infra/postgresql/runtime-grants.sql.tmpl` substitutes `__APP_ROLE__`. **Do not
+  write a real role name, password or connection string into this file, a ticket
+  or a log.** A socket URL with no password relies on peer or `scram` local
+  authentication for that role; that is a deployment prerequisite, not something
+  this command arranges.
+- **The connection must be local.** The tool applies the `SOCKET_OR_LOOPBACK`
+  policy, so a named remote host is refused. Use the Unix-domain socket form
+  above.
+
+**Exit codes.** Each failure is distinct. Codes 1 to 6 are reached with the
+transaction rolled back, so each says that nothing was opened or closed. **Code 7
+says the opposite: that nobody knows**, and the difference matters more than any
+other line in this table.
+
+| Code | Meaning | What the operator does |
+|---|---|---|
+| 0 | Succeeded | Record what came back |
+| 1 | Refused before the database was touched | Fix the argument named in the message |
+| 2 | Connection target refused by validation | Fix `APP_ENVIRONMENT`/`DATABASE_URL` |
+| 3 | Database unreachable; nothing read or written | Check PostgreSQL and the socket |
+| 4 | Insufficient privilege | Re-run as the schema owner, not the runtime role |
+| 5 | `lock_timeout` | **Unsettled** — safe to retry; see §9 step 3 |
+| 6 | Other database failure; the transaction did not commit | Escalate with the SQLSTATE |
+| 7 | **Outcome unknown** — the connection was lost after the transaction began | **Unsettled.** Verify with `show` before anything else; see §5.2.1 |
+
+#### 5.2.1 Exit code 7 — the outcome is unknown, and that is the answer
+
+A connection can be lost while PostgreSQL is processing or acknowledging
+`COMMIT`. The server may have committed the transition while this command heard
+nothing back, and **no observation the client can make distinguishes those two
+outcomes** — the same reasoning the fence itself rests on, met at the operator's
+terminal instead of at the acceptance boundary. So the tool refuses to guess. It
+does not say the generation was closed, and it does not say the fence is
+unchanged.
+
+Treat the episode as **Unsettled** and do this, in this order:
+
+1. **Reconnect and run `show`.** It is a read, it settles nothing, and it is the
+   only thing that answers the question.
+2. **Confirm the transition against its append-only event.** Each transition
+   writes one, and the admission row's correlation columns name it:
+
+   ```sql
+   SELECT admission.generation, admission.state, event.action, event.payload
+     FROM submission_admissions AS admission
+     JOIN audit_events AS event
+       ON event.correlation_id = admission.closed_correlation_id
+    WHERE admission.principal_id = 'foundry-the-guild';
+   ```
+
+   A closure that committed has both the `closed` state and one
+   `snapshot_submission.admission_closed` row. One without the other is a
+   finding to escalate, not something to work around.
+3. **Then act on what you found.**
+
+   | Command | `show` says | Do |
+   |---|---|---|
+   | `close` | closed | Nothing. The settlement happened; continue §9 from step 3's Hit/Miss decision |
+   | `close` | still open | Run the same `close` again. It is idempotent, and a second close of a closed generation writes no second event |
+   | `open` | the generation exists | Nothing. Use it; do **not** open another |
+   | `open` | no generation for that principal | Run the same `open` again |
+
+**Never authorize a fresh export on an unverified exit 7**, and never open a
+second generation for a credential without checking first: a principal id holds
+at most one admission for all time, so a blind retry of `open` is refused
+permanently and spends nothing but time — while a blind assumption that a
+`close` did not happen is what leads to two accepted artifacts for one episode.
+
+**A principal id may hold at most one generation, ever.** That is enforced by a
+unique constraint and it is the control that makes recovery sound: once a
+generation is closed it can never be reopened, and the credential it belonged to
+can never be admitted again. So a principal id is spent when its generation is
+closed, and every reissue takes a new one. `foundry-the-guild`,
+`foundry-the-guild-r1`, `foundry-the-guild-r2` is the convention. See §9 step 4.
+
 ### 5.3 Rotation and revocation
 
 Both are a configuration change plus a service reload. No redeployment, no
@@ -227,6 +342,23 @@ answers `401` from that moment. Snapshots already submitted are unaffected: they
 are immutable records, and revoking the credential that delivered one does not
 retract it.
 
+**Rotation opens a new generation; revocation should close the old one.** The
+table above is about *authentication*, and it reaches only requests that have not
+been authenticated yet. A request that authenticated before the reload and is
+paused somewhere — in the browser's socket, inside Caddy, between two of its own
+statements — is past that check and will still commit when it wakes. Closing its
+admission generation is what reaches it:
+
+| Action | Additionally |
+|---|---|
+| **Rotate** | `tools.submission_admission close` the old generation, then `open` one for the new principal id |
+| **Revoke one** | `close` its generation. The credential is then refused twice over, and the second refusal reaches work already accepted |
+| **Revoke everything** | `close` every open generation, then clear `FREEDOM_SNAPSHOT_PRINCIPALS` and reload |
+
+Closing is the decisive half and it is cheap. Do it first: a closed generation
+refuses a stranded request wherever it was paused, and a configuration reload
+does not.
+
 ### 5.4 Proxy, body, time limits and browser origins — these must match
 
 The application refuses a declared `Content-Length` above **64 MiB**, matching
@@ -253,45 +385,34 @@ The module's own upload timeout is 120 s. Keep the proxy read timeout above it
 so the client, not the proxy, is what gives up first — a proxy timeout produces
 no receipt and no explanation.
 
-**The ingress must be terminable, and §9 depends on that.** §9 settles a lost-pin
-episode by stopping the endpoint **and terminating the proxy in front of it**, so
-the path from a browser to this application must be one proxy, on this host, under
-a supervisor the operator can stop — which is what the block above, in the
-system-managed Caddy of [topology](topology.md), is. A hop that cannot be stopped
-from this host cannot be brought into S-I, and §9 then has nothing to establish
-settlement with except retiring the address the request carries. If a hop like
-that is ever added in front of Caddy — a second proxy, a queue, a load balancer,
-anything that accepts a request before Caddy sees it — §9's step 1 must be
-revisited with it before the next reconciliation, not after.
+**The ingress no longer has to be terminable, and §9 no longer depends on it.**
+Nine versions of §9 settled a lost-pin episode by stopping the endpoint and
+terminating the proxy in front of it, which required the path from a browser to
+this application to be one proxy, on this host, under a supervisor the operator
+could stop. §9 now settles an episode by **closing the submitting credential's
+admission generation** — a transaction, not an outage — so a hop that cannot be
+stopped from here is no longer a reason to revisit it. Keep the single-proxy
+topology above regardless: it is what the rest of this document assumes and it
+costs nothing. It is simply not load-bearing for recovery any more.
 
 **No upstream retry window.** The block above sets none, and it must keep setting
-none: `lb_try_duration`, or any hop that queues or retries a *refused dial*, would
-let a submission that failed against the stopped endpoint be delivered again after
-it comes back, and commit after the recovery query has already run.
-
-Read what that requirement does and does not buy, because an earlier version of
-§9 leaned on it for more. It governs a **retry after a refused attempt**. It says
-nothing about a request the proxy has accepted and has **not yet dialled upstream
-for at all**: that one has made no attempt to fail, no retry rule reaches it, and
-it makes its *first* dial whenever the proxy gets to it — after the restart, if
-that is when the proxy gets to it. Only terminating the proxy disposes of that
-request, which is why §9 terminates it rather than relying on this rule.
-
-**§9's recovery route.** After a settled miss, §9 step 4 removes the `handle`
-block above and brings the endpoint back behind a single-use path, so that a
-request held anywhere in front of this host carries an address that no longer
-reaches the application. The snippet is in step 4. Restore this block when the
-episode closes; a recovery route left in place is a second way in that nobody is
-looking at.
+none: `lb_try_duration`, or any hop that queues or retries a *refused dial*, turns
+one submission into several deliveries, which is a real failure mode and a
+confusing one to diagnose. It was never what made a miss safe — it governs a
+retry after a *refused* attempt, and the request that defeated two earlier
+versions of §9 had made no attempt at all — and it is not what makes one safe
+now. A delivery that arrives after settlement is refused by the fence, whether it
+is a retry, a first dial, or something a hop invented.
 
 **Metrics are not required by anything in this document.** Caddy's
 `caddy_http_requests_in_flight` gauge looks like evidence that the proxy is
 holding nothing, and it is not: Caddy documents it as the requests *currently
 being handled* ([metrics](https://caddyserver.com/docs/metrics)), which excludes
 a connection it has accepted whose request has not entered the handler, and body
-bytes still arriving on an established connection. §9 read it in an earlier
-version and no longer does — see "Why there is only one condition". Do not
-reintroduce it as settlement evidence.
+bytes still arriving on an established connection. An early version of §9 read it
+and no longer does. Do not reintroduce it as settlement evidence — and note that
+the same objection applies to every reading of that kind, which is why §9 reads
+none of them.
 
 If metrics are enabled for monitoring, use the current global option. The nested
 `servers { metrics }` form still adapts on the installed Caddy 2.10.2, but
@@ -898,18 +1019,17 @@ is the only thing that ever goes into configuration.
     before submission is not this test, for the same reason. Record the first
     submission's UTC time and the last retry's UTC time, reload the Foundry page
     so its in-memory retry is lost, and execute the **Lost-pin reconciliation**
-    in §9 — including step 1's settlement, which is recorded with its evidence
-    even when the outcome is the expected hit. Settlement means stopping the
-    endpoint **and terminating Caddy** (S-A and S-I), which here happens **after**
-    the faulted duplicate delivery and before the query, and is a different thing
-    from stopping the service before submission: the point of the rehearsal is
-    that the POST reached the service first. Expect the Foundry instance to become
-    unreachable at the same moment, because Caddy fronts it too; that is the
-    host-wide downtime S-I costs, and observing it here is the only place this
-    procedure gets to see it before it is needed. Restart both afterwards and
-    record every stop and restart time. Step 4's retired route does **not** apply
-    to this rehearsal: it belongs to a settled miss, and the intended outcome here
-    is a hit.
+    in §9 — including step 1's closure, which is recorded with its evidence even
+    when the outcome is the expected hit. Settlement is
+    `tools.submission_admission close`, run **after** the faulted duplicate
+    delivery and before the query. Nothing is stopped: the endpoint keeps serving,
+    Caddy keeps serving, and the three Foundry instances stay up. Record the
+    generation closed, the operator and the time. Then follow **step 4's hit
+    branch** — a new credential and a new generation — and record both, because
+    the GM's module cannot submit again until that has been done. An earlier
+    version of this rehearsal stopped the endpoint and terminated Caddy here, and
+    told the operator to expect host-wide downtime; that is withdrawn with the
+    procedure that required it.
     The intended rehearsal outcome is
     one hit with `duplicate = false`: the original attempt's audit event resolves
     to the snapshot row. The same-key retry replays its receipt without writing
@@ -1181,292 +1301,148 @@ receipt without writing a new audit event; the first attempt's event is the
 server-side evidence that the bytes arrived. Do not send Actor data or a
 credential.
 
-##### Step 1 — establish settlement, before reading any query result
+##### Step 1 — close the admission generation
 
-**A client timeout is not evidence that the server stopped.** It establishes
-only that the browser stopped waiting. The POST may still be inside the service:
+**A client timeout is not evidence that the server stopped.** It establishes only
+that the browser stopped waiting. The POST may still be inside the service:
 parsing a bundle of up to 64 MiB, writing the artifact, or holding an open
 transaction that has not yet committed. Reloading the page does not cancel it —
 `wsgiref.simple_server` reads the request into the handler and runs it to
 completion whether or not anyone is still listening.
 
-So a query that returns no row establishes nothing on its own, and **repeating
-it does not help**: two misses moments apart are two observations of the same
-still-open transaction. Recording a miss on that basis authorizes a fresh
-export, the fresh export mints a new checksum, the original request then
-commits, and the Council is left with the second pending artifact this
-procedure exists to prevent.
+So a query that returns no row establishes nothing on its own, and **repeating it
+does not help**: two misses moments apart are two observations of the same
+still-open transaction. Recording a miss on that basis authorizes a fresh export,
+the fresh export mints a new checksum, the original request then commits, and the
+Council is left with the second pending artifact this procedure exists to
+prevent.
 
 Before any query result may be interpreted, the operator must establish
 **settlement**: that no request carrying the pinned bytes can commit after the
-query has run. Settlement is a positive statement about the **whole path from the
-browser to the database**, and it is recorded with the outcome. There is exactly
-one way to establish it: **nothing on that path is running, and none of it runs
-again until the outcome has been recorded.**
+query has run.
 
-Stopping the endpoint alone is not that, and the version of this step before this
-one thought it was. See "Stopping the endpoint is not terminating the path" below.
-
-###### Why there is only one condition
-
-Three earlier versions of this step settled for less. The first two tried to
-settle the question against a *running* endpoint, and are withdrawn for the same
-reason: a running endpoint can still be handed a request the operator cannot see.
-
-- **A probe is not a drain.** An answer from the process that served the episode
-  proves only that every request the endpoint had already **accepted** was
-  already served. It says nothing about a request that has not reached the
-  endpoint yet — still in the client's socket, still being read by Caddy, or
-  accepted by Caddy and not yet forwarded upstream. Issuing the probe late does
-  not make the endpoint accept it late.
-- **Caddy's in-flight gauge is not a drain either.** Caddy documents
-  `caddy_http_requests_in_flight` as the requests *currently being handled*
-  ([metrics](https://caddyserver.com/docs/metrics)). That excludes a connection
-  Caddy has accepted whose request has not entered the instrumented handler, and
-  it excludes body bytes still arriving over an established HTTP/1.1, HTTP/2 or
-  HTTP/3 connection. A zero reading is therefore not evidence that nothing can
-  arrive — and reading the gauge and then the socket table is two samples, not
-  one atomic drain. Closing or reloading the Foundry page does not establish that
-  everything the browser already transmitted has been consumed, either.
-- **`pg_stat_activity` cannot stand in for either of them.** A request that has
-  not reached the application has no backend to be `active` or `idle in
-  transaction`.
-
-So neither a probe nor that gauge appears below, and a settlement recorded from
-either is not a settlement.
-
-The third version replaced both with a **state** — the endpoint stopped — and
-scoped that state to the endpoint alone. That is the defect this version
-corrects:
-
-- **Stopping the endpoint is not terminating the path.** An unserved port accepts
-  nothing, which disposes of every request that had already reached the endpoint.
-  It says nothing about a request that has not: one the proxy has accepted, or is
-  still reading, and has **not yet dialled upstream for**. Such a request has made
-  no upstream attempt to fail, so §5.4's "no upstream retry window" does not
-  govern it — that rule is about a *retry* after a refused dial, and this is a
-  **first** dial that has not happened yet. It happens whenever the proxy gets to
-  it, which can be after step 4 has restarted the endpoint; then it commits, after
-  the miss was recorded and a fresh export was authorized. Step 4 detects that
-  afterwards. Detecting it is not preventing it, and the miss is what authorized
-  the second artifact.
-
-What settles the question is therefore still a state rather than an observation
-of what is in flight, but it is a state of the **whole path**: while nothing is
-listening on the endpoint's port no request can be accepted, and while the proxy
-in front of it does not exist there is nothing left holding a request, dialling
-upstream, or consulting a configuration. Nothing commits on this path without
-first being accepted, and nothing is accepted by a process that is not running.
-
-###### S-A — the endpoint is not running
-
-Establish and record both of the following. They dispose of every request that
-reached the endpoint; **S-I** disposes of the ones that had not, and neither half
-settles anything without the other.
-
-**S-A.1 — the process that served the episode is gone.** Compare the endpoint
-process now running against the one that served the episode, by PID and start
-time:
+**Settlement is one command.**
 
 ```bash
-# Read-only. `lstart` is the process start time; `etimes` its age in seconds.
-ps -o pid,lstart,etimes,args -C python | grep -F 'tools.snapshot_api'
+# Which generation is open, and for which credential.
+APP_ENVIRONMENT=production \
+DATABASE_URL='postgresql+psycopg://__OWNER_ROLE__@/freedom_production' \
+./venv/bin/python -m tools.submission_admission show
 
-# Or, by what holds the port:
-ss -lptn 'sport = :8757'
+# Close it. This is the settlement operation.
+APP_ENVIRONMENT=production \
+DATABASE_URL='postgresql+psycopg://__OWNER_ROLE__@/freedom_production' \
+./venv/bin/python -m tools.submission_admission close \
+  --principal foundry-the-guild \
+  --operator 'A. Operator' \
+  --reason 'Settling lost-pin episode <episode id>.'
 ```
 
-If no such process is running, the process that could have been holding the
-episode's request has exited. An exited process commits nothing: PostgreSQL rolls
-back whatever its connection held, and any commit whose record had already been
-written is already durable and already visible to the query below. Record the
-observed PID and start time.
+`__OWNER_ROLE__` and `APP_ENVIRONMENT` are the prerequisites in
+[§5.2](#admission-tool-prerequisites), and so are the exit codes: **exit 0 is the
+only outcome that means the generation is closed.** Read it before interpreting
+the message.
 
-The start time is what identifies it, not the PID: a PID alone cannot be compared
-against an episode whose PID nobody wrote down, and PIDs are reused.
+Record the generation, the operator, the reason and the time. Then, and only
+then, run step 2's query.
 
-If anything is serving the endpoint — the episode's own process, or a replacement
-started since — S-A is not established, and there is no weaker condition to fall
-back on: **ask the maintainer to stop the endpoint.** Stopping
-it is what makes the episode settleable at all, and it is the maintainer's call
-rather than the operator's because it deliberately aborts whatever is in flight —
-including, possibly, the very submission being reconciled, which is a rollback
-and not a loss. In Phase 2 the endpoint is a foreground process started by hand
-(§5.5), so stopping it is `Ctrl-C`, or `kill` against the PID recorded above.
-Then re-check.
+###### Why this settles the question, when nine earlier versions did not
 
-**S-A.2 — nothing is listening now.**
+Every earlier version of this step tried to establish that nothing was still in
+flight by **observing** something: an answer from a probe, Caddy's in-flight
+gauge, a stopped endpoint, a terminated proxy, a restart-vector inventory, a
+commit watermark, a `pg_locks` queue reading, a drain read taken after a lock was
+released. Each was defeated the same way, and the last of them — C-23's drain
+read — was defeated by this sequence:
 
-```bash
-# Read-only. Expect no row at all.
-ss -ltn '( sport = :8757 )'
-```
+1. the old request is accepted and pauses **before its first statement**;
+2. settlement takes its lock, reads an empty queue and an unmoved watermark, and
+   records a miss;
+3. the drain transaction takes its lock, and *then* the paused request reaches
+   its first conflicting `INSERT` and queues behind the drain;
+4. the drain reading is taken before that writer can commit, so it matches;
+5. the drain commits, the old writer commits immediately afterwards — and the
+   miss has already authorized a fresh export with a different checksum.
 
-A *replacement* process is not good enough, and this corrects an earlier version
-of this step which accepted one. While anything is listening, the proxy can still
-hand it the episode's stranded request, and a freshly started endpoint will
-commit that request as readily as the old one would have. The port must be
-unserved.
+**An observation of a resource cannot exclude work that has been accepted and has
+not yet reached it.** That is not a defect in any particular reading; it is why no
+reading can work. A request paused before its first statement is invisible to
+every one of them, and it commits whenever it eventually wakes.
 
-###### S-I — the ingress in front of it is terminated, not drained
+So settlement stops observing and **revokes**. Three facts make the closure
+decisive, and none of them is a claim about timing:
 
-Establish and record all four of the following, **after** S-A rather than before
-it: with the endpoint already unserved, anything the proxy flushes on its way
-down is refused rather than committed, and a commit that lands before the query
-is a hit rather than a surprise.
+- **The check is inside the request's own transaction.** Every submission reads
+  its admission generation and, as the last statement before its commit, re-reads
+  it. A request that was paused anywhere — in the browser's socket, inside Caddy,
+  in the endpoint's accept queue, between two of its own statements — makes that
+  check when it wakes, and refuses itself if the generation has closed. Where it
+  was paused never enters into it.
+- **The identity it is checked against travels in its own bytes.** A request is
+  checked against the admission of the principal id in *its own* `Authorization`
+  header, never against "whichever generation is open now". That distinction is
+  the whole fence: a server-side "current generation" lookup would silently
+  upgrade a request that had been paused before it, which is the same defect in a
+  new place.
+- **A credential holds at most one admission, ever.** `principal_id` is unique in
+  `submission_admissions` for all time, so a closed generation cannot be
+  succeeded by an open one for the same credential. Recovery issues a **new**
+  credential and opens a generation naming that — see step 4. An old request
+  cannot guess it, inherit it, or be upgraded into it, because it does not hold
+  its secret.
 
-**This is host-wide downtime, and it is the maintainer's to authorize.** Caddy
-fronts every service on this host, all three Foundry instances among them
-([topology](topology.md)), so a lost-pin reconciliation takes the site down for as
-long as step 3 takes. That is the price of settling an episode in Phase 2, it is
-why the reconciliation is authorized rather than routine, and it is the reason the
-Phase 3 improvement below is recorded rather than deferred quietly. It is also
-narrower than it sounds: the GM cannot submit anything while it is down either,
-which is part of what is being established.
+And the closure cannot interleave with an acceptance, in either direction. An
+acceptance writes a row whose foreign key references the admission, and checking
+that key takes a row-level `KEY SHARE` lock on it; the closure takes `FOR UPDATE`
+on the same row, plus the exclusive side of an advisory lock the submission
+transaction holds shared. Those conflict, so:
 
-**S-I.1 — no Caddy process exists.**
+- an acceptance already in flight **holds the closure off** until it commits, and
+  settlement then reads a database that already contains it — a hit, with no miss
+  to record; and
+- an acceptance arriving during the closure **waits**, and then reads `closed` and
+  rolls itself back.
 
-```bash
-# Stop it through its supervisor rather than with a signal: a unit that brings it
-# back is the same defect as a replacement endpoint.
-sudo systemctl stop caddy
+`tests/test_submission_admission_postgresql.py` holds all of it against a real
+PostgreSQL, using the real submission service and real transaction boundaries:
+the paused-before-first-statement regression, the two other pause boundaries,
+both lock orderings, retries on both sides of the closure, and the measured trap
+that a plain `UPDATE` takes a lock that does *not* conflict — which is why
+`tools.submission_admission` takes `FOR UPDATE` first.
 
-# Read-only, and this is the part that matters. Expect no process and `inactive`.
-ps -o pid,lstart,args -C caddy
-systemctl is-active caddy
-```
+###### What settlement no longer requires
 
-**Being asked to shut down is not having shut down.** Caddy keeps running for a
-period after the stop is requested, and how long that lasts is a configuration
-question this procedure deliberately does not depend on. Read the state; do not
-infer it from the command having returned. A process that is still there is an
-**unsettled** episode until it is gone.
+**The endpoint stays up, and so does Caddy.** Settlement used to cost host-wide
+downtime: it stopped the endpoint, terminated the proxy in front of it, held
+both down through the query and the interpretation, and took the three Foundry
+sites with them. None of that is needed now, and none of it is done. The fence
+is a transaction, not an outage.
 
-**S-I.2 passing is not evidence for S-I.1**, and the order they are written in is
-not the order they come true. Three measurements on Caddy 2.10.2 on this host,
-2026-08-10:
+Withdrawn with it, and not to be reintroduced as an apparent simplification:
+S-A's endpoint stop and its listener samples; S-I's ingress termination and its
+restart-vector inventory; S-D.2's commit watermark comparison; S-D.3's
+`LOCK TABLE … IN SHARE MODE`; S-D.4's `pg_locks` queue reading and drain read.
+Each of them was an attempt to infer quiescence from an observation, each was
+sound about what it measured, and not one of them could exclude a request that
+had not yet arrived. They are not weakened here — they are **replaced**, by a
+condition that does not depend on knowing what is in flight.
 
-| Instance | Held at the stop | Listeners gone | Process gone |
-|---|---|---|---|
-| production | nothing in flight | 4 ms | 4 ms |
-| **production** | **one request, accepted and unrouted** | **0.5 ms** | **4.3 s** |
-| isolated rig | one request, accepted and unrouted | immediate | 5.4 s |
+The requirement in §5.4 that the ingress be terminable is likewise no longer a
+settlement dependency. Keep the configuration as documented; it is good practice
+and it costs nothing. But §9 no longer rests on it, so adding a hop in front of
+Caddy is no longer a reason to revisit this step.
 
-**The delay is a function of what the proxy is holding, not a fixed cost of
-stopping it**, and the middle row is the one this procedure runs in. With nothing
-in flight Caddy is gone before the operator can type the next command. With a
-single request held open — the state a lost-pin episode is *defined* by — the
-listener closed in half a millisecond and the process stayed for **4.3 seconds
-after it**. For that entire gap the socket table said the port was unserved while
-the process still holding the episode's request was alive.
+###### Diagnostic readings — for understanding an episode, never for settling one
 
-**A rehearsal on an idle host teaches the wrong expectation.** It shows the first
-row, and the operator learns that the stop is instant. The occasion that sends
-them here is the second row.
-
-So read `ps` until it is empty, and read it last. An unserved port is not an
-absent process, and on the only occasion that matters they come apart by seconds.
-
-What happened to the held request itself is the other half of S-I, and it was
-observed here rather than argued: when the process went, **the connection closed
-with nothing delivered.** The request the proxy was holding did not survive the
-proxy.
-
-**S-I.2 — nothing is listening on the public ports.** Both protocols: HTTP/3 is a
-UDP listener, and a socket table filtered to TCP will not show it.
-
-```bash
-# Read-only. Expect no row from either.
-ss -ltn '( sport = :80 or sport = :443 )'
-ss -lun '( sport = :443 )'
-```
-
-**S-I.3 — nothing will bring either of them back.** No unit, timer, path unit,
-watchdog or supervisor may restart Caddy or the endpoint before the outcome is
-recorded, and no second proxy, tunnel or port-forward may reach the endpoint's
-port while Caddy is down. In Phase 2 the endpoint is a foreground process started
-by hand with no unit at all (§5.5); Caddy has one, which is why it is stopped
-through `systemctl` and why `is-active` is read rather than assumed.
-
-**S-I.4 — confirmed from off the host.** From somewhere that reaches the public
-name, establish that it answers from no origin:
+None of the following establishes anything, and no outcome below may cite one as
+evidence. They are retained because an operator investigating an odd episode
+wants them, and because deleting them would invite someone to re-derive them
+badly.
 
 ```bash
-# The path a stranded submission travels. Unauthenticated and empty on purpose:
-# there is nothing behind the name for it to reach.
-curl -sS -o /dev/null -w '%{http_code} %{errormsg}\n' -X POST \
-  -H 'Content-Type: application/json' \
-  https://<this host>/api/v1/foundry/snapshots
-```
-
-Expect a refused connection, a timeout, or an error page the edge produced by
-itself. **Observed 2026-08-10 against the production Caddy while it was stopped:
-`521` from Cloudflare**, on the submission path and on the site root alike — the
-edge's own "origin is down", produced without reaching this host. **A `502` or
-`503` is now a failure of this check**, and an earlier version of this step
-required one: those are Caddy's own answers, so receiving one means Caddy is
-running, which is the state S-I forbids. An answer only the application could
-give — `401`, `400`, `201` — means the endpoint is serving as well, and step 1
-starts again.
-
-What this confirms is that the origin is unreachable now. It does not establish
-that no hop in front of the host is holding a request, and nothing here claims to:
-that is what step 4's retired route handles, and it is handled by making the
-address dead rather than by relying on what the edge does with what it holds.
-
-###### S-D — all of it stays down until the outcome is recorded
-
-Steps 2 and 3 below are run with the endpoint and Caddy both down, and both stay
-down until step 3's outcome — a settled hit or a settled miss — has been recorded.
-A restart of either before that voids settlement and step 1 begins again. Record
-the stop times.
-
-Settlement ends when the outcome is recorded. **Step 4 is outside settlement**:
-it begins by restarting the endpoint, and it may begin only after a settled miss
-has been recorded — never before, and never as a way of getting the site back
-sooner. Record the restart times there.
-
-###### Why this settles the question
-
-- everything the episode committed before the endpoint stopped is durable, and
-  the query below runs afterwards, so the query sees it;
-- whatever any of the episode's requests still held died with the process: a
-  handler that no longer exists cannot commit, and PostgreSQL rolls back the
-  connection it held;
-- while nothing is listening, no request of the episode can be **accepted** — not
-  one already waiting in the endpoint's own accept queue, and not one the proxy
-  hands over while it is shutting down. Every commit on this path begins with an
-  accept, so an unserved port disposes of everything that had got that far;
-- and everything that had **not** got that far died with Caddy rather than
-  outliving the down window. A request the proxy had accepted but not yet dialled
-  upstream for is the one an unserved port does not dispose of: it is not waiting
-  at the endpoint, so stopping the endpoint does not reach it, and it has made no
-  upstream attempt, so no retry rule governs it. It exists only inside the proxy,
-  and terminating the proxy is what ends it. That is the whole of S-I;
-- so for as long as both stay down, the query's result is the whole truth about
-  the episode — which is why both stay down through steps 2 and 3, until that
-  truth has been written down. Step 4 runs after the restart, and covers what the
-  restart makes possible.
-
-Both halves are states rather than samples, which is what makes them checkable.
-Neither depends on the proxy's internals, on what a gauge counts, on two
-observations being atomic, or on the endpoint's concurrency model — so unlike the
-withdrawn conditions they survive Phase 3's concurrent server unchanged. What
-they do depend on is being able to *terminate* the ingress, which §5.4 records as
-a requirement precisely because a hop that cannot be stopped would break it.
-
-`tests/test_snapshot_recovery_settlement.py` holds the automated half of it: a
-submission already connected and fully sent to the endpoint commits nothing once
-the endpoint stops without serving it, and a delivery attempt made after the stop
-is refused at the socket and reaches no handler. It also holds the two false
-misses the withdrawn rules permitted — the probe's, and the one an endpoint-only
-stop permits when the proxy is still holding a request it has not dialled
-upstream for — as the record of why those rules are gone.
-
-**Settlement also requires the database to show no work in flight.** Cheap,
-read-only, and independent of the argument above, so it is not skipped:
-
-```bash
+# What the database is currently doing. A row here is something to understand,
+# not a settlement condition: a request that has not reached the application has
+# no backend to appear as.
 psql -X -v ON_ERROR_STOP=1 freedom \
   -c "SELECT pid, usename, state, xact_start, query_start
       FROM pg_stat_activity
@@ -1474,14 +1450,26 @@ psql -X -v ON_ERROR_STOP=1 freedom \
         AND pid <> pg_backend_pid()
         AND state IN ('active', 'idle in transaction',
                       'idle in transaction (aborted)');"
+
+# Whether the endpoint is listening, and whether Caddy is up. Read-only, and
+# purely informational: settlement does not depend on either answer.
+ss -ltnp 'sport = :8757' || true
+systemctl is-active caddy || true
+
+# Every refusal the fence has produced, which is how a closed generation looks
+# from the server side when a stranded request finally arrives.
+psql -X -v ON_ERROR_STOP=1 freedom \
+  -c "SELECT occurred_at, payload->>'refusal_code' AS code,
+             payload->>'admission_generation' AS generation
+      FROM audit_events
+      WHERE action = 'snapshot_submission.refused'
+        AND payload->>'refusal_code' = 'admission_closed'
+      ORDER BY occurred_at;"
 ```
 
-Expect no row. Once the endpoint has stopped its own backends are gone, so a row
-here belongs to something else: wait for it to clear and repeat. A row that cannot
-be attributed at all is an ambiguous result — see below.
-
-Record each of S-A.1, S-A.2, S-I.1 to S-I.4 and S-D, the evidence for it, and the
-time. Then, and only then, run the query.
+That last one is worth reading in every episode. A row in it is the fence turning
+a stranded request away — the event that, under every previous version of this
+step, would have been a second pending artifact.
 
 ##### Step 2 — the whole-episode acceptance-event query
 
@@ -1493,7 +1481,8 @@ psql -X -v ON_ERROR_STOP=1 freedom \
   -c "SELECT s.id, s.checksum, s.actor_count, s.received_at, s.received_via,
              a.correlation_id AS attempt_correlation_id,
              a.occurred_at AS attempt_occurred_at,
-             a.payload->>'duplicate' AS duplicate
+             a.payload->>'duplicate' AS duplicate,
+             a.payload->>'admission_generation' AS admission_generation
       FROM audit_events AS a
       JOIN foundry_snapshots AS s ON s.checksum = a.entity_id
       WHERE a.action = 'snapshot_submission.accepted'
@@ -1517,238 +1506,270 @@ all-time snapshot row. A module retry under the same key creates no new event;
 different key. Do not replace the audit-event window with a
 `foundry_snapshots.received_at` window.
 
+`admission_generation` names the generation each acceptance was written under. It
+is what makes step 1 checkable after the fact rather than taken on trust: no row
+here may name the generation step 1 closed with a timestamp after that closure
+committed, and if one ever does, the fence has failed and the episode is a defect
+report rather than an incident.
+
 ##### Step 3 — interpret the result
 
 Interpret the result as follows. Only the first two outcomes are conclusions;
 the other two are incidents.
 
 - **Hit** — exactly one row attributable to the attempt means the server already
-  holds that pending snapshot. Record its `id`, checksum and receipt time in the
-  restricted operational record, tell the GM not to submit again, and continue
-  with the normal Council review of that row.
-- **Miss** — no row, **with step 1's settlement established and recorded**, the
-  endpoint and Caddy both still down, and with the whole-episode audit-event
-  query repeated once,
-  means the server did not record an accepted pending snapshot during that
-  episode. Record the miss together with the settlement evidence. Only then may
-  the operator authorize the GM to prepare and submit a fresh snapshot — and step
-  4 then applies to it.
+  holds that pending snapshot. Record its `id`, checksum, `admission_generation`
+  and receipt time in the restricted operational record, tell the GM not to
+  submit again, and continue with the normal Council review of that row. **Then
+  reopen submission on a new generation — step 4's hit branch**, because step 1
+  closed the one the GM's module was using and nothing can be submitted until a
+  new one exists.
+- **Miss** — no row, **with step 1's closure committed and recorded**, means the
+  server did not record an accepted pending snapshot during that episode, and
+  cannot come to record one afterwards. The operator may authorize the GM to
+  prepare and submit a fresh snapshot; step 4's miss branch applies to it.
 
-  The repeat is retained for operator error — a mistyped world id, a window set
-  from the wrong clock — and is **not** what makes the miss safe. Settlement is.
-  Two misses without settlement are not a miss.
+  **There is no second reading to take, and no order to get right.** Earlier
+  versions of this step required a watermark comparison, a lock queue reading,
+  a drain read after a lock release, and the query repeated inside an open
+  transaction — an order that was load-bearing precisely because each of those
+  was a sample rather than a state. The closure is a state. Once it has
+  committed, no request presenting that credential can produce an acceptance,
+  whatever it is doing and wherever it is paused, so nothing about the timing of
+  the query can make its answer stale.
+
+  The one thing worth repeating is the query itself, and only for **operator
+  error** — a mistyped world id, a window set from the wrong clock. It is not
+  what makes the miss safe. The closure is.
 - **Ambiguous** — more than one row, or any row that cannot be attributed to
   this attempt, means the result is unresolved. Stop; do not authorize a fresh
   submission. Correlate the fixed-category service/access logs and the rows'
   correlation IDs under the incident procedure before deciding which pending
-  snapshot the Council should review.
-- **Unsettled** — step 1 could not be completed. The endpoint is still serving and
-  the maintainer has not authorized stopping it; something is still listening on
-  the port; **Caddy is still running, or is still shutting down, or something
-  would restart it**; the public name is answered by Caddy or by the application
-  rather than by no origin at all; `pg_stat_activity` shows work that cannot be
-  attributed; **a hop in front of this host cannot be terminated and its route has
-  not been retired** (§5.4); the endpoint or Caddy was restarted before the outcome
-  was recorded; or the operator simply does not know. This is **not** a miss and
-  not a hit. Do not authorize a fresh export. Treat it as an incident, escalate to
-  the maintainer, and wait: an unresolved episode costs a delay, and a wrong miss
-  costs a second pending artifact for one export.
+  snapshot the Council should review. **Then take step 4's unresolved branch.**
+  The incident stays open.
+- **Unsettled** — step 1 could not be completed: `tools.submission_admission
+  close` hit its `lock_timeout` and closed nothing (**exit code 5**); it could not
+  reach the database (**3**), was refused for privilege (**4**) or failed some
+  other way without committing (**6**); **it lost the connection after its
+  transaction had begun, so whether the closure committed is unknown (7)**; it
+  reported that the credential holds **no** admission at all (**1**), so there is
+  no generation to close and the operator does not know what the endpoint has been
+  accepting; or the operator does not know which generation the episode's module
+  was using. This is **not** a miss and not a hit. Do not authorize a fresh
+  export. Escalate to the maintainer.
 
-  The way out of an unsettled episode is almost always the same one, and it belongs
-  to the maintainer rather than the operator: **stop the endpoint, terminate the
-  ingress in front of it, and satisfy S-A and S-I.** An exited process commits
-  nothing and forwards nothing, PostgreSQL rolls back whatever the endpoint's
-  connection held, any commit already written is already durable and visible to the
-  query, nothing new can be accepted while the port is unserved, and nothing is
-  left holding a request it has not yet dialled upstream for. It aborts an
-  in-flight submission deliberately and takes the site down with it, which is why
-  it is authorized rather than assumed — but it settles the question outright, and
-  it is always preferable to recording a miss that has not been established.
+  **Any non-zero exit is Unsettled**, and the episode stays open until an
+  operator has established the state. For exit codes 1 to 6 that state is already
+  known — every one of them is reached with the transaction rolled back, so
+  nothing was closed and no failure message has to be weighed against the
+  database. **Exit code 7 is the exception, and it is the one to read carefully**:
+  the connection was lost after the transaction began, so PostgreSQL may have
+  committed the closure without the command hearing that it did. Follow §5.2.1 —
+  `show`, then the correlation join — before treating the generation as either
+  open or closed. Verifying is cheap; assuming is what produces two accepted
+  artifacts for one episode.
+
+  **A `lock_timeout` is the good case, and it is worth recognising as such**
+  (exit code 5). The
+  closure waits only for an acceptance that is already committing, so a timeout
+  means one was in flight. Wait, run `tools.submission_admission close` again,
+  and then run step 2's query: the episode will almost always resolve as a
+  **hit**, because the thing that blocked the closure is the acceptance the query
+  is looking for.
+
+  The way out of an unsettled episode is to establish which generation is open
+  (`tools.submission_admission show`) and close it. That is the whole of it. No
+  process needs stopping, the site stays up, and an episode that cannot be
+  settled costs a delay rather than an outage.
 
 No fresh submission is permitted from the reload until a settled hit or a settled
 miss has been established and recorded. The checksum uniqueness constraint
 prevents identical bytes from becoming two rows; the whole-episode
 acceptance-event query detects the original accepted attempt even though later
-same-key retries are silent replays; and settlement establishes that there is no
-longer an attempt whose outcome the query cannot yet see. Together, they prevent
-a new export with a new checksum from being submitted while the earlier outcome
-is unknown.
+same-key retries are silent replays; and the closed generation establishes that
+there is no longer an attempt whose outcome the query cannot yet see. Together,
+they prevent a new export with a new checksum from being submitted while the
+earlier outcome is unknown.
 
-##### Step 4 — restart on a retired route, then confirm the episode produced one artifact
+##### Step 4 — reopen submission, on the terms the outcome chooses
 
-Only for a settled miss, and neither half is optional.
+**No episode takes the site down, and none of them ends with anything stopped.**
+The endpoint and Caddy ran throughout: step 1 closed a generation rather than a
+process. What step 4 does is decide **what may be submitted next, and under which
+credential**, and record it.
 
-This step runs **outside settlement**, and that is not a loophole in S-D: the miss
-has already been established and recorded against a down endpoint and a terminated
-proxy, so settlement has served its purpose and ended. Restarting now cannot void
-an outcome that is already written down. Restarting *before* the miss is recorded
-is the thing S-D forbids, and it sends step 1 back to the beginning.
+Step 1 closed the generation the GM's module was using, so until a new one is
+opened the endpoint answers every submission `403 admission_closed`. That is the
+default state and it is the safe one. Every branch below either leaves it that
+way deliberately or replaces it with a generation whose terms the operator chose.
 
-**Retire the route the episode used before bringing anything back.** S-A and S-I
-account for this host. They cannot account for a hop in front of it — the
-Cloudflare edge the public name resolves through, or anything else between the
-browser and this machine — and nothing in this document knows what such a hop does
-with a request it is holding when the origin goes away. So the procedure stops
-depending on that: what comes back is a **different address**, and the address the
-episode's stranded request carries no longer reaches the application at all.
+| Step 3 said | What is opened | Fresh export |
+|---|---|---|
+| **Miss** | a new credential and a new generation, given to the GM | authorized |
+| **Hit** | a new credential and a new generation, for later use | forbidden for this episode |
+| **Ambiguous** or **Unsettled** | nothing; submission stays closed | forbidden |
 
-In the Caddyfile, replace the §5.4 `handle` block for the episode's path with an
-explicit refusal, and put the endpoint behind a fresh, single-use one. The nonce
-is any value not used before; it is not a secret and it is not access control:
+**Why every branch issues a *new credential* rather than reopening the old
+generation.** It cannot reopen it: `submission_admissions` moves `open` → `closed`
+once, a trigger refuses the reverse and refuses `DELETE`, and `principal_id` is
+unique for all time so the old credential can never hold a second generation. That
+is deliberate and it is the control. A generation that could be reopened would be
+indistinguishable afterwards from one that was never closed, and every settlement
+record written against it would become unfalsifiable — and, more concretely, a
+request stranded somewhere holding the old credential would find itself admitted
+again, which is the defect this whole mechanism exists to remove.
 
-```caddyfile
-# The retired route. Deleting the §5.4 block is *not* enough on its own: what
-# answers then is whatever the rest of the site does with an unmatched path.
-# Observed on Caddy 2.10.2 — a site with no other handler answers an empty
-# `200`, and these hostnames each end in a `reverse_proxy` to Foundry, so the
-# path would be answered by Foundry instead. Neither is a refusal, and an empty
-# `200` on the submission path is the least readable answer of all. Say it:
-handle /api/v1/foundry/snapshots {
-    respond 410
-}
+###### After a settled miss — a new credential, then confirm the episode produced one artifact
 
-# The recovery route.
-handle /recovery/<nonce>/api/v1/foundry/snapshots {
-    request_body {
-        max_size 64MiB
-    }
-    uri strip_prefix /recovery/<nonce>
-    reverse_proxy 127.0.0.1:8757 {
-        transport http {
-            read_timeout 180s
-            write_timeout 60s
-        }
-    }
-}
-```
+Neither half is optional.
 
-Then, in order:
+1. Confirm the settled miss is recorded, with the closed generation, the operator
+   and the time.
+2. Issue a new credential under a **new principal id** (§5.2). The id must not be
+   one that has ever held an admission; `foundry-the-guild-r1`, `-r2` and so on
+   are the convention. Add it to `FREEDOM_SNAPSHOT_PRINCIPALS`, remove the old
+   entry, and reload.
+3. Open a generation for it, and record what comes back:
 
-1. confirm the settled miss is recorded;
-2. restart the endpoint and start Caddy on the amended configuration, and record
-   both times;
-3. confirm the **retired** path cannot reach the application. From off the host,
-   the same unauthenticated empty `POST` S-I.4 used must now answer **`410`** —
-   the refusal above, and nothing else. A `401` means the old path still reaches
-   the endpoint. An empty `200`, or anything Foundry would say, means the block
-   was deleted rather than replaced and the path is falling through. Both must be
-   fixed before the GM submits anything;
-4. have the GM re-point the module's `submissionEndpoint` at the new URL (§4) and
-   confirm the dialog shows it before submitting;
-5. let the GM prepare and submit the fresh export;
-6. run step 2's query again with the window widened to span the recovery itself:
+   ```bash
+   APP_ENVIRONMENT=production \
+   DATABASE_URL='postgresql+psycopg://__OWNER_ROLE__@/freedom_production' \
+   ./venv/bin/python -m tools.submission_admission open \
+     --principal foundry-the-guild-r1 \
+     --operator 'A. Operator' \
+     --reason 'Recovery generation after settled miss, episode <episode id>.'
+   ```
+
+   Same prerequisites as [§5.2](#admission-tool-prerequisites). A non-zero exit
+   means **no generation was opened**; the endpoint is still refusing every
+   submission, which is the safe state, and the GM has nothing to submit under
+   until this succeeds.
+
+4. Give the new credential to the submitting GM for their password manager (§4.1
+   — it goes into no Foundry setting and no server-side world state).
+5. Let the GM prepare and submit the fresh export.
+6. Run step 2's query again with the window widened to span the recovery itself:
    from the episode's first attempt through the fresh submission's receipt.
 
 Expect exactly one acceptance event, and expect its checksum to be the fresh
-submission's. That is the settled miss confirmed by what happened next.
+submission's and its `admission_generation` to be the new one. That is the settled
+miss confirmed by what happened next.
 
 A **second** event whose checksum is not the fresh submission's means the
-episode's original request committed after all, which the settlement argument says
-cannot happen: it would have had to survive both the endpoint stop and the proxy
-termination, and then be delivered to an address that no longer exists. Treat it as
-**ambiguous** — stop, do not let the Council review both rows, and escalate to the
-maintainer as a defect in this procedure and not merely an incident: either the
-route was not retired where it needed to be, or something between the browser and
-this host rewrote the address it held. Resolution is a Council decision on which
-pending artifact stands, with the other superseded through the documented
-correction flow; two pending artifacts are recoverable when they are found, and
-this step is what finds them.
+episode's original request committed after all, which the fence says cannot
+happen: it would have had to pass a transactional check against a generation that
+was already closed. Treat it as **ambiguous** — stop, do not let the Council
+review both rows, and escalate to the maintainer as a **defect in the fence**
+rather than an incident. The `admission_generation` on that second row is the
+first thing to read: if it names the closed generation, the check did not run or
+did not hold, and that is a code defect with a named regression test that should
+have caught it.
 
-**Detection is not prevention, and this step is both.** The retirement is what
-prevents a held request from committing; the query is what detects a failure of
-the prevention. An earlier version of this step had only the query, and a query
-that finds the duplicate afterwards does not stop the miss from having authorized
-it.
+**Retiring the route is no longer required, and this is a change from the previous
+version.** It used to be the only thing standing between a stranded request and a
+second artifact, because nothing on the server could refuse that request once it
+arrived. Now something can: it presents the old credential, whose generation is
+closed, and it is refused inside its own transaction. An operator who wants the
+old address to stop answering may still retire it — the §5.4 `handle` block
+replaced by `respond 410` — and it is reasonable hygiene for a noisy client. But
+it is **hygiene, not a control**, and no outcome in step 3 depends on it.
 
-Restore the §5.4 route and remove the recovery route once the episode is closed,
-so the next reconciliation starts from the documented configuration.
+###### After a settled hit — nothing new is authorized
+
+The snapshot is already on the server and the Council is reviewing it. No fresh
+export is authorized, so nothing the episode's stranded request can carry is a
+second artifact: the only bytes it holds are the ones already recorded, those
+bytes hash to a checksum that already exists, and the uniqueness constraint
+refuses a second row for them.
+
+Submission is nevertheless closed, because step 1 closed it. Reopen it when the
+GM next needs to submit, by the same two steps as the miss branch — a new
+credential (§5.2) and a new generation — and record both. There is no hurry: a
+closed generation is a safe state, not a fault.
+
+###### After an ambiguous or unsettled episode — leave submission closed
+
+Open nothing. The endpoint answers `403 admission_closed` to every submission,
+which is exactly the state an unresolved episode should leave behind, and it costs
+no downtime to hold. Record that submission is closed, name the generation and the
+episode, and hold the incident open with the site up.
+
+Reopening is a maintainer decision made when the episode closes, and it takes the
+same two steps as every other branch.
 
 ##### What settlement rests on, and when it stops holding
 
-Settlement rests on three things, and not one of them is an argument about the
-endpoint's concurrency, the proxy's internals, or anyone's documented behaviour:
+Settlement rests on four things. Not one of them is an argument about the
+endpoint's concurrency, the proxy's internals, anyone's documented behaviour, or
+what could still be in flight:
 
-- **an unserved port cannot accept anything.** This is a property of the socket
-  API rather than of `wsgiref.simple_server`, so it holds for a concurrent Phase 3
-  server, for a threaded one, and for a multi-worker one without change.
-- **a process that does not exist holds nothing and dials nothing.** This is the
-  same kind of claim, made about the proxy instead of the endpoint, and it is why
-  S-I terminates Caddy rather than reloading or draining it. A reload leaves a
-  running process deciding what to do with what it already holds, and that decision
-  is exactly what no observation available to the operator can establish.
-- **a request cannot commit through an address that no longer reaches the
-  application.** This is what step 4's retired route buys, and it is the only one
-  of the three that reaches past this host.
+- **A submission checks its own credential's generation inside its own
+  transaction, as the last thing before it commits.** So a request that was
+  paused anywhere makes that check when it wakes. This is what none of the nine
+  withdrawn conditions could do: they all had to establish something about a
+  request they could not see, and this asks the request itself.
+- **The identity it is checked against travels in the request's own bytes.** The
+  principal id is in the `Authorization` header the client sent, fixed at the
+  moment it was sent. Nothing resolves "which generation is open now", so nothing
+  can silently upgrade an old request into a new generation.
+- **A credential holds at most one admission, ever.** `principal_id` is unique in
+  `submission_admissions` for all time, and the state moves `open` → `closed`
+  once — a trigger refuses the reverse and refuses `DELETE`, for the schema owner
+  too. So a closed generation stays closed, and recovery has to issue a new
+  credential rather than reuse the old one.
+- **Closure and acceptance cannot interleave.** The acceptance's foreign key into
+  `submission_admissions` takes a row-level `KEY SHARE` lock; the closure takes
+  `FOR UPDATE` on the same row, plus the exclusive side of an advisory lock the
+  submission transaction holds shared. Those conflict in both directions, so one
+  strictly precedes the other — an acceptance in flight holds the closure off and
+  is then visible to the query, and an acceptance arriving during the closure
+  waits and then refuses itself.
 
-**What settlement no longer rests on** is worth stating, because two remediations
-died on it: whether Caddy fails or holds a request whose upstream dial is refused,
-and whether the edge in front of it queues, retries or discards a request when the
-origin goes away. Neither is relied upon. §5.4 still requires no upstream retry
-window, and it is still worth requiring — a retry crossing the down window is a
-real failure mode and the requirement costs nothing — but it is **no longer what
-makes a miss safe**, and it never was: it governs a retry after a refused dial,
-and the request that defeated the previous version had made no dial at all.
+Two of those are properties of PostgreSQL rather than of this application, and
+both are **measured** in `tests/test_submission_admission_postgresql.py` rather
+than assumed — including the trap that a plain `UPDATE` of a non-key column takes
+`FOR NO KEY UPDATE`, which does *not* conflict with `KEY SHARE`. A closure
+written the obvious way would sail past a waiting acceptance and fence nothing
+while reading exactly like a fence, which is why `tools.submission_admission`
+takes `FOR UPDATE` first and why a test fails if that ever stops mattering.
 
-What settlement does newly require is that the ingress be **terminable**: one
-proxy, on this host, under a supervisor the operator can stop. Add a hop that
-cannot be stopped from here and S-I cannot be established for it, which is why
-§5.4 records the requirement and why step 4 retires the address rather than
-trusting the hop.
+**When it stops holding.** Three ways, each of which is a code or schema change
+rather than an operational drift:
 
-Three earlier conditions are withdrawn rather than weakened: the settlement probe,
-Caddy's in-flight gauge, and the endpoint-only stop. None could establish that
-nothing would arrive later, which is the whole question; "Why there is only one
-condition" above records why each failed, so that none returns as an apparent
-simplification. The `502`/`503` confirmation that accompanied the third is
-withdrawn with it and **inverted**: under S-I a `502` from Caddy means Caddy is
-running, which is now a failure of the check rather than a pass.
+- the foreign key on `idempotency_keys.admission_id` is removed, or a new
+  acceptance path is added that does not write that row;
+- the admission check is moved out of the acceptance transaction, or resolved
+  from anything other than the presented principal id; or
+- a second admission is somehow opened for a credential whose first was closed,
+  which the unique constraint currently makes impossible.
 
-**Phase 3 obligation, and it is now an improvement rather than a repair.** S-A and
-S-I are valid under a concurrent server, but they are expensive: they settle a
-lost-pin episode by taking the endpoint down **and the site with it**, which is
-acceptable for a hand-started rehearsal process behind a proxy that fronts nothing
-a player is waiting on, and poor for a running service. That cost grew with this
-version, and it is the honest price of settling an episode without the application
-being able to say anything about itself. Before `freedom-web` carries real traffic,
-add the mechanism that lets recovery settle an episode **without** a stop: an
-in-flight record committed before processing and cleared after it, an explicit
-quiesce that stops new intake and waits for accepted requests to finish, a
-pre-settlement barrier the restarted application refuses requests against, or an
-equivalent. That makes settlement a property the application states about itself
-rather than one the operator assembles from process and socket state — which is
-what all three withdrawn conditions were unsuccessfully reaching for, and it is
-the only known way to stop paying for a reconciliation in downtime.
+Each has a named regression test, and each was exercised as a deliberate mutation
+before this procedure was accepted. See the C-24 change-log entry.
 
-`tests/test_snapshot_recovery_settlement.py` holds the automated half of this: it
-reproduces the late-commit sequence against the real submission service; it shows
-that a submission already connected and fully sent to a real
-`wsgiref.simple_server` commits nothing when the endpoint stops without serving
-it, and that a delivery attempt made after the stop is refused at the socket; and
-it keeps both false misses the withdrawn rules permitted, including the one where
-a proxy holding a request it has not dialled upstream for delivers it across the
-restart.
+**What settlement no longer rests on**, because nine remediations died on it:
+whether the endpoint is running, whether Caddy is running or would be restarted,
+whether a hop in front of this host queues or discards a request when the origin
+goes away, what `pg_stat_activity` shows, whether a commit watermark moved,
+whether a lock queue was empty, and whether a drain read matched. None of them is
+consulted. §5.4's requirement that the ingress be terminable is retained as good
+practice and is no longer a settlement dependency, so a new hop in front of Caddy
+is no longer a reason to revisit this procedure.
 
-**Caddy's half was exercised against a real Caddy 2.10.2 on 2026-08-10**, on an
-isolated rig on high ports with a stub upstream, leaving the production instance
-untouched. Observed there: a request the proxy had accepted and not dialled
-upstream for survived the endpoint stop and was delivered and answered `201`
-after the restart — the finding this step exists for, reproduced rather than
-argued; the same episode with the proxy terminated delivered nothing; `uri
-strip_prefix` presented `/api/v1/foundry/snapshots` upstream; the retired path
-answered `410` with the endpoint both up and down; and a live route with the
-endpoint down answered `502`, which is why that answer is a failure of S-I.4 and
-not a pass.
+**The Phase 3 obligation the previous version recorded is discharged by this
+one.** It read: "before `freedom-web` carries real traffic, add the mechanism
+that lets recovery settle an episode **without** a stop … a pre-settlement
+barrier the restarted application refuses requests against, or an equivalent.
+That makes settlement a property the application states about itself rather than
+one the operator assembles from process and socket state." That is what the
+admission fence is. Settlement costs one transaction and no downtime, and it is
+valid under a concurrent server for the same reason it is valid under this one:
+nothing in it depends on how many requests are in flight.
 
-**S-I was then exercised against the production Caddy on 2026-08-10**, in
-maintainer-authorized windows. With one request held open on the origin's own
-listener — accepted over TLS 1.3, unrouted — the stop closed the listeners in half
-a millisecond, ended the process 4.3 seconds later, and **closed the held
-connection with nothing delivered**. The public name answered `521` from
-Cloudflare throughout, on the submission path and the site root alike, and the
-unit's `Restart=` is `no`, so nothing brought Caddy back on its own. What remains
-unobserved is an operator following the steps, and step 4's retirement on
-production, which needs a route that does not currently exist there; that is what
-step 10 of Rehearsal A is for.
+**What remains unobserved.** No operator has yet followed this procedure end to
+end on production, and no real Foundry client has yet met a `403
+admission_closed`. The automated evidence is real PostgreSQL with the real
+submission service; the operational rehearsal is step 10 of Rehearsal A and has
+not been run against this version.
 
 Downloading is a fallback delivery channel only. It does not confirm a server
 submission and does not clear an existing pin. If the download itself fails,

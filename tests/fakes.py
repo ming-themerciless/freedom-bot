@@ -16,7 +16,7 @@ tests in `test_snapshot_database.py` remain the proof that the rules fire.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from application.audit import AuditEvent
 from application.authorization import AuthorizationContext
@@ -29,6 +29,7 @@ from application.snapshots import (
     SnapshotImportRecord,
     SnapshotRecord,
 )
+from application.admissions import AdmissionState, SubmissionAdmission
 from domain.identity import Character, DiscordUser
 from domain.names import DisplayName
 
@@ -45,6 +46,9 @@ class FakeStore:
     snapshots: dict[str, SnapshotRecord] = field(default_factory=dict)
     snapshot_imports: list[SnapshotImportRecord] = field(default_factory=list)
     idempotency: dict[tuple[str, str], IdempotencyRecord] = field(default_factory=dict)
+    #: The admission fence, keyed by principal id — the same identity the real
+    #: table makes unique, so a fake cannot model a credential holding two.
+    submission_admissions: dict[str, SubmissionAdmission] = field(default_factory=dict)
     initialization: PlatformInitialization | None = None
 
     def copy(self) -> FakeStore:
@@ -57,8 +61,49 @@ class FakeStore:
             snapshots=dict(self.snapshots),
             snapshot_imports=list(self.snapshot_imports),
             idempotency=dict(self.idempotency),
+            submission_admissions=dict(self.submission_admissions),
             initialization=self.initialization,
         )
+
+
+def admit(
+    store: FakeStore,
+    principal_id: str,
+    *,
+    generation: int = 1,
+    state: AdmissionState = AdmissionState.OPEN,
+) -> SubmissionAdmission:
+    """Give `principal_id` an admission generation, as an operator would.
+
+    Every test that expects a submission to succeed has to call this, and that
+    is deliberate rather than an inconvenience: a deployment that has run
+    migration 0005 and not opened a generation accepts nothing, so a fixture
+    that admitted by default would let the suite prove a state production is
+    never in. `tools.submission_admission open` is the real thing this stands
+    for.
+    """
+    admission = SubmissionAdmission(
+        id=uuid4(),
+        generation=generation,
+        principal_id=principal_id,
+        state=state,
+    )
+    store.submission_admissions[principal_id] = admission
+    return admission
+
+
+def close_admission(store: FakeStore, principal_id: str) -> SubmissionAdmission:
+    """Close a generation in the committed store — the settlement operation.
+
+    Mutates the *committed* store, so a unit of work that is already open sees
+    it on its next read. That is what a real closure committed by another
+    session looks like from inside a `READ COMMITTED` transaction, and it is how
+    the paused-request orderings are reproduced without threads.
+    """
+    admission = store.submission_admissions[principal_id]
+    closed = replace(admission, state=AdmissionState.CLOSED)
+    store.submission_admissions[principal_id] = closed
+    return closed
 
 
 class FakeCharacterRepository:
@@ -258,6 +303,43 @@ class FakeIdempotencyRepository:
         return self._store.idempotency.get((scope, key))
 
 
+class FakeSubmissionAdmissionRepository:
+    """The admission fence, with the timing that makes it a fence.
+
+    Two details are modelled deliberately, because a fake that got either wrong
+    would let the application suite prove something PostgreSQL would not.
+
+    **Reads go to the *committed* store, not to this transaction's pending
+    copy.** `state_of` stands for a `READ COMMITTED` statement, which takes a
+    fresh snapshot and therefore observes a closure another session committed
+    while this transaction was open. A fake that read the pending copy would
+    never see one, and the fence would pass its tests by being untestable.
+
+    **`hold_against_closure` can run a side effect.** It stands for the advisory
+    lock a real transaction takes first, and a test uses `on_hold` to commit a
+    closure at exactly that instant — which is how the "closure got in first"
+    ordering is reproduced without threads.
+    """
+
+    def __init__(self, committed: FakeStore) -> None:
+        self._committed = committed
+        #: Set by a test: run at the moment the lock would be taken.
+        self.on_hold: object | None = None
+
+    def hold_against_closure(self) -> None:
+        if self.on_hold is not None:
+            self.on_hold()
+
+    def find_for_principal(self, principal_id: str) -> SubmissionAdmission | None:
+        return self._committed.submission_admissions.get(principal_id)
+
+    def state_of(self, admission_id: UUID) -> AdmissionState | None:
+        for admission in self._committed.submission_admissions.values():
+            if admission.id == admission_id:
+                return admission.state
+        return None
+
+
 class FakePlatformInitializationRepository:
     def __init__(self, store: FakeStore) -> None:
         self._store = store
@@ -326,6 +408,10 @@ class FakeUnitOfWork:
         self.idempotency = _failing(
             FakeIdempotencyRepository(self._pending), self, "idempotency"
         )
+        # Built over the *committed* store, not the pending copy. See the
+        # repository's docstring: the fence's whole job is to observe a closure
+        # another session committed while this transaction was open.
+        self.submission_admissions = FakeSubmissionAdmissionRepository(self._committed)
         self.initialization = FakePlatformInitializationRepository(self._pending)
         return self
 

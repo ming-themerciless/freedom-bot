@@ -352,6 +352,61 @@ platform_initialization = Table(
     CheckConstraint("length(trim(supervisor)) > 0", name="supervisor_not_blank"),
 )
 
+#: The admission generation a submission credential may currently write under.
+#:
+#: This is the **fence** finding B-1 asked for, and its shape is the argument.
+#:
+#: `principal_id` is unique across the whole table, for all time. A principal
+#: therefore holds at most one admission that ever existed, so an admission that
+#: has been closed cannot be replaced by an open one for the same credential —
+#: which is what stops a request that was accepted long ago, and paused
+#: somewhere, from waking up and finding itself admitted again. Recovery issues a
+#: *new* credential (§5.2) and opens a *new* admission naming it; the old request
+#: cannot present it, because the id it carries is fixed in the bytes it was sent
+#: with.
+#:
+#: `state` moves `open` → `closed` once and never back. Migration 0005 enforces
+#: that with a trigger, and refuses `DELETE` outright, because a reopened
+#: admission would be indistinguishable from one that was never closed.
+submission_admissions = Table(
+    "submission_admissions",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    #: Ordering an operator can read and cite. Unique so two concurrent opens
+    #: cannot both claim to be the same generation.
+    Column("generation", BIGINT, nullable=False, autoincrement=False),
+    Column("principal_id", String(64), nullable=False),
+    Column("state", String(16), nullable=False),
+    Column("opened_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("opened_by", String(120), nullable=False),
+    Column("open_reason", Text, nullable=False),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    Column("closed_at", DateTime(timezone=True)),
+    Column("closed_by", String(120)),
+    Column("close_reason", Text),
+    Column("closed_correlation_id", UUID(as_uuid=True)),
+    UniqueConstraint("generation", name="uq_submission_admissions_generation"),
+    UniqueConstraint("principal_id", name="uq_submission_admissions_principal_id"),
+    CheckConstraint("state IN ('open', 'closed')", name="state"),
+    CheckConstraint("generation >= 0", name="generation_not_negative"),
+    # Both directions. A `closed` row that names no closure would be a fence
+    # nobody can account for, and an `open` row carrying one would be a closure
+    # that did not take effect.
+    CheckConstraint(
+        "(state = 'closed') = (closed_at IS NOT NULL)", name="closed_state_is_dated"
+    ),
+    CheckConstraint(
+        "(state = 'closed') = (closed_by IS NOT NULL)", name="closed_state_names_its_operator"
+    ),
+    CheckConstraint(
+        "(state = 'closed') = (close_reason IS NOT NULL)", name="closed_state_gives_a_reason"
+    ),
+    CheckConstraint(
+        "(state = 'closed') = (closed_correlation_id IS NOT NULL)",
+        name="closed_state_is_correlated",
+    ),
+)
+
 idempotency_keys = Table(
     "idempotency_keys",
     metadata,
@@ -361,9 +416,44 @@ idempotency_keys = Table(
     Column("request_hash", LargeBinary(32), nullable=False),
     Column("status", String(20), nullable=False),
     Column("response", json_type),
+    #: The admission this receipt was earned under — and the reason the fence
+    #: works. Writing this row is what makes an acceptance durable, on the
+    #: new-bytes path *and* on the duplicate-bytes path where no
+    #: `foundry_snapshots` row is created, so it is the one choke point every
+    #: successful submission passes through.
+    #:
+    #: The foreign key is not decoration. PostgreSQL takes a row-level `KEY
+    #: SHARE` lock on the referenced admission to check it, which conflicts with
+    #: the `FOR UPDATE` that closure takes — so a closure and an acceptance can
+    #: never interleave, and the submission's own state re-read afterwards sees
+    #: a closure that got in first. That was established against this host's
+    #: PostgreSQL 16.14 rather than assumed; see
+    #: `tests/test_submission_admission_postgresql.py`.
+    Column(
+        "admission_id",
+        UUID(as_uuid=True),
+        # `RESTRICT`, stated rather than defaulted: a receipt is the evidence
+        # that an acceptance happened under a named generation, and an
+        # admission that could be deleted out from under it would erase that.
+        # The trigger in 0005 refuses `DELETE` on the parent outright; this is
+        # the same rule said where a reader of the schema looks for it.
+        ForeignKey(
+            "submission_admissions.id",
+            name="fk_idempotency_keys_admission_id",
+            ondelete="RESTRICT",
+        ),
+    ),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("expires_at", DateTime(timezone=True)),
     UniqueConstraint("scope", "key"),
     CheckConstraint("status IN ('started', 'completed', 'failed')", name="status"),
     CheckConstraint("length(request_hash) = 32", name="request_hash_sha256"),
+    # Nullable in general — other scopes are not fenced — but never null for a
+    # snapshot submission. A receipt in that scope that named no admission would
+    # be an acceptance nobody can attribute to a generation, which is the state
+    # the fence exists to make impossible.
+    CheckConstraint(
+        "scope <> 'foundry.snapshot.submission' OR admission_id IS NOT NULL",
+        name="submission_names_its_admission",
+    ),
 )

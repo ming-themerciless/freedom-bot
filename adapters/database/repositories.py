@@ -5,6 +5,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.orm import Session
 
+from application.admissions import (
+    ADMISSION_LOCK_KEY,
+    AdmissionState,
+    SubmissionAdmission,
+)
 from application.audit import ActorCapability, AuditEvent
 from application.errors import ConcurrencyConflictError
 from application.idempotency import IdempotencyRecord, IdempotencyStatus
@@ -32,6 +37,7 @@ from .tables import (
     platform_initialization,
     sheet_row_mappings,
     snapshot_imports,
+    submission_admissions,
 )
 
 
@@ -375,6 +381,16 @@ class SqlAlchemyIdempotencyRepository:
         self._session = session
 
     def add(self, record: IdempotencyRecord) -> None:
+        """Write the receipt — and, for a fenced scope, take the admission lock.
+
+        The `admission_id` foreign key is checked as part of this statement, and
+        checking it takes a row-level `KEY SHARE` lock on the admission row. That
+        lock is the reason a settlement closure and an acceptance cannot
+        interleave, so this call is a synchronisation point and not only a write.
+        Core `insert()` through `session.execute` issues the statement here
+        rather than deferring it to a flush, which is what makes "the lock is
+        held when this returns" true.
+        """
         self._session.execute(
             insert(idempotency_keys).values(
                 id=record.id,
@@ -383,6 +399,7 @@ class SqlAlchemyIdempotencyRepository:
                 request_hash=record.request_hash,
                 status=record.status.value,
                 response=None if record.response is None else dict(record.response),
+                admission_id=record.admission_id,
             )
         )
 
@@ -408,7 +425,75 @@ class SqlAlchemyIdempotencyRepository:
             request_hash=bytes(row["request_hash"]),
             status=IdempotencyStatus(row["status"]),
             response=row["response"],
+            admission_id=row["admission_id"],
         )
+
+
+class SqlAlchemySubmissionAdmissionRepository:
+    """The admission fence. Read-only, because the runtime role is.
+
+    There is no `open` and no `close` here, and their absence is the control:
+    `infra/postgresql/runtime-grants.sql.tmpl` grants this role `SELECT` on
+    `submission_admissions` and nothing else, so a method that tried to write
+    would be refused by PostgreSQL. Opening and closing a generation is an
+    operator action taken by `tools.submission_admission` as the schema owner.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def hold_against_closure(self) -> None:
+        """`pg_advisory_xact_lock_shared`, released by this transaction's end.
+
+        A transaction lock rather than a session lock, deliberately: a session
+        lock outlives its transaction and would have to be released by hand,
+        which is a leak waiting for the one path that raises before it gets
+        there. Held until commit or rollback, whichever happens, with no
+        `unlock` for anyone to forget.
+
+        It needs no privilege, so the restricted runtime role takes it while
+        holding `SELECT` and nothing else on `submission_admissions`.
+        """
+        self._session.execute(
+            select(func.pg_advisory_xact_lock_shared(ADMISSION_LOCK_KEY))
+        )
+
+    def find_for_principal(self, principal_id: str) -> SubmissionAdmission | None:
+        row = (
+            self._session.execute(
+                select(submission_admissions).where(
+                    submission_admissions.c.principal_id == principal_id
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        return SubmissionAdmission(
+            id=row["id"],
+            generation=row["generation"],
+            principal_id=row["principal_id"],
+            state=AdmissionState(row["state"]),
+        )
+
+    def state_of(self, admission_id: UUID) -> AdmissionState | None:
+        """One statement, one column, taken under the acceptance's own lock.
+
+        Deliberately narrow. It reads `state` and not the row, so that nothing
+        about it can be mistaken for a general re-fetch that a caller might move
+        somewhere more convenient — its correctness depends entirely on *when* it
+        runs, and that is documented at the call site in
+        `application/foundry/submission.py`.
+        """
+        value = self._session.execute(
+            select(submission_admissions.c.state).where(
+                submission_admissions.c.id == admission_id
+            )
+        ).scalar_one_or_none()
+        if value is None:
+            return None
+        return AdmissionState(value)
 
 
 class SqlAlchemyPlatformInitializationRepository:

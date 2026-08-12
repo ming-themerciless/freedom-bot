@@ -48,24 +48,53 @@ def granted_tables(statement_pattern: str) -> set[str]:
     return granted
 
 
-def test_every_table_is_granted_to_the_runtime_role():
-    mutable = granted_tables(
+#: Tables the runtime role may read and may not write at all. One entry: the
+#: admission fence (migration 0005). A role able to insert one could admit
+#: itself, and a role able to update one could reopen a generation settlement had
+#: closed — either of which would make the fence advisory rather than enforced.
+READ_ONLY_TABLES = {"submission_admissions"}
+
+
+def mutable_tables() -> set[str]:
+    return granted_tables(
         r"GRANT\s+SELECT,\s*INSERT,\s*UPDATE,\s*DELETE\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__"
     )
-    append_only = granted_tables(r"GRANT\s+SELECT,\s*INSERT\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__")
+
+
+def append_only_granted() -> set[str]:
+    return granted_tables(
+        r"GRANT\s+SELECT,\s*INSERT\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__"
+    )
+
+
+def read_only_granted() -> set[str]:
+    return granted_tables(r"GRANT\s+SELECT\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__")
+
+
+def test_every_table_is_granted_to_the_runtime_role():
+    granted = mutable_tables() | append_only_granted() | read_only_granted()
 
     expected = set(metadata.tables)
-    assert mutable | append_only == expected, "a table is missing from the runtime grants"
+    assert granted == expected, "a table is missing from the runtime grants"
 
 
 def test_audit_tables_receive_no_update_or_delete_grant():
-    mutable = granted_tables(
-        r"GRANT\s+SELECT,\s*INSERT,\s*UPDATE,\s*DELETE\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__"
-    )
-    append_only = granted_tables(r"GRANT\s+SELECT,\s*INSERT\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__")
+    assert APPEND_ONLY_TABLES & mutable_tables() == set()
+    assert APPEND_ONLY_TABLES <= append_only_granted()
 
-    assert APPEND_ONLY_TABLES & mutable == set()
-    assert APPEND_ONLY_TABLES <= append_only
+
+def test_the_admission_fence_is_readable_and_not_writable():
+    """C-24. The fence is only a fence if the fenced party cannot move it."""
+    assert READ_ONLY_TABLES <= read_only_granted()
+    assert READ_ONLY_TABLES & mutable_tables() == set()
+    assert READ_ONLY_TABLES & append_only_granted() == set()
+
+    body = statements()
+    for table in sorted(READ_ONLY_TABLES):
+        assert (
+            f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON {table.upper()} "
+            f"FROM __APP_ROLE__" in body
+        ), table
 
 
 def statements() -> str:

@@ -1,4 +1,283 @@
-> B-1 remains Blocking. Stopping only the upstream endpoint does not settle requests still held by Caddy that have not made their first upstream connection. Such a request
-  > can connect after restart; “no retry window” only addresses retries after a failed attempt. Step 4 detects the duplicate but does not prevent the false miss from
-  > authorizing it. Revise the procedure to terminate or positively drain the complete ingress path, or introduce an application-level mechanism that rejects pre-settlement
-  > requests after restart. Then return it for independent re-review.
+# Prompt for Claude — C-24 independent-review remediation
+
+Claude, remediate the two findings below in the C-24 submission-admission
+fence, then return the result for another independent review. The durable
+admission-generation design remains the right direction. This task is not
+permission to revive observation-based settlement, approve B-1, or close the
+Phase 2 gate.
+
+The priority is to make the fence structurally unavoidable for every path that
+returns a successful submission receipt. Do not implement only a local
+`if closed` check in the currently identified branch if that leaves successful
+receipt paths independently responsible for remembering the invariant.
+
+## Read and preserve context
+
+Before planning or editing, read completely:
+
+1. `AGENTS.md`, `.agents/AGENTS.md`, and `docs/implementation-plan.md`;
+2. change-log C-24 and the C-24 finishing-pass record;
+3. `application/admissions.py` and `application/foundry/submission.py`;
+4. `application/repositories.py`, `application/idempotency.py`, and the service
+   principal/authentication path;
+5. `adapters/database/repositories.py`, `translation.py`, `unit_of_work.py`,
+   `tables.py`, and the HTTP composition/adapter;
+6. `migrations/versions/0005_submission_admission_fence.py`;
+7. `tools/submission_admission.py`;
+8. `docs/operations/foundry-snapshot-submission.md` and the B-1 review records;
+9. all submission-admission, submission, database, HTTP, runtime-grant,
+   migration, CLI, and recovery tests.
+
+Preserve unrelated working-tree and index changes. Do not touch production
+services, production or staging PostgreSQL, Caddy, Foundry, credentials, or
+real snapshot data. Use synthetic fixtures and only the declared disposable
+`freedom_test` database.
+
+## Invariant and retained design
+
+The invariant is:
+
+> After closure of admission generation N commits, no request presenting the
+> credential belonging to N can create or reuse an accepted snapshot, return a
+> successful receipt, or write an acceptance audit event. An acceptance made
+> durable before closure is a hit that closure orders behind; work ordered
+> after closure refuses. Only a newly issued credential with a new principal id
+> may use a later generation.
+
+Retain these load-bearing decisions unless a real PostgreSQL counterexample
+demonstrates a durable violation:
+
+- Admission is a durable generation, not an inference of quiescence.
+- A request uses the principal id from its own authenticated request; it never
+  inherits a current generation.
+- A principal id holds at most one admission for all time.
+- Admission moves only `open` to `closed`; there is no reopen.
+- Recovery uses a new credential, principal id, and admission.
+- Acceptance records `idempotency_keys.admission_id` through its foreign key.
+- Closure uses the exclusive advisory lock and explicit `FOR UPDATE`.
+- Submission transactions use the shared advisory lock and the explicit
+  `READ COMMITTED` contract.
+- A closed generation cannot replay a successful receipt.
+- Deployment is fail-closed until an admission is deliberately opened.
+- Settlement requires no process, proxy, or site-wide downtime.
+
+Do not add process inspection, socket checks, watermarks, queue/drain readings,
+`pg_stat_activity`, or `pg_locks` observations as settlement conditions.
+
+## Blocking finding — uniqueness-conflict replay bypasses the fence
+
+The ordinary replay path inside `_store_and_record()` is fenced: it takes the
+shared advisory lock, resolves the authenticated principal's admission,
+requires it to be open, and requires the stored receipt's `admission_id` to
+match.
+
+The uniqueness-conflict recovery path is not. When `_store_and_record()` loses
+an `idempotency_key.scope_key` race, `_persist()` calls `_replay_stored()`.
+That method opens a fresh transaction, reads the winning receipt, rolls back,
+and returns it without:
+
+- taking the admission advisory lock;
+- resolving or checking the authenticated principal's admission;
+- requiring the generation to remain open; or
+- checking that the receipt was earned under that admission.
+
+The counterexample is:
+
+1. Two requests authenticated as principal P enter with the same request key
+   and bytes while P's generation N is open.
+2. The winner commits the accepted receipt under N.
+3. The loser receives the uniqueness conflict and its original transaction
+   rolls back, releasing the shared admission lock.
+4. Settlement closes N and commits.
+5. The loser enters `_replay_stored()` and returns the winner's successful
+   receipt after closure.
+
+No post-closure database write is needed for this to violate the invariant:
+returning or reusing the successful receipt is expressly forbidden.
+
+### Required remediation
+
+Refactor successful receipt replay so there is one intention-revealing,
+principal-bound operation used by both:
+
+- an ordinary same-key retry; and
+- recovery after an `idempotency_key.scope_key` uniqueness race.
+
+That operation must, within one transaction:
+
+1. take the shared side of the admission fence before reading a receipt;
+2. resolve the admission belonging to the authenticated request's principal id;
+3. require that admission to remain open;
+4. require the stored idempotency record's `admission_id` to equal that
+   admission's id;
+5. validate the request digest exactly as `_replay()` does today; and
+6. return the stored receipt only while the fence still orders the transaction
+   before any closure.
+
+Pass the authenticated `ServicePrincipal` (or its validated stable identity)
+through uniqueness recovery; do not recover authorization from the stored
+record, from a globally current generation, or from caller-controlled data.
+
+Prefer consolidation over duplicated checks. Mechanically enumerate every
+place in production code that can return a `SubmissionReceipt`, including
+direct returns and helpers, and demonstrate that no path can return a stored
+successful receipt without crossing the same principal-bound fenced boundary.
+Keep new repository interfaces cohesive and usable by both real and fake unit
+of work implementations.
+
+Preserve the existing semantics for:
+
+- same key and same bytes while the earning generation is open: return the
+  original receipt;
+- same key and different bytes: typed conflict;
+- a key earned by another admission: refuse;
+- no admission or a closed admission: `admission_closed` refusal;
+- an unreadable or missing race winner: fail closed without inventing success;
+- atomic audit/refusal behavior and safe messages.
+
+### Required regression evidence
+
+First add a real PostgreSQL regression test that reproduces the exact five-step
+interleaving above. Use `threading.Event` rendezvous and database lock/state
+conditions where necessary; do not use timing sleeps as proof. Include a
+control showing that without closure the loser returns the original receipt.
+
+The decisive test must establish after closure:
+
+- the losing request raises typed `admission_closed`, not success;
+- no second snapshot, receipt, or acceptance event was written;
+- the winner's pre-closure durable acceptance remains intact; and
+- closure is durable and no old-principal request can replay it.
+
+Also add focused fake/application tests for both callers of the consolidated
+replay operation and a path-enumeration or behavioral test that will fail if a
+future conflict-recovery branch bypasses admission checking.
+
+Run and revert a targeted mutation that restores the old unfenced
+`_replay_stored()` behavior; name the regression test that kills it.
+
+## Important finding — an absent SQLSTATE does not prove no commit
+
+`tools/submission_admission.py` currently classifies every `DBAPIError` without
+a SQLSTATE as an inability to connect and says, for `close`, that no generation
+was closed and the fence is unchanged. That conclusion is not generally sound.
+A connection can be lost while PostgreSQL is processing or acknowledging
+`COMMIT`; the server may have committed even though the client receives a
+driver error without a server SQLSTATE. Client observation alone cannot
+distinguish those outcomes.
+
+This is an operational outcome-ambiguity problem, not a defect in the durable
+admission model. Do not claim rollback merely because the context manager
+raised.
+
+### Required remediation
+
+Make the CLI distinguish at least:
+
+- a connection failure established before the operation/transaction could
+  begin, where it is sound to say nothing was written; and
+- a lost connection or other failure after the operation may have begun,
+  especially during commit, where the result is **Outcome unknown / Unsettled**.
+
+For an ambiguous `open` or `close` outcome:
+
+- use a distinct documented nonzero exit code or an equally unambiguous
+  documented classification;
+- never claim the fence is unchanged or the transition did not commit;
+- instruct the operator to reconnect and run `show` (and consult the correlated
+  audit record where appropriate) before retrying or authorizing a fresh export;
+- explain that `close` is idempotent after verification, while an ambiguous
+  `open` must be verified before attempting another principal/generation; and
+- emit no traceback, URL, credential, parameters, or SQL for this expected
+  operational condition.
+
+Do not infer transaction phase from SQLSTATE alone. Track whether the command
+entered its database operation/transaction if that is sufficient, and examine
+SQLAlchemy/psycopg behavior carefully. If exact pre-BEGIN versus post-BEGIN
+classification cannot be made reliably through the existing abstraction,
+choose the conservative ambiguous outcome. False uncertainty is safer than a
+false assertion that settlement did not occur.
+
+Keep programmer defects visible; do not add `except Exception`.
+
+### Required regression evidence
+
+Add deterministic tests for failures injected:
+
+- before connection/transaction establishment;
+- during an operation before commit;
+- at commit acknowledgement, representing a connection loss after the server
+  may have committed; and
+- after a genuinely committed close, with verification showing the generation
+  closed and its correlation/audit evidence intact.
+
+At minimum, the commit-ambiguity test must prove the CLI returns nonzero,
+prints **Unsettled/outcome unknown**, directs verification, leaks no sensitive
+detail, and makes no “nothing was closed” or “fence unchanged” claim.
+
+Where a realistic commit-acknowledgement fault cannot be injected through the
+real driver deterministically, use a narrow test double at the transaction
+boundary and state exactly what it models. Do not present a mock as proof of
+PostgreSQL internals.
+
+Run and revert a mutation restoring `sqlstate is None => definitely nothing
+committed`; name the regression test that kills it.
+
+## Scope and quality constraints
+
+- Fix both findings before requesting re-review.
+- Do not weaken admission uniqueness, monotonicity, FK constraints, locks,
+  isolation pinning, runtime grants, authentication, or audit policy.
+- Do not edit migration 0005 unless the remediation genuinely changes its
+  schema contract. Explain any migration edit precisely and rehearse it.
+- Do not create another large historical rewrite. Update the runbook, change
+  log, status, and review record only where required to state the corrected
+  behavior and evidence accurately.
+- Do not claim C-24, B-1, or the Phase 2 gate approved or closed. Tests are
+  evidence, not acceptance authority.
+- If investigation reveals a new durable counterexample, write the shortest
+  failing PostgreSQL regression first and report it. Repair within the durable
+  admission model if possible; do not silently expand into another settlement
+  redesign.
+
+## Verification
+
+Run narrow tests first, then all available checks:
+
+```bash
+./venv/bin/pytest -q <focused admission, submission, CLI, and database tests>
+./venv/bin/pytest -q
+TEST_DATABASE_URL=postgresql+psycopg:///freedom_test ./venv/bin/pytest -q
+(cd foundry-module && npm test)
+git diff --check
+./venv/bin/python -m compileall -q adapters application domain tools tests migrations
+./venv/bin/alembic check
+```
+
+If migration 0005 changes, rehearse `upgrade 0005 -> downgrade 0004 -> upgrade
+head` against only `freedom_test`. Run configured formatter, linter, and type
+checker, or state accurately that none is configured. Do not count skipped
+PostgreSQL tests as evidence and do not claim commands that were not run.
+
+Review the final diff for secrets, real player/Actor data, unrelated edits,
+unsafe error output, and any successful-receipt path outside the consolidated
+fence.
+
+## Required handoff
+
+Return a concise, evidence-based handoff containing:
+
+1. root cause and remediation for each finding;
+2. the consolidated successful-replay boundary and the complete enumeration of
+   production `SubmissionReceipt` return paths;
+3. the exact PostgreSQL race ordering and observed outcome;
+4. the commit-ambiguity model and operator-facing outcomes/exit codes;
+5. files, interfaces, documentation, and migration changes;
+6. named regression tests and mutations performed and reverted;
+7. exact commands with pass/skip counts;
+8. deployment, operational, and rollback implications;
+9. limitations and anything not run or not proven; and
+10. an explicit statement that the work carries no independent approval and
+    does not close C-24, B-1, or the Phase 2 gate.
+
+Stop after the handoff and wait for independent re-review.

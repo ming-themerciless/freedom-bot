@@ -29,6 +29,7 @@ from application.foundry.submission import (
 from application.service_principals import ServicePrincipal, ServicePrincipalScope
 from domain.foundry import OBSERVED_DEPLOYMENT
 from tests import foundry_fixtures as fx
+from tests.conftest import close_admission, open_admission
 
 pytestmark = pytest.mark.database
 
@@ -41,6 +42,9 @@ SUBMITTER = ServicePrincipal(
 @pytest.fixture()
 def service(committed_database, tmp_path: Path):
     engine = committed_database
+    # The admission generation an operator opens at deployment. Without one
+    # nothing can be accepted at all — see `application/admissions.py`.
+    open_admission(engine, SUBMITTER.principal_id)
     store = FilesystemArtifactStore(tmp_path / "artifacts")
 
     def factory() -> SqlAlchemyUnitOfWork:
@@ -363,6 +367,7 @@ class _RefusingStore:
 
 def test_a_storage_failure_commits_no_provenance(committed_database):
     engine = committed_database
+    open_admission(engine, SUBMITTER.principal_id)
 
     def factory() -> SqlAlchemyUnitOfWork:
         return SqlAlchemyUnitOfWork(engine)

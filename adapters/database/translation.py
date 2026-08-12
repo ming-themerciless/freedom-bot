@@ -46,6 +46,13 @@ CONSTRAINT_RULES = {
     "uq_sheet_row_mappings_sheet_tab_row_index": "sheet_row_mapping.sheet_row",
     "uq_sheet_row_mappings_character_id_sheet_tab": "sheet_row_mapping.character_tab",
     "uq_idempotency_keys_scope_key": "idempotency_key.scope_key",
+    # An admission generation and a credential are each claimed once, for all
+    # time. `submission_admission.principal_id` is what stops a closed
+    # credential being re-admitted; a conflict on it means an operator tried,
+    # and the refusal is the fence working rather than a race to resolve.
+    "uq_submission_admissions_generation": "submission_admission.generation",
+    "uq_submission_admissions_principal_id": "submission_admission.principal_id",
+    "pk_submission_admissions": "submission_admission.id",
     "uq_character_access_one_active_link": "character_access.active_link",
     "uq_character_access_one_active_owner": "character_access.active_owner",
     "uq_character_access_one_active_default_per_user": "character_access.active_default",
@@ -145,6 +152,29 @@ class TranslatingSession:
 
     def __init__(self, session: Session) -> None:
         self._session = session
+
+    def begin_at_isolation_level(self, isolation_level: str) -> None:
+        """Open this session's transaction at an explicitly chosen level.
+
+        Checks out the connection here rather than leaving it to the first
+        statement, because an isolation level can only be chosen *before* a
+        transaction has begun. **It sends nothing to the server:** the psycopg 3
+        dialect records the level on the driver connection, and psycopg carries
+        it into the `BEGIN` it emits with the session's first real statement. So
+        the submission fence's claim that its advisory lock is the transaction's
+        first statement is untouched by this call.
+
+        Deliberately not `sessionmaker(bind=engine.execution_options(
+        isolation_level=...))`, which is the documented spelling and does not
+        survive being applied to an engine that already carries a level: a
+        derived engine keeps the level of the engine it was derived from, so the
+        pin silently becomes a no-op in exactly the configuration it exists to
+        override. Measured against SQLAlchemy 2.0.51.
+        """
+        with translating(self._session):
+            self._session.connection(
+                execution_options={"isolation_level": isolation_level}
+            )
 
     def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
         with translating(self._session):

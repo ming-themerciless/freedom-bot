@@ -1,4 +1,23 @@
-"""The late-commit race the lost-pin reconciliation has to survive.
+"""Withdrawn settlement conditions, and every false miss each of them permitted.
+
+**§9 no longer performs any of the settlement modelled here.** C-24 replaced it
+with the admission fence — see `tests/test_submission_admission_postgresql.py`
+for the live procedure's evidence and `application/admissions.py` for why an
+observation could never have closed finding B-1.
+
+This file is retained as the record of *why* each withdrawn condition went. Every
+test below reproduces a false miss that a previous version of §9 permitted: the
+probe's, the one an endpoint-only stop permits while the proxy still holds a
+request it has not dialled upstream for, the one an unenumerated ingress commits
+between two readings, the one it commits after the closing reading while the miss
+is being written down, and the one it commits the instant S-D.3's lock is
+released. Read together they are the argument the tenth review made: each
+condition was sound about what it measured, and not one of them could exclude a
+request that had not yet arrived.
+
+The original description of what this file proved follows.
+
+The late-commit race the lost-pin reconciliation has to survive.
 
 Finding B-1, 2026-08-10. The §9 procedure used to let an operator record a
 **miss** — and authorize a fresh export — after the client's request had timed
@@ -58,19 +77,74 @@ Four tests establish the current rule, all against a real
   other half: what committed before the stop is visible to the query, and a
   delivery attempted afterwards is refused at the socket and reaches no handler;
 - the two `_a_request_held_by_the_proxy_` tests are S-I, and they are each
-  other's control. They set up one episode and differ in one line: terminate the
+  other's control. They run **the same** episode — `_held_request_episode`, one
+  function, one sequence — and differ in one statement inside it: terminate the
   proxy, and the held request stops existing; leave it running, and it commits
-  across the restart. Neither passes for a reason the other does not isolate,
-  which is why the control is committed here rather than described.
+  across the restart. Sharing the scenario is what makes that claim checkable
+  rather than asserted: delete `proxy.terminate()` and the two tests execute
+  identical code, so the one that expects the request to have died fails on
+  `assert not episode.proxy.dialled`, which is where the proxy forwarded across
+  the restart. An earlier version of this pair was two hand-written copies whose
+  sequences diverged, and the same deletion blocked on a `join()` instead —
+  the control was described rather than committed.
+
+A fourth settlement rule was **S-D.2's first two readings** — `caddy.service`'s
+`InvocationID` and enter timestamp, and a listener sample — compared at the two
+ends of the down window, on the stated grounds that a start mechanism nobody
+enumerated "still mints a new `InvocationID`". It does not, when what it starts is
+not that unit. `test_a_transient_alternate_ingress_is_caught_only_by_the_commit_watermark`
+is the reproduction: an ingress that is not Caddy runs, commits a submission and
+exits entirely between the two readings, leaving every one of them identical.
+`test_the_commit_watermark_is_unchanged_when_the_window_was_actually_quiet` is its
+control, and the two are one episode with one variable in the same way the S-I
+pair is. What catches the transient ingress is the third reading S-D.2 now takes,
+the **commit watermark** over the append-only tables — the destination rather than
+the route.
+
+A fifth rule was **the watermark comparison on its own**, which closed the window
+by ordering: the closing reading was made the last thing done before the outcome
+was written. The outcome is still written afterwards, by hand, and the same
+unenumerated mechanism can commit in between — so the reading a miss rests on can
+be obsolete by the time the miss is recorded from it.
+`test_a_commit_after_the_closing_reading_is_a_false_miss_without_the_settlement_lock`
+is the reproduction: every reading matches at both ends, the ingress runs *after*
+the closing one, and the recorded miss is false anyway. §9 answers it with
+**S-D.3** — the decisive reading is taken inside a transaction holding
+`LOCK TABLE foundry_snapshots, audit_events IN SHARE MODE`, and the lock is held
+until the outcome has been written down, so the reading is a state spanning the
+recording rather than an instant preceding it.
+
+A sixth rule was **S-D.3 on its own**, which was described as leaving no gap
+before step 4's route retirement. It leaves one, and it is the same false miss
+again: `SHARE` blocks a conflicting `INSERT` rather than disposing of it, so a
+submission delivered while the lock is held **waits** — inside PostgreSQL, past
+every address the retirement can take away — and commits the instant the lock is
+released, before step 4 runs.
+`test_a_writer_queued_behind_the_settlement_lock_is_a_false_miss_without_the_drain_read`
+is the reproduction, and it is the same episode as the fifth with the lock taken.
+§9 answers it with **S-D.4**: the queue behind the lock is read with the decisive
+reading and again before the `COMMIT`, any waiting writer is Unsettled, and the
+miss is confirmed against a **drain read** — the same lock taken a second time,
+granted only behind whatever was queued — before a fresh export is authorized.
+`test_an_empty_queue_and_an_unmoved_drain_read_are_what_a_true_miss_rests_on` is
+the control, the same episode with nothing ever delivered.
 
 Nothing here contacts Foundry, a real database, a network peer off loopback, or
-any real Actor data. The bundle is the committed synthetic fixture.
+any real Actor data. The bundle is the committed synthetic fixture. The lock is
+modelled at the commit boundary, so what these two establish is the shape of the
+procedure; that PostgreSQL behaves as modelled — blocking rather than failing,
+queuing visibly in `pg_locks`, committing on release, and granting a second
+`SHARE` only behind the queue — is established against a real database in
+`tests/test_snapshot_settlement_postgresql.py`.
 """
 from __future__ import annotations
 
+import contextlib
 import http.client
 import socket
 import threading
+from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from wsgiref.simple_server import WSGIRequestHandler, make_server
 
@@ -88,7 +162,7 @@ from application.foundry.audit_policy import SUBMISSION_ACCEPTED
 from application.foundry.submission import SnapshotSubmissionService
 from domain.foundry import OBSERVED_DEPLOYMENT
 from tests import foundry_fixtures as fx
-from tests.fakes import FakeStore, FakeUnitOfWork
+from tests.fakes import FakeStore, FakeUnitOfWork, admit
 
 SECRET = "s" * MIN_SECRET_LENGTH
 PRINCIPAL_ID = "foundry-the-guild"
@@ -189,6 +263,7 @@ def test_the_late_commit_sequence_makes_two_immediate_queries_miss(artifacts):
     transaction is still open while the queries run.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     reached = threading.Event()
     release = threading.Event()
     service = SnapshotSubmissionService(
@@ -250,6 +325,7 @@ def test_a_fresh_export_is_a_second_artifact_that_uniqueness_cannot_merge(
     the schema can collapse them.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     service = SnapshotSubmissionService(
         lambda: FakeUnitOfWork(store),
         deployment=OBSERVED_DEPLOYMENT,
@@ -301,6 +377,7 @@ def test_a_probe_can_be_answered_before_an_earlier_submission_is_accepted(
     current one.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     service = SnapshotSubmissionService(
         lambda: FakeUnitOfWork(store),
         deployment=OBSERVED_DEPLOYMENT,
@@ -365,6 +442,7 @@ def test_a_submission_queued_at_the_endpoint_commits_nothing_once_it_stops(
     about acceptance at a real socket rather than about the application.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     reached = threading.Event()
     release = threading.Event()
     service = SnapshotSubmissionService(
@@ -429,6 +507,7 @@ def test_nothing_can_be_delivered_to_the_endpoint_once_it_has_stopped(artifacts)
     fail rather than pass for an uninteresting reason.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     service = SnapshotSubmissionService(
         lambda: FakeUnitOfWork(store),
         deployment=OBSERVED_DEPLOYMENT,
@@ -492,9 +571,16 @@ class _HoldingProxy:
     when `release()` says the proxy has got round to it. `terminate()` is what
     `systemctl stop caddy` does to it — the sockets close and the request ceases
     to exist anywhere, without ever having been forwarded.
+
+    The upstream address may be supplied at `release()` instead of at
+    construction. That is not a convenience: it is the hop *in front of* this
+    host, whose origin address has no listener at all when the request arrives
+    and only becomes reachable later. A proxy released with no upstream never
+    dials, which is the same outcome as a terminated one and is how the control
+    run below ends.
     """
 
-    def __init__(self, upstream_port: int) -> None:
+    def __init__(self, upstream_port: int | None = None) -> None:
         self._upstream_port = upstream_port
         self._listener = socket.create_server(("127.0.0.1", 0))
         self.port: int = self._listener.getsockname()[1]
@@ -528,6 +614,10 @@ class _HoldingProxy:
             # The proxy is gone. It never dialled, so the request it was holding
             # never becomes anything.
             return
+        if self._upstream_port is None:
+            # Released with nowhere to go: the origin never came back, so the
+            # request ends here just as surely.
+            return
 
         self.dialled = True
         try:
@@ -541,8 +631,14 @@ class _HoldingProxy:
             return
         self.forwarded.set()
 
-    def release(self) -> None:
-        """The proxy gets round to the request it was holding."""
+    def release(self, upstream_port: int | None = None) -> None:
+        """The proxy gets round to the request it was holding.
+
+        `upstream_port` names the origin for a proxy constructed without one —
+        the moment an address that was dead becomes reachable again.
+        """
+        if upstream_port is not None:
+            self._upstream_port = upstream_port
         self._release.set()
 
     def terminate(self) -> None:
@@ -609,24 +705,39 @@ def _stop(server, thread: threading.Thread) -> None:
     server.server_close()
 
 
-def test_a_request_held_by_the_proxy_commits_after_the_endpoint_restarts(
-    artifacts,
-):
-    """B-1, fourth finding: stopping only the endpoint is not settlement.
+@dataclass(frozen=True)
+class _Episode:
+    """What the shared lost-pin episode leaves behind for a test to read."""
 
-    The rule this reproduces is the one C-15 wrote: S-A.1 to S-A.4, satisfied
-    exactly — the endpoint's process is gone, its port is unserved, and it stays
-    down until the miss has been recorded. The episode's request is nonetheless
-    alive, because it is inside the proxy and has not been dialled upstream for.
-    §5.4's "no upstream retry window" does not reach it: a retry window governs
-    what happens after a *refused* dial, and this request has not made one.
+    store: FakeStore
+    proxy: _HoldingProxy
+    client: socket.socket
 
-    Step 4 then restarts the endpoint, the proxy makes its first dial, and the
-    submission commits after the settled miss authorized a fresh export. This is
-    the regression record for the endpoint-only stop, kept for the same reason
-    the probe's false miss is kept.
+
+@contextlib.contextmanager
+def _held_request_episode(
+    artifacts, *, terminate_the_proxy: bool
+) -> Iterator[_Episode]:
+    """One lost-pin episode, with S-I as the only variable in it.
+
+    The two tests below are each other's control, and that only means anything
+    if the control is real: every step here — the held-and-undialled request,
+    the endpoint stop, the two missing queries, the restart on the same port and
+    path, the release, and waiting for the proxy thread to finish — happens
+    identically in both. `terminate_the_proxy` guards exactly one statement,
+    `proxy.terminate()`, which is S-I. Delete that statement and the two tests
+    run the same code over the same sequence, so the one that asserts the
+    request died has nothing left to make it pass.
+
+    An earlier version of this pair was two hand-written copies described as
+    differing in one line. They did not: the S-I copy called `proxy.join()`
+    immediately after terminating, where the other waited on `forwarded`, so
+    deleting the terminate call blocked the join instead of reaching any
+    assertion about the request. The claimed mutation could not happen. Keeping
+    the sequence in one place is what makes the claim checkable.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     service = SnapshotSubmissionService(
         lambda: FakeUnitOfWork(store),
         deployment=OBSERVED_DEPLOYMENT,
@@ -648,46 +759,216 @@ def test_a_request_held_by_the_proxy_commits_after_the_endpoint_restarts(
             "held-but-undialled case"
         )
 
-        # S-A, in full: the endpoint stops and stays down across both queries.
+        # S-A: the endpoint's process is gone and its port is unserved.
         _stop(server, serving)
-        assert reconciliation_hits(store) == []
-        assert reconciliation_hits(store) == []
-        # …so the operator records a settled miss and authorizes a fresh export.
 
-        # Step 4 restarts the endpoint. Nothing else about the path changed.
+        # S-I — the only difference between the two tests.
+        if terminate_the_proxy:
+            proxy.terminate()
+
+        # The operator's two queries, run with the endpoint down. They miss in
+        # both runs: the difference is not what the query sees now, it is what
+        # arrives afterwards.
+        assert reconciliation_hits(store) == []
+        assert reconciliation_hits(store) == []
+
+        # Step 4 restarts the endpoint, on the same port and the same path so
+        # that what this isolates is S-I and not the retired route.
         restarted = make_server(
             "127.0.0.1", port, application, handler_class=_SilentHandler
         )
         serving_again = _serve(restarted)
         try:
+            # Release, then wait for the proxy thread to finish, with the
+            # endpoint up and reachable throughout. Waiting is what makes the
+            # negative assertion mean anything: asserting straight after
+            # `release()` would pass whether or not the proxy went on to dial.
+            # The wait is also what lets both runs share this line — a
+            # terminated proxy's thread returns without dialling, a live one's
+            # dials, forwards and then returns.
             proxy.release()
-            assert proxy.forwarded.wait(PATIENCE), "the proxy never forwarded"
+            proxy.join()
+            yield _Episode(store=store, proxy=proxy, client=client)
         finally:
             _stop(restarted, serving_again)
     finally:
         proxy.terminate()
         client.close()
 
-    # The settled miss was false. One real submission, and a fresh export was
-    # authorized against it under a different checksum.
-    assert len(reconciliation_hits(store)) == 1
-    assert len(store.snapshots) == 1
+
+def test_a_request_held_by_the_proxy_commits_after_the_endpoint_restarts(
+    artifacts,
+):
+    """B-1, fourth finding: stopping only the endpoint is not settlement.
+
+    The rule this reproduces is the one C-15 wrote: S-A satisfied exactly — the
+    endpoint's process gone, its port unserved, and down until the miss has been
+    recorded — with the proxy left running. The episode's request is nonetheless
+    alive, because it is inside the proxy and has not been dialled upstream for.
+    §5.4's "no upstream retry window" does not reach it: a retry window governs
+    what happens after a *refused* dial, and this request has not made one.
+
+    Step 4 then restarts the endpoint, the proxy makes its first dial, and the
+    submission commits after the settled miss authorized a fresh export. This is
+    the regression record for the endpoint-only stop, kept for the same reason
+    the probe's false miss is kept.
+    """
+    with _held_request_episode(artifacts, terminate_the_proxy=False) as episode:
+        # The proxy outlived the endpoint, so it dialled across the restart.
+        assert episode.proxy.dialled
+        assert episode.proxy.forwarded.is_set()
+
+        # The settled miss was false. One real submission, and a fresh export
+        # was authorized against it under a different checksum.
+        assert len(reconciliation_hits(episode.store)) == 1
+        assert len(episode.store.snapshots) == 1
 
 
 def test_a_request_held_by_the_proxy_dies_when_the_proxy_is_terminated(artifacts):
-    """§9 S-I: the same episode, settled, with one line of difference.
+    """§9 S-I: the same episode, settled, with the proxy terminated too.
 
-    Everything here matches the test above up to the point where settlement is
-    established — the same held-and-undialled request, the same endpoint stop,
-    the same two queries missing, the same restart. The only difference is that
-    the proxy is terminated as well as the endpoint, which is what S-I requires
-    and what "terminated, not drained" means.
+    Every step matches the test above; `terminate_the_proxy` is the difference,
+    and it guards one statement. The proxy's thread then ends without ever
+    dialling upstream, so the request stops existing rather than waiting for an
+    endpoint to come back to. A settled miss recorded here is a true miss.
+    """
+    with _held_request_episode(artifacts, terminate_the_proxy=True) as episode:
+        # No dial was ever made, and the client's connection died where it
+        # stood — before the restart, and it stayed dead across it.
+        assert not episode.proxy.dialled
+        assert not episode.proxy.forwarded.is_set()
+        assert episode.client.recv(65536) == b""
 
-    The proxy's own thread then ends without ever dialling upstream, so the
-    request stops existing rather than waiting for an endpoint to come back to.
-    A settled miss recorded here is a true miss.
+        # Nothing arrived across the restart, so the recorded miss stands.
+        assert reconciliation_hits(episode.store) == []
+        assert episode.store.snapshots == {}
+        assert episode.store.audit_events == []
+
+
+class _SupervisedUnit:
+    """`caddy.service` as S-D.2's first reading sees it.
+
+    Not a mock of systemd, and deliberately not a constant either. The two
+    figures the reading rests on exist *because a start produces them* —
+    `InvocationID` is minted by systemd on every start and
+    `ActiveEnterTimestampMonotonic` moves with it — so here they are produced by
+    `start()` and by nothing else in this module.
+
+    That is what makes the counterexample below mean anything. Its closing
+    reading equals its opening reading because no code path started this unit,
+    not because a test declined to change a value it had made up.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.active = False
+        self.invocation_id: str | None = None
+        self.active_enter_monotonic: int | None = None
+        self._starts = 0
+
+    def start(self) -> None:
+        self._starts += 1
+        self.invocation_id = f"{self.name}-invocation-{self._starts}"
+        self.active_enter_monotonic = self._starts * 1_000_000
+        self.active = True
+
+    def stop(self) -> None:
+        self.active = False
+
+    def show(self) -> tuple[str | None, int | None]:
+        """`systemctl show caddy -p InvocationID -p ActiveEnterTimestamp...`."""
+        return (self.invocation_id, self.active_enter_monotonic)
+
+
+def commit_watermark(store: FakeStore) -> tuple[int, int]:
+    """S-D.2's third reading, over committed state.
+
+    The two counts §9 records at both ends of the down window: rows in
+    `foundry_snapshots`, and `audit_events` rows for the `foundry_snapshot`
+    entity. Both tables are append-only, so both counts are monotone and an
+    acceptance inside the window moves at least the second of them — whatever
+    accepted it, by whatever route, and whether or not that process still exists
+    when the closing reading is taken.
+
+    Unlike `reconciliation_hits`, this deliberately does **not** filter on the
+    episode's `world_id` or on the accepted action. It is not looking for the
+    episode's submission; it is looking for evidence that anything at all served
+    this path while the operator believed nothing could.
+    """
+    return (
+        len(store.snapshots),
+        len(
+            [
+                event
+                for event in store.audit_events
+                if event.entity_type == "foundry_snapshot"
+            ]
+        ),
+    )
+
+
+def _listening(*ports: int) -> tuple[int, ...]:
+    """S-D.2's second reading: `ss -ltn`, as a test can take it.
+
+    A sample, and treated as one — which is the property under test.
+    """
+    answered: list[int] = []
+    for port in ports:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+                answered.append(port)
+        except OSError:
+            pass
+    return tuple(answered)
+
+
+@dataclass(frozen=True)
+class _Readings:
+    """One end of S-D.2's down window."""
+
+    caddy: tuple[str | None, int | None]
+    listeners: tuple[int, ...]
+    watermark: tuple[int, int]
+
+
+@dataclass(frozen=True)
+class _TransientEpisode:
+    """What the transient-ingress episode leaves behind for a test to read."""
+
+    store: FakeStore
+    opening: _Readings
+    closing: _Readings
+    served: bool
+
+
+@contextlib.contextmanager
+def _transient_ingress_episode(
+    artifacts, *, start_the_transient_ingress: bool
+) -> Iterator[_TransientEpisode]:
+    """One down window, with an unenumerated mid-window ingress as the variable.
+
+    B-1, seventh finding. S-D.2's first two readings are about `caddy.service`
+    and about two instants of a port, and neither survives an ingress that is
+    neither of those things:
+
+    1. both opening readings are clean and the query returns no row;
+    2. something nobody enumerated starts the endpoint and a proxy on the public
+       port — no part of it is `caddy.service`, and no part of it is in the
+       component table S-I.3d bounds itself by;
+    3. a request held in front of this host is delivered through it and commits;
+    4. both transient processes exit;
+    5. the closing readings are identical to the opening ones.
+
+    Everything except step (2) is shared by both runs, and both runs take the
+    same three readings at the same two points. `start_the_transient_ingress`
+    guards the transient block alone.
+
+    The hop holding the request is modelled by a `_HoldingProxy` constructed
+    with **no** upstream: at the moment it takes the request there is nothing on
+    the public port to dial, which is exactly the state S-I leaves the host in.
     """
     store = FakeStore()
+    admit(store, PRINCIPAL_ID)
     service = SnapshotSubmissionService(
         lambda: FakeUnitOfWork(store),
         deployment=OBSERVED_DEPLOYMENT,
@@ -696,54 +977,570 @@ def test_a_request_held_by_the_proxy_dies_when_the_proxy_is_terminated(artifacts
     application = SnapshotSubmissionApplication(service, _principals())
     payload = fx.encode(fx.bundle())
 
+    caddy = _SupervisedUnit("caddy.service")
+    caddy.start()
+
     server = make_server("127.0.0.1", 0, application, handler_class=_SilentHandler)
-    port = server.server_port
+    endpoint_port = server.server_port
     serving = _serve(server)
-    proxy = _HoldingProxy(port)
-    client = socket.create_connection(("127.0.0.1", proxy.port), timeout=PATIENCE)
+
+    # The hop in front of the host. S-A and S-I cannot reach it — that is what
+    # step 4's route retirement is for — and it is not what this episode tests.
+    # It is here because a stranded request has to exist for a transient ingress
+    # to have anything to deliver.
+    edge = _HoldingProxy()
+    client = socket.create_connection(("127.0.0.1", edge.port), timeout=PATIENCE)
     try:
         client.sendall(_raw_submission(payload, request_key="pinned-episode-key"))
-        assert proxy.holding.wait(PATIENCE), "the proxy never held the request"
-        assert not proxy.dialled
+        assert edge.holding.wait(PATIENCE), "the hop never held the request"
 
-        # S-A: the endpoint stops. S-I: so does the proxy in front of it.
+        # S-A and S-I: the endpoint's process is gone, and Caddy is stopped.
         _stop(server, serving)
-        proxy.terminate()
-        proxy.join()
+        caddy.stop()
 
-        # The held request is gone with the process that held it: no dial was
-        # ever made, and the client's connection died where it stood.
-        assert not proxy.dialled
-        assert not proxy.forwarded.is_set()
-        assert client.recv(65536) == b""
-
-        assert reconciliation_hits(store) == []
-        assert reconciliation_hits(store) == []
-
-        # Step 4 restarts the endpoint — on the same port and the same path, so
-        # that what this establishes is S-I and not the retired route.
-        restarted = make_server(
-            "127.0.0.1", port, application, handler_class=_SilentHandler
+        # S-D.2's opening reading, and step 2's query.
+        opening = _Readings(
+            caddy=caddy.show(),
+            listeners=_listening(endpoint_port),
+            watermark=commit_watermark(store),
         )
-        serving_again = _serve(restarted)
-        try:
-            # Release *and wait for the proxy to finish with it*, with the
-            # endpoint up and reachable the whole time. Asserting straight after
-            # `release()` would pass whether or not the proxy went on to dial,
-            # which is the difference this test exists to see.
-            proxy.release()
-            proxy.join()
-            assert not proxy.dialled
-            assert not proxy.forwarded.is_set()
-        finally:
-            _stop(restarted, serving_again)
+        assert reconciliation_hits(store) == []
+
+        served = False
+        if start_the_transient_ingress:
+            # Neither of these is `caddy.service`, and neither is a mechanism
+            # the topology record documents. Both exist only between the two
+            # readings.
+            transient_endpoint = make_server(
+                "127.0.0.1", endpoint_port, application, handler_class=_SilentHandler
+            )
+            transient_serving = _serve(transient_endpoint)
+            transient_proxy = _HoldingProxy(endpoint_port)
+            try:
+                edge.release(upstream_port=transient_proxy.port)
+                assert transient_proxy.holding.wait(PATIENCE), (
+                    "the transient ingress never received the held request"
+                )
+                transient_proxy.release()
+                assert transient_proxy.forwarded.wait(PATIENCE), (
+                    "the transient ingress never reached the endpoint"
+                )
+                transient_proxy.join()
+                # The transient ingress exits, which is what lets the hop's own
+                # connection end. Both are gone before anything is read.
+                transient_proxy.terminate()
+                edge.join()
+                served = True
+            finally:
+                # …and then they are gone again, before anything is read.
+                _stop(transient_endpoint, transient_serving)
+                transient_proxy.terminate()
+
+        # S-D.2's closing reading. The transient listeners were bound and closed
+        # entirely between this sample and the opening one, which is why a
+        # sample cannot see them.
+        closing = _Readings(
+            caddy=caddy.show(),
+            listeners=_listening(endpoint_port),
+            watermark=commit_watermark(store),
+        )
+        yield _TransientEpisode(
+            store=store, opening=opening, closing=closing, served=served
+        )
     finally:
+        edge.terminate()
         client.close()
 
-    # Nothing arrived across the restart, so the recorded miss stands.
-    assert reconciliation_hits(store) == []
-    assert store.snapshots == {}
-    assert store.audit_events == []
+
+def test_a_transient_alternate_ingress_is_caught_only_by_the_commit_watermark(
+    artifacts,
+):
+    """B-1, seventh finding: the Caddy readings do not cover the other paths.
+
+    A submission commits inside the down window through an ingress that is not
+    `caddy.service` and is not running at either reading. `InvocationID`, the
+    enter timestamp and both listener samples are identical across the window,
+    so a miss recorded on those readings alone would be false — and this is the
+    counterexample the sixth remediation asserted could not exist, on the
+    grounds that an unenumerated start "still mints a new `InvocationID`". It
+    does not, when what it starts is not that unit.
+
+    The commit watermark is what catches it, because it reads what a submission
+    must durably write rather than what served the request.
+    """
+    with _transient_ingress_episode(
+        artifacts, start_the_transient_ingress=True
+    ) as episode:
+        # A real acceptance landed inside the window.
+        assert episode.served
+        assert len(reconciliation_hits(episode.store)) == 1
+        assert len(episode.store.snapshots) == 1
+
+        # And every reading that names caddy.service, or samples a port, says
+        # the window was quiet.
+        assert episode.closing.caddy == episode.opening.caddy
+        assert episode.opening.listeners == ()
+        assert episode.closing.listeners == ()
+
+        # The watermark is the one that moved. §9 makes that Unsettled.
+        assert episode.opening.watermark == (0, 0)
+        assert episode.closing.watermark == (1, 1)
+        assert episode.closing.watermark != episode.opening.watermark
+
+
+def test_the_commit_watermark_is_unchanged_when_the_window_was_actually_quiet(
+    artifacts,
+):
+    """The control, without which the watermark would prove nothing.
+
+    The same episode with the transient ingress never started: the held request
+    is never delivered, nothing commits, and all three readings match at both
+    ends. A watermark that differed here would be measuring the test harness
+    rather than the window.
+    """
+    with _transient_ingress_episode(
+        artifacts, start_the_transient_ingress=False
+    ) as episode:
+        assert not episode.served
+        assert reconciliation_hits(episode.store) == []
+        assert episode.store.snapshots == {}
+
+        assert episode.closing.caddy == episode.opening.caddy
+        assert episode.closing.listeners == episode.opening.listeners == ()
+        assert episode.closing.watermark == episode.opening.watermark == (0, 0)
+
+
+class _SettlementLock:
+    """S-D.3's `LOCK TABLE ... IN SHARE MODE`, as a test can hold one.
+
+    Two properties of PostgreSQL's lock modes are modelled, because the
+    procedure now rests on both:
+
+    - `SHARE` conflicts with the `ROW EXCLUSIVE` an `INSERT` takes, so while the
+      locking transaction is open **no** commit reaches `foundry_snapshots` or
+      `audit_events` — whatever is serving, and whether or not anyone enumerated
+      it. Modelled at the only place a test can observe it, the commit boundary
+      of the unit of work;
+    - a blocked writer **waits** rather than failing, and while it waits it is
+      an ungranted request another session can read. `queued_writers()` is
+      S-D.4's `pg_locks` reading, and `drain()` is S-D.4's second acquisition of
+      the same lock, which PostgreSQL grants only behind the requests already
+      queued — which is what makes the watermark read inside it include their
+      commits.
+
+    What is deliberately *not* modelled is the acquire side of the first lock: a
+    real `LOCK TABLE` also waits for an insert already in flight, and §9 sets
+    `lock_timeout` so that waiting for one ends the episode as Unsettled rather
+    than as a miss. That path needs no test double — it cannot produce a
+    recorded miss at all.
+    """
+
+    def __init__(self) -> None:
+        self._state = threading.Condition()
+        self._held = False
+        self._queued = 0
+        #: Something reached its commit and found the door shut. A positive
+        #: signal, so the test below never has to assert on elapsed time.
+        self.blocked = threading.Event()
+
+    def acquire(self) -> None:
+        """`BEGIN; LOCK TABLE foundry_snapshots, audit_events IN SHARE MODE;`"""
+        with self._state:
+            self._held = True
+
+    def release(self) -> None:
+        """`COMMIT` — run only after the outcome has been written down."""
+        with self._state:
+            self._held = False
+            self._state.notify_all()
+
+    def queued_writers(self) -> int:
+        """S-D.4's queue reading: ungranted conflicting requests, other backends.
+
+        The documented query counts rows in `pg_locks` where `NOT granted` for
+        these two relations and another `pid`. Here it counts writers parked at
+        the commit boundary and not yet through it — the same population.
+        """
+        with self._state:
+            return self._queued
+
+    def wait_for_release(self) -> None:
+        with self._state:
+            if not self._held:
+                return
+            # From here the writer is a waiting `RowExclusiveLock`: it has not
+            # failed, it has not gone away, and it will commit as soon as the
+            # door opens.
+            self._queued += 1
+            self._state.notify_all()
+            self.blocked.set()
+            if not self._state.wait_for(lambda: not self._held, PATIENCE):
+                raise TimeoutError("the settlement lock was never released")
+
+    def writer_finished(self) -> None:
+        """The queued writer's own transaction has ended, lock released with it."""
+        with self._state:
+            if self._queued:
+                self._queued -= 1
+            self._state.notify_all()
+
+    def drain(self) -> None:
+        """S-D.4's drain read: take the lock again, behind whatever was queued.
+
+        A new conflicting request queues behind requests already waiting rather
+        than overtaking them, so this returns only once every writer that was
+        blocked by the first lock has ended its transaction. A watermark read
+        after this call therefore includes their commits.
+        """
+        with self._state:
+            if not self._state.wait_for(
+                lambda: self._queued == 0 and not self._held, PATIENCE
+            ):
+                raise TimeoutError("the settlement drain never completed")
+
+
+class _LockAwareUnitOfWork(FakeUnitOfWork):
+    """A unit of work that commits through the settlement lock.
+
+    `reached` is set at the commit boundary and `visible` once the work is
+    committed, and the two are separated by exactly what separates them in
+    PostgreSQL: the lock. With the lock released they are one instant apart,
+    which is why the run without it is deterministic rather than timed.
+
+    `writer_finished()` is called after the work is visible, because that is
+    when a real writer's transaction ends and its `ROW EXCLUSIVE` is released —
+    and it is what a second `LOCK TABLE` is waiting for.
+    """
+
+    def __init__(
+        self,
+        store: FakeStore,
+        *,
+        lock: _SettlementLock,
+        reached: threading.Event,
+        visible: threading.Event,
+    ) -> None:
+        super().__init__(store)
+        self._lock = lock
+        self._reached = reached
+        self._visible = visible
+
+    def commit(self) -> None:
+        self._reached.set()
+        self._lock.wait_for_release()
+        super().commit()
+        self._visible.set()
+        self._lock.writer_finished()
+
+
+@dataclass(frozen=True)
+class _PostReadingEpisode:
+    """What the post-closing-reading episode leaves behind for a test to read."""
+
+    store: FakeStore
+    opening: _Readings
+    #: S-D.2's closing reading — the one the outcome is written from.
+    closing: _Readings
+    #: The watermark and query result *at the moment the operator writes the
+    #: outcome down*, which is the reading that has to be true and the one the
+    #: withdrawn rule never took.
+    recorded: _Readings
+    recorded_hits: int
+    #: S-D.4's queue reading, taken at the same instant as `recorded`: how many
+    #: writers are waiting behind the lock while the outcome is being written.
+    #: Any at all is Unsettled, because the lock delays them rather than
+    #: disposing of them.
+    queued_writers_at_the_record: int
+    #: S-D.4's drain read: the watermark inside a second acquisition of the same
+    #: lock, taken after the release and before any fresh export is authorized.
+    #: A figure that has moved retracts the miss.
+    drain_read: tuple[int, int]
+    blocked_at_the_lock: bool
+
+
+@contextlib.contextmanager
+def _post_reading_episode(
+    artifacts,
+    *,
+    hold_the_settlement_lock: bool,
+    deliver_the_held_request: bool = True,
+) -> Iterator[_PostReadingEpisode]:
+    """One down window, with S-D.3's lock and the delivery as the variables.
+
+    B-1, eighth and ninth findings. S-D.2's watermark closes the interval
+    between its two readings, and nothing closed the interval between the
+    closing reading and the recording of the outcome. The outcome is written by
+    hand, afterwards, from figures already taken:
+
+    1. both opening readings are clean and the query returns no row;
+    2. every closing reading matches — Caddy, both listener samples, and the
+       watermark;
+    3. **after** that reading, an unenumerated endpoint and proxy start;
+    4. a request held in front of this host is delivered through them;
+    5. the operator writes the miss down;
+    6. the lock, if one was taken, is released — and S-D.4's drain read is taken
+       behind whatever was queued behind it.
+
+    Everything here is shared by every run, including the order of (1) to (6)
+    and the point the transient ingress reaches. `hold_the_settlement_lock`
+    guards two statements — the `acquire()` before the closing reading and the
+    `release()` after the outcome is recorded — and `deliver_the_held_request`
+    guards the transient ingress alone, which is what makes the true-miss run
+    the same episode rather than a different one.
+
+    The hop holding the request is a `_HoldingProxy` with **no** upstream, as in
+    the episode above: at the moment it takes the request there is nothing on
+    the public port to dial, which is the state S-I leaves the host in. Released
+    with nowhere to go, it never dials, which is the run in which nothing is
+    delivered at all.
+    """
+    store = FakeStore()
+    admit(store, PRINCIPAL_ID)
+    lock = _SettlementLock()
+    reached = threading.Event()
+    visible = threading.Event()
+    service = SnapshotSubmissionService(
+        lambda: _LockAwareUnitOfWork(
+            store, lock=lock, reached=reached, visible=visible
+        ),
+        deployment=OBSERVED_DEPLOYMENT,
+        artifacts=artifacts,
+    )
+    application = SnapshotSubmissionApplication(service, _principals())
+    payload = fx.encode(fx.bundle())
+
+    caddy = _SupervisedUnit("caddy.service")
+    caddy.start()
+
+    server = make_server("127.0.0.1", 0, application, handler_class=_SilentHandler)
+    endpoint_port = server.server_port
+    serving = _serve(server)
+
+    edge = _HoldingProxy()
+    client = socket.create_connection(("127.0.0.1", edge.port), timeout=PATIENCE)
+    transient_endpoint = None
+    transient_serving = None
+    transient_proxy = None
+    try:
+        client.sendall(_raw_submission(payload, request_key="pinned-episode-key"))
+        assert edge.holding.wait(PATIENCE), "the hop never held the request"
+
+        # S-A and S-I: the endpoint's process is gone, and Caddy is stopped.
+        _stop(server, serving)
+        caddy.stop()
+
+        opening = _Readings(
+            caddy=caddy.show(),
+            listeners=_listening(endpoint_port),
+            watermark=commit_watermark(store),
+        )
+        assert reconciliation_hits(store) == []
+
+        # S-D.3, and the only difference between the two runs: the door is held
+        # shut *before* the reading the outcome will be written from.
+        if hold_the_settlement_lock:
+            lock.acquire()
+
+        closing = _Readings(
+            caddy=caddy.show(),
+            listeners=_listening(endpoint_port),
+            watermark=commit_watermark(store),
+        )
+
+        # …and only now, after the closing reading, does the unenumerated
+        # mechanism start. Neither of these is `caddy.service` and neither is in
+        # the component table S-I.3d bounds itself by.
+        if deliver_the_held_request:
+            transient_endpoint = make_server(
+                "127.0.0.1", endpoint_port, application, handler_class=_SilentHandler
+            )
+            transient_serving = _serve(transient_endpoint)
+            transient_proxy = _HoldingProxy(endpoint_port)
+            edge.release(upstream_port=transient_proxy.port)
+            assert transient_proxy.holding.wait(PATIENCE), (
+                "the transient ingress never received the held request"
+            )
+            transient_proxy.release()
+
+            # Every delivering run gets this far: the submission reached the
+            # commit boundary.
+            assert reached.wait(PATIENCE), "the submission never reached its commit"
+            if hold_the_settlement_lock:
+                assert lock.blocked.wait(PATIENCE), (
+                    "the commit did not wait for the settlement lock"
+                )
+            else:
+                assert visible.wait(PATIENCE), "the commit never became visible"
+        else:
+            # Nothing came back on the public port, so the hop is released with
+            # nowhere to dial and the request ends where it stands.
+            edge.release()
+            edge.join()
+            assert not reached.is_set(), "a submission was handled after S-I"
+
+        # The operator writes the outcome down. This is the instant the miss is
+        # a claim about, and the readings it is actually written from — plus
+        # S-D.4's queue reading, which is what says whether the door the miss
+        # was read through is empty as well as shut.
+        recorded = _Readings(
+            caddy=caddy.show(),
+            listeners=_listening(endpoint_port),
+            watermark=commit_watermark(store),
+        )
+        recorded_hits = len(reconciliation_hits(store))
+        queued_writers_at_the_record = lock.queued_writers()
+        blocked_at_the_lock = lock.blocked.is_set()
+
+        # `COMMIT`. Only after the outcome is on paper.
+        if hold_the_settlement_lock:
+            lock.release()
+            if deliver_the_held_request:
+                assert visible.wait(PATIENCE), (
+                    "the commit never landed once the lock was released"
+                )
+
+        # S-D.4's drain read: the same lock taken a second time, granted only
+        # behind whatever was queued behind the first, and the watermark read
+        # inside it. This is what the miss is confirmed against before any fresh
+        # export is authorized.
+        lock.drain()
+        drain_read = commit_watermark(store)
+
+        if deliver_the_held_request:
+            assert transient_proxy is not None
+            assert transient_proxy.forwarded.wait(PATIENCE), (
+                "the transient ingress never reached the endpoint"
+            )
+        yield _PostReadingEpisode(
+            store=store,
+            opening=opening,
+            closing=closing,
+            recorded=recorded,
+            recorded_hits=recorded_hits,
+            queued_writers_at_the_record=queued_writers_at_the_record,
+            drain_read=drain_read,
+            blocked_at_the_lock=blocked_at_the_lock,
+        )
+    finally:
+        lock.release()
+        if transient_proxy is not None:
+            transient_proxy.terminate()
+        if transient_endpoint is not None and transient_serving is not None:
+            _stop(transient_endpoint, transient_serving)
+        edge.terminate()
+        client.close()
+
+
+def test_a_commit_after_the_closing_reading_is_a_false_miss_without_the_settlement_lock(
+    artifacts,
+):
+    """B-1, eighth finding: the watermark comparison alone stops one instant short.
+
+    All three of S-D.2's readings are identical at both ends — the transient
+    ingress ran entirely after the closing one — so the comparison passes and
+    the procedure permits a miss. By the time the operator writes it down the
+    submission has committed, and the figures the miss was written from are
+    obsolete. This is the regression record for the withdrawn ordering rule, not
+    evidence for the current one.
+    """
+    with _post_reading_episode(
+        artifacts, hold_the_settlement_lock=False
+    ) as episode:
+        # The closing comparison passes in every field, watermark included.
+        assert episode.closing.caddy == episode.opening.caddy
+        assert episode.closing.listeners == episode.opening.listeners == ()
+        assert episode.closing.watermark == episode.opening.watermark == (0, 0)
+
+        # And the state the miss is actually recorded from is not that state:
+        # a submission committed in between, so the recorded miss is false.
+        assert not episode.blocked_at_the_lock
+        assert episode.recorded.watermark == (1, 1)
+        assert episode.recorded.watermark != episode.closing.watermark
+        assert episode.recorded_hits == 1
+
+
+def test_a_writer_queued_behind_the_settlement_lock_is_a_false_miss_without_the_drain_read(
+    artifacts,
+):
+    """B-1, ninth finding: the lock delays the race, it does not close it.
+
+    The same episode with S-D.3's lock taken before the closing reading and
+    released only after the outcome is written down. Everything S-D.3 claims
+    holds: the transient ingress receives the held request, reaches its commit,
+    and **cannot complete it**, so the watermark the miss is recorded from is
+    the watermark that was read and could not have been anything else.
+
+    And the miss is still false. `SHARE` conflicts with `ROW EXCLUSIVE`, so the
+    blocked submission does not fail and does not go away — it waits, inside the
+    database, past every hop S-A, S-I and step 4's route retirement can act on.
+    The instant the lock is released it commits, before step 4 has retired
+    anything, and the fresh export the miss authorized becomes a second artifact
+    under a different checksum.
+
+    What sees it is S-D.4: the queue is non-empty at the moment the outcome is
+    written, and the drain read taken after the release has moved. Either is
+    enough to make the episode Unsettled; this test is the record that the lock
+    alone is not.
+    """
+    with _post_reading_episode(
+        artifacts, hold_the_settlement_lock=True
+    ) as episode:
+        assert episode.closing.caddy == episode.opening.caddy
+        assert episode.closing.listeners == episode.opening.listeners == ()
+        assert episode.closing.watermark == episode.opening.watermark == (0, 0)
+
+        # S-D.3 did everything it claims: the ingress reached the destination,
+        # the door was shut, and the reading the outcome was written from is the
+        # reading that was taken.
+        assert episode.blocked_at_the_lock
+        assert episode.recorded.watermark == episode.closing.watermark
+        assert episode.recorded_hits == 0
+
+        # S-D.4's first reading. A writer is queued behind the lock while the
+        # miss is being written, which is a commit postponed and not one
+        # prevented — Unsettled, not a miss.
+        assert episode.queued_writers_at_the_record == 1
+
+        # S-D.4's second. The drain read is taken behind that writer, so it sees
+        # the commit that the release let through — before step 4 runs at all,
+        # which is why the retirement cannot be what covers this one.
+        assert episode.drain_read == (1, 1)
+        assert episode.drain_read != episode.recorded.watermark
+        assert len(reconciliation_hits(episode.store)) == 1
+
+
+def test_an_empty_queue_and_an_unmoved_drain_read_are_what_a_true_miss_rests_on(
+    artifacts,
+):
+    """S-D.4's control: the same episode where nothing was ever delivered.
+
+    `deliver_the_held_request` guards the transient ingress alone. Without it
+    the hop is released with nowhere to dial, exactly as S-I leaves the host,
+    and nothing reaches a commit. Both of S-D.4's readings are then clean — no
+    writer queued while the outcome was written, and a drain read identical to
+    the decisive one — and this is the only shape in which §9 permits a fresh
+    export.
+
+    Without this run the readings above would prove nothing: a queue count and a
+    drain read that were always positive would be measuring the harness.
+    """
+    with _post_reading_episode(
+        artifacts, hold_the_settlement_lock=True, deliver_the_held_request=False
+    ) as episode:
+        assert episode.closing.caddy == episode.opening.caddy
+        assert episode.closing.listeners == episode.opening.listeners == ()
+        assert episode.closing.watermark == episode.opening.watermark == (0, 0)
+
+        # Nothing ever reached the door, so nothing is behind it.
+        assert not episode.blocked_at_the_lock
+        assert episode.queued_writers_at_the_record == 0
+        assert episode.recorded.watermark == episode.closing.watermark
+        assert episode.recorded_hits == 0
+
+        # And the drain read confirms the miss rather than retracting it.
+        assert episode.drain_read == episode.recorded.watermark == (0, 0)
+        assert reconciliation_hits(episode.store) == []
+        assert episode.store.snapshots == {}
 
 
 def _connect_and_send(

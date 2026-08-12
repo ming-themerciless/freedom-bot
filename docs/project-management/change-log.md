@@ -1387,9 +1387,13 @@ routes the reviewer offered. **Proposed; not yet ruled.**
   not dialled upstream for commits it across the restart when only the endpoint is
   stopped — the regression test for the finding — and the same episode with the
   proxy terminated as well ends with the request gone and nothing arriving after
-  the restart. Deleting the terminate call from the second makes it fail where the
-  proxy forwards, so the control is committed rather than described, which the
-  first three remediations could not say.
+  the restart. ~~Deleting the terminate call from the second makes it fail where
+  the proxy forwards, so the control is committed rather than described, which the
+  first three remediations could not say.~~ **Corrected by C-19: that mutation had
+  not been run and could not have failed as described** — the two tests were
+  hand-written copies whose sequences diverged, so the deletion blocked on a
+  `join()` before reaching the named assertion. C-19 rebuilds the pair on one
+  shared scenario and executes the mutation.
   `tests/test_snapshot_recovery_documentation.py` gains two tests and updates six,
   pinning S-I's four parts, the inverted `502` check, the stated cost, S-D, the
   third withdrawn condition with its defect, §5.4's terminable-ingress requirement
@@ -1409,6 +1413,1035 @@ routes the reviewer offered. **Proposed; not yet ruled.**
   it open, and closing it is the reviewer's to do.
 - **Acceptance Authority decision:** **none recorded.** The maintainer ruled on the
   route this entry takes; that is not a decision on the entry.
+
+## v1.5 correction C-19 — S-I.3 becomes four checks, the negative control is executed, and every outcome brings the host back
+
+Recorded 2026-08-11 on the **re-review of C-18**, which held finding B-1 open for
+the fifth time on one Blocking and two Important findings. **C-18's rule is not
+withdrawn** — S-A, S-I, S-D and step 4's route retirement all stand. C-19 supplies
+what two of its parts asserted without establishing, and the exit three of its four
+outcomes lacked. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-I.3 and S-D), step 3 (the Hit, Ambiguous and Unsettled branches) and
+  step 4 (restructured).
+- **Reason:** three findings. **(1, Blocking)** S-I.3 — nothing will bring the
+  ingress back — was required by the procedure, written as prose with no command to
+  run, and evidenced by `systemctl show caddy -p Restart` returning `no`. That
+  governs only what the unit does when the process exits on its own; it is silent
+  on socket activation, timers, path units, units that pull Caddy in, supervisors
+  outside systemd, and a second listener reaching the endpoint's port. The recorded
+  evidence could be satisfied in full while ingress was restored underneath the
+  operator. **(2, Important)** C-18 claimed its two settlement tests differed in one
+  line and that deleting `proxy.terminate()` made the second fail on
+  `assert not proxy.dialled`. The tests were hand-written copies whose sequences
+  diverged immediately after the endpoint stop, so the deletion blocked at the
+  following `proxy.join()` and the named assertion was never reached: **the mutation
+  had not been run as described.** **(3, Important)** S-D holds the whole host down
+  until step 3's outcome is recorded, and step 4 was "only for a settled miss" — so
+  a hit, an ambiguous result and an unsettled episode each ended with no executable
+  way to bring Caddy and the endpoint back, and therefore with unbounded downtime
+  for every service on the host.
+- **Decision:** **S-I.3 becomes four checks with commands.** S-I.3a reads the
+  unit's restart surface (`Restart`, `RestartSec`, `TriggeredBy`, `BindsTo`,
+  `WatchdogUSec`, `OnFailure`, `DropInPaths`, `UnitFileState`) and the reverse
+  dependency tree; S-I.3b reads timers and path units **and the unit behind
+  anything listed**; S-I.3c looks for a second way to `127.0.0.1:8757` — listeners
+  with process names, proxy and tunnel processes, and Caddy's admin endpoint on
+  2019; ~~S-I.3d looks for a supervisor that is not systemd.~~ **Corrected by
+  C-20: S-I.3d as written listed names instead of reading jobs** — `ls -la
+  /etc/cron.d/` never opened a cron file, `/etc/crontab` and the other users'
+  crontabs were not read, and `docker ps -a` said nothing about restart policies.
+  It also missed the one container runtime installed on this host. C-20 replaces it
+  with a bounded inventory and adds S-D.2, which detects a restart during the window
+  rather than arguing that none can happen. **Any of the four that
+  comes back positive or cannot be read is Unsettled**, with no weaker fallback, and
+  the procedure states that two of the commands need privilege — so an operator
+  without `sudo` cannot establish S-I.3c or S-I.3d and must escalate. A reboot is
+  named as the one vector that cannot be closed: `UnitFileState=enabled` is expected
+  here, and a reboot before the outcome is recorded voids settlement. **The test
+  pair is rebuilt on one shared scenario**, `_held_request_episode(…, *,
+  terminate_the_proxy)`, in which the flag guards exactly one statement, so the
+  claim that termination is the only behavioural variable is a property of the code.
+  **Step 4 becomes "bring the path back, on the route the outcome chooses"**, with a
+  branch for every outcome: after a miss, the retired route and single-use recovery
+  route C-18 introduced; after a hit, a restart on the **unmodified** §5.4
+  configuration; after an ambiguous or unsettled episode, a restart with the
+  submission path retired and no recovery route. What the outcome decides is what
+  answers the submission path afterwards, not whether the service returns.
+- **Alternatives considered:** retiring the route on **every** outcome, which is
+  simpler to state and was rejected because it is unnecessary after a hit and costs
+  the GM the documented endpoint. The asymmetry is argued from the checksum:
+  retirement matters only once a fresh export with a **different** checksum has been
+  authorized, since only then can a stranded request become a *second* artifact.
+  After a hit none is authorized, so the most a stranded request can carry is the
+  episode's own bytes, and the uniqueness constraint refuses a second row for them.
+  Leaving the hit and unresolved branches to operator judgement was rejected
+  outright: an unbounded outage is not a judgement call, and the third finding
+  exists because it had been left as one.
+- **Added/removed scope:** four recorded checks are added to step 1 and two
+  restoration branches to step 4. No code path, schema, credential or Caddyfile
+  requirement changes. §5.4 is untouched.
+- **Dependency and critical-path effect:** none beyond C-18's. Settlement newly
+  depends on the operator being able to *read* four checks, two of which need
+  privilege on this host — which is a genuine new way for an episode to end
+  Unsettled, and is recorded as such rather than assumed away.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** **reduces** two risks C-18 carried. Ingress can no longer be
+  restored by a vector the recorded evidence never looked at, and no outcome leaves
+  the host down indefinitely — the maximum downtime becomes the time to reach a
+  recorded outcome plus a restart, on every branch rather than one. It **raises**
+  the rate at which episodes end Unsettled, which is the intended direction: the
+  reviewer's standing question was whether Unsettled is reachable in practice, and
+  an operator without `sudo` now reaches it for a readable reason.
+- **Observation:** the four S-I.3 checks were run **read-only against this host on
+  2026-08-11 with Caddy running**, and are rows 13–16 of
+  `docs/review/phase-2-b-1-settlement-observations-2026-08-10.md`. No socket unit,
+  no watchdog, no drop-in, no timer or path unit, no second proxy or tunnel, no
+  container runtime, and no supervisor outside systemd. **Nothing was stopped,
+  started, reloaded or reconfigured; no maintainer-authorized window was used or
+  needed.** Two of the commands need privilege that session did not have — root's
+  crontab and process attribution for root-owned listeners — and are recorded as
+  **unread rather than passed**, which is the first worked example of the Unsettled
+  rule this entry adds.
+- **Testing effect:** the two `_a_request_held_by_the_proxy_` tests are rebuilt on
+  the shared scenario rather than added to, and **the mutation was executed**:
+  replacing `proxy.terminate()` with `pass` makes the S-I test fail on
+  `assert not episode.proxy.dialled` while its control still passes, and the change
+  was then reverted and the suite re-run.
+  `tests/test_snapshot_recovery_documentation.py` gains two tests — S-I.3's four
+  checks with their commands, the reboot vector and the Unsettled/privilege rule;
+  and the three restoration branches with the outcome table, the checksum argument
+  and step 3's pointers into them. Full suite: **1888 passed, 208 skipped, 0
+  failed.** No JavaScript changed.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. Every command added to §9 is
+  read-only, and the observation behind rows 13–16 changed nothing on the host. The
+  hit branch restores the **documented** configuration rather than adding a route;
+  the unresolved branch adds a `respond 410` and **no** recovery route, so neither
+  creates a new way in. The unresolved branch narrows exposure relative to C-18,
+  under which an unresolved episode had no defined configuration to come back on.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer when
+  re-reviewing C-18's remediation of B-1; implemented by Claude. **Carries no
+  independent review**, and returns to the Independent Reviewer with the package.
+  B-1 is **not** recorded as closed: the reviewer holds it open, and closing it is
+  the reviewer's to do.
+- **Acceptance Authority decision:** **none recorded.**
+
+## v1.5 correction C-20 — S-I.3d becomes a bounded inventory, S-D.2 closes the window from its far end, and the unresolved branch reads the state it is entered in
+
+Recorded 2026-08-11 on the **re-review of C-19**, which held finding B-1 open for
+the sixth time on two Blocking findings. **Neither C-18's nor C-19's rule is
+withdrawn** — S-A, S-I, S-D, step 4's route retirement and its three restoration
+branches all stand. C-20 fixes what two of C-19's parts could not do as written.
+**Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-I.3d, and S-D gains S-D.2), step 3 (the Miss and Unsettled
+  definitions) and step 4 (the miss and unresolved branches).
+- **Reason:** two Blocking findings. **(1)** C-19's S-I.3d claimed to establish
+  that no supervisor outside systemd owns either process, and its commands could
+  not: `ls -la /etc/cron.d/` lists names and never reads the jobs, `/etc/crontab`
+  and the other users' crontabs were not read at all, and `docker ps -a` says
+  nothing about restart policies or entrypoints. The reviewer's point was that
+  this is the same overclaim C-19 correctly identified for **timer names** one
+  check earlier, committed again — and that a scheduled or supervised start after
+  the checks but before the outcome is recorded restores §5.4's live route and can
+  let an accepted request commit after a miss is declared. **(2)** C-19's
+  unresolved branch opened "the host is down now" and told the maintainer to
+  restart the endpoint and `start` Caddy. *Unsettled* expressly includes an
+  endpoint still serving and a Caddy still running, and the hit branch reclassifies
+  to Ambiguous **after** both are already up. Against a running unit
+  `systemctl start` is a no-op that reports success, so the amended Caddyfile need
+  never load and the live submission route survives the branch that exists to
+  retire it; restarting the foreground endpoint against a running one is worse.
+- **Decision:** **S-I.3d is rewritten as a bounded inventory that states its
+  bound.** It no longer claims a universal negative. It claims that every start
+  mechanism [topology §1](../operations/topology.md)'s component table documents was
+  **read in full** and starts neither process: container runtimes by presence and
+  then by restart policy and entrypoint, `/etc/crontab` and `/etc/cron.d/*` by
+  contents, `run-parts --list` per directory, `/var/spool/cron/crontabs/` for who
+  actually has one, the crontabs of `root`, `foundry` and `discordbot`, `at`, and
+  the per-user systemd managers — followed by a `grep` over the job *contents* for
+  `caddy`, `snapshot_api` and `systemctl start|restart`. A user present in the
+  spool or in `loginctl` but absent from the topology table is **Unsettled**,
+  because the bound has broken. **S-D gains S-D.2**, which is what actually closes
+  the reviewer's window: the same readings are taken at both ends of the down
+  window and compared — `InvocationID`, `ActiveEnterTimestampMonotonic`, the socket
+  list and the journal — and **any difference is Unsettled, not a miss**.
+  ~~A start from a mechanism nobody enumerated still mints a new `InvocationID`, so
+  the comparison catches what no advance check can.~~ **Corrected by C-21: that is
+  true only of a mechanism that starts `caddy.service`.** All four of these
+  readings belong to that unit, and the socket list is two samples rather than a
+  state, so an ingress that is not Caddy could serve a held request, commit, and
+  exit between the two readings leaving every one of them unchanged — the class
+  S-I.3d's bound admits it cannot enumerate. C-21 adds the **commit watermark** and
+  makes it the reading a miss rests on. **A miss may not be recorded
+  without it.** **The unresolved branch reads its entry state**: `systemctl
+  is-active caddy`, the listeners and `pgrep`, then `start` when inactive and
+  **`reload` when active**, with the rollback copy taken before the edit and
+  `caddy validate` before anything loads; the foreground endpoint is left running
+  if it is running. The miss branch gets the same copy-and-validate discipline.
+- **Alternatives considered:** enumerating more supervisors and calling S-I.3d
+  complete, which is what C-19 attempted and is unbounded by construction — there
+  is always one more name. Making the inability to enumerate every mechanism an
+  Unsettled result *on its own* was rejected as unusable: it makes every episode
+  Unsettled, since no operator can enumerate exhaustively. The pairing is what
+  works — a bounded inventory to make a mid-episode start rare, and a
+  retrospective comparison to establish it did not happen this time.
+- **Added/removed scope:** one new settlement condition (S-D.2), one rewritten
+  check, and state-reading entry procedures on two step-4 branches. No code path,
+  schema, credential or Caddyfile requirement changes. §5.4 is untouched.
+- **Dependency and critical-path effect:** none. Settlement newly requires a
+  reading taken **before** step 2 and repeated **before** the outcome is written
+  down, which is an ordering constraint inside step 1–3 and adds no dependency
+  outside §9.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** **reduces** the risk C-19's S-I.3d only appeared to address —
+  a restart during the window is now detected rather than argued against. It
+  **raises** the Unsettled rate again, and for a newly concrete reason: LXD is
+  installed on this host and reading its instances needs privilege this repository's
+  sessions do not have.
+- **Observation:** the bounded inventory was run **read-only against this host on
+  2026-08-11**, rows 17–19 of
+  [`../review/phase-2-b-1-settlement-observations-2026-08-10.md`](../review/phase-2-b-1-settlement-observations-2026-08-10.md).
+  It immediately found what the old check could not. **LXD is installed** as a
+  snap, with `snap.lxd.daemon.unix.socket` listening and
+  `snap.lxd.daemon.service` socket-activated; C-19's row 15 ran `docker ps -a` and
+  `podman ps -a`, reported "no container runtime" truthfully, and never looked at
+  the one runtime that is here. Whether it holds an instance is **unread** —
+  `lxc list` needs `root` or the `lxd` group, which has no members — and under §9's
+  rule that is Unsettled rather than a pass. Cron was read in full and no job's
+  contents reference either process. **Nothing was stopped, started, reloaded or
+  reconfigured, and no maintainer-authorized window was used or needed.**
+- **Testing effect:** `tests/test_snapshot_recovery_documentation.py` gains two
+  tests — S-D.2's comparison with the `NRestarts` caveat, and the unresolved
+  branch's entry states with the `start`-is-a-no-op defect — and updates three.
+  Full suite re-run below. No JavaScript changed, and no settlement test changed:
+  C-19's rebuilt pair is untouched by this entry.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. Every command added to §9 is
+  read-only except the two that were already there — the Caddyfile edit and the
+  reload — and both now take a rollback copy first and validate before loading.
+  The unresolved branch narrows exposure relative to C-19: under C-19 a running
+  Caddy could come out of that branch still serving §5.4's live submission route.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when re-reviewing C-19; implemented by Claude. **Carries no independent review**,
+  and returns to the Independent Reviewer with the package. B-1 is **not** recorded
+  as closed.
+- **Acceptance Authority decision:** **none recorded.**
+
+## v1.5 correction C-21 — S-D.2 reads what a submission commits, not only what `caddy.service` did
+
+Recorded 2026-08-11 on the **re-review of C-20**, which held finding B-1 open for
+the seventh time on one Blocking and one Important finding. **No rule in C-18,
+C-19 or C-20 is withdrawn** except one sentence of C-20's, struck above. C-21
+supplies the reading S-D.2 was missing. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-I.3d's two presence checks, and S-D.2 restructured) and step 3 (the
+  Miss and Unsettled definitions).
+- **Reason:** two findings. **(1, Blocking)** C-20's S-D.2 claimed to close the
+  residual left by S-I.3d's bounded inventory, and detected only Caddy restarts.
+  Its persistent readings — `InvocationID`, both timestamps, the journal — belong
+  exclusively to `caddy.service`; the listener list is sampled at the two ends of
+  the window and is not persistent at all. An unenumerated mechanism that
+  transiently starts the endpoint and another listener on the public port, receives
+  a request held upstream, commits it, and exits leaves every one of those readings
+  unchanged, and the procedure then permitted a miss. C-20's contrary sentence —
+  that such a mechanism "still mints a new `InvocationID`" — is **withdrawn as
+  false**: it holds only for a mechanism that starts Caddy. C-20's new test
+  asserted only that §9 contained the proposed readings, so it could not have
+  failed on this case. **(2, Important)** S-I.3d's two presence checks passed
+  several names to one `command -v` and derived "no container runtime" / "none
+  installed" from its exit status.
+- **Decision:** **S-D.2 takes three readings at each end of the down window, and
+  the third is what a miss rests on.** The Caddy readings stay, scoped in the text
+  to that unit; the listener list stays, named as two samples rather than a state
+  and explicitly load-bearing for nothing. Added is the **commit watermark** — row
+  counts and newest timestamps over `foundry_snapshots`, and over `audit_events`
+  for the `foundry_snapshot` entity — taken at both ends. It reads the
+  **destination rather than the route**: an accepted submission commits one
+  `snapshot_submission.accepted` event on that entity in the same transaction as
+  its snapshot row, a post-authentication refusal commits a
+  `snapshot_submission.refused` event on the same entity, and both tables are in
+  `APPEND_ONLY_TABLES` with a trigger rejecting `UPDATE`/`DELETE`, so the counts are
+  monotone. They move for any acceptance inside the window regardless of which
+  process served it, by what route, or whether it still exists at the closing
+  reading. **Any difference in any of the three is Unsettled, not a miss**, and
+  step 3's Miss and Unsettled branches both name the watermark. ~~§9 also states what
+  the watermark cannot do — it says nothing about a commit landing after the closing
+  reading, which is what step 4's route retirement and post-recovery query are for~~
+  — **corrected by C-22: step 4 covers a commit landing after the *outcome is
+  recorded*, and C-21 left the interval between the closing reading and the
+  recording closed by ordering alone, which is not closed at all** — and that a
+  Council import applied during the window moves it too, correctly. The
+  journal is additionally read for the manager (`_PID=1 + _COMM=sudo`), as a
+  supporting reading. **Both presence checks become per-name loops** printing
+  `present`/`absent` for each candidate, with the conclusion drawn only after all
+  are read.
+- **Alternatives considered:** extending the enumerated readings to every other
+  listener and to the foreground endpoint — rejected, because those are samples by
+  construction and the counterexample is precisely a process that exists only
+  between two samples. Requiring continuous monitoring of the port for the duration
+  of the window — rejected as unrunnable by an operator following a written
+  procedure, and it would still not observe an ingress on a port nobody predicted.
+  Reading `pg_stat_database`'s commit counter instead of the two tables — rejected
+  as too noisy: the Discord bot stays up during the window and commits routinely,
+  so every episode would be Unsettled.
+- **Added/removed scope:** one new reading inside an existing settlement condition,
+  and two rewritten shell checks. No code path, schema, migration, credential,
+  Caddyfile or database grant changes; the watermark uses the same read-only access
+  step 2's query already requires.
+- **Dependency and critical-path effect:** none. The watermark is taken at the two
+  points S-D.2 already defined.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** **reduces** the residual C-20 claimed to have closed and had not
+  — a false miss caused by an ingress this host was never documented to have. It
+  raises the Unsettled rate slightly: any write to the two tables during the window,
+  including a legitimate Council import, is now Unsettled.
+- **Observation:** run read-only on this host on 2026-08-11. The reviewer's stated
+  mechanism for finding (2) does not hold — `bash` 5.2.21 and `dash` both exit `0`
+  from `command -v` when **at least one** name is found, so the old line printed
+  both LXD paths and no false "no container runtime" — but the finding stands on
+  the two grounds recorded in the remediation: POSIX defines `command -v` for one
+  operand, so the exit status is shell-dependent, and the aggregated output is what
+  let C-20's finding go unnoticed in the first place. The corrected loop names
+  `lxc` and `lxd` explicitly. **Nothing was stopped, started, reloaded or
+  reconfigured, and no maintainer-authorized window was used or needed.** No
+  database was contacted: the watermark's two statements were compiled against the
+  real table metadata, not executed.
+- **Testing effect:** four tests added. `tests/test_snapshot_recovery_settlement.py`
+  gains the **executed counterexample** — a real endpoint and proxy that exist only
+  between the two readings, committing a real submission through a request held by
+  a hop the operator cannot terminate — and its control, in which the transient
+  ingress is never started. The `caddy.service` stand-in mints its `InvocationID`
+  from a start, and adding `caddy.start()` to the transient block fails the test,
+  which was run and reverted. `tests/test_snapshot_recovery_documentation.py` gains
+  a test for S-D.2's coverage of an ingress that is not Caddy, and one binding the
+  watermark's columns, entity type and action names to the real schema and audit
+  policy so a rename fails rather than silently emptying the query. Full suite:
+  **1894 passed, 208 skipped**. No JavaScript changed.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. Every command C-21 adds is
+  read-only, and the watermark needs no privilege step 2's query does not already
+  need.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when re-reviewing C-20; implemented by Claude. **Carries no independent review**,
+  and returns to the Independent Reviewer with the package. B-1 is **not** recorded
+  as closed.
+- **Acceptance Authority decision:** **none recorded.**
+
+## v1.5 correction C-22 — S-D.3 holds the decisive reading through the recording of the outcome
+
+Recorded 2026-08-11 on the **re-review of C-21**, which held finding B-1 open for
+the eighth time on one Blocking finding and confirmed C-21's discovery-command
+correction. **No rule in C-18, C-19, C-20 or C-21 is withdrawn**; C-22 adds the
+mechanism C-21's watermark comparison still needed. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-D.2's closing pass, and the new S-D.3), step 3 (the Miss and Unsettled
+  definitions) and step 4's settled-miss branch.
+- **Reason:** one Blocking finding. C-21's watermark is a comparison of two
+  instants, and the outcome is written down **after** the second of them, by hand.
+  C-21 answered the interval by ordering — the closing reading was made the last
+  act before the record — and that leaves it reachable by exactly the mechanism the
+  watermark exists for: every closing reading matches, an unenumerated endpoint and
+  proxy start *after* it, a request held in front of this host is delivered and
+  commits, both processes exit, and the operator records a miss from figures that
+  are already obsolete. That is a **false settled miss**, and it authorizes a fresh
+  export whose different checksum uniqueness cannot merge. Holding Caddy and the
+  endpoint down does not prevent it, because no part of the sequence is either of
+  them. C-21's test stopped the transient ingress **before** taking the closing
+  reading, so it established that the watermark catches a commit between its two
+  samples and not that the full interval through recording is closed.
+- **Decision:** **S-D.3 — the decisive reading is held rather than sampled.** The
+  closing watermark and the repeated acceptance-event query are taken inside a
+  transaction holding `LOCK TABLE foundry_snapshots, audit_events IN SHARE MODE`,
+  and the transaction stays open until the outcome has been written down. `SHARE`
+  conflicts with the `ROW EXCLUSIVE` an `INSERT` takes, so while it is held **no
+  acceptance and no refusal can commit** — through Caddy or around it, from an
+  enumerated mechanism or from one that is not. The reading is therefore a state
+  spanning the recording rather than an instant preceding it. §9 states the
+  privilege it needs (the schema owner; `SELECT` alone cannot take this lock mode,
+  and being unable to take it is Unsettled), sets `lock_timeout` and
+  `idle_in_transaction_session_timeout` for the session, requires a `pg_locks`
+  confirmation that the lock was still held plus a successful `COMMIT` **after** the
+  record, and makes every failure mode — timeout, deadlock, lost session, aborted
+  transaction, `held` other than 2 — **Unsettled, not a miss**. Step 3's Miss states
+  the ordering as load-bearing and its Unsettled branch names S-D.3's failures.
+  What S-D.3 does not cover is stated: a commit landing after the `COMMIT` is a
+  later commit, not a false miss, and that is the residual step 4's route
+  retirement prevents and its post-recovery query detects. ~~The two divide the
+  timeline with no gap.~~ — **struck by C-23 as false.** They do not: a writer
+  that arrived while the lock was held is *queued*, not absent, and it commits the
+  instant the lock is released — before step 4 runs, and past every address the
+  retirement can take away. C-23's S-D.4 is what closes it.
+- **Alternatives considered:** **retiring the §5.4 submission route before the
+  decisive read** — the reviewer's first suggestion, and rejected as the mechanism
+  because it closes the interval only for requests arriving through Caddy, while
+  the counterexample is specifically an endpoint and a proxy that are not Caddy at
+  all; the retirement stays where it is, answering what a hop in front of this host
+  can deliver afterwards. **A third watermark sample taken immediately before the
+  record** — rejected explicitly, and named in §9 so it cannot return as a
+  simplification: it moves the interval and leaves it there. **Revoking the runtime
+  role's `INSERT` on the two tables for the duration** — rejected as a durable
+  privilege change made under incident conditions, with a restore step that must not
+  be forgotten, where a transaction-scoped lock releases itself. **Writing the miss
+  into the database in the same transaction as the check** — the reviewer's second
+  suggestion, and rejected because the operational record is not a domain table and
+  `audit_events` is not the place to record an operator's conclusion; the lock
+  obtains the same guarantee without inventing a schema for it.
+- **Added/removed scope:** one new settlement condition (S-D.3) inside step 1's
+  S-D, with ordering requirements in step 3 and one clarifying sentence in step 4's
+  miss branch. No code path, schema, migration, credential or Caddyfile change.
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** **reduces** the residual C-21 left — a miss recorded from a
+  reading that was already obsolete. It adds one **operational** cost, stated in
+  §9: while the lock is held, every insert into `audit_events` platform-wide waits,
+  including the Discord bot's, which is why the transaction contains the readings
+  and nothing else. It raises the Unsettled rate slightly again: a write in flight
+  against either table when the lock is requested now ends the episode as Unsettled
+  rather than being read past.
+- **Observation:** **no database was contacted.** The lock mode's conflict with
+  `ROW EXCLUSIVE`, the privilege this lock mode requires, and the `pg_locks`
+  predicate are taken from PostgreSQL's documented behaviour, not from a run
+  against this host. **S-D.2 and S-D.3 as a whole remain unrehearsed**, and nothing
+  was stopped, started, reloaded or reconfigured.
+- **Testing effect:** two tests added to
+  `tests/test_snapshot_recovery_settlement.py` and one to
+  `tests/test_snapshot_recovery_documentation.py`, with two documentation
+  assertions updated to the rewritten text.
+  `test_a_commit_after_the_closing_reading_is_a_false_miss_without_the_settlement_lock`
+  is the **executed counterexample**: the same transient ingress as C-21's, run
+  after the closing reading, leaving all three readings identical at both ends and
+  the recorded miss false anyway.
+  `test_the_settlement_lock_holds_the_window_shut_until_the_outcome_is_recorded` is
+  its control, and the two are one episode differing in one flag (**C-23 renames
+  that control to
+  `test_a_writer_queued_behind_the_settlement_lock_is_a_false_miss_without_the_drain_read`
+  and inverts what it establishes**). **Mutation run:**
+  removing the `acquire()` fails the control on "the commit did not wait for the
+  settlement lock"; reverted and re-run. Full suite: **1897 passed, 208 skipped.**
+  No JavaScript changed.
+- **Migration effect:** none.
+- **Security and operational effect:** operational, and larger than C-21's. S-D.3
+  needs the **schema owner** rather than the read-only account step 2 uses, and it
+  briefly blocks inserts into two tables platform-wide. Both are stated in the
+  procedure with the reason and the bound.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when re-reviewing C-21; implemented by Claude. **Carries no independent review**,
+  and returns to the Independent Reviewer with the package. B-1 is **not** recorded
+  as closed.
+- **Acceptance Authority decision:** **none recorded.**
+
+## v1.5 correction C-23 — S-D.4 reads the queue behind the lock, and confirms the miss after it is released
+
+Recorded 2026-08-11 on the **re-review of C-22**, which held finding B-1 open for
+the ninth time on one Blocking finding and raised one Important. **Both are
+accepted in full.** No rule in C-18 to C-21 is withdrawn; **one sentence of C-22's
+is struck as false** (the "no gap" claim, struck in place above), and one of its
+session settings is replaced. **Proposed; not yet ruled.**
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §9 "Lost-pin reconciliation"
+  step 1 (S-D.3's session settings and queue reading, and the new S-D.4), step 3
+  (the Miss and Unsettled definitions), step 4's settled-miss branch (the
+  "detection is not prevention" paragraph), and "what settlement rests on".
+- **Reason, Blocking:** **C-22's lock delays the race; it does not close it.**
+  `SHARE` conflicts with `ROW EXCLUSIVE`, so a conflicting `INSERT` arriving while
+  the lock is held does not fail and does not disappear — it **waits**, inside
+  PostgreSQL. The procedure recorded the miss and authorized a fresh export while
+  that writer was queued, and on `COMMIT` the waiting submission committed at once,
+  **before** step 4 retired the route. Route retirement cannot reach a transaction
+  that has already been accepted and is inside the database: there is no address
+  left to take away from it. C-22's own control test demonstrated the defect and
+  read it as the successful case.
+- **Reason, Important:** **`SET idle_in_transaction_session_timeout = 0` removed
+  the only bound on a platform-wide pause.** The settlement transaction blocks every
+  audit insert on the platform; an operator called away mid-recording could hold
+  them indefinitely.
+- **Decision:** **S-D.4 — a shut door is not an empty one.** Two readings are
+  added, and the authorization of a fresh export is separated from the recording of
+  the miss. (a) **The queue is read inside the lock** — ungranted relation-lock
+  requests by another backend on either table — with the decisive reading and again
+  as the last statement before the `COMMIT`; **any row is Unsettled**, because a
+  waiting `RowExclusiveLock` is a postponed commit and not an absent one. (b) **The
+  miss is confirmed by a drain read after the lock is released**: the same lock is
+  taken a second time in the same session, which PostgreSQL grants only behind the
+  requests already queued, and the watermark is read inside it. A figure that has
+  moved **retracts the miss** and the episode becomes Unsettled; only a matching
+  drain read authorizes a fresh export. The Important finding is taken by setting
+  `idle_in_transaction_session_timeout` to **`'10min'`** — a bound exceeding the
+  recording window, with expiry classified as Unsettled — and `0` is named in §9 as
+  what must not be used.
+- **A correction found by running it.** The queue reading is over **`pg_locks`
+  alone**. The obvious form joins `pg_stat_activity` to name the waiting session,
+  and inside S-D.3's long-lived transaction that form is wrong: `pg_locks` is read
+  live from the lock manager, but a backend-status snapshot is taken at the first
+  `pg_stat_activity` read in a transaction and reused for the rest of it, so the
+  second queue reading answers from the state at the first — and the writer that
+  matters connected after it. §9 keeps the join only as a follow-up that names the
+  sessions, preceded by `pg_stat_clear_snapshot()`. **This was found by executing
+  the procedure against a real PostgreSQL, not by reading it**, and it is the
+  reason the reviewer's request for a real concurrency test is taken as written.
+- **Alternatives considered:** **cancelling or terminating queued writers**
+  (`pg_terminate_backend`) before the `COMMIT` — rejected: it destroys a submission
+  the platform may have accepted legitimately, under incident conditions, on the
+  operator's judgement, and it does not remove the interval either. **Holding the
+  lock until after step 4's retirement** — rejected: it extends a platform-wide
+  pause across a Caddy edit, a validate and two restarts, and the retirement still
+  cannot reach a transaction already inside the database. **Reading the queue and
+  treating it as advisory** — rejected: an advisory reading of a delayed commit is
+  the defect. **Leaving `idle_in_transaction_session_timeout` at `0` and relying on
+  the operator** — rejected as the safeguard the finding is about.
+- **Added/removed scope:** one new settlement condition (S-D.4) inside step 1's
+  S-D, two session-setting and query corrections inside S-D.3, ordering
+  requirements in step 3, and a corrected paragraph in step 4's miss branch. **No
+  code path, schema, migration, credential, Caddyfile or database grant changes.**
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **Risk effect:** **reduces** the residual C-22 left open and had claimed to have
+  closed — a miss that was true when recorded and false by the time it was acted
+  on. It **reduces** an operational risk as well: the platform-wide pause is now
+  bounded rather than unbounded. It raises the Unsettled rate again: an episode
+  with any writer queued behind the lock now reaches no conclusion.
+- **Observation:** **a database was contacted for the first time in these
+  remediations** — the disposable `freedom_test` database over the Unix-domain
+  socket, through the existing declared fixtures. Nothing on production was read,
+  stopped, started, reloaded or reconfigured; no `LOCK TABLE` was run against
+  `freedom`. **S-D.2, S-D.3 and S-D.4 remain unrehearsed as an operator procedure**;
+  what is now established is the PostgreSQL behaviour they rest on.
+- **Testing effect:** one test added and one renamed and inverted in
+  `tests/test_snapshot_recovery_settlement.py`; one test added to
+  `tests/test_snapshot_recovery_documentation.py` with five assertions updated to
+  rewritten text; and a new file,
+  `tests/test_snapshot_settlement_postgresql.py`, of **five tests against real
+  PostgreSQL**, in the declared database-backed set. Together they establish that
+  the lock blocks the real submission service rather than refusing it, that the
+  blocked backend appears as an ungranted `RowExclusiveLock` in §9's own query,
+  that it commits the instant the lock is released, that a second `LOCK TABLE` is
+  granted only behind it, that the joined form of the queue reading misses it, and
+  that a bounded idle timeout ends the pause and the episode. **Mutations run:**
+  removing the queue registration in the fake lock fails the queued-writer test;
+  restoring the `pg_stat_activity` join to the decisive reading fails two of the
+  PostgreSQL tests; removing `pg_stat_clear_snapshot()` fails the staleness test.
+  Each was reverted and re-run. Full suite: **1899 passed, 213 skipped**, and
+  **2112 passed, 0 skipped** with `TEST_DATABASE_URL` configured. No JavaScript
+  changed.
+- **Migration effect:** none.
+- **Security and operational effect:** operational. The platform-wide pause S-D.3
+  introduced is now bounded by `idle_in_transaction_session_timeout`, and the extra
+  readings are two `pg_locks` queries and one additional short lock acquisition.
+  No privilege change: S-D.4 runs in the same schema-owner session as S-D.3.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when re-reviewing C-22; implemented by Claude. **Carries no independent review**,
+  and returns to the Independent Reviewer with the package. B-1 is **not** recorded
+  as closed.
+- **Acceptance Authority decision:** **none recorded.**
+- **Struck by C-24 on 2026-08-12.** S-D.4 did not close the window; it moved the
+  race into the drain transaction. A request that had been accepted and had not
+  yet issued its first conflicting statement was queued behind nothing, appeared
+  in no `pg_locks` reading, and committed after the drain read matched and the
+  miss had authorized a fresh export. The claims that "a shut door is not an
+  empty one, and what is queued behind it is visible" settles the question, and
+  that S-D.3 and S-D.4 together cover "what was already through the door and
+  waiting", are **false as closure claims** and are struck. The mechanism behaves
+  as C-23 described; the description of what that mechanism established does not
+  hold. S-D.3 and S-D.4 are withdrawn entirely by C-24.
+
+## v1.5 correction C-24 — the admission fence replaces settlement-by-observation
+
+Recorded 2026-08-12 on the **re-review of C-23**, which held finding B-1 open for
+the tenth time on one Blocking finding. **It is accepted in full.**
+
+**This entry withdraws C-23's closure claim rather than adding to it.** C-23
+recorded that S-D.4 "closes" the window S-D.3 left, that "a shut door is not an
+empty one, and what is queued behind it is visible", and that S-D.3 and S-D.4
+together "cover everything up to the instant the miss is written down" and "what
+was already through the door and waiting". **Those claims are false and are
+struck.** They are true of the mechanism and false of the problem: a request that
+had been accepted and had not yet issued its first conflicting statement was
+queued behind nothing, appeared in no `pg_locks` reading, moved no watermark, and
+committed when it woke. C-23 moved the race into the drain transaction; it did
+not close it. The same is now recorded of every earlier condition — C-13 through
+C-22 — not as a further weakening but because **all of them share one defect**,
+stated below.
+
+- **Affected requirements:**
+  `docs/operations/foundry-snapshot-submission.md` §5.2 (a credential also needs
+  an admission generation), §5.3 (revocation reaches only unauthenticated
+  requests), §5.4 (the ingress no longer has to be terminable), §7 Rehearsal A
+  step 10 (no host-wide downtime), and §9 "Lost-pin reconciliation" steps 1 to 4
+  and "what settlement rests on" — rewritten rather than amended. Plan §12 Phase 2
+  package 2.4 (PostgreSQL concurrency/recovery evidence). New schema:
+  `submission_admissions` and `idempotency_keys.admission_id`, migration 0005.
+- **Reason, Blocking:** **no observation can settle this question, and nine
+  remediations were nine observations.** A process table, a listening socket,
+  `pg_stat_activity`, a restart-vector inventory, a commit watermark, a `pg_locks`
+  queue reading and a drain read are all observations of a *resource*, and an
+  observation of a resource cannot exclude work that has been **accepted** and has
+  not yet reached it. The defeating sequence is the same every time: the old
+  request pauses before its first statement, settlement reads clean, the miss is
+  recorded, a fresh export with a new checksum is authorized, and the old request
+  then wakes and commits. Route retirement cannot reach it — it is already inside
+  PostgreSQL, past every address that could be taken away — and the post-recovery
+  query detects the duplicate only after the Council has two pending artifacts.
+- **Alternatives considered and rejected:**
+  - *Another lock.* A lock delays a request; it does not revoke its authority. Any
+    lock-and-read scheme recreates the same last-read-to-commit interval
+    somewhere. Rejected as the whole answer, though a lock is used *inside* the
+    answer to serialize a closure against an acceptance.
+  - *A composite foreign key on `(admission_id, state)`.* `ON UPDATE
+    RESTRICT`/`NO ACTION` makes closure fail forever, because every historical
+    accepted row still references `(id, 'open')`; `ON UPDATE CASCADE` rewrites
+    history and fences nothing. Rejected.
+  - *A `SECURITY DEFINER` trigger taking `SELECT … FOR KEY SHARE`.* Workable, and
+    heavier than the foreign key already present for provenance, which takes the
+    same lock for free and cannot be forgotten by a new write path. Rejected as
+    redundant.
+  - *An in-flight record written before processing and cleared after it.* The
+    shape the previous version of §9 named as a Phase 3 obligation. It settles an
+    episode without a stop, but it is still an observation — a request that has
+    not begun has written no in-flight record — so it has the same defect.
+    Rejected.
+- **Decision:** **a durable admission fence at the acceptance boundary.**
+  `submission_admissions` holds one row per submitting credential: a generation, a
+  state that moves `open` → `closed` **once**, and the operator, reason and time of
+  each transition. `principal_id` is unique **for all time**, so a closed
+  generation can never be succeeded by an open one for the same credential;
+  `open` → `closed` is enforced by a trigger that also refuses `DELETE`, for the
+  schema owner too. Every submission transaction resolves the admission of **the
+  principal id in its own `Authorization` header** — never "whichever generation is
+  open now", which would silently upgrade a request paused before that lookup —
+  and re-reads its state as the last statement before the commit. The acceptance's
+  `idempotency_keys.admission_id` foreign key takes a `KEY SHARE` lock on the
+  admission row, which conflicts with the `FOR UPDATE` a closure takes, so a
+  closure and an acceptance can never interleave in either direction. A shared
+  advisory lock covers the paths that write nothing, so a same-key replay cannot
+  return a successful receipt across a closure either.
+
+  Settlement is then `tools.submission_admission close`. **Nothing is stopped.**
+  Recovery issues a new credential under a new principal id (§5.2) and opens a new
+  generation naming it; the old request cannot present it.
+- **Added scope:** one table, one column, one migration (0005) with a data
+  backfill; one operator tool (`tools/submission_admission.py`); one application
+  module (`application/admissions.py`); one repository on the unit of work; one
+  refusal code (`admission_closed`, HTTP `403`); two audit actions
+  (`snapshot_submission.admission_opened` / `.admission_closed`) and one new key
+  (`admission_generation`) on the accepted and refused payloads.
+- **Removed scope:** the whole of S-A, S-I (including S-I.1 to S-I.4 and the
+  S-I.3a–d restart-vector inventory), S-D.2's watermark comparison, S-D.3's
+  `LOCK TABLE … IN SHARE MODE` and its session settings, and S-D.4's queue and
+  drain readings. The mandatory route retirement in step 4 is demoted to optional
+  hygiene. §5.4's "the ingress must be terminable" requirement is demoted to good
+  practice. **Host-wide downtime during a reconciliation is removed entirely.**
+- **Dependency and critical-path effect:** the Phase 3 obligation the previous
+  §9 recorded — "add the mechanism that lets recovery settle an episode without a
+  stop … a pre-settlement barrier the restarted application refuses requests
+  against" — is **discharged by this correction** rather than carried into Phase 3.
+  B-1 and the Phase 2 gate remain open pending independent re-review.
+- **Estimate/forecast and capacity effect:** no change to the Phase 2 forecast,
+  which §12 already records as requiring re-estimation. This is the tenth
+  remediation of one finding and the first to change the mechanism rather than the
+  reading.
+- **New or changed risks:**
+  - **R-new-1 — a deployment that opens no generation accepts nothing.** After
+    migration 0005 the endpoint answers `403 admission_closed` until an operator
+    runs `tools.submission_admission open`. Fail-closed by design; it is a
+    deployment step with a documented command (§5.2), and it is named as a
+    maintainer decision below.
+  - **R-new-2 — a closure blocks all submissions until a new generation is
+    opened.** Deliberate: an unresolved episode should leave submission closed.
+    The cost is that an operator who closes a generation and walks away leaves an
+    endpoint that accepts nothing, with no automatic recovery.
+  - **R-new-3 — a closure written without `FOR UPDATE` would fence nothing.** A
+    plain `UPDATE` of a non-key column takes `FOR NO KEY UPDATE`, which does not
+    conflict with the foreign key's `KEY SHARE`. Measured on this host and held by
+    a named regression test, because it reads exactly like a working fence.
+  - **R-retired:** every risk arising from host-wide downtime during a
+    reconciliation, and every risk arising from a hop in front of Caddy that
+    cannot be terminated.
+- **Testing effect:** new `tests/test_submission_admission_postgresql.py` — 17
+  tests against a real PostgreSQL using the real `SnapshotSubmissionService` over
+  `SqlAlchemyUnitOfWork`, with `threading.Event` rendezvous and no sleeps. It
+  holds the **paused-before-first-statement regression** the review asked for, the
+  two other pause boundaries (after the admission read, and at the final commit
+  boundary), both lock orderings, same-key retries on both sides of a closure, the
+  recovery generation, a deployment with no generation at all, duplicate and
+  abandoned settlement, audit-write failure, process restart, and the measured
+  PostgreSQL lock behaviour including the `FOR NO KEY UPDATE` trap.
+  `tests/test_runtime_grants_live.py` gains the least-privilege evidence: the
+  runtime role holds `SELECT` on `submission_admissions` and is refused `INSERT`,
+  `UPDATE`, `DELETE`, `TRUNCATE` and `FOR UPDATE` with SQLSTATE 42501, while
+  `pg_advisory_xact_lock_shared` needs no grant.
+  `tests/test_snapshot_recovery_documentation.py` is rewritten to assert the new
+  procedure and to assert that each withdrawn condition stays withdrawn.
+  `tests/test_snapshot_recovery_settlement.py` and
+  `tests/test_snapshot_settlement_postgresql.py` are retained and reframed as the
+  record of **why** the withdrawn conditions failed, not as tests of a live
+  procedure.
+
+  **Mutations run**, each reverted and re-run green (baseline 17 passed):
+  removing the transactional admission check fails **9** tests including
+  `test_a_request_paused_before_its_first_statement_is_refused_once_the_generation_closes`;
+  letting an old request inherit whichever generation is open fails
+  `test_the_old_credential_cannot_use_the_new_generation`; moving the check into
+  its own transaction before the acceptance fails the two pause-boundary tests;
+  removing the foreign key fails
+  `test_a_foreign_key_insert_and_a_for_update_closure_cannot_interleave`; removing
+  the lock that serializes closure against acceptance fails
+  `test_a_closure_cannot_commit_while_a_submission_transaction_is_open`.
+
+  Full suite: **1917 passed, 232 skipped**, and **2149 passed, 0 skipped** with
+  `TEST_DATABASE_URL` configured. `foundry-module` JavaScript: one line, adding
+  `admission_closed` to `SERVER_REFUSAL_CODES`; its `403` already routes to
+  `DEFINITIVE_REFUSAL`, so no retry logic changed.
+- **Migration effect:** **migration 0005**, additive and reversible.
+  `upgrade → downgrade → upgrade` exercised against the disposable `freedom_test`
+  database. It creates `submission_admissions` with its trigger, adds
+  `idempotency_keys.admission_id` with a `RESTRICT` foreign key, backfills
+  pre-fence receipts to a **closed** generation 0 under the reserved principal
+  `<pre-admission-fence>` (not a legal `ServicePrincipal` id, so nothing can ever
+  authenticate as it), and then adds the check constraint requiring a submission
+  receipt to name an admission. The backfill is two SQL statements that read
+  nothing in Python, so `alembic upgrade --sql` still emits a complete script.
+  **Downgrade discards which generation each acceptance was written under, and
+  removes the fence**; a deployment left downgraded is in the pre-C-24 state that
+  B-1 is open against. Take a backup first, and re-upgrade before serving.
+  Backup/restore: the new table is ordinary data captured by the existing
+  `pg_dump` drill; a restore to a point before the closure restores an **open**
+  generation, so an operator restoring across an episode must re-close it and
+  record that they did.
+- **Security and operational effect:** the runtime role gains `SELECT` on one new
+  table and gains nothing else; it cannot open, close, reopen or delete an
+  admission, which is what keeps the fence enforced rather than advisory. No new
+  credential material and no change to authentication. A refusal is typed, carries
+  no exception text, and is rendered as `403 admission_closed`; `403` rather than
+  `409` or `503` deliberately, so no client treats it as retryable. Operationally
+  this is a large **reduction**: a reconciliation costs one transaction instead of
+  a host-wide outage that also took the three Foundry sites down.
+- **Product/Data/Operations Owner recommendation:** **not yet given.**
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when re-reviewing C-23; designed and implemented by Claude. **Carries no
+  independent review**, and returns to the Independent Reviewer with the package.
+  **B-1 is not recorded as closed and the Phase 2 gate remains open.**
+- **Maintainer decisions required, stated here rather than left in documentation
+  wording:**
+  1. **Fail-closed deployment.** Migration 0005 leaves the endpoint refusing every
+     submission until `tools.submission_admission open` is run. Confirm that is
+     the wanted behaviour, or direct that the migration open a generation for the
+     currently configured principal.
+  2. **Closure blocks all submission until a new credential is issued.** Confirm
+     that recovery may require issuing a new credential to the submitting GM, and
+     that a principal id is spent once its generation closes.
+  3. **Removal of the downtime requirement from §9.** Confirm that settling a
+     lost-pin episode no longer stops the endpoint or Caddy, and that the
+     terminable-ingress requirement in §5.4 is demoted to good practice.
+- **Acceptance Authority decision:** **none recorded.**
+
+### C-24 finishing pass — bounded implementation and operational corrections
+
+Recorded 2026-08-12, after C-24's implementation was reviewed. **The admission
+design above is retained in full and nothing in it is withdrawn.** Four defects
+were found in the implementation and its operator surface, none of them in the
+fence itself, and each is corrected here. This is an amendment to C-24, not a new
+correction of the settlement rule.
+
+1. **The documented operator commands could not run.** The runbook showed
+   `DATABASE_URL='postgresql+psycopg:///freedom'`, while `DatabaseSettings`
+   validates the database name against `APP_ENVIRONMENT` and defaults that to
+   `development` — so the settlement command, copied from the page, refused with
+   exit code 2 before settlement began. Every documented invocation now names
+   `APP_ENVIRONMENT` and the environment's real database
+   (`freedom_production`/`freedom_staging`/`freedom_dev`), and connects as the
+   **schema owner** placeholder `__OWNER_ROLE__` rather than the restricted
+   runtime login role, which by design cannot open or close a generation. No real
+   role name, password or connection string is written into documentation or
+   tests. `DatabaseSettings` is unchanged: the refusal was correct and was not
+   weakened to make an example pass. `tests/test_submission_admission_tool.py`
+   parses the runbook itself and drives every documented invocation through
+   `build_engine`, which is the whole configuration path the tool takes before
+   connecting.
+2. **The admission row's correlation columns identified nothing.** The row took
+   `gen_random_uuid()` for `correlation_id` and `closed_correlation_id` while
+   `_audit()` minted a separate UUID, so the columns could not find the
+   append-only events they exist to name. One identifier is now minted per
+   *transition* and written to both records in the same transaction. A second
+   close of an already-closed generation still writes no event and no second
+   identifier, because it is not a transition. Proved by PostgreSQL-backed tests
+   that join `submission_admissions` to `audit_events` on each column.
+3. **Expected operator-tool failures escaped as tracebacks.** A `lock_timeout` is
+   a documented **Unsettled** outcome, and it — along with connection failure,
+   insufficient privilege and other database errors — reached the operator as a
+   stack trace. The CLI now has seven documented exit codes (0 success, 1 refused,
+   2 unusable target, 3 unreachable, 4 privilege, 5 `lock_timeout`/Unsettled,
+   6 other database failure). No failure message carries a traceback, a
+   connection string, a credential or SQL — `str()` of a SQLAlchemy `DBAPIError`
+   appends the statement and its parameters, so no message is built from it — and
+   **no non-zero exit can accompany a claim that a generation was closed**, since
+   every branch is reached with the transaction rolled back. The handler catches
+   `DBAPIError`, not `Exception`, so a defect in the tool keeps its traceback
+   instead of being dressed up as an operational refusal.
+4. **The transaction-isolation assumption is now enforced rather than assumed.**
+   The submission's re-read before its commit is a *fresh* reading only under
+   `READ COMMITTED`; the unit of work inherited whatever
+   `default_transaction_isolation` the database or login role carried. **Measured
+   before changing anything**, on this host's PostgreSQL 16.14, using the
+   decisive interleaving — a closure holding the exclusive advisory lock while the
+   submission's first statement takes its snapshot and then blocks, with the
+   closure committing before it wakes:
+
+   | Isolation level | Outcome | SQLSTATE |
+   |---|---|---|
+   | `READ COMMITTED` | typed `admission_closed` refusal | — |
+   | `REPEATABLE READ` | PostgreSQL aborts the transaction at the foreign key's `KEY SHARE` lock | **40001** |
+   | `SERIALIZABLE` | same | **40001** |
+
+   **No level produced a durable post-closure acceptance**, so the non-default
+   levels fail closed. This is recorded as **hardening evidence, not a new B-1
+   failure.** What they lose is the *typed* refusal the runbook tells operators to
+   expect: the caller gets a generic `PersistenceError` that an operator cannot
+   tell from a database fault. `SqlAlchemyUnitOfWork` therefore pins
+   `READ COMMITTED` on its own transaction — the local contract, not the cluster,
+   the database or the role, and PostgreSQL's own default, so nothing changes on a
+   cluster nobody has reconfigured.
+
+- **Added scope:** `tests/test_submission_admission_tool.py` (45 tests: the
+  documented-command shape, failure classification, correlation joins and the CLI
+  outcomes against a real PostgreSQL); five isolation regressions in
+  `tests/test_submission_admission_postgresql.py`, including one against a
+  genuine `ALTER DATABASE … SET default_transaction_isolation` with a control
+  proving the hostile default was established;
+  `TranslatingSession.begin_at_isolation_level`;
+  `UNIT_OF_WORK_ISOLATION_LEVEL`; the tool's exit codes and
+  `classify_database_failure`. **Removed scope: none.**
+- **Migration effect: none.** Migration 0005 is unchanged and was already
+  unapplied outside the disposable database. `upgrade 0005 → downgrade 0004 →
+  upgrade head` was re-rehearsed against `freedom_test`.
+- **Security and operational effect:** operator output is now audited for
+  credential, URL and SQL leakage by test rather than by reading. The runtime
+  role's inability to settle an episode is now demonstrated at the CLI, using the
+  real grants template, rather than only as a table-privilege assertion. No new
+  credential material, no new privilege, no change to authentication.
+- **Testing effect:** full suite **1952 passed, 247 skipped**, and **2199 passed,
+  0 skipped** with `TEST_DATABASE_URL` configured (1917/232 and 2149 before this
+  pass). `foundry-module` JavaScript unchanged: 155 pass. `upgrade 0005 →
+  downgrade 0004 → upgrade head` re-rehearsed against the disposable database,
+  and `alembic check` reports no new upgrade operations. Mutations run and
+  reverted, each failing a named regression: restoring the old runbook URL fails
+  the documented-invocation tests; returning the correlation columns to
+  `gen_random_uuid()` fails the three join tests; removing the CLI's `DBAPIError`
+  handler fails all four CLI outcome tests; removing the isolation pin fails
+  every isolation test, the interleaving ones with the recorded SQLSTATE 40001.
+- **Product/Data/Operations Owner recommendation:** **not yet given.** C-24's
+  three maintainer decisions are unchanged and still outstanding.
+- **Technical Lead and specialist reviews:** implemented by Claude. **Carries no
+  independent review.** **B-1 is not closed and the Phase 2 gate remains open**;
+  this pass returns the existing design for independent re-review and approves
+  nothing.
+- **Acceptance Authority decision:** **none recorded.**
+
+### C-24-R — independent-review remediation of the admission fence
+
+Recorded 2026-08-12, after the C-24 submission-admission fence was independently
+reviewed. **The durable admission design above is retained in full and nothing in
+it is withdrawn.** Two findings were returned — one Blocking, one Important —
+and both are corrected here. This is an amendment to C-24, not a new correction
+of the settlement rule.
+
+1. **Blocking — a uniqueness-conflict replay bypassed the fence.** The ordinary
+   same-key replay inside `_store_and_record()` was fenced: shared advisory lock
+   first, then the admission of the authenticated principal, then a requirement
+   that it be open, then a requirement that the stored receipt's `admission_id`
+   match it. The **uniqueness-conflict recovery path was not.** When
+   `_store_and_record()` lost an `idempotency_key.scope_key` race, `_persist()`
+   called `_replay_stored()`, which opened a fresh transaction, read the winning
+   receipt and returned it — taking no advisory lock, resolving no admission,
+   requiring no open generation, and never checking which generation had earned
+   the receipt.
+
+   The counterexample: two requests authenticated as principal P enter with the
+   same key and bytes while P's generation N is open; the winner commits its
+   accepted receipt under N; the loser meets the uniqueness violation and its
+   transaction is rolled back, **releasing the shared lock**; settlement closes N
+   and commits, delayed by nothing; and the loser then returns the winner's
+   successful receipt after the closure. **No post-closure write is needed for
+   this to violate the invariant** — returning or reusing a successful receipt is
+   forbidden as squarely as writing a row, because the module treats it as a
+   submission that succeeded while the operator has already recorded the episode
+   as settled and may have authorized a fresh export.
+
+   **The remediation is consolidation, not a second check.** A local `if closed`
+   in the recovery branch would have left every successful-receipt path
+   independently responsible for remembering the invariant, which is the shape
+   that produced the defect. Instead `_replay_stored()` is deleted, and both ways
+   of discovering that a key is already spent — the ordinary retry, which finds
+   the row before the store runs, and the race, which finds out after — reach one
+   principal-bound operation, `SnapshotSubmissionService._fenced_replay`. In one
+   transaction it takes the shared side of the fence lock **before reading any
+   receipt**, resolves the admission of the principal id the request itself
+   authenticated as, requires that admission to remain open, requires the stored
+   record's `admission_id` to equal it, and only then applies the request-digest
+   check `_replay()` has always made. `_store_and_record()` no longer replays at
+   all: it raises a private `_RequestKeyAlreadySpent` signal that never leaves
+   `_persist()`. The authenticated `ServicePrincipal` is passed through recovery;
+   no authorization is recovered from the stored record, from a globally current
+   generation, or from caller-controlled data.
+
+   `_persist()`'s nested `try` is replaced by one bounded loop with a single
+   `_store_and_record` call site, so each conflict rule is examined in one arm
+   rather than two. Semantics are otherwise unchanged: same key and same bytes
+   under the earning generation returns the original receipt; same key and
+   different bytes is `request_key_conflict`; a key earned by another admission
+   refuses; no admission or a closed one is `admission_closed`; an unreadable or
+   missing race winner fails closed as `concurrent_submission`. The cost is one
+   extra read-only transaction on the ordinary retry path.
+
+2. **Important — an absent SQLSTATE does not prove no commit.**
+   `tools/submission_admission.py` classified every `DBAPIError` without a
+   SQLSTATE as an inability to connect, and said, for `close`, that no generation
+   was closed and the fence was unchanged. **That conclusion is not sound.** A
+   connection can be lost while PostgreSQL is processing or acknowledging
+   `COMMIT`; the server may have committed while the client receives only a
+   driver error, and client observation alone cannot distinguish the two — the
+   same lesson the fence itself rests on, arriving at the operator surface.
+
+   The phase is now **recorded rather than inferred**. `CommandProgress` is
+   marked inside the `with engine.begin()` block of `open` and `close`, and a
+   SQLSTATE-less failure is classified by that mark: unmarked is exit 3 and it is
+   sound to say nothing was written; marked is **exit 7 — Outcome unknown /
+   Unsettled**, which claims nothing in either direction, never says the fence is
+   unchanged or that the transition did not commit, directs the operator to
+   reconnect and run `show` and to confirm the transition through the admission
+   row's correlation columns against its append-only audit event, and states that
+   `close` is idempotent once verified while an ambiguous `open` must be verified
+   before another principal or generation is attempted. It carries no traceback,
+   URL, credential, parameter or SQL. Failures during an ordinary statement, where
+   no `COMMIT` was ever sent, are deliberately reported as unknown as well:
+   separating them would mean trusting the client's own account of how far it got,
+   which is precisely what a lost connection makes unreliable. False uncertainty
+   costs one `show`; a false assertion that settlement did not occur costs a
+   duplicate accepted export. The `DBAPIError`-only handler is unchanged, so a
+   defect in the tool still keeps its traceback.
+
+- **Affected requirements:** `docs/operations/foundry-snapshot-submission.md`
+  §5.2's exit-code table, new §5.2.1 (the ambiguous outcome and its verification),
+  and §9's Unsettled rule, whose claim that "if it is not 0, nothing was closed"
+  is corrected. No change to the settlement rule, the invariant, or the schema.
+- **Added scope:** `SnapshotSubmissionService._fenced_replay` and the private
+  `_RequestKeyAlreadySpent` signal; `CommandProgress`, `EXIT_OUTCOME_UNKNOWN`,
+  `TRANSITIONS` and `_outcome_unknown` in the operator tool. **Removed scope:**
+  `SnapshotSubmissionService._replay_stored`, and the duplicated admission check
+  that lived inside `_store_and_record`'s replay branch.
+- **Reason and alternatives considered:**
+  - *A local `if closed` in the recovery branch.* Rejected by the finding itself:
+    it leaves each returning path responsible for the invariant, and the next
+    branch will forget it exactly as this one did.
+  - *Removing the spent-key pre-check from `_store_and_record` and letting every
+    retry fall through the uniqueness race.* One boundary, and simpler — but a
+    same-key retry with different bytes would then write its artifact to disk
+    before being refused, which today it never does. Rejected as a behaviour
+    change the finding did not ask for.
+  - *A three-state commit-phase model in the CLI* (`before` / `in a statement` /
+    `at the commit`), claiming "did not commit" for the middle state. Available
+    in principle, since statements run inside the block and the commit runs as it
+    exits. Rejected: the claim would rest on the client's account of its own
+    progress, and the conservative direction was directed by the finding.
+- **Dependency and critical-path effect:** none. B-1 and the Phase 2 gate remain
+  open, and this package returns to the Independent Reviewer.
+- **Estimate/forecast and capacity effect:** no change.
+- **New or changed risks:**
+  - **R-new-4 — exit code 7 is a new operator outcome that must be verified
+    rather than acted on.** An operator who treats it as "closed" may authorize a
+    fresh export against an open generation; one who treats it as "not closed"
+    may re-close harmlessly but must not conclude the episode is unsettled
+    without looking. §5.2.1 is the procedure, and the message itself carries it.
+  - **R-retired:** the false assurance that a SQLSTATE-less failure proved the
+    fence unchanged, and the unfenced successful-receipt path.
+- **Testing effect:** 21 new tests. `tests/test_submission_admission_postgresql.py`
+  gains the five-step race reproduced against a real PostgreSQL using the real
+  service over `SqlAlchemyUnitOfWork`, with `threading.Event` rendezvous and no
+  sleeps, plus its control without the closure; the harness gains a gate after
+  the idempotency lookup and a gate at unit-of-work creation, the latter chosen
+  so that a mutant which replays without taking the lock still stops there and
+  can be shown to answer successfully after a closure rather than merely hanging.
+  `tests/test_snapshot_submission.py` gains five application tests covering both
+  callers of the consolidated boundary and two syntax-tree tests: a
+  `SubmissionReceipt` is constructed in exactly two production places
+  (`_store_and_record` and `_replay`), `SubmissionReceipt.from_payload` is called
+  only from `_replay`, `_replay` is called only from `_fenced_replay`, and that
+  boundary's first statement is the fence lock.
+  `tests/test_submission_admission_tool.py` gains eight classification tests and
+  four injected-fault tests covering the four points the review named — before
+  the connection is established (through the real driver, an unreachable socket
+  directory), during a statement before commit, at the commit acknowledgement,
+  and after a genuinely committed close with the documented verification run end
+  to end. The acknowledgement fault uses a narrow double at the transaction
+  boundary: **the transaction commits for real against the real database** and
+  the error replaces the reply the client never hears. What is simulated is the
+  loss of the reply, not any behaviour of PostgreSQL, and nothing here is offered
+  as evidence about PostgreSQL internals.
+
+  **Mutations run**, each reverted and re-run green: restoring the unfenced
+  `_replay_stored()` fails **four** tests, decisively
+  `test_a_request_that_loses_the_key_race_cannot_replay_across_a_closure`, which
+  then receives a successful receipt after the closure instead of a typed
+  refusal, and `test_no_stored_receipt_is_returned_outside_the_one_fenced_boundary`,
+  which names the reintroduced caller; restoring `sqlstate is None => definitely
+  nothing committed` fails **nine** CLI tests, decisively
+  `test_a_lost_commit_acknowledgement_never_claims_the_fence_is_unchanged`.
+
+  Full suite: **1967 passed, 253 skipped**, and **2220 passed, 0 skipped** with
+  `TEST_DATABASE_URL` configured (1952/247 and 2199 before this pass).
+  `foundry-module` JavaScript unchanged: 155 pass. `alembic check` reports no new
+  upgrade operations.
+- **Migration effect: none.** Migration 0005 is unchanged and its schema contract
+  is untouched, so no rehearsal was required or performed for this pass.
+- **Security and operational effect:** the fence now covers every path that can
+  return a successful submission receipt, which is a strengthening rather than a
+  relaxation; no privilege, credential, authentication or audit-policy change.
+  Operationally there is one new documented exit code and one new verification
+  procedure. Deployment carries no new step: the change is application and
+  operator-tool code, and a deployment that skipped it would be in the reviewed
+  state the Blocking finding is open against.
+- **Product/Data/Operations Owner recommendation:** **not yet given.** C-24's
+  three maintainer decisions are unchanged and still outstanding.
+- **Technical Lead and specialist reviews:** raised by the Independent Reviewer
+  when reviewing C-24; remediated by Claude. **Carries no independent review.**
+  **C-24 is not closed, B-1 is not closed, and the Phase 2 gate remains open**;
+  this pass returns the design and its evidence for independent re-review and
+  approves nothing.
+- **Acceptance Authority decision:** **none recorded.**
+
+### C-24-R independent re-review and Phase 2 gate decision
+
+Recorded 2026-08-12. Codex independently re-reviewed the two C-24-R findings
+and returned **no findings**, recommending that C-24 and B-1 close and that the
+Phase 2 data-integrity, identity and migration-safety gate be accepted. Review
+record: `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md`.
+
+- **Product/Data/Operations Owner recommendation and Acceptance Authority
+  decision:** **accepted by Peter Duscha on 2026-08-12**, through the instruction
+  "I accept. Let's commit and go on to Phase 3."
+- **Gate effect:** C-24 and B-1 are closed. Phase 2 is accepted. Phase 3
+  readiness planning is released.
+- **Scope effect:** no implementation, schema, authority or release scope is
+  changed by this record. Phase 3 remains subject to its separate
+  definition-of-ready inputs, including OD-16, OD-17, accepted visual direction,
+  named owners, accepted frontend contracts and security-review capacity.
+- **Evidence:** focused PostgreSQL suite 146 passed; full suite 1967 passed and
+  253 skipped; `git diff --check` clean; `compileall` passed.
 
 ## Required fields for later entries
 

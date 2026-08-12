@@ -108,6 +108,41 @@ action, because a submission reconciled nothing; those counts belong to the
 import a Council member later confirms. There is no request key, no artifact
 byte, no filename and no endpoint.
 
+## The admission actions
+
+`snapshot_submission.admission_opened` and `.admission_closed` are the operator
+half of the fence in `application/admissions.py`. Closing a generation is the
+settlement operation — the thing that replaced stopping the endpoint and
+terminating the proxy in front of it — so it has to leave a record that can be
+checked afterwards rather than an operator's note that it happened.
+
+**Platform-generated identifiers and counts.** `admission_generation` is the
+integer this platform assigned to a generation. It appears on the two admission
+actions, on every accepted submission, and on a refusal that had a generation to
+name. That is what makes a settlement claim checkable: "nothing was accepted
+under generation N after it closed" becomes a query over append-only history
+rather than an argument about timing. It is a counter, and it identifies no
+person and no character.
+
+**Operator identity.** `operator` is the named human who opened or closed the
+generation — the same class as `supervisor`, for the same reason. Neither action
+has an acting Discord user (an operator at a shell has none), so the row would
+otherwise name nobody.
+
+**Minimized operator-authored text.** `reason` is the one free-text field in
+this module, and it is here deliberately: a closure with no stated reason is not
+evidence, and an operator cannot record "why this episode was settled" as a code.
+It is bounded and validated by `tools.submission_admission` before it reaches
+here — printable, at most 500 characters — which stops a paste accident becoming
+a permanent row nobody can shorten. It is authored by an operator about the
+platform, never copied from a request, a caller or an artifact, which is what
+separates it from the caller-supplied text that `request_key_digest` exists to
+keep out.
+
+**What is deliberately absent.** No credential, no digest of one, and no
+endpoint. Closing an admission is a statement about a generation, not about the
+secret that authenticates into it.
+
 ## Traceability, and why the digest is not a duplicated identifier
 
 Three identifiers do three different jobs, and dropping any of them would lose
@@ -203,6 +238,8 @@ BOOTSTRAP_COMPLETED = "bootstrap.completed"
 BOOTSTRAP_REFUSED = "bootstrap.refused"
 SUBMISSION_ACCEPTED = "snapshot_submission.accepted"
 SUBMISSION_REFUSED = "snapshot_submission.refused"
+ADMISSION_OPENED = "snapshot_submission.admission_opened"
+ADMISSION_CLOSED = "snapshot_submission.admission_closed"
 
 POLICIES: Mapping[str, AuditPayloadPolicy] = MappingProxyType(
     {
@@ -286,6 +323,13 @@ POLICIES: Mapping[str, AuditPayloadPolicy] = MappingProxyType(
                         "request_key_digest",
                         "received_via",
                         "duplicate",
+                        # Which admission generation admitted this acceptance.
+                        # A platform-generated integer, and the evidence that
+                        # makes a settlement record checkable afterwards: every
+                        # accepted row names the generation it was written
+                        # under, so "nothing was accepted after generation N
+                        # closed" is a query rather than an argument.
+                        "admission_generation",
                     }
                 ),
             ),
@@ -308,7 +352,42 @@ POLICIES: Mapping[str, AuditPayloadPolicy] = MappingProxyType(
                 # refused; `snapshot_checksum` is absent when the bytes were
                 # refused before they could be hashed — an over-sized artifact
                 # is never held in memory long enough to have an identity.
-                optional=frozenset({"artifact_code", "snapshot_checksum"}),
+                # `admission_generation` is absent when the credential holds no
+                # admission at all, which is precisely the case where there is
+                # no generation to name.
+                optional=frozenset(
+                    {"artifact_code", "snapshot_checksum", "admission_generation"}
+                ),
+            ),
+            # Opening and closing an admission generation are operator actions,
+            # and both are audited for the same reason the acceptance is: a
+            # settlement record that cannot be checked against append-only
+            # history is a claim rather than evidence. `operator` is the named
+            # human who ran the tool — the same class as `supervisor` above —
+            # and `reason` is operator-authored text, which is why it is bounded
+            # and validated by `tools.submission_admission` before it reaches
+            # here rather than being accepted as free-form caller input.
+            AuditPayloadPolicy(
+                action=ADMISSION_OPENED,
+                required=frozenset(
+                    {
+                        "admission_generation",
+                        "service_principal_id",
+                        "operator",
+                        "reason",
+                    }
+                ),
+            ),
+            AuditPayloadPolicy(
+                action=ADMISSION_CLOSED,
+                required=frozenset(
+                    {
+                        "admission_generation",
+                        "service_principal_id",
+                        "operator",
+                        "reason",
+                    }
+                ),
             ),
         )
     }

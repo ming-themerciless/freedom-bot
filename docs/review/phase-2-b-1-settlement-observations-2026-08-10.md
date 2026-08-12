@@ -38,10 +38,45 @@ Two environments were used:
 | 10 | production | stop with **nothing in flight**: process and listeners gone in **4 ms** |
 | 11 | production | stop with **one request held open**: listeners gone in **0.5 ms**, process gone at **4.3 s**, held connection closed with nothing delivered |
 | 12 | production | step 4 phase 1: retired path `410`, recovery path `401`, all three Foundry sites unaffected across the reload |
+| 13 | production, **2026-08-11**, read-only | `Restart=no`, `TriggeredBy=`, `BindsTo=`, `OnFailure=`, `DropInPaths=` empty, `WatchdogUSec=0`, `UnitFileState=enabled`; reverse dependencies are `multi-user.target` → `graphical.target` only |
+| 14 | production, **2026-08-11**, read-only | 14 timers and 6 path units, **none** referencing Caddy or the endpoint |
+| 15 | production, **2026-08-11**, read-only | no second proxy or tunnel process; no Docker, Podman, supervisord, monit or runit; no user crontab; `/etc/cron.d` holds `e2scrub_all` and `sysstat`; `at` not installed |
+| 16 | production, **2026-08-11**, read-only | a loopback listener on `127.0.0.1:2019` — Caddy's documented default admin endpoint — while Caddy runs |
+| 17 | production, **2026-08-11**, read-only | **LXD is installed** (snap), `snap.lxd.daemon.unix.socket` listening and `snap.lxd.daemon.service` socket-activated. Row 15's "no container runtime" read `docker` and `podman` only and **never looked at the one that is here** |
+| 18 | production, **2026-08-11**, read-only | `/etc/crontab`, `/etc/cron.d/*` and `/etc/cron.{daily,weekly}` **read in full**: distribution jobs only, and no job's *contents* reference `caddy`, `snapshot_api`, or `systemctl start`/`restart` |
+| 19 | production, **2026-08-11**, read-only | S-D.2's four readings exist and are stable across repeat calls — **and `NRestarts=0` alongside a non-zero `ActiveExitTimestampMonotonic`**, so a stop and a start had happened without the counter moving |
+| 20 | production, **2026-08-11**, read-only | `command -v` with several operands exits **`0` when at least one name is found** in `bash` 5.2.21 and in `dash`, and `1` only when all are absent — so row 15's aggregated form printed both LXD paths and produced no false "no container runtime". The per-name loop that replaces it names `lxc` and `lxd` explicitly |
+| 21 | this repository, **2026-08-11** | S-D.2's commit-watermark statements compiled against `adapters/database/tables.py` for the PostgreSQL dialect: `foundry_snapshots.received_at`, `audit_events.occurred_at` and `audit_events.entity_type` all exist. **Compiled, not executed** — no database was contacted |
+| 22 | disposable `freedom_test`, **2026-08-11**, executed | `LOCK TABLE foundry_snapshots, audit_events IN SHARE MODE` **blocks the real submission service rather than refusing it**: the backend appears as an ungranted `RowExclusiveLock` on `foundry_snapshots` in S-D.3's own `pg_locks` query, the watermark cannot move while it waits, and the submission commits **immediately** on `COMMIT` — the ninth finding, reproduced |
+| 23 | disposable `freedom_test`, **2026-08-11**, executed | a second `LOCK TABLE … IN SHARE MODE` is granted **only behind** the writer that was queued: with that writer holding its transaction open after its `INSERT`, the second request is observed **ungranted** from a third session, and the watermark read once granted includes that writer's commit. This is what S-D.4's drain read rests on |
+| 24 | disposable `freedom_test`, **2026-08-11**, executed | **`pg_stat_activity` is snapshotted per transaction and `pg_locks` is not.** Inside one settlement transaction, a queue reading joined to `pg_stat_activity` returned **nothing** while `pg_locks` alone showed the waiter, because that backend connected after the transaction's first statistics read; `pg_stat_clear_snapshot()` restored the join. S-D.4's decisive reading is over `pg_locks` alone because of this row |
+| 25 | disposable `freedom_test`, **2026-08-11**, executed | a bounded `idle_in_transaction_session_timeout` **ends the platform-wide pause**: the settlement session is terminated, the queued writer commits, and the settlement transaction is gone — so its `COMMIT` cannot succeed, which §9 classifies as Unsettled |
 
-Results 1 and 2 are each other's control: one episode, one line of difference.
-Deleting `proxy.terminate()` from the second makes it fail at
-`assert not proxy.dialled`, where the proxy forwards across the restart.
+Results 1 and 2 are each other's control, and **as originally written this note
+overclaimed how**. It said the two tests were one episode with one line of
+difference, and that deleting `proxy.terminate()` made the second fail at
+`assert not proxy.dialled`. They were two hand-written copies whose sequences
+diverged after the endpoint stop, and the deletion blocked at the `proxy.join()`
+on the next line instead — the named assertion was never reached, and the mutation
+had not been run. The pair was rebuilt on a shared scenario on 2026-08-11, the
+mutation executed, and it now fails exactly where this note said it would; see the
+[fifth remediation](phase-2-b-1-settlement-remediation.md#b-1-fifth-remediation--the-evidence-for-s-i3-the-mutation-that-was-never-run-and-the-outcomes-that-never-came-back-up).
+
+Rows 22–25 were added on 2026-08-11 with the ninth remediation, and they are the
+first rows here obtained from a **database**. Every one of them was taken against
+the **disposable `freedom_test`** database over the Unix-domain socket, through
+`tests/conftest.py`'s existing two-layer disposability guard, by
+`tests/test_snapshot_settlement_postgresql.py`. **No `LOCK TABLE` was executed
+against `freedom`**, nothing on production was read or changed, and none of these
+rows is a rehearsal of the operator procedure: they establish the PostgreSQL
+behaviour S-D.3 and S-D.4 rest on, which is a different and smaller claim.
+
+Rows 13–16 are the S-I.3 checks, added on 2026-08-11 because row 8 (`Restart=no`)
+had been offered as evidence for S-I.3 and establishes far less than it claims.
+They were read with **Caddy running** — restart *vectors* are readable in that
+state — and **nothing was stopped, started, reloaded or reconfigured to obtain
+them.** They are a snapshot of this host on that date, not a standing result: §9
+makes the operator run the checks during the episode rather than cite this table.
 
 ## The rig
 
@@ -515,6 +550,262 @@ loopback :9080:   000ERR (expect 000/ERR: the block is gone)
 foundry1 public:  302
 ```
 
+## The S-I.3 checks, 2026-08-11
+
+Read-only, with Caddy running. Rows 13–16.
+
+```text
+$ systemctl show caddy -p Restart -p RestartSec -p UnitFileState \
+    -p TriggeredBy -p Requires -p Wants -p BindsTo
+Restart=no
+Requires=-.mount system.slice network-online.target sysinit.target
+Wants=tmp.mount
+BindsTo=
+TriggeredBy=
+UnitFileState=enabled
+
+$ systemctl show caddy -p DropInPaths -p WatchdogUSec -p OnFailure -p FragmentPath
+WatchdogUSec=0
+OnFailure=
+FragmentPath=/usr/lib/systemd/system/caddy.service
+DropInPaths=
+
+$ systemctl list-dependencies --reverse caddy.service
+caddy.service
+● └─multi-user.target
+●   └─graphical.target
+```
+
+`TriggeredBy=` empty is the one that matters most and the one `Restart=no` never
+addressed: **there is no `caddy.socket`**, so nothing activates the unit when a
+connection arrives at a port it used to hold. `WatchdogUSec=0` and an empty
+`OnFailure=` and `DropInPaths=` close the other unit-level vectors.
+`UnitFileState=enabled` is the reboot vector, and it is not closable — §9 says so.
+
+```text
+$ systemctl list-units --type=socket --all --no-legend --no-pager
+… 25 units: apport-forward, cloud-init-hotplugd, dbus, dm-event, iscsid,
+  lvm2-lvmpolld, lxd-installer, multipathd, snap.lxd.daemon.unix,
+  snap.lxd.user-daemon, snapd, ssh, syslog, systemd-fsckd, systemd-initctl,
+  systemd-journald{,-audit,-dev-log}, systemd-networkd, systemd-pcrextend,
+  systemd-rfkill, systemd-sysext, systemd-udevd-{control,kernel}, uuidd
+  → no caddy.socket, and none of these fronts :80, :443 or :8757
+
+$ systemctl list-timers --all --no-pager       # 14 timers
+apt-daily-upgrade, apt-daily, man-db, update-notifier-download,
+systemd-tmpfiles-clean, motd-news, dpkg-db-backup, logrotate, e2scrub_all,
+fstrim, update-notifier-motd, apport-autoreport, snapd.snap-repair, ua-timer
+  → none references caddy or snapshot_api
+
+$ systemctl list-units --type=path --all --no-pager      # 6 path units
+apport-autoreport, systemd-ask-password-{console,plymouth,wall}, tpm-udev,
+whoopsie (not-found)
+  → none references caddy or snapshot_api
+```
+
+```text
+$ ps -eo pid,user,comm,args --no-headers \
+    | grep -Ei 'nginx|haproxy|apache2|httpd|traefik|envoy|cloudflared|ngrok|frpc|socat|stunnel|tailscale|\bssh .*-[LRD]'
+(none)
+
+$ docker ps -a          → docker: not installed
+$ podman ps -a          → podman: not installed
+$ supervisorctl status  → supervisord: not installed
+$ monit summary         → monit: not installed
+$ crontab -l            → no crontab for foundry
+$ ls /etc/cron.d/       → e2scrub_all  sysstat
+$ atq                   → at: not installed
+
+$ ss -ltnup      # abridged to the rows S-I.3c is about
+tcp LISTEN 127.0.0.1:2019   users:(…)        # Caddy admin API
+tcp LISTEN 127.0.0.1:5432                    # PostgreSQL
+tcp LISTEN 0.0.0.0:22
+tcp LISTEN *:443
+udp UNCONN *:443                             # HTTP/3, and row 9's point
+```
+
+## The bounded S-I.3d inventory, 2026-08-11
+
+Read-only, second session, with Caddy running. Rows 17–18. This is the check the
+sixth review required: sources read **in full** rather than listed, bounded by
+[topology §1](../operations/topology.md)'s component table.
+
+```text
+$ command -v docker podman lxc lxd nerdctl containerd
+/usr/sbin/lxc                     ← and nothing else
+
+$ systemctl list-units --all --no-pager | grep -Ei 'lxd|lxc'
+snap.lxd.activate.service        loaded inactive dead      Service for snap application lxd.activate
+snap.lxd.daemon.service          loaded inactive dead      Service for snap application lxd.daemon
+snap.lxd.user-daemon.service     loaded inactive dead      Service for snap application lxd.user-daemon
+lxd-installer.socket             loaded active  listening  Helper to install lxd snap on demand
+snap.lxd.daemon.unix.socket      loaded active  listening  Socket unix for snap application lxd.daemon
+snap-lxd-40115.mount             loaded active  mounted
+snap-lxd-40338.mount             loaded active  mounted
+
+$ lxc list --format compact
+Error: LXD unix socket "/var/snap/lxd/common/lxd/unix.socket" not accessible: permission denied
+
+$ getent group lxd
+lxd:x:120:                        ← no members; reading it needs root
+$ id
+uid=1000(foundry) … groups=1000(foundry),27(sudo),100(users)
+```
+
+**Row 17 is the finding.** The previous check ran `docker ps -a` and `podman ps -a`,
+got "not installed" from both, and recorded *"no Docker, Podman, supervisord, monit
+or runit"*. Every word of that is true. It is also silent about **the one container
+runtime this host has**, because the check was a list of names somebody thought of
+rather than an inventory bounded by anything. `snap.lxd.daemon.service` is dead but
+**socket-activated** — the same vector S-I.3a names for `caddy.socket` — and
+`snap.lxd.activate.service` is what starts `boot.autostart` instances at boot.
+
+Whether LXD holds any instance at all is **unread**: `lxc list` needs `root` or
+membership of the `lxd` group, which has no members. Under §9's rule that is
+**Unsettled**, not a pass.
+
+```text
+$ cat /etc/crontab                    → distribution header, four run-parts lines
+$ cat /etc/cron.d/e2scrub_all         → e2scrub_all_cron; /sbin/e2scrub_all -A -r
+$ cat /etc/cron.d/sysstat             → debian-sa1 1 1; debian-sa1 60 2
+$ for d in hourly daily weekly monthly; do run-parts --list /etc/cron.$d; done
+  hourly  → (empty)
+  daily   → apport apt-compat dpkg logrotate man-db sysstat
+  weekly  → man-db
+  monthly → (empty)
+$ grep -rniE 'caddy|snapshot_api|systemctl (start|restart)' \
+    /etc/crontab /etc/cron.d /etc/cron.hourly /etc/cron.daily \
+    /etc/cron.weekly /etc/cron.monthly
+  (no match)
+
+$ command -v supervisord supervisorctl monit runsv s6-svscan  → none installed
+$ command -v atq                                              → at not installed
+$ crontab -l                                                  → no crontab for foundry
+$ loginctl list-users                                         → 1000 foundry, LINGER no
+```
+
+Row 18 is the difference between `ls -la /etc/cron.d/` and this: the earlier
+listing produced two names, and the sixth review's point was that a name is not a
+job. The names were in fact benign — but that is a fact established here, by
+reading them, and not by the listing that was offered as evidence for it.
+
+**`run-parts --list` takes one directory per call.** The first draft of the §9
+command passed four and it fails with `missing operand`; §9 now loops. That is the
+fifth documented case of a §9 command being wrong until it was run.
+
+### S-D.2's readings, and the one that does not do what it looks like it does
+
+```text
+$ systemctl show caddy -p InvocationID -p NRestarts \
+    -p ActiveEnterTimestampMonotonic -p ActiveExitTimestampMonotonic
+NRestarts=0
+ActiveEnterTimestampMonotonic=300753623280
+ActiveExitTimestampMonotonic=300749250429
+InvocationID=7d8b04f15c454181a4ddc73f4ea3a0a6
+
+$ # …repeated immediately: identical in every field.
+```
+
+Row 19, and it is the **sixth** case of this package claiming something the host
+then contradicted. The first draft of S-D.2 offered `NRestarts` as one of the
+readings that catches a mid-episode restart. It does not: it counts restarts
+performed by the unit's own `Restart=` logic, and this unit is `Restart=no`. The
+host says so directly — `NRestarts=0` sitting next to a **non-zero**
+`ActiveExitTimestampMonotonic`, which is the 2026-08-10 authorized stop and the
+start after it. The counter did not move for a real stop and a real start.
+
+A `systemctl start` issued by cron, by a supervisor or by a second operator is
+exactly that shape, so `NRestarts` would have been silent for the case S-D.2
+exists to catch. §9 now says this in the check itself and leans on `InvocationID`,
+which is minted fresh on every start regardless of who asked for it.
+
+**What row 19 does not establish** is that the comparison catches a restart. That
+needs a real down window at both ends, and none has been run since S-D.2 was
+written. All that is established is that the readings exist, are stable when
+nothing happens, and that one of the four is weaker than it looks.
+
+### `command -v` with several operands, measured rather than assumed
+
+Row 20. The re-review of C-20 held that `command -v` "fails if any requested
+command is absent — even if it printed paths for commands that are installed", so
+an installed `lxc` could be followed by `no container runtime`. Run on this host:
+
+```text
+$ bash -c 'command -v bash nope1; echo "exit=$?"'
+/usr/bin/bash
+exit=0
+$ bash -c 'command -v nope1 nope2; echo "exit=$?"'
+exit=1
+$ dash -c 'command -v bash nope1; echo "dash mixed exit=$?"'
+/usr/bin/bash
+dash mixed exit=0
+```
+
+`bash` 5.2.21 and `dash` both succeed when **at least one** name is found, so the
+inverted conclusion the finding describes did not occur, and row 15's line printed
+both LXD paths with no `no container runtime` after them. **The finding's remedy is
+adopted anyway**, on two grounds this measurement does not touch: POSIX defines
+`command -v` for a single `command_name`, so the exit status of the multi-operand
+form is an extension and §9 does not control the operator's shell; and the
+aggregated output answers six names with however many paths, which is the reading
+that let row 15's LXD gap stand in the first place. The replacement:
+
+```text
+$ for c in docker podman lxc lxd nerdctl containerd; do
+      if p=$(command -v "$c"); then echo "present $c $p"; else echo "absent  $c"; fi
+  done
+absent  docker
+absent  podman
+present lxc /usr/sbin/lxc
+present lxd /usr/sbin/lxd
+absent  nerdctl
+absent  containerd
+```
+
+The supervisor loop returns `absent` for all five. This is C-19's row 15 finding
+stated by the command rather than by a reader who happened to look.
+
+### The commit watermark's columns, compiled and not executed
+
+Row 21. S-D.2's third reading is a claim about the database, so the columns it
+names were checked against the schema the application actually defines — the two
+statements were built over `adapters/database/tables.py`'s metadata and compiled
+for the PostgreSQL dialect, which resolves `foundry_snapshots.received_at`,
+`audit_events.occurred_at` and `audit_events.entity_type` or fails.
+
+**No database was contacted, and nothing here establishes what the statements
+return against real data.** `tests/test_snapshot_recovery_documentation.py` holds
+the standing form of this check, including that the entity type and both action
+names in §9's prose are the constants the submission service writes — so a rename
+fails the suite instead of silently emptying the query.
+
+### What these checks did not establish
+
+**Neither session had passwordless `sudo`:**
+
+```text
+$ sudo -n true
+sudo: a password is required
+```
+
+So `ss -ltnup` could not attribute the **root-owned** listeners (`:80`, `:443`,
+`:22`, `:5432`) to processes, and **root's crontab was not read**. Row 16 names the
+`:2019` listener as Caddy's admin endpoint from the port and Caddy's documentation,
+**not** from process attribution.
+
+The second session adds three more unread readings, all for the same reason:
+**LXD's instance list and their `boot.autostart` flags**, `/var/spool/cron/crontabs/`
+(permission denied, so *who has a crontab* is itself unknown), and the other users'
+crontabs and per-user systemd managers.
+
+Under §9's rule none of that is a partial pass — it is **Unsettled**, and it is the
+first worked example in this package of an operator reaching that outcome for a
+reason other than a process still running. An operator with `sudo` should run these
+commands once outside an episode and record the result, so that the first time they
+are read is not under time pressure. **LXD in particular should be read before the
+next review**, because it is the only unread item that is known to exist rather than
+merely possible.
+
 ## What none of this establishes
 
 - an operator following §9 under time pressure;
@@ -523,4 +814,24 @@ foundry1 public:  302
   [`phase-2-step-4-retirement-validation-plan.md`](phase-2-step-4-retirement-validation-plan.md),
   which re-creates the exposure reverted on 2026-08-09 and is not run;
 - anything about settlement itself. These are observations about a proxy, a
-  socket and a route. The settlement rule is in §9.
+  socket and a route. The settlement rule is in §9;
+- **the privileged half of S-I.3c and S-I.3d**, which neither session could read —
+  and which now includes **LXD's instance list**, a runtime known to be installed;
+- **S-D.2's closing comparison**, added 2026-08-11. It has never been run: taking
+  it requires a real down window at both ends, and no episode has been run since
+  it was written. What is established is only that the readings it compares exist
+  and are stable while Caddy runs — `InvocationID`, `NRestarts`,
+  `ActiveEnterTimestampMonotonic` — not that the comparison catches a restart,
+  which is the claim that matters and is **not** made here. The **commit
+  watermark** added the same day is in the same position and one step further back:
+  row 21 establishes that its columns exist, and nothing here establishes that the
+  statements return what they should against real data, because no database was
+  contacted. What *is* established, in the suite rather than on this host, is the
+  counterexample it exists for — an ingress that is not `caddy.service`, serving
+  and committing entirely between the two readings, with every Caddy figure and
+  both listener samples identical across the window;
+- **step 4's hit and unresolved restoration branches**, added 2026-08-11. Neither
+  has been followed by an operator, and neither branch's off-host check — the hit
+  branch's `401`, the unresolved branch's `410` — has been run in the configuration
+  that branch describes. Row 12 exercised the same `410`/`401` pair on the
+  production config, validate and reload path, which is the closest thing to it.

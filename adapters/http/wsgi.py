@@ -148,6 +148,12 @@ _REFUSAL_STATUS = {
     "concurrent_submission": 409,
     "original_result_unavailable": 409,
     "storage_unavailable": 503,
+    # `403`, and the choice matters more than it looks. `409` and `503` both
+    # mean "try again" to a client library, and the module's own retry would
+    # then hammer a credential that can never succeed while a settlement is in
+    # progress. A closed admission is a permanent refusal *for this credential*:
+    # the way forward is a new credential from an operator, not a later attempt.
+    "admission_closed": 403,
 }
 
 _PREVIEW_STATUS = {

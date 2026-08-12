@@ -84,6 +84,7 @@ RETAINED_TABLES = (
     "external_actor_mappings",
     "sheet_row_mappings",
     "idempotency_keys",
+    "submission_admissions",
     "audit_events",
     "foundry_snapshots",
     "snapshot_imports",
@@ -415,3 +416,42 @@ def test_the_denials_still_hold_as_the_role_after_public_drift(migrated_database
         connection.rollback()
         connection.execute(text("RESET ROLE"))
         connection.close()
+
+
+def test_the_admission_fence_is_readable_and_immovable_by_the_runtime_role(restricted):
+    """C-24. The fenced party must not be able to move the fence.
+
+    `SELECT` and nothing else on `submission_admissions`. A role that could
+    `INSERT` one could admit itself; a role that could `UPDATE` one could reopen
+    a generation settlement had closed; a role that could take `FOR UPDATE`
+    could hold the closure off indefinitely. Each would make the fence advisory
+    rather than enforced.
+
+    The shared advisory lock the submission path takes is checked here too,
+    because the design depends on those two facts holding *together*: the
+    serializing lock has to be available to a role that holds no write privilege
+    at all, and `pg_advisory_xact_lock_shared` is the primitive that needs no
+    grant.
+    """
+    assert (
+        restricted.execute(text("SELECT count(*) FROM submission_admissions")).scalar()
+        >= 0
+    )
+    restricted.execute(text("SELECT pg_advisory_xact_lock_shared(1)"))
+    restricted.rollback()
+    restricted.execute(text(f"SET ROLE {RUNTIME_ROLE}"))
+
+    for statement in (
+        "INSERT INTO submission_admissions (id, generation, principal_id, state, "
+        "opened_by, open_reason, correlation_id) VALUES (gen_random_uuid(), 99, "
+        "'forged', 'open', 'x', 'y', gen_random_uuid())",
+        "UPDATE submission_admissions SET state = 'closed'",
+        "DELETE FROM submission_admissions",
+        "TRUNCATE submission_admissions",
+        "SELECT id FROM submission_admissions FOR UPDATE",
+    ):
+        with pytest.raises(ProgrammingError) as refusal:
+            restricted.execute(text(statement))
+        assert sqlstate(refusal.value) == INSUFFICIENT_PRIVILEGE, statement
+        restricted.rollback()
+        restricted.execute(text(f"SET ROLE {RUNTIME_ROLE}"))

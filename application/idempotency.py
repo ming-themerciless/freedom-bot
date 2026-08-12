@@ -58,6 +58,16 @@ class IdempotencyRecord:
     request_hash: bytes
     status: IdempotencyStatus
     response: Mapping[str, Any] | None = None
+    #: The admission generation this receipt was earned under, for the scopes
+    #: that are fenced. `None` for every other scope.
+    #:
+    #: Writing this row is what makes a snapshot submission durable — on the
+    #: new-bytes path and on the duplicate-bytes path where no snapshot row is
+    #: created — so the foreign key it carries is the single point every
+    #: acceptance passes through, and the lock that check takes is what
+    #: serializes an acceptance against a settlement closure. See
+    #: `application/admissions.py`.
+    admission_id: UUID | None = None
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:

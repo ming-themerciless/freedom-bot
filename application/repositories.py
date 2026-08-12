@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 from uuid import UUID
 
+from application.admissions import AdmissionState, SubmissionAdmission
 from application.audit import AuditEvent
 from application.idempotency import IdempotencyRecord
 from application.imports import SheetRowMapping
@@ -105,6 +106,58 @@ class IdempotencyRepository(Protocol):
     def find(self, scope: str, key: str) -> IdempotencyRecord | None: ...
 
 
+class SubmissionAdmissionRepository(Protocol):
+    """The admission fence, read from inside the submission transaction.
+
+    Read-only, deliberately. Opening and closing a generation is an operator
+    action taken by `tools.submission_admission` as the schema owner, and the
+    runtime role holds `SELECT` on this table and nothing else — so the
+    application physically cannot admit itself, close a generation, or reopen
+    one. `tests/test_submission_admission_postgresql.py` proves that against
+    PostgreSQL rather than asserting it here.
+    """
+
+    def hold_against_closure(self) -> None:
+        """Take the shared side of the fence lock, for this whole transaction.
+
+        **Must be the first statement of any transaction that reads an admission
+        in order to act on it**, replays included. Closure takes the exclusive
+        side, so after this returns no closure can commit until this transaction
+        ends — and any closure that got in first has already committed, so every
+        read that follows sees it.
+
+        This is what covers the paths that write nothing. A replay produces a
+        successful receipt without inserting a row, so it takes no foreign-key
+        lock and the structural half of the fence does not reach it; this does.
+        """
+        ...
+
+    def find_for_principal(self, principal_id: str) -> SubmissionAdmission | None:
+        """The one admission this credential has ever held, if it has one.
+
+        `principal_id` comes from the presented credential — that is, from the
+        request's own bytes — and never from a lookup of "which generation is
+        open now". A request paused before this call must resolve to the same
+        admission when it wakes, and this is what guarantees it does.
+        """
+        ...
+
+    def state_of(self, admission_id: UUID) -> AdmissionState | None:
+        """Re-read one admission's state, and nothing else. **This is the fence.**
+
+        It must be issued *after* the acceptance's own write has taken the
+        foreign-key lock on the admission row, and before the commit. Under
+        `READ COMMITTED` the statement takes a fresh snapshot, so it observes any
+        closure that committed before that lock was granted — and no closure can
+        commit after it, because the lock is held until this transaction ends.
+
+        Returns `None` if the row is gone, which nothing may treat as
+        permission: the trigger in migration 0005 refuses `DELETE`, so a missing
+        row means the schema is not what this code requires.
+        """
+        ...
+
+
 class PlatformInitializationRepository(Protocol):
     def get(self) -> PlatformInitialization | None: ...
 
@@ -124,6 +177,7 @@ class UnitOfWork(Protocol):
     snapshots: SnapshotRepository
     snapshot_imports: SnapshotImportRepository
     idempotency: IdempotencyRepository
+    submission_admissions: SubmissionAdmissionRepository
     initialization: PlatformInitializationRepository
 
     def __enter__(self) -> UnitOfWork: ...

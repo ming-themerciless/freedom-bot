@@ -51,6 +51,7 @@ REVOKE ALL PRIVILEGES ON
     external_actor_mappings,
     sheet_row_mappings,
     idempotency_keys,
+    submission_admissions,
     audit_events,
     foundry_snapshots,
     snapshot_imports,
@@ -75,6 +76,18 @@ TO __APP_ROLE__;
 --
 -- TRUNCATE is revoked here rather than trigger-blocked, so the owner can still
 -- reset a disposable test database while the runtime role cannot empty history.
+-- The admission fence (migration 0005). SELECT only, and the omission is the
+-- control rather than an oversight: the application must be able to *read*
+-- whether its credential's generation is still open, and must not be able to
+-- open, close or reopen one. Opening and closing are operator actions taken by
+-- `tools.submission_admission` as the schema owner.
+--
+-- No INSERT either. A runtime role that could insert an admission could admit
+-- itself, which would make the fence advisory. `tests/test_runtime_grants_live.py`
+-- proves all four denials against PostgreSQL rather than reading this comment.
+GRANT SELECT ON submission_admissions TO __APP_ROLE__;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON submission_admissions FROM __APP_ROLE__;
+
 GRANT SELECT, INSERT ON
     audit_events,
     foundry_snapshots,

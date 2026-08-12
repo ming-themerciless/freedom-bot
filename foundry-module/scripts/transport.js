@@ -69,6 +69,10 @@ export const DEFAULT_TIMEOUT_MS = 120_000;
 
 /** Codes the reviewed snapshot-submission boundary may expose to an operator. */
 export const SERVER_REFUSAL_CODES = new Set([
+  // The submitting credential's admission generation is closed, or it never
+  // had one. A recovery is in progress on the server; the GM needs a new
+  // credential from an operator, and retrying cannot help.
+  "admission_closed",
   "artifact_rejected",
   "artifact_too_large",
   "checksum_mismatch",

@@ -39,7 +39,7 @@ from application.foundry.submission import SnapshotSubmissionService
 from domain.foundry import OBSERVED_DEPLOYMENT
 from domain.foundry_profile import PROFILE
 from tests import foundry_fixtures as fx
-from tests.fakes import FakeAuthorization, FakeStore, unit_of_work_factory
+from tests.fakes import FakeAuthorization, FakeStore, admit, unit_of_work_factory
 
 SECRET = "s" * MIN_SECRET_LENGTH
 PRINCIPAL_ID = "foundry-the-guild"
@@ -58,7 +58,9 @@ def environment(digest: str | None = None) -> dict[str, str]:
 
 @pytest.fixture()
 def store() -> FakeStore:
-    return FakeStore()
+    store = FakeStore()
+    admit(store, PRINCIPAL_ID)
+    return store
 
 
 @pytest.fixture()

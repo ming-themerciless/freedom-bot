@@ -21,6 +21,9 @@ PHASE_2_TABLES = {
     "foundry_snapshots",
     "platform_initialization",
     "snapshot_imports",
+    # C-24. The admission fence: which credential generation may still turn a
+    # submission into a durable acceptance. See `application/admissions.py`.
+    "submission_admissions",
 }
 
 EXPECTED_TABLES = PHASE_1_TABLES | PHASE_2_TABLES

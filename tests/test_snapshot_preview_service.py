@@ -22,7 +22,7 @@ from application.service_principals import ServicePrincipal, ServicePrincipalSco
 from domain.foundry import OBSERVED_DEPLOYMENT
 from domain.foundry_profile import PROFILE
 from tests import foundry_fixtures as fx
-from tests.fakes import FakeAuthorization, FakeStore, unit_of_work_factory
+from tests.fakes import FakeAuthorization, FakeStore, admit, unit_of_work_factory
 
 COUNCIL_USER = 4200000000000000001
 ORDINARY_USER = 4200000000000000002
@@ -37,6 +37,7 @@ SUBMITTER = ServicePrincipal(
 @pytest.fixture()
 def wiring(tmp_path: Path):
     store = FakeStore()
+    admit(store, SUBMITTER.principal_id)
     artifacts = FilesystemArtifactStore(tmp_path / "artifacts")
     factory = unit_of_work_factory(store)
     authorization = FakeAuthorization.with_council(COUNCIL_USER)

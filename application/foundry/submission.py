@@ -47,6 +47,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 from uuid import UUID, uuid4
 
+from application.admissions import AdmissionState, SubmissionAdmission
 from application.artifacts import ArtifactStorageError, ArtifactStore
 from application.audit import ActorCapability, AuditEvent, AuditSource
 from application.errors import UniquenessConflict
@@ -128,6 +129,12 @@ REFUSAL_CODES = frozenset(
         #: recorded — which is not the same as nothing having been written, and
         #: the message says only the former (review finding I-1).
         "storage_unavailable",
+        #: This credential's admission generation is closed, or it never had
+        #: one. Nothing was recorded and nothing may be. **Not retryable**, and
+        #: deliberately not spelled as a conflict or an outage: repeating the
+        #: request under the same credential can never succeed, whatever the
+        #: caller waits for. See `application/admissions.py`.
+        "admission_closed",
     }
 )
 
@@ -202,9 +209,9 @@ class SubmissionRefused(RuntimeError):
     - `concurrent_submission` — from either the unresolvable-conflict branch or
       the unreadable-winner branch — is raised after the store has run;
     - `request_key_conflict` and `original_result_unavailable` are raised from
-      `_replay`, which is reached both before the store (a key already spent)
-      and after it (a race resolved by re-reading), so neither may assert
-      anything about bytes.
+      `_replay`, which `_fenced_replay` reaches both for a key that was already
+      spent before the store ran and for a race resolved by re-reading after it
+      did, so neither may assert anything about bytes.
 
     Such a file is harmless, is re-used by the retry, and is found by the
     operator procedure in `docs/operations/foundry-snapshot-submission.md` §5.6.
@@ -225,15 +232,38 @@ class SubmissionRefused(RuntimeError):
         *,
         artifact_code: str | None = None,
         checksum: str | None = None,
+        admission_generation: int | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.artifact_code = artifact_code
         self.checksum = checksum
+        #: The generation the credential holds, when it holds one. Recorded so
+        #: an operator reading refusal history can see *which* fence turned a
+        #: submission away; absent when the credential has no admission at all.
+        self.admission_generation = admission_generation
 
 
 class SubmissionReceiptError(ValueError):
     """A stored receipt could not be read back as one."""
+
+
+class _RequestKeyAlreadySpent(Exception):
+    """This key already earned a receipt, so this transaction has nothing to do.
+
+    A control-flow signal, private to this module and never raised past
+    `_persist`. It exists so that `_store_and_record` — whose job is to make a
+    submission durable — cannot also be the thing that hands back somebody
+    else's stored receipt. Both ways of discovering that a key is spent (finding
+    the row before the store runs, and losing the `idempotency_key.scope_key`
+    race after it) leave through here and arrive at one place:
+    `SnapshotSubmissionService._fenced_replay`.
+
+    That is the whole shape of review finding C-24-R1. A `SubmissionReceipt` read
+    from storage is only safe to return while the presenting credential's
+    admission is still open, and an invariant that each returning branch has to
+    remember for itself is one a new branch will forget.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -521,53 +551,70 @@ class SnapshotSubmissionService:
         correlation_id: UUID,
     ) -> SubmissionReceipt:
         digest = request_hash(SUBMISSION_SCOPE, artifact.checksum.hex_digest)
-        try:
-            return self._store_and_record(
-                artifact,
-                snapshot,
-                principal=principal,
-                request_key=request_key,
-                key_digest=key_digest,
-                correlation_id=correlation_id,
-                digest=digest,
-            )
-        except UniquenessConflict as conflict:
-            # Somebody else claimed an identity this attempt needed. The adapter
-            # has already rolled this transaction back, so there is nothing
-            # partial to undo; what is left is to find out who won and say so
-            # truthfully, in a fresh transaction, rather than assume it from the
-            # rule name.
-            if conflict.rule == "foundry_snapshot.checksum":
-                # A concurrent submission of the *same bytes* won the snapshot
-                # identity. One more pass now takes the duplicate branch and
-                # records this key's own receipt against the winner's row.
-                try:
-                    return self._store_and_record(
-                        artifact,
-                        snapshot,
+        checksum = artifact.checksum.hex_digest
+
+        # At most two attempts: the second exists only for the case where a
+        # concurrent submission of the *same bytes* won the snapshot identity,
+        # and one more pass then takes the duplicate branch. Written as a bounded
+        # loop rather than a nested `try` so that there is exactly one place
+        # `_store_and_record` is called from and exactly one place each outcome
+        # is decided — the previous nesting had the conflict rules examined in
+        # two arms, which is how one of them came to be missing a check.
+        retried = False
+        while True:
+            try:
+                return self._store_and_record(
+                    artifact,
+                    snapshot,
+                    principal=principal,
+                    request_key=request_key,
+                    key_digest=key_digest,
+                    correlation_id=correlation_id,
+                    digest=digest,
+                )
+            except _RequestKeyAlreadySpent:
+                # An ordinary same-key retry. The receipt exists, and reading it
+                # back is **not** this transaction's business: it goes through
+                # the one fenced boundary, exactly as the race below does.
+                return self._fenced_replay(
+                    principal=principal,
+                    request_key=request_key,
+                    digest=digest,
+                    checksum=checksum,
+                )
+            except UniquenessConflict as conflict:
+                # Somebody else claimed an identity this attempt needed. The
+                # adapter has already rolled this transaction back, so there is
+                # nothing partial to undo; what is left is to find out who won
+                # and say so truthfully, in a fresh transaction, rather than
+                # assume it from the rule name.
+                if conflict.rule == "idempotency_key.scope_key":
+                    # A concurrent submission under the *same key* won. Its
+                    # receipt is the answer — if this credential's generation is
+                    # still open, if the receipt was earned under it, and if it
+                    # is for the same bytes. All three are the fence's to decide,
+                    # and this transaction is gone, so none of them may be
+                    # decided here.
+                    return self._fenced_replay(
                         principal=principal,
                         request_key=request_key,
-                        key_digest=key_digest,
-                        correlation_id=correlation_id,
                         digest=digest,
+                        checksum=checksum,
                     )
-                except UniquenessConflict as second:
-                    conflict = second
-            if conflict.rule == "idempotency_key.scope_key":
-                # A concurrent submission under the *same key* won. Its receipt
-                # is the answer, if it is for the same bytes.
-                return self._replay_stored(request_key, digest)
-            # `_store_and_record` has already run, so the artifact may well be
-            # on disk under its checksum. What this path establishes is only
-            # that *this attempt* recorded nothing (review finding I-1).
-            raise SubmissionRefused(
-                "concurrent_submission",
-                "Another submission claimed an identity this one needed and "
-                "could not be identified. This attempt recorded nothing and "
-                "confirmed nothing. Retry with the same request key: a retry "
-                "cannot create a second snapshot.",
-                checksum=artifact.checksum.hex_digest,
-            ) from None
+                if conflict.rule == "foundry_snapshot.checksum" and not retried:
+                    retried = True
+                    continue
+                # `_store_and_record` has already run, so the artifact may well
+                # be on disk under its checksum. What this path establishes is
+                # only that *this attempt* recorded nothing (review finding I-1).
+                raise SubmissionRefused(
+                    "concurrent_submission",
+                    "Another submission claimed an identity this one needed and "
+                    "could not be identified. This attempt recorded nothing and "
+                    "confirmed nothing. Retry with the same request key: a retry "
+                    "cannot create a second snapshot.",
+                    checksum=checksum,
+                ) from None
 
     def _store_and_record(
         self,
@@ -582,10 +629,45 @@ class SnapshotSubmissionService:
     ) -> SubmissionReceipt:
         checksum = artifact.checksum.hex_digest
         with self._unit_of_work_factory() as unit_of_work:
+            # **First statement of the transaction, and the order is the point.**
+            # It takes the shared side of the fence lock; closure takes the
+            # exclusive side. So this transaction and a closure can never
+            # overlap: either the closure has already committed, in which case
+            # every read below sees it, or it cannot commit until this
+            # transaction ends. Nothing after this line has to reason about how
+            # many milliseconds separated two observations, which is what every
+            # previous remediation was reduced to arguing about.
+            unit_of_work.submission_admissions.hold_against_closure()
+
+            # The admission this credential holds, resolved from the principal id
+            # the request itself carried. Never from "which generation is open
+            # now": a request paused before this line must resolve to the same
+            # admission when it wakes, and a current-generation lookup would
+            # silently upgrade it into the one recovery just authorized. That is
+            # the defect B-1 is open against, in its purest form.
+            admission = unit_of_work.submission_admissions.find_for_principal(
+                principal.principal_id
+            )
+            if admission is None or not admission.is_open:
+                # Fail closed on both. An unknown credential is not a credential
+                # whose generation happens to be missing — it is one that has
+                # never been admitted, and admitting it here would make the
+                # absence of a row into permission.
+                raise _admission_refusal(admission, checksum=checksum)
+
             spent = unit_of_work.idempotency.find(SUBMISSION_SCOPE, request_key)
             if spent is not None:
-                unit_of_work.rollback()
-                return _replay(spent, digest)
+                # This method makes submissions durable. It does not answer with
+                # a receipt somebody else earned — `_fenced_replay` does, and it
+                # is reached from `_persist` for this signal and for the
+                # uniqueness race alike. Raising here rather than replaying in
+                # place is what keeps the number of principal-bound replay
+                # boundaries at one (review finding C-24-R1).
+                #
+                # Nothing has been written yet: the artifact store has not run,
+                # so leaving this `with` block without committing discards a
+                # transaction that only read.
+                raise _RequestKeyAlreadySpent
 
             # Bytes first, row second. The store is content-addressed and
             # idempotent, so a failure between the two leaves an artifact that a
@@ -652,6 +734,13 @@ class SnapshotSubmissionService:
                 duplicate=duplicate,
             )
 
+            # Writing this row is what makes the submission durable, on this path
+            # and on the duplicate-bytes path above where no snapshot row was
+            # created — so its `admission_id` foreign key is the one lock every
+            # acceptance takes. Checking that key takes `KEY SHARE` on the
+            # admission row, which conflicts with the `FOR UPDATE` a closure
+            # takes, so this statement is a synchronisation point as well as a
+            # write.
             unit_of_work.idempotency.add(
                 IdempotencyRecord(
                     scope=SUBMISSION_SCOPE,
@@ -659,6 +748,7 @@ class SnapshotSubmissionService:
                     request_hash=digest,
                     status=IdempotencyStatus.COMPLETED,
                     response=receipt.as_payload(),
+                    admission_id=admission.id,
                 )
             )
             unit_of_work.audit.record(
@@ -685,35 +775,134 @@ class SnapshotSubmissionService:
                             "request_key_digest": key_digest,
                             "received_via": SnapshotSource.FOUNDRY_MODULE.value,
                             "duplicate": duplicate,
+                            "admission_generation": admission.generation,
                         },
                     ),
                 )
             )
+
+            # **The last thing before the commit, and the second half of the
+            # fence.** The lock at the top of this transaction already excludes
+            # an overlapping closure; this excludes one even if that lock were
+            # ever removed, because the `idempotency_keys` insert above has taken
+            # the admission row's `KEY SHARE` lock and a closure holding
+            # `FOR UPDATE` had to finish before that could be granted. Under
+            # `READ COMMITTED` this statement takes its own snapshot, so it sees
+            # that closure.
+            #
+            # It answers the sequence B-1 is open against directly: it does not
+            # matter where the old request was paused, because what is re-read
+            # here is its *own* credential's admission, and a closed one can
+            # never be replaced by an open one.
+            if (
+                unit_of_work.submission_admissions.state_of(admission.id)
+                is not AdmissionState.OPEN
+            ):
+                # Leaves the `with` block without committing, so the snapshot
+                # row, the receipt and the acceptance event roll back together.
+                # A `None` state lands here too: a missing admission row is a
+                # schema fault, and treating it as permission would be the
+                # fail-open direction.
+                raise SubmissionRefused(
+                    "admission_closed",
+                    "This credential's admission generation was closed while "
+                    "this submission was being recorded, so nothing was "
+                    "recorded. A settlement is in progress. Do not retry: an "
+                    "operator will issue a new credential if a fresh export is "
+                    "authorized.",
+                    checksum=checksum,
+                    admission_generation=admission.generation,
+                )
             unit_of_work.commit()
         return receipt
 
-    def _replay_stored(self, request_key: str, digest: bytes) -> SubmissionReceipt:
-        """Read the winning row back in a fresh transaction."""
+    def _fenced_replay(
+        self,
+        *,
+        principal: ServicePrincipal,
+        request_key: str,
+        digest: bytes,
+        checksum: str,
+    ) -> SubmissionReceipt:
+        """**The one boundary a stored successful receipt is ever returned from.**
+
+        Both ways of arriving at "this key already has a receipt" end here: the
+        ordinary same-key retry, which finds the row before the store runs, and
+        recovery from a lost `idempotency_key.scope_key` race, which finds out
+        afterwards. Review finding C-24-R1 was that the second of those returned
+        the winner's receipt from a bare read — no lock, no admission, no
+        generation check — so a request that lost the race before a settlement
+        could answer successfully after it. The fix is not a check in that
+        branch; it is that the branch no longer decides anything.
+
+        Everything below happens in **one transaction**, in this order, and the
+        order is the fence:
+
+        1. the shared side of the admission lock, taken before any receipt is
+           read. Closure takes the exclusive side, so this transaction is wholly
+           before or wholly after a closure — never astride one. A replay writes
+           no row, takes no foreign key and therefore no `KEY SHARE` lock, so
+           this advisory lock is the *only* thing ordering it against a closure;
+        2. the admission of the principal id **this request authenticated as**,
+           never a globally current generation and never the principal recorded
+           on the stored row. A receipt is not a credential, and reading
+           authorization out of the record being replayed would let the record
+           authorize its own replay;
+        3. that admission must still be open;
+        4. the stored receipt must have been earned under *that* admission, so no
+           key can carry a receipt across a generation boundary; and
+        5. the digest check `_replay` has always made, which is what separates a
+           retry from a key reused for other bytes.
+
+        The receipt is built before the transaction ends, so the lock still holds
+        when the answer is decided.
+        """
         with self._unit_of_work_factory() as unit_of_work:
-            spent = unit_of_work.idempotency.find(SUBMISSION_SCOPE, request_key)
-            unit_of_work.rollback()
-        if spent is None:
-            # The conflict named this rule, so a row exists; not finding it means
-            # the winner cannot be identified. Refused rather than reported as a
-            # duplicate of something nobody can name.
-            #
-            # Two things this may not claim (review finding I-1): the store has
-            # already run for this attempt, and another submission *did* record
-            # something — this attempt simply cannot read it back. So it speaks
-            # only about itself.
-            raise SubmissionRefused(
-                "concurrent_submission",
-                "Another submission claimed this request key and its result "
-                "could not be read back. This attempt recorded nothing and "
-                "confirmed nothing. Retry with the same request key: a retry "
-                "cannot create a second snapshot.",
+            unit_of_work.submission_admissions.hold_against_closure()
+            admission = unit_of_work.submission_admissions.find_for_principal(
+                principal.principal_id
             )
-        return _replay(spent, digest)
+            if admission is None or not admission.is_open:
+                # Identical to the acceptance path's treatment, and deliberately
+                # so: a credential that may not record may not replay either.
+                raise _admission_refusal(admission, checksum=checksum)
+
+            spent = unit_of_work.idempotency.find(SUBMISSION_SCOPE, request_key)
+            if spent is None:
+                # Reachable only from the race: the conflict named this rule, so
+                # a row exists, and not finding it means the winner cannot be
+                # identified. Refused rather than reported as a duplicate of
+                # something nobody can name.
+                #
+                # Two things this may not claim (review finding I-1): the store
+                # has already run for this attempt, and another submission *did*
+                # record something — this attempt simply cannot read it back. So
+                # it speaks only about itself.
+                raise SubmissionRefused(
+                    "concurrent_submission",
+                    "Another submission claimed this request key and its result "
+                    "could not be read back. This attempt recorded nothing and "
+                    "confirmed nothing. Retry with the same request key: a retry "
+                    "cannot create a second snapshot.",
+                )
+            if spent.admission_id != admission.id:
+                raise SubmissionRefused(
+                    "admission_closed",
+                    "This request key was spent under a different admission "
+                    "generation from the one this credential now holds, so its "
+                    "receipt is not this credential's to replay. Nothing was "
+                    "recorded. Ask an operator which generation is current.",
+                    checksum=checksum,
+                    admission_generation=admission.generation,
+                )
+
+            # Inside the block, so the advisory lock is still held while the
+            # answer is decided. `rollback()` afterwards rather than a bare
+            # return: this transaction read and wrote nothing, and saying so is
+            # cheaper to verify than inferring it from the absence of a commit.
+            receipt = _replay(spent, digest)
+            unit_of_work.rollback()
+        return receipt
 
     # -- refusal record -------------------------------------------------------
 
@@ -743,6 +932,8 @@ class SnapshotSubmissionService:
             # asserted the stronger fact on a path that cannot prove it.
             "recorded": False,
         }
+        if refusal.admission_generation is not None:
+            payload["admission_generation"] = refusal.admission_generation
         if refusal.artifact_code is not None:
             payload["artifact_code"] = refusal.artifact_code
         if refusal.checksum is not None:
@@ -767,12 +958,18 @@ class SnapshotSubmissionService:
 def _replay(record: IdempotencyRecord, digest: bytes) -> SubmissionReceipt:
     """The original receipt for an already-spent key, or a typed conflict.
 
-    Reached from two places: `_store_and_record`, where the key was found spent
-    before the store ran, and `_replay_stored`, where a race was lost after it
-    did. Neither refusal below may therefore say anything about bytes on disk
-    (review finding I-1) — and neither may claim that *nothing* was recorded
-    without qualification, because the earlier submission that spent this key
-    recorded a great deal. Both speak only about this attempt.
+    **Called from `_fenced_replay` and nowhere else**, which is what makes the
+    admission checks there unavoidable rather than customary; a call added
+    somewhere more convenient would reintroduce review finding C-24-R1 exactly.
+    `tests/test_snapshot_submission.py` asserts that over the module's syntax
+    tree, so the constraint fails the suite rather than a later review.
+
+    It is reached for both ways a key can already be spent — found before the
+    store ran, and discovered by losing a race after it did — so neither refusal
+    below may say anything about bytes on disk (review finding I-1), and neither
+    may claim that *nothing* was recorded without qualification, because the
+    earlier submission that spent this key recorded a great deal. Both speak only
+    about this attempt.
     """
     if not record.matches(digest):
         raise SubmissionRefused(
@@ -804,6 +1001,36 @@ def _replay(record: IdempotencyRecord, digest: bytes) -> SubmissionReceipt:
         canonical_encoding=receipt.canonical_encoding,
         correlation_id=receipt.correlation_id,
         duplicate=True,
+    )
+
+
+def _admission_refusal(
+    admission: SubmissionAdmission | None, *, checksum: str
+) -> SubmissionRefused:
+    """One code for both shapes of "this credential may not write".
+
+    Never admitted and no longer admitted are different facts, and the message
+    distinguishes them because an operator has to act differently on each. The
+    *code* does not, because a caller's options are identical: stop, and ask an
+    operator. Neither message names a generation the caller does not already
+    hold, and neither suggests a retry — repeating the request under the same
+    credential can never succeed, so calling it retryable would be false.
+    """
+    if admission is None:
+        return SubmissionRefused(
+            "admission_closed",
+            "This credential holds no submission admission, so nothing can be "
+            "recorded under it and nothing was. Ask an operator to open one, or "
+            "to confirm which credential is current.",
+            checksum=checksum,
+        )
+    return SubmissionRefused(
+        "admission_closed",
+        "This credential's submission admission is closed, so nothing can be "
+        "recorded under it and nothing was. Do not retry: an operator will "
+        "issue a new credential if a fresh export is authorized.",
+        checksum=checksum,
+        admission_generation=admission.generation,
     )
 
 

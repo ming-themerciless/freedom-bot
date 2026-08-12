@@ -37,12 +37,14 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import Engine, create_engine, text
 
 from adapters.database.config import EXPECTED_DATABASES
 from adapters.database.metadata import metadata
+from application.admissions import ADMISSION_LOCK_KEY
 from adapters.database.safety import (
     ConnectionPolicy,
     UnsafeDatabaseTargetError,
@@ -161,3 +163,86 @@ def committed_database(migrated_database: Engine) -> Engine:
     table_list = ", ".join(sorted(metadata.tables))
     with migrated_database.begin() as connection:
         connection.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
+
+
+def open_admission(
+    engine: Engine, principal_id: str, *, generation: int = 1, state: str = "open"
+) -> UUID:
+    """Insert an admission generation for `principal_id`. Returns its id.
+
+    The PostgreSQL counterpart of `tests.fakes.admit`, and required by every
+    database-backed test that expects a submission to succeed: migration 0005
+    makes an acceptance impossible without one. Written directly rather than
+    through `tools.submission_admission` so a test can also create the states an
+    operator cannot — a generation that is closed from the start, for instance —
+    which is what the fence's negative cases need.
+    """
+    admission_id = uuid4()
+    closed = state == "closed"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO submission_admissions (
+                    id, generation, principal_id, state,
+                    opened_by, open_reason, correlation_id,
+                    closed_at, closed_by, close_reason, closed_correlation_id
+                ) VALUES (
+                    :id, :generation, :principal, :state,
+                    'tests', 'Synthetic admission for an automated test.',
+                    gen_random_uuid(),
+                    CASE WHEN :closed THEN now() END,
+                    CASE WHEN :closed THEN 'tests' END,
+                    CASE WHEN :closed THEN 'Closed by the test that created it.' END,
+                    CASE WHEN :closed THEN gen_random_uuid() END
+                )
+                """
+            ),
+            {
+                "id": admission_id,
+                "generation": generation,
+                "principal": principal_id,
+                "state": state,
+                "closed": closed,
+            },
+        )
+    return admission_id
+
+
+def close_admission(engine: Engine, principal_id: str) -> None:
+    """Close a generation the way `tools.submission_admission close` does.
+
+    **`FOR UPDATE` before the `UPDATE`, and that is not a style choice.** A plain
+    update of a non-key column takes `FOR NO KEY UPDATE`, which does not conflict
+    with the `KEY SHARE` lock an acceptance's foreign key holds — so a closure
+    written without this line would pass straight through a submission that was
+    already waiting. Measured on this host; see
+    `tests/test_submission_admission_postgresql.py`.
+    """
+    with engine.begin() as connection:
+        # The exclusive advisory lock first, then `FOR UPDATE`, in that order —
+        # the same pair, in the same order, that `tools.submission_admission`
+        # takes. A helper that took only one of them would let a test pass
+        # against a fence the real closure does not have.
+        connection.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"), {"key": ADMISSION_LOCK_KEY}
+        )
+        connection.execute(
+            text(
+                "SELECT id FROM submission_admissions "
+                "WHERE principal_id = :principal FOR UPDATE"
+            ),
+            {"principal": principal_id},
+        )
+        connection.execute(
+            text(
+                """
+                UPDATE submission_admissions
+                SET state = 'closed', closed_at = now(), closed_by = 'tests',
+                    close_reason = 'Settlement, in a test.',
+                    closed_correlation_id = gen_random_uuid()
+                WHERE principal_id = :principal AND state = 'open'
+                """
+            ),
+            {"principal": principal_id},
+        )

@@ -14,7 +14,44 @@ from .repositories import (
     SqlAlchemySheetRowMappingRepository,
     SqlAlchemySnapshotImportRepository,
     SqlAlchemySnapshotRepository,
+    SqlAlchemySubmissionAdmissionRepository,
 )
+
+#: The isolation level every unit of work runs at, pinned rather than inherited.
+#:
+#: `application/foundry/submission.py` re-reads its admission state as the last
+#: statement before its commit, and that re-read is only a *fresh* reading under
+#: `READ COMMITTED`, where each statement takes its own snapshot. The code said
+#: so in a comment while the session took whatever `default_transaction_isolation`
+#: the database or the login role happened to carry — so a single `ALTER ROLE …
+#: SET default_transaction_isolation = 'repeatable read'`, outside this
+#: repository and invisible to it, would have changed what that statement means.
+#:
+#: **Measured, not assumed.** The decisive interleaving — a closure holding the
+#: exclusive advisory lock while the submission's first statement takes its
+#: snapshot and then blocks, with the closure committing before it wakes — was
+#: run against PostgreSQL 16.14 at all three levels:
+#:
+#: - `READ COMMITTED` — the submission refuses itself with the typed
+#:   `admission_closed`, which is the designed outcome;
+#: - `REPEATABLE READ` and `SERIALIZABLE` — the foreign-key `KEY SHARE` lock in
+#:   `idempotency_keys.add` cannot be taken against a row updated after the
+#:   snapshot, so PostgreSQL aborts the transaction with **SQLSTATE 40001**.
+#:
+#: So the invariant held at every level and no post-closure acceptance was ever
+#: durable: the non-default levels fail *closed*, which is hardening evidence
+#: rather than a new B-1 failure. What they lose is the typed refusal — the
+#: caller gets a generic `PersistenceError` instead of `403 admission_closed`,
+#: and an operator reading it cannot tell a settlement from a database fault.
+#: Pinning the level here keeps the documented contract true and keeps the
+#: refusal the runbook tells operators to expect.
+#:
+#: Pinned on the unit of work rather than on the cluster, the database or the
+#: role: this is the transaction boundary that depends on it, and nothing about
+#: an unrelated future consumer's isolation needs is decided here. It is also
+#: PostgreSQL's own default, so this changes no behaviour on a cluster nobody
+#: has reconfigured — it makes the assumption enforced instead of hopeful.
+UNIT_OF_WORK_ISOLATION_LEVEL = "READ COMMITTED"
 
 
 class SqlAlchemyUnitOfWork:
@@ -44,6 +81,7 @@ class SqlAlchemyUnitOfWork:
     snapshots: SqlAlchemySnapshotRepository
     snapshot_imports: SqlAlchemySnapshotImportRepository
     idempotency: SqlAlchemyIdempotencyRepository
+    submission_admissions: SqlAlchemySubmissionAdmissionRepository
     initialization: SqlAlchemyPlatformInitializationRepository
 
     def __init__(self, engine: Engine) -> None:
@@ -52,6 +90,10 @@ class SqlAlchemyUnitOfWork:
 
     def __enter__(self) -> SqlAlchemyUnitOfWork:
         session = TranslatingSession(self._session_factory())
+        # Before anything else, and before any statement of this transaction:
+        # the level is a property of the transaction and cannot be chosen once
+        # it has begun. See `UNIT_OF_WORK_ISOLATION_LEVEL`.
+        session.begin_at_isolation_level(UNIT_OF_WORK_ISOLATION_LEVEL)
         self._session = session
         self.characters = SqlAlchemyCharacterRepository(session)
         self.discord_users = SqlAlchemyDiscordUserRepository(session)
@@ -61,6 +103,7 @@ class SqlAlchemyUnitOfWork:
         self.snapshots = SqlAlchemySnapshotRepository(session)
         self.snapshot_imports = SqlAlchemySnapshotImportRepository(session)
         self.idempotency = SqlAlchemyIdempotencyRepository(session)
+        self.submission_admissions = SqlAlchemySubmissionAdmissionRepository(session)
         self.initialization = SqlAlchemyPlatformInitializationRepository(session)
         return self
 
