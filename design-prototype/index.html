@@ -4,33 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Freedom Blades Platform — Design Prototype Hub</title>
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" type="image/png" href="assets/freedom-blades-token.png">
+  <link rel="stylesheet" href="css/tokens.css?v=6">
+  <link rel="stylesheet" href="css/styles.css?v=6">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="app-header" role="banner">
-    <div class="app-header-inner">
+    <div class="app-header-top">
       <a href="index.html" class="brand-title">
         <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
         <span>Freedom Blades Platform</span>
       </a>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="user-status-pill">
+          <div class="user-avatar" aria-hidden="true">S</div>
+          <span>Synthetic Reviewer</span>
+        </div>
+        <button id="mobile-menu-toggle" type="button" class="mobile-menu-btn" aria-expanded="false" aria-controls="main-nav-menu" aria-label="Toggle navigation menu">
+          <span class="mobile-menu-label">Menu</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-closed"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-open" style="display: none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="app-navigation">
       <nav aria-label="Main Navigation">
-        <ul class="nav-menu">
+        <ul id="main-nav-menu" class="nav-menu">
           <li><a href="index.html" class="nav-link active" aria-current="page">Overview</a></li>
-          <li><a href="login.html" class="nav-link">Login</a></li>
           <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
           <li><a href="character-detail.html" class="nav-link">Character Detail</a></li>
           <li><a href="reconciliation.html" class="nav-link">Reconciliation</a></li>
           <li><a href="council-approval.html" class="nav-link">Council Queue</a></li>
           <li><a href="components.html" class="nav-link">Components</a></li>
+          <li><a href="login.html" class="nav-link nav-link-login">Login</a></li>
         </ul>
       </nav>
-      <div class="user-status-pill">
-        <div class="user-avatar" aria-hidden="true">S</div>
-        <span>Synthetic Reviewer</span>
-      </div>
     </div>
   </header>
 
@@ -52,12 +62,20 @@
       </div>
     </div>
 
+    <div class="fb-blade-divider" role="separator">
+      <span class="fb-blade-divider-mark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+        Guild Platform Directory
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+      </span>
+    </div>
+
     <section aria-labelledby="prototype-screens-heading">
       <h2 id="prototype-screens-heading" style="font-size: var(--fb-font-size-xl); margin-bottom: 1rem; color: var(--fb-color-text-main);">Prototype Screens Overview</h2>
       
       <div class="card-grid">
         <!-- Login Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">1. Authentication & Login</h3>
             <span class="badge badge-primary">Public</span>
@@ -69,7 +87,7 @@
         </article>
 
         <!-- My Characters Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">2. My Characters</h3>
             <span class="badge badge-success">Member Portal</span>
@@ -81,7 +99,7 @@
         </article>
 
         <!-- Character Detail Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">3. Character Detail</h3>
             <span class="badge badge-success">Member / Council</span>
@@ -93,7 +111,7 @@
         </article>
 
         <!-- Reconciliation Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">4. Import & Reconciliation</h3>
             <span class="badge badge-warning">Council Admin</span>
@@ -105,7 +123,7 @@
         </article>
 
         <!-- Council Approval Queue Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">5. Council Approval Queue</h3>
             <span class="badge badge-warning">Council Admin</span>
@@ -117,7 +135,7 @@
         </article>
 
         <!-- Component Catalogue Screen -->
-        <article class="card">
+        <article class="card card-interactive">
           <div class="card-header">
             <h3 class="card-title">6. Component Catalogue</h3>
             <span class="badge badge-deferred">System Design</span>
@@ -137,5 +155,43 @@
       <span>Review Prototype &bull; Asset Provenance: Maintainer-supplied Freedom Blades Token</span>
     </div>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggle = document.getElementById('mobile-menu-toggle');
+      const menu = document.getElementById('main-nav-menu');
+      if (toggle && menu) {
+        const closedIcon = toggle.querySelector('.menu-icon-closed');
+        const openIcon = toggle.querySelector('.menu-icon-open');
+
+        function setExpanded(expanded) {
+          toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          menu.classList.toggle('mobile-expanded', expanded);
+          if (closedIcon && openIcon) {
+            closedIcon.style.display = expanded ? 'none' : 'inline-block';
+            openIcon.style.display = expanded ? 'inline-block' : 'none';
+          }
+        }
+
+        toggle.addEventListener('click', function() {
+          const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+          setExpanded(!isExpanded);
+        });
+
+        const navLinks = menu.querySelectorAll('.nav-link');
+        navLinks.forEach(function(link) {
+          link.addEventListener('click', function() {
+            setExpanded(false);
+          });
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+            setExpanded(false);
+            toggle.focus();
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>

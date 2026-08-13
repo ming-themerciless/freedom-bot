@@ -4,74 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Snapshot Import & Reconciliation — Freedom Blades Platform</title>
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/styles.css">
-  <style>
-    .progress-step-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .progress-step-card {
-      background-color: var(--fb-color-bg-surface);
-      border: 1px solid var(--fb-color-border-steel);
-      border-radius: var(--fb-radius-md);
-      padding: 1rem;
-      text-align: center;
-    }
-    .progress-step-card.active {
-      border-color: var(--fb-color-primary);
-      background-color: var(--fb-color-bg-subtle);
-    }
-    .progress-step-card.complete {
-      border-color: var(--fb-color-success-border);
-    }
-    .progress-step-card.failed {
-      border-color: var(--fb-color-danger-border);
-      background-color: rgba(153, 27, 27, 0.15);
-    }
-    .progress-step-card.stale {
-      border-color: var(--fb-color-warning-border);
-      background-color: rgba(154, 52, 18, 0.15);
-    }
-    .step-number {
-      font-size: var(--fb-font-size-xs);
-      font-weight: var(--fb-font-weight-bold);
-      color: var(--fb-color-text-dim);
-      text-transform: uppercase;
-    }
-    .step-title {
-      font-size: var(--fb-font-size-sm);
-      font-weight: var(--fb-font-weight-semibold);
-      margin-top: 0.25rem;
-    }
-  </style>
+  <link rel="icon" type="image/png" href="assets/freedom-blades-token.png">
+  <link rel="stylesheet" href="css/tokens.css?v=6">
+  <link rel="stylesheet" href="css/styles.css?v=6">
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="app-header" role="banner">
-    <div class="app-header-inner">
+    <div class="app-header-top">
       <a href="index.html" class="brand-title">
         <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
         <span>Freedom Blades Platform</span>
       </a>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="user-status-pill">
+          <div class="user-avatar" aria-hidden="true">S</div>
+          <span>Synthetic Council Member</span>
+        </div>
+        <button id="mobile-menu-toggle" type="button" class="mobile-menu-btn" aria-expanded="false" aria-controls="main-nav-menu" aria-label="Toggle navigation menu">
+          <span class="mobile-menu-label">Menu</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-closed"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-open" style="display: none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="app-navigation">
       <nav aria-label="Main Navigation">
-        <ul class="nav-menu">
+        <ul id="main-nav-menu" class="nav-menu">
           <li><a href="index.html" class="nav-link">Overview</a></li>
-          <li><a href="login.html" class="nav-link">Login</a></li>
           <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
           <li><a href="character-detail.html" class="nav-link">Character Detail</a></li>
           <li><a href="reconciliation.html" class="nav-link active" aria-current="page">Reconciliation</a></li>
           <li><a href="council-approval.html" class="nav-link">Council Queue</a></li>
           <li><a href="components.html" class="nav-link">Components</a></li>
+          <li><a href="login.html" class="nav-link nav-link-login">Login</a></li>
         </ul>
       </nav>
-      <div class="user-status-pill">
-        <div class="user-avatar" aria-hidden="true">S</div>
-        <span>Synthetic Council Member</span>
-      </div>
     </div>
   </header>
 
@@ -86,8 +55,16 @@
       </p>
     </header>
 
+    <div class="fb-blade-divider" role="separator">
+      <span class="fb-blade-divider-mark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+        Council Operational Console
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+      </span>
+    </div>
+
     <!-- Async Task Execution Simulation Card -->
-    <section class="card" style="margin-bottom: 2rem;">
+    <section class="card council-console-card" style="margin-bottom: 2rem;">
       <div class="card-header">
         <div>
           <h2 class="card-title">Asynchronous Preview Job State</h2>
@@ -263,6 +240,43 @@
   </footer>
 
   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggle = document.getElementById('mobile-menu-toggle');
+      const menu = document.getElementById('main-nav-menu');
+      if (toggle && menu) {
+        const closedIcon = toggle.querySelector('.menu-icon-closed');
+        const openIcon = toggle.querySelector('.menu-icon-open');
+
+        function setExpanded(expanded) {
+          toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          menu.classList.toggle('mobile-expanded', expanded);
+          if (closedIcon && openIcon) {
+            closedIcon.style.display = expanded ? 'none' : 'inline-block';
+            openIcon.style.display = expanded ? 'inline-block' : 'none';
+          }
+        }
+
+        toggle.addEventListener('click', function() {
+          const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+          setExpanded(!isExpanded);
+        });
+
+        const navLinks = menu.querySelectorAll('.nav-link');
+        navLinks.forEach(function(link) {
+          link.addEventListener('click', function() {
+            setExpanded(false);
+          });
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+            setExpanded(false);
+            toggle.focus();
+          }
+        });
+      }
+    });
+
     const RECONCILIATION_STATES = {
       queued: { fill: '#3b82f6', width: '10%', valuenow: '10', alertClass: 'alert-info' },
       running: { fill: '#3b82f6', width: '50%', valuenow: '50', alertClass: 'alert-info' },

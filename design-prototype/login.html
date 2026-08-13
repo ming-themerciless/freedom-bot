@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Freedom Blades Platform</title>
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" type="image/png" href="assets/freedom-blades-token.png">
+  <link rel="stylesheet" href="css/tokens.css?v=6">
+  <link rel="stylesheet" href="css/styles.css?v=6">
   <style>
     .login-wrapper {
       max-width: 480px;
@@ -71,25 +72,34 @@
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
   <header class="app-header" role="banner">
-    <div class="app-header-inner">
+    <div class="app-header-top">
       <a href="index.html" class="brand-title">
         <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
         <span>Freedom Blades Platform</span>
       </a>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="user-status-pill">
+          <span>Not Signed In</span>
+        </div>
+        <button id="mobile-menu-toggle" type="button" class="mobile-menu-btn" aria-expanded="false" aria-controls="main-nav-menu" aria-label="Toggle navigation menu">
+          <span class="mobile-menu-label">Menu</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-closed"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="menu-icon-open" style="display: none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="app-navigation">
       <nav aria-label="Main Navigation">
-        <ul class="nav-menu">
+        <ul id="main-nav-menu" class="nav-menu">
           <li><a href="index.html" class="nav-link">Overview</a></li>
-          <li><a href="login.html" class="nav-link active" aria-current="page">Login</a></li>
           <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
           <li><a href="character-detail.html" class="nav-link">Character Detail</a></li>
           <li><a href="reconciliation.html" class="nav-link">Reconciliation</a></li>
           <li><a href="council-approval.html" class="nav-link">Council Queue</a></li>
           <li><a href="components.html" class="nav-link">Components</a></li>
+          <li><a href="login.html" class="nav-link nav-link-login active" aria-current="page">Login</a></li>
         </ul>
       </nav>
-      <div class="user-status-pill">
-        <span>Not Signed In</span>
-      </div>
     </div>
   </header>
 
@@ -99,6 +109,14 @@
         <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal Emblem" class="brand-hero-emblem">
         <h1 class="page-title" style="margin-bottom: 0.5rem;">Freedom Blades Platform</h1>
         <p class="page-description">Guild Command & Character Operations Portal</p>
+      </div>
+
+      <div class="fb-blade-divider" role="separator">
+        <span class="fb-blade-divider-mark">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+          Guild Authentication Portal
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+        </span>
       </div>
 
       <div class="login-card">
@@ -143,5 +161,43 @@
       <span>OD-16 & ADR 0004 Scope Alignment</span>
     </div>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggle = document.getElementById('mobile-menu-toggle');
+      const menu = document.getElementById('main-nav-menu');
+      if (toggle && menu) {
+        const closedIcon = toggle.querySelector('.menu-icon-closed');
+        const openIcon = toggle.querySelector('.menu-icon-open');
+
+        function setExpanded(expanded) {
+          toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+          menu.classList.toggle('mobile-expanded', expanded);
+          if (closedIcon && openIcon) {
+            closedIcon.style.display = expanded ? 'none' : 'inline-block';
+            openIcon.style.display = expanded ? 'inline-block' : 'none';
+          }
+        }
+
+        toggle.addEventListener('click', function() {
+          const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+          setExpanded(!isExpanded);
+        });
+
+        const navLinks = menu.querySelectorAll('.nav-link');
+        navLinks.forEach(function(link) {
+          link.addEventListener('click', function() {
+            setExpanded(false);
+          });
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+            setExpanded(false);
+            toggle.focus();
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>

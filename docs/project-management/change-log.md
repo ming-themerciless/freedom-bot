@@ -2443,6 +2443,61 @@ record: `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md`.
 - **Evidence:** focused PostgreSQL suite 146 passed; full suite 1967 passed and
   253 skipped; `git diff --check` clean; `compileall` passed.
 
+### Phase 3 §12.1 visual acceptance and project reconciliation
+
+Recorded 2026-08-13. After staged Gemini implementation and repeated Codex
+source review, Peter Duscha accepted visual-refinement Step 5 and directed Codex
+to reconcile the project before any further implementation.
+
+- **Affected requirement and milestone:** implementation-plan §12.1 visual
+  direction and the readiness inputs for numbered Phase 3. This closes the
+  separate visual/accessibility gate only; it does not accept or begin numbered
+  Phase 3 production implementation.
+- **Reason and alternatives:** the accepted visual source was frozen, while the
+  status/RAID records still described Phase 2 and visual acceptance as open and
+  the proposed Claude document authorized only contrast tooling. Proceeding
+  directly to backend implementation was rejected in favour of a clean,
+  reviewable baseline and accurate controlled records.
+- **Scope:** commits the static seven-page prototype, local synthetic portraits,
+  small dependency-free portrait-preview JavaScript, documentation and a
+  14-file SHA-256 freeze manifest. It reconciles current status and dependencies.
+  It adds no FastAPI, OAuth, session, authorization, production Jinja, database,
+  Caddy, Foundry, Sheet or deployment implementation.
+- **Dependency and critical-path effect:** closes the visual half of D-03.
+  Stable accepted backend route/view-model contracts remain open and block
+  Gemini production integration. Phase 3 remains not ready until its separately
+  estimated packages satisfy the management definition of ready.
+- **Estimate, forecast and capacity effect:** no calendar forecast is committed.
+  Claude remains proposed backend implementer, Gemini frontend implementer and
+  Codex independent/security-focused reviewer resource; accountable human roles,
+  environment availability, three-point estimates and review/remediation
+  contingency must be recorded in the Phase 3 delivery plan.
+- **Risk effect:** R-04 remains active until server-side authorization is
+  implemented and reviewed. No production security boundary changes here.
+  Static-source contrast evidence does not replace browser, screen-reader or
+  production accessibility testing.
+- **Testing and evidence:** Peter visually accepted desktop and real-mobile
+  behaviour. On 2026-08-13 Codex ran `check_css_tokens.py` (71 defined, 62
+  referenced, zero undefined), `calc_contrast.py --test` (11 passed), the
+  complete contrast matrix (49 pairs: 48 pass, one disabled-state exemption,
+  zero failures), the 14-file freeze manifest (all OK), JavaScript syntax check
+  and `git diff --check` (both clean). Reconciliation removed one trailing
+  blank from the new portrait-preview JavaScript, with no token or rendered
+  behaviour change, and updated its manifest hash before the final verification.
+  These checks are accurately classified as repository-local/static evidence.
+- **Migration, deployment and rollback:** no migration or deployment. Git is the
+  baseline and rollback mechanism; the freeze manifest detects visual-source
+  drift. The public static preview is not the production portal.
+- **Review and acceptance:** Gemini implemented the visual work; Codex performed
+  independent source reviews and this reconciliation. Peter Duscha is the
+  Product Owner and visual gate authority and accepted Step 5 on 2026-08-13.
+  Authentication/security work still requires the separate reviews and
+  Acceptance Authority decision defined by the plan.
+- **Superseded handoff:**
+  `docs/review/phase-3-contrast-evidence-remediation-claude-prompt.md` is retained
+  as planning history but was superseded without execution after current tooling
+  passed. It must not be used as a production backend prompt.
+
 ## Required fields for later entries
 
 Every material entry must identify:

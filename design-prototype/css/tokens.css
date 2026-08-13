@@ -44,6 +44,9 @@
   --fb-color-border-steel: #64748b;         /* Standard visible border (3.73:1 vs surface) */
   --fb-color-border-highlight: #93c5fd;     /* Active/focus border highlight */
   --fb-color-border-brand: #3b82f6;         /* Brand emblem border accent */
+  --fb-color-border-forged: #475569;        /* Forged-steel border highlight */
+  --fb-color-silver-highlight: rgba(226, 232, 240, 0.15); /* Silver edge highlight */
+  --fb-color-blade-line: rgba(59, 130, 246, 0.3);          /* Blade/wing divider accent line */
 
   /* Focus Indicator Tokens */
   --fb-focus-ring: 3px solid var(--fb-color-accent); /* Focus outline ring style */
