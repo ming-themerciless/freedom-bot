@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thorin Stonehelm — Character Detail</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .profile-hero {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .profile-badge-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+    .view-role-bar {
+      background-color: var(--fb-color-bg-surface-elevated);
+      border: 1px solid var(--fb-color-border-steel);
+      border-radius: var(--fb-radius-lg);
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .ability-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .ability-box {
+      background-color: var(--fb-color-bg-subtle);
+      border: 1px solid var(--fb-color-border-steel);
+      border-radius: var(--fb-radius-md);
+      padding: 0.75rem 0.5rem;
+      text-align: center;
+    }
+    .ability-name {
+      font-size: var(--fb-font-size-xs);
+      color: var(--fb-color-text-muted);
+      font-weight: var(--fb-font-weight-bold);
+      text-transform: uppercase;
+    }
+    .ability-val {
+      font-size: var(--fb-font-size-lg);
+      font-weight: var(--fb-font-weight-bold);
+      color: var(--fb-color-text-main);
+      margin: 0.25rem 0;
+    }
+    .ability-mod {
+      font-size: var(--fb-font-size-xs);
+      color: var(--fb-color-accent);
+      font-weight: var(--fb-font-weight-semibold);
+    }
+  </style>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="app-header" role="banner">
+    <div class="app-header-inner">
+      <a href="index.html" class="brand-title">
+        <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
+        <span>Freedom Blades Platform</span>
+      </a>
+      <nav aria-label="Main Navigation">
+        <ul class="nav-menu">
+          <li><a href="index.html" class="nav-link">Overview</a></li>
+          <li><a href="login.html" class="nav-link">Login</a></li>
+          <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
+          <li><a href="character-detail.html" class="nav-link active" aria-current="page">Character Detail</a></li>
+          <li><a href="reconciliation.html" class="nav-link">Reconciliation</a></li>
+          <li><a href="council-approval.html" class="nav-link">Council Queue</a></li>
+          <li><a href="components.html" class="nav-link">Components</a></li>
+        </ul>
+      </nav>
+      <div class="user-status-pill">
+        <div class="user-avatar" aria-hidden="true">S</div>
+        <span>Synthetic Council Member</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-container" tabIndex="-1">
+    <!-- OD-16 View Scope Demonstrator -->
+    <div class="view-role-bar">
+      <div>
+        <span style="font-weight: var(--fb-font-weight-bold); color: var(--fb-color-text-main); font-size: var(--fb-font-size-sm);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align: middle; margin-right: 0.375rem;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          OD-16 Access Authorization Mode:
+        </span>
+        <span id="role-indicator-text" aria-live="polite" style="color: var(--fb-color-accent); font-size: var(--fb-font-size-xs); margin-left: 0.5rem;">[Council Elevated Mode Active]</span>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;" role="group" aria-label="OD-16 View Scope Toggle">
+        <button id="member-view-button" type="button" class="btn btn-secondary btn-sm" aria-pressed="false" onclick="setRole('member')">Ordinary Member View</button>
+        <button id="council-view-button" type="button" class="btn btn-secondary btn-sm" aria-pressed="true" onclick="setRole('council')">Council Elevated View</button>
+      </div>
+    </div>
+
+    <!-- Council Elevated Banner -->
+    <div id="council-notice-banner" class="alert alert-warning" style="margin-bottom: 1.5rem;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div>
+        <strong>OD-16 Council Inspection Privileges:</strong> This composition shows a character profile inspected under Guild Council authority. Production access must be enforced server-side; this prototype toggle is not authorization.
+      </div>
+    </div>
+
+    <section class="card" style="margin-bottom: 1.5rem;">
+      <div class="profile-hero">
+        <div style="display: flex; gap: 1.25rem; flex-wrap: wrap; align-items: center;">
+          <img src="assets/portraits/thorin.png" alt="Portrait of Thorin Stonehelm" class="char-portrait-hero" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="char-portrait-hero avatar-portrait-fallback" style="display: none;" aria-hidden="true">TS</div>
+          <div>
+            <span class="font-mono" style="font-size: var(--fb-font-size-xs); color: var(--fb-color-text-dim);">Stable ID: c01a9f42-8801-49b0-9b3f</span>
+            <h1 class="page-title" style="margin-top: 0.25rem;">Thorin Stonehelm</h1>
+            <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-top: 0.25rem;">
+              Display Name: <strong>Thorin the Ironclad</strong> &bull; Species: <strong>Dwarf</strong> &bull; Class: <strong>Paladin 7 (Oath of Devotion)</strong>
+            </p>
+            <div class="profile-badge-group">
+              <span class="badge badge-primary">Level 7</span>
+              <span class="badge badge-success">Proficiency Bonus +3</span>
+              <span class="badge badge-deferred">Guild Rank: Blade Officer</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: right; min-width: 200px;">
+          <div class="data-label">Snapshot Freshness</div>
+          <div class="data-value font-mono" style="font-size: var(--fb-font-size-sm); color: var(--fb-color-success-text); margin-top: 0.25rem;">
+            2026-08-12 21:45:00 UTC
+          </div>
+          <div style="font-size: var(--fb-font-size-xs); color: var(--fb-color-text-dim); margin-top: 0.25rem;">
+            Foundry World: <code class="font-mono">the-guild</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="responsive-stack">
+      <!-- Left Column: Attributes & Financial Facts -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Ability Scores -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Ability Scores (D&D 5.5 Baseline)</h2>
+            <span class="badge badge-deferred">Derived from Snapshot</span>
+          </div>
+          <div class="ability-grid">
+            <div class="ability-box"><div class="ability-name">STR</div><div class="ability-val">18</div><div class="ability-mod">+4</div></div>
+            <div class="ability-box"><div class="ability-name">DEX</div><div class="ability-val">10</div><div class="ability-mod">+0</div></div>
+            <div class="ability-box"><div class="ability-name">CON</div><div class="ability-val">16</div><div class="ability-mod">+3</div></div>
+            <div class="ability-box"><div class="ability-name">INT</div><div class="ability-val">10</div><div class="ability-mod">+0</div></div>
+            <div class="ability-box"><div class="ability-name">WIS</div><div class="ability-val">12</div><div class="ability-mod">+1</div></div>
+            <div class="ability-box"><div class="ability-name">CHA</div><div class="ability-val">14</div><div class="ability-mod">+2</div></div>
+          </div>
+        </article>
+
+        <!-- Financial Facts & Wallet -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Financial Balance & Wealth Facts</h2>
+            <span class="badge badge-primary">Package 5.2 Owned</span>
+          </div>
+          <div class="data-grid" style="margin-bottom: 1.25rem;">
+            <div class="data-item">
+              <span class="data-label">Internal Copper Balance</span>
+              <span class="data-value font-mono">48,500 cp</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Display Equivalent</span>
+              <span class="data-value" style="color: #f59e0b;">485.00 gp</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Moradinium Token Balance</span>
+              <span class="data-value font-mono">3 Moradinium</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Outstanding Debt</span>
+              <span class="data-value font-mono" style="color: var(--fb-color-success-text);">0 cp (Clear)</span>
+            </div>
+          </div>
+          <div class="alert alert-info" style="margin-bottom: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <div>
+              <strong>Currency Storage Rule:</strong> Stored internally as integer copper pieces. Binary floats are forbidden by <code>.agents/AGENTS.md</code>.
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- Right Column: Provenance & Council Actions -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Provenance Info -->
+        <article class="card">
+          <div class="card-header">
+            <h2 class="card-title">Provenance & Metadata</h2>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.875rem; font-size: var(--fb-font-size-sm);">
+            <div>
+              <span style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-xs); display: block;">Foundry Actor ID</span>
+              <code class="font-mono">a8F91kM2p0qXz3L7</code>
+            </div>
+            <div>
+              <span style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-xs); display: block;">Snapshot Checksum (SHA-256)</span>
+              <code class="font-mono" style="font-size: 0.75rem;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code>
+            </div>
+            <div>
+              <span style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-xs); display: block;">Field Profile Version</span>
+              <span class="badge badge-deferred font-mono">2026-08-09.1</span>
+            </div>
+            <div>
+              <span style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-xs); display: block;">Linked Discord Owner</span>
+              <span>Synthetic Member A (ID: <code>synthetic-discord-user-001</code>)</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Council Controls (Visible in Council Mode) -->
+        <article id="council-actions-card" class="card" style="border-color: var(--fb-color-warning-border);">
+          <div class="card-header">
+            <h2 class="card-title" style="color: var(--fb-color-warning-text);">Council Administration</h2>
+            <span class="badge badge-warning">Elevated Scope</span>
+          </div>
+          <p style="font-size: var(--fb-font-size-xs); color: var(--fb-color-text-muted); margin-bottom: 1rem;">
+            Guild Council administrative controls for inspecting reconciliation history and link audits.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="alert('This control is an inert visual example.')">View Audit Log Trail &rarr;</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="alert('This control is an inert visual example.')">Reconcile Snapshot &rarr;</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <span>Freedom Blades Platform &copy; 2026</span>
+      <span>OD-16 Access Control Rules</span>
+    </div>
+  </footer>
+
+  <script>
+    function setRole(role) {
+      const banner = document.getElementById('council-notice-banner');
+      const card = document.getElementById('council-actions-card');
+      const text = document.getElementById('role-indicator-text');
+      const memberButton = document.getElementById('member-view-button');
+      const councilButton = document.getElementById('council-view-button');
+
+      if (role === 'member') {
+        banner.style.display = 'none';
+        card.style.display = 'none';
+        text.innerText = '[Ordinary Member View Active]';
+        memberButton.setAttribute('aria-pressed', 'true');
+        councilButton.setAttribute('aria-pressed', 'false');
+      } else {
+        banner.style.display = 'flex';
+        card.style.display = 'block';
+        text.innerText = '[Council Elevated Mode Active]';
+        memberButton.setAttribute('aria-pressed', 'false');
+        councilButton.setAttribute('aria-pressed', 'true');
+      }
+    }
+  </script>
+</body>
+</html>

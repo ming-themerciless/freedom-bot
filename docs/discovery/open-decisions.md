@@ -620,6 +620,13 @@ from any channel.
 *Decide:* leave open (a deliberate transparency choice), make ephemeral, or scope
 to linked characters plus Council.
 
+**Closed 2026-08-12 — maintainer ruling.** `/info` is scoped to characters linked
+to the authenticated user, with Guild Council permitted to inspect any character,
+and its Discord response is ephemeral. It is not a public financial-transparency
+surface. Server-side object authorization remains mandatory; hiding a character
+in a selector is not authorization. Peter Duscha accepted this recommended policy
+when releasing Phase 3 readiness planning.
+
 ### OD-17 — How long may the bot remain unauthorized? · Blocking Phase 3 planning · **ESCALATED 2026-07-31**
 
 Phase 3 gives the **web app** authorization. The bot keeps its current
@@ -684,6 +691,25 @@ therefore not made without this decision.
 
 *Needed from:* a maintainer, before Phase 3 planning and before any affected
 legacy bot mutation is migrated or cut over. Not required to approve Phase 2.
+
+**Closed 2026-08-12 — maintainer ruling.** Adopt the staged recommendation:
+
+1. while verified `character_access` links are not yet populated, every legacy
+   bot mutation posts a non-ephemeral attribution naming the acting Discord user,
+   character and action; this is a detective interim control and is not described
+   as authorization; and
+2. the attribution control remains in force through the Phase 3 gate; immediately
+   after Phase 3 acceptance, the first post-acceptance deployment back-ports the
+   active `character_access` check to every affected legacy command boundary
+   (with the separately approved Council capability where applicable). No later
+   phase feature deployment and no affected Phase 5 mutation cutover may precede
+   that deployment.
+
+Peter Duscha accepted the recommendation when releasing Phase 3 readiness
+planning and fixed the transition at **after Phase 3 acceptance** on 2026-08-12.
+The Phase 3 plan must prepare the back-port, its command matrix and its tests so
+the first post-acceptance deployment can enforce it without an open-ended
+intermediate state.
 
 ### OD-39 — Unauthenticated economy mutations through `/trade` and `/sale` · **RAISED 2026-07-31**
 

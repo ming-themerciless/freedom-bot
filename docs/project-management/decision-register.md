@@ -1,6 +1,6 @@
 # Decision register
 
-Status date: 2026-08-02
+Status date: 2026-08-12
 
 The authoritative decision text is
 [`docs/discovery/open-decisions.md`](../discovery/open-decisions.md). This file is
@@ -13,8 +13,8 @@ which milestone it blocks. It does not restate or supersede a ruling.
 | OD-04 | Partly answered | Product Owner | Phase 5.3 and Frank-interest job | Define remaining lender behavior and acceptance examples |
 | OD-05 | Open | Product Owner | Phase 5.6 crafting | Rule whether fancy meals incur the downtime percentage |
 | OD-09 | Open | Product Owner | Phase 5.5 learning | Set disguise/forgery learning cost policy |
-| OD-16 | Open | Product Owner / Security Reviewer | Phase 3 | Decide `/info` access policy |
-| OD-17 | Escalated | Product Owner / Security Reviewer | Phase 3 planning | Set authorized transition deadline and interim risk treatment |
+| OD-16 | **Closed 2026-08-12** | Product Owner / Security Reviewer | Phase 3 | `/info` is ephemeral and limited to linked characters plus Guild Council |
+| OD-17 | **Closed 2026-08-12** | Product Owner / Security Reviewer | Phase 3 planning | Attribute legacy mutations through the Phase 3 gate; the first post-acceptance deployment requires verified `character_access` and precedes every later feature deployment |
 | OD-25 | Verification open | Operations Owner | Production readiness | Verify Foundry network exposure and record evidence |
 | OD-28 | Partly implemented | Product Owner | Phase 5.5 | Define auditable tribute-item mechanism |
 | OD-39 | Open | Product Owner / Security Reviewer | Phase 5.7/5.8 cutover | Close unauthenticated trade/sale mutation policy and interim control |

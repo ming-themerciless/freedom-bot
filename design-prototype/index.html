@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freedom Blades Platform — Design Prototype Hub</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="app-header" role="banner">
+    <div class="app-header-inner">
+      <a href="index.html" class="brand-title">
+        <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
+        <span>Freedom Blades Platform</span>
+      </a>
+      <nav aria-label="Main Navigation">
+        <ul class="nav-menu">
+          <li><a href="index.html" class="nav-link active" aria-current="page">Overview</a></li>
+          <li><a href="login.html" class="nav-link">Login</a></li>
+          <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
+          <li><a href="character-detail.html" class="nav-link">Character Detail</a></li>
+          <li><a href="reconciliation.html" class="nav-link">Reconciliation</a></li>
+          <li><a href="council-approval.html" class="nav-link">Council Queue</a></li>
+          <li><a href="components.html" class="nav-link">Components</a></li>
+        </ul>
+      </nav>
+      <div class="user-status-pill">
+        <div class="user-avatar" aria-hidden="true">S</div>
+        <span>Synthetic Reviewer</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-container" tabIndex="-1">
+    <header class="page-header">
+      <div class="page-title-row">
+        <h1 class="page-title">Phase 3 Visual Design Prototype</h1>
+        <span class="badge badge-primary">Plan §12.1 Static Preview</span>
+      </div>
+      <p class="page-description">
+        Inert, accessible frontend visual prototype for the Freedom Blades Platform. Demonstrates screen layouts, component inventory, WCAG 2.2 AA design tokens, and server-side state visibility.
+      </p>
+    </header>
+
+    <div class="alert alert-info" role="status">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <div>
+        <strong>Static Visual Prototype Notice:</strong> This preview requires no backend server, API calls, or network access. All data displayed is synthetic and complies with ADR 0002/0004 and OD-16.
+      </div>
+    </div>
+
+    <section aria-labelledby="prototype-screens-heading">
+      <h2 id="prototype-screens-heading" style="font-size: var(--fb-font-size-xl); margin-bottom: 1rem; color: var(--fb-color-text-main);">Prototype Screens Overview</h2>
+      
+      <div class="card-grid">
+        <!-- Login Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">1. Authentication & Login</h3>
+            <span class="badge badge-primary">Public</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Brand identity, Discord OAuth2 sign-in explanation, privacy disclosure, and inert login action.
+          </p>
+          <a href="login.html" class="btn btn-secondary btn-sm">Launch Login Screen &rarr;</a>
+        </article>
+
+        <!-- My Characters Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">2. My Characters</h3>
+            <span class="badge badge-success">Member Portal</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Linked character grid with synthetic portraits, display name vs immutable identity distinction, empty state, and sync pending states.
+          </p>
+          <a href="my-characters.html" class="btn btn-secondary btn-sm">Launch My Characters &rarr;</a>
+        </article>
+
+        <!-- Character Detail Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">3. Character Detail</h3>
+            <span class="badge badge-success">Member / Council</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Read-only profile, synthetic character portrait, snapshot freshness, financial facts, and OD-16 Council elevated view toggle.
+          </p>
+          <a href="character-detail.html" class="btn btn-secondary btn-sm">Launch Character Detail &rarr;</a>
+        </article>
+
+        <!-- Reconciliation Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">4. Import & Reconciliation</h3>
+            <span class="badge badge-warning">Council Admin</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Snapshot reconciliation, 9.57s async execution progress model, checksums, candidates, and deferred fields.
+          </p>
+          <a href="reconciliation.html" class="btn btn-secondary btn-sm">Launch Reconciliation &rarr;</a>
+        </article>
+
+        <!-- Council Approval Queue Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">5. Council Approval Queue</h3>
+            <span class="badge badge-warning">Council Admin</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Forward-looking Council approval diff, side-by-side attributes, stale indicators, provenance, and accessible modal dialogs.
+          </p>
+          <a href="council-approval.html" class="btn btn-secondary btn-sm">Launch Council Queue &rarr;</a>
+        </article>
+
+        <!-- Component Catalogue Screen -->
+        <article class="card">
+          <div class="card-header">
+            <h3 class="card-title">6. Component Catalogue</h3>
+            <span class="badge badge-deferred">System Design</span>
+          </div>
+          <p style="color: var(--fb-color-text-muted); font-size: var(--fb-font-size-sm); margin-bottom: 1rem;">
+            Complete UI inventory: cards, tables, forms, badges, alerts, tabs, loading skeletons, empty & error states.
+          </p>
+          <a href="components.html" class="btn btn-secondary btn-sm">Launch Components &rarr;</a>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="app-footer-inner">
+      <span>Freedom Blades Platform &copy; 2026</span>
+      <span>Review Prototype &bull; Asset Provenance: Maintainer-supplied Freedom Blades Token</span>
+    </div>
+  </footer>
+</body>
+</html>

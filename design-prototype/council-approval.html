@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Council Approval Queue & Diff — Freedom Blades Platform</title>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Wrap all background UI inside #app-shell so inert can be applied cleanly -->
+  <div id="app-shell">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header class="app-header" role="banner">
+      <div class="app-header-inner">
+        <a href="index.html" class="brand-title">
+          <img src="assets/freedom-blades-token.png" alt="Freedom Blades Seal" class="brand-emblem">
+          <span>Freedom Blades Platform</span>
+        </a>
+        <nav aria-label="Main Navigation">
+          <ul class="nav-menu">
+            <li><a href="index.html" class="nav-link">Overview</a></li>
+            <li><a href="login.html" class="nav-link">Login</a></li>
+            <li><a href="my-characters.html" class="nav-link">My Characters</a></li>
+            <li><a href="character-detail.html" class="nav-link">Character Detail</a></li>
+            <li><a href="reconciliation.html" class="nav-link">Reconciliation</a></li>
+            <li><a href="council-approval.html" class="nav-link active" aria-current="page">Council Queue</a></li>
+            <li><a href="components.html" class="nav-link">Components</a></li>
+          </ul>
+        </nav>
+        <div class="user-status-pill">
+          <div class="user-avatar" aria-hidden="true">S</div>
+          <span>Synthetic Council Member</span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" class="main-container" tabIndex="-1">
+      <header class="page-header">
+        <div class="page-title-row">
+          <h1 class="page-title">Council Approval Queue & Attribute Diff</h1>
+          <span class="badge badge-warning">Council Administration</span>
+        </div>
+        <p class="page-description">
+          Forward-looking component prototype for Guild Council proposal review. Demonstrates attribute diff comparison, provenance audit, and confirmation flows.
+        </p>
+      </header>
+
+      <div class="alert alert-warning" role="status">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <strong>Forward-Looking Inert Prototype:</strong> Phase 3 contains zero mutation APIs. Approval actions displayed here are inert visual prototypes for future Phase 6 integration.
+        </div>
+      </div>
+
+      <!-- Pending Proposal Card -->
+      <article class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+          <div>
+            <span class="font-mono" style="font-size: var(--fb-font-size-xs); color: var(--fb-color-text-dim);">Proposal Reference: prop_synthetic_001</span>
+            <h2 class="card-title" style="margin-top: 0.25rem;">Character Link & Profile Reconciliation Proposal</h2>
+          </div>
+          <span class="badge badge-warning">Pending Council Approval</span>
+        </div>
+
+        <div class="data-grid" style="margin-bottom: 1.5rem;">
+          <div class="data-item">
+            <span class="data-label">Target Character</span>
+            <span class="data-value">Thorin Stonehelm (<code class="font-mono">c01a9f42</code>)</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Submitted By DM</span>
+            <span class="data-value">Synthetic DM B</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Submission Timestamp</span>
+            <span class="data-value font-mono">2026-08-12 21:00:15 UTC</span>
+          </div>
+          <div class="data-item">
+            <span class="data-label">Stale State Warning</span>
+            <span class="badge badge-success">Fresh Snapshot (No Stale Locks)</span>
+          </div>
+        </div>
+
+        <!-- Side-by-Side Diff Section -->
+        <h3 style="font-size: var(--fb-font-size-base); color: var(--fb-color-text-main); margin-bottom: 0.75rem;">Attribute Diff Comparison</h3>
+        
+        <div class="diff-container" style="margin-bottom: 1.5rem;">
+          <div class="diff-box before">
+            <div class="diff-title">Current Database State (Before)</div>
+            <ul style="list-style: none; font-size: var(--fb-font-size-sm); display: flex; flex-direction: column; gap: 0.5rem;">
+              <li><strong>Display Name:</strong> Thorin Stonehelm</li>
+              <li><strong>Guild Rank:</strong> Journeyman (Tier 1)</li>
+              <li><strong>Wallet Balance:</strong> <span class="font-mono">35,000 cp (350 gp)</span></li>
+              <li><strong>Completed Missions:</strong> 12 Missions</li>
+            </ul>
+          </div>
+
+          <div class="diff-box after">
+            <div class="diff-title">Proposed State (After Settlement)</div>
+            <ul style="list-style: none; font-size: var(--fb-font-size-sm); display: flex; flex-direction: column; gap: 0.5rem;">
+              <li><strong>Display Name:</strong> Thorin the Ironclad <span class="badge badge-warning">Rename</span></li>
+              <li><strong>Guild Rank:</strong> Blade Officer (Tier 2) <span class="badge badge-success">Advancement</span></li>
+              <li><strong>Wallet Balance:</strong> <span class="font-mono">48,500 cp (485 gp)</span> <span class="badge badge-success">+135 gp</span></li>
+              <li><strong>Completed Missions:</strong> 13 Missions <span class="badge badge-primary">+1 Mission</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Provenance Reference -->
+        <div class="alert alert-deferred" style="margin-bottom: 1.5rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div>
+            <strong>Synthetic Provenance Reference:</strong> Synthetic snapshot reference shown for layout only. Production provenance and audit behavior are pending the accepted backend contract.
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" class="btn btn-secondary" onclick="alert('This control is an inert visual example.')">Reject Proposal</button>
+          <button id="open-dialog-button" type="button" class="btn btn-primary" onclick="openDialog()">Approve Proposal &rarr;</button>
+        </div>
+      </article>
+    </main>
+
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        <span>Freedom Blades Platform &copy; 2026</span>
+        <span>Council Approval Queue Prototype</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal Dialog placed OUTSIDE #app-shell -->
+  <div id="demo-dialog" class="dialog-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-desc">
+    <div class="dialog-box">
+      <div class="dialog-header">
+        <h2 id="dialog-title" style="font-size: var(--fb-font-size-lg); color: var(--fb-color-text-main);">Confirm Council Approval</h2>
+        <button id="close-dialog-x" type="button" class="btn btn-secondary btn-sm" onclick="closeDialog()" aria-label="Close dialog">&times;</button>
+      </div>
+      <p id="dialog-desc" style="font-size: var(--fb-font-size-sm); color: var(--fb-color-text-muted); margin-bottom: 1rem; line-height: var(--fb-line-height-relaxed);">
+        Are you sure you want to approve proposal <code>prop_synthetic_001</code> for character <strong>Thorin Stonehelm</strong>?
+      </p>
+      <div class="alert alert-info" style="margin-bottom: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <div>Inert Prototype Dialog: Demonstrates modal focus trapping, Escape dismissal and focus return. Exact approval behavior is pending backend contract.</div>
+      </div>
+      <div class="dialog-footer">
+        <button id="cancel-dialog-btn" type="button" class="btn btn-secondary" onclick="closeDialog()">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="alert('This control is an inert visual example. Exact approval behavior is pending backend contract.'); closeDialog();">Confirm Approval</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let priorFocus = null;
+    let priorAppShellInert = false; // N-3 Fix: Preserve prior inert state
+
+    function openDialog() {
+      const dialog = document.getElementById('demo-dialog');
+      const appShell = document.getElementById('app-shell');
+      priorFocus = document.activeElement;
+      
+      // N-3 Fix: Record prior inert state before setting inert
+      priorAppShellInert = appShell.hasAttribute('inert');
+      appShell.setAttribute('inert', '');
+      
+      dialog.style.display = 'flex';
+      document.getElementById('cancel-dialog-btn').focus();
+    }
+
+    function closeDialog() {
+      const dialog = document.getElementById('demo-dialog');
+      const appShell = document.getElementById('app-shell');
+      
+      dialog.style.display = 'none';
+      
+      // N-3 Fix: Restore exact prior inert state
+      if (!priorAppShellInert) {
+        appShell.removeAttribute('inert');
+      } else {
+        appShell.setAttribute('inert', '');
+      }
+      
+      if (priorFocus && typeof priorFocus.focus === 'function') {
+        priorFocus.focus();
+      }
+    }
+
+    document.getElementById('demo-dialog').addEventListener('keydown', (event) => {
+      const dialog = event.currentTarget;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDialog();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const controls = [...dialog.querySelectorAll('button:not([disabled])')];
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  </script>
+</body>
+</html>
