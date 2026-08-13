@@ -17,25 +17,27 @@ definition of ready and stable backend route/view-model contracts remain open.
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance at the head of `docs/review/phase-1-submission.md` |
 | Phase 2 — Import and reconciliation | Accepted | Closed 2026-08-12 | C-24 and B-1 closed after independent re-review returned no findings; Peter Duscha accepted the data-integrity, identity and migration-safety gate. See `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md` and change-log C-24-R. |
 | §12.1 frontend visual-design track | Accepted | Closed 2026-08-13 | Peter accepted Steps 1–5, including real-mobile inspection. Fourteen frozen implementation/asset files verify against `docs/review/phase-3-visual-freeze-manifest.sha256`; current token and contrast tools pass. See `docs/review/phase-3-visual-prototype-handoff.md`. |
-| Phase 3 — authentication, read-only portal and Council administration | Not ready | Readiness planning next | Phase 2, OD-16, OD-17, named delivery agents and visual direction are closed. Before implementation: baseline separately estimated packages, name accountable human roles/capacity and environments, trace acceptance/tests, update RAID mitigations, and prepare coordinated Claude/Gemini prompts. Claude's backend route/view-model contracts must be accepted before Gemini production integration. |
+| Phase 3 — authentication, read-only portal and Council administration | Readiness plan submitted | Maintainer decision required | Proposed package plan: `docs/review/phase-3-delivery-plan.md`. Peter must accept package boundaries, roles, estimates, numeric security policy and environment conditions. Acceptance releases P3.0 contract work only; P3.1 implementation remains behind P3.G0 and Gemini remains behind accepted backend contracts. |
 | Phase 4 and later | Not ready | Predecessor gates apply | No later implementation is authorized. Follow implementation-plan §12.0 and package-specific definitions of ready. |
 
 ## Current critical path
 
-1. **Phase 3 management definition of ready.** Write and accept the package
-   breakdown for backend security foundation, Council/import routes, member read
-   views and production frontend integration. Record scope/exclusions, three-
-   point estimates, confidence, capacity, contingency, environments, objective
-   traceability and owned risks.
-2. **Coordinated implementation prompts.** Claude owns the backend foundation;
+1. **Maintainer readiness decision.** Review and accept or amend
+   `docs/review/phase-3-delivery-plan.md`, especially its P3.0–P3.5 boundaries,
+   22/38/60-day focused-effort range, role assignments, numeric security policy
+   and environment conditions.
+2. **P3.0 contract/security design package.** After plan acceptance, prepare the
+   first bounded Claude prompt. P3.0 produces route/view-model/schema contracts
+   and a threat model; it adds no protected route or framework scaffold.
+3. **Coordinated implementation prompts.** Claude owns the backend foundation;
    Gemini owns production Jinja/static/HTMX integration only against accepted
    route/view-model contracts; Codex supplies independent and separate
    security-focused review recommendations. Peter records gate decisions.
-3. **Backend contract package.** Authentication and server-side authorization
+4. **Backend contract package.** Authentication and server-side authorization
    precede every protected route. The measured 9.57-second, 32-Actor preview
    requires a durable asynchronous/progressive design rather than a synchronous
    HTTP handler or restart-unsafe in-memory queue.
-4. **Stop at the contract/security review.** Gemini production integration does
+5. **Stop at the contract/security review.** Gemini production integration does
    not begin until Claude's route/view-model contracts are stable and accepted.
 
 ## Closed readiness inputs
@@ -51,16 +53,14 @@ definition of ready and stable backend route/view-model contracts remain open.
   zero undefined; contrast self-tests 11 passed; contrast matrix 49 pairs, 48
   passed, one disabled-state exemption, zero failures.
 
-## Open Phase 3 readiness inputs
+## Open Phase 3 readiness decisions and conditions
 
-- accepted Phase 3 work breakdown and package boundaries;
-- named accountable human Technical Lead, Security Reviewer and accessibility
-  reviewer assignments, plus maintainer/reviewer capacity windows;
-- optimistic/likely/pessimistic estimates, confidence and explicit review and
-  remediation contingency;
+- Peter's acceptance or amendment of the proposed Phase 3 work breakdown,
+  assignments, estimates, numeric security policy and environment rules;
+- maintainer/reviewer availability windows before calendar forecasting;
 - confirmed development, disposable PostgreSQL and staging environments;
-- acceptance/test/supervised-check traceability for each package;
-- Phase 3-specific risk owners, mitigations and triggers;
+- expansion of the plan's traceability categories to exact test names during
+  each implementation handoff;
 - accepted backend route/view-model contracts before production frontend work;
   and
 - updated configuration, deployment, monitoring and rollback plans for the new

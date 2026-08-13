@@ -2498,6 +2498,43 @@ to reconcile the project before any further implementation.
   as planning history but was superseded without execution after current tooling
   passed. It must not be used as a production backend prompt.
 
+### Phase 3 delivery-plan readiness submission
+
+Recorded 2026-08-13. Codex prepared
+`docs/review/phase-3-delivery-plan.md` at Peter Duscha's instruction. This is a
+readiness submission, not an accepted baseline and not implementation.
+
+- **Affected milestone:** numbered Phase 3 only. Phases 0–2 and the §12.1
+  visual gate remain unchanged.
+- **Scope and decomposition:** proposes P3.0 contract/security design, P3.1
+  authentication foundation, P3.2 member reads/identity reconciliation/access
+  administration, P3.3 Council import/durable jobs/audit, P3.4 Gemini production
+  integration and P3.5 gate evidence, with a stop gate after each package.
+- **Estimate and capacity effect:** re-estimates focused effort at 22/38/60 days
+  optimistic/likely/pessimistic, medium-low overall confidence, including
+  explicit review/remediation contingency. It withdraws reliance on the early
+  10–18-day rough-order range for forecasting; no calendar commitment is made.
+- **Migration effect:** explicitly includes Phase 3's controlled migration-
+  register allocation for `Characters C` and `Players A/B/D` as identity
+  evidence. It requires Council-reviewed snowflake links, control totals,
+  unresolved records, idempotency and recovery; no mutable name or Sheet flag
+  grants authorization and Google Sheets is not mutated.
+- **Security and operational effect:** proposes numeric session, role-cache,
+  OAuth, CSRF, rate-limit, request, pagination, polling, job-lease, retention and
+  CSP contracts. None becomes authoritative before Peter accepts it. It requires
+  disposable PostgreSQL before P3.1 and deployed staging before P3.5.
+- **Risk effect:** adds proposed Phase 3 risks R-19–R-25 for the web security
+  boundary, Discord availability, durable jobs, contract drift, accessibility,
+  co-located-host capacity and environment separation.
+- **Implementation/deployment/migration effect:** none. Plan acceptance releases
+  P3.0 design/contract work only; P3.1 remains behind P3.G0, Gemini remains
+  behind accepted backend contracts, and production deployment remains behind
+  Phase 3 and deployment gates.
+- **Review:** prepared by Codex as planning work. The future Codex implementation
+  and security reviews remain independent because Codex implements no production
+  package here. Peter's readiness decision is outstanding.
+- **Acceptance Authority decision:** none recorded.
+
 ## Required fields for later entries
 
 Every material entry must identify:
