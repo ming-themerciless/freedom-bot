@@ -2543,8 +2543,16 @@ readiness submission, not an accepted baseline and not implementation.
   Phase 3 and deployment gates.
 - **Review:** prepared by Codex as planning work. The future Codex implementation
   and security reviews remain independent because Codex implements no production
-  package here. Peter's readiness decision is outstanding.
-- **Acceptance Authority decision:** none recorded.
+  package here. Peter reviewed the plan and clarified that authentication must
+  remain modular while the provider-independent security core protects the
+  internet-exposed host.
+- **Acceptance Authority decision:** **Accepted by Peter Duscha on 2026-08-13.**
+  This accepts the P3.0–P3.5 boundaries, roles, 26/44/70-day estimate, numeric
+  security policies, provider-neutral/break-glass contract and environment
+  rules. Authentication providers are replaceable adapters; authorization,
+  sessions, CSRF, host/origin checks, rate limits, request/concurrency bounds,
+  audit and safe failure remain provider-independent controls. Acceptance
+  releases P3.0 design work only. P3.1 remains blocked behind P3.G0.
 
 ## Required fields for later entries
 

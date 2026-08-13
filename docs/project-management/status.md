@@ -4,10 +4,10 @@ Status date: 2026-08-13 (project reconciliation after §12.1 visual acceptance)
 
 Baseline: v1.5; accepted by Peter Duscha on 2026-08-02
 
-Overall health: Amber — Phases 0–2 and the separate frontend visual-design
-track are accepted. Numbered Phase 3 production implementation has not begun.
-Its predecessor and visual-direction conditions are closed, but its management
-definition of ready and stable backend route/view-model contracts remain open.
+Overall health: Amber — Phases 0–2, the frontend visual-design track and the
+Phase 3 readiness plan are accepted. P3.0 contract/security design is
+authorized; production implementation has not begun and P3.1 remains blocked
+behind P3.G0.
 
 ## Milestone status
 
@@ -17,19 +17,17 @@ definition of ready and stable backend route/view-model contracts remain open.
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance at the head of `docs/review/phase-1-submission.md` |
 | Phase 2 — Import and reconciliation | Accepted | Closed 2026-08-12 | C-24 and B-1 closed after independent re-review returned no findings; Peter Duscha accepted the data-integrity, identity and migration-safety gate. See `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md` and change-log C-24-R. |
 | §12.1 frontend visual-design track | Accepted | Closed 2026-08-13 | Peter accepted Steps 1–5, including real-mobile inspection. Fourteen frozen implementation/asset files verify against `docs/review/phase-3-visual-freeze-manifest.sha256`; current token and contrast tools pass. See `docs/review/phase-3-visual-prototype-handoff.md`. |
-| Phase 3 — authentication, read-only portal and Council administration | Readiness plan submitted | Maintainer decision required | Proposed package plan: `docs/review/phase-3-delivery-plan.md`. Peter must accept package boundaries, roles, estimates, numeric security policy and environment conditions. Acceptance releases P3.0 contract work only; P3.1 implementation remains behind P3.G0 and Gemini remains behind accepted backend contracts. |
+| Phase 3 — authentication, read-only portal and Council administration | P3.0 authorized | P3.G0 open | Peter accepted `docs/review/phase-3-delivery-plan.md` on 2026-08-13. Claude may prepare the contract/security design package only; P3.1 and Gemini production integration remain blocked pending Codex review and Peter's P3.G0 acceptance. |
 | Phase 4 and later | Not ready | Predecessor gates apply | No later implementation is authorized. Follow implementation-plan §12.0 and package-specific definitions of ready. |
 
 ## Current critical path
 
-1. **Maintainer readiness decision.** Review and accept or amend
-   `docs/review/phase-3-delivery-plan.md`, especially its P3.0–P3.5 boundaries,
-   26/44/70-day focused-effort range, role assignments, provider-neutral
-   identity/break-glass contract, numeric security policy
-   and environment conditions.
-2. **P3.0 contract/security design package.** After plan acceptance, prepare the
-   first bounded Claude prompt. P3.0 produces route/view-model/schema contracts
+1. **P3.0 contract/security design package.** Give Claude the accepted bounded
+   handoff in `docs/review/phase-3-p3-0-claude-prompt.md`. P3.0 produces
+   route/view-model/schema contracts
    and a threat model; it adds no protected route or framework scaffold.
+2. **P3.G0 independent review and acceptance.** Codex reviews Claude's package;
+   Peter accepts or remediates the contracts before implementation.
 3. **Coordinated implementation prompts.** Claude owns the backend foundation;
    Gemini owns production Jinja/static/HTMX integration only against accepted
    route/view-model contracts; Codex supplies independent and separate
@@ -54,10 +52,8 @@ definition of ready and stable backend route/view-model contracts remain open.
   zero undefined; contrast self-tests 11 passed; contrast matrix 49 pairs, 48
   passed, one disabled-state exemption, zero failures.
 
-## Open Phase 3 readiness decisions and conditions
+## Open Phase 3 conditions
 
-- Peter's acceptance or amendment of the proposed Phase 3 work breakdown,
-  assignments, estimates, numeric security policy and environment rules;
 - maintainer/reviewer availability windows before calendar forecasting;
 - confirmed development, disposable PostgreSQL and staging environments;
 - expansion of the plan's traceability categories to exact test names during

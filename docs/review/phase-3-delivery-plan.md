@@ -2,7 +2,7 @@
 
 **Prepared:** 2026-08-13
 
-**Status:** Proposed for Product Owner and Acceptance Authority readiness decision
+**Status:** Accepted by Peter Duscha on 2026-08-13; P3.0 authorized
 
 **Plan baseline:** `docs/implementation-plan.md` v1.5
 
@@ -30,9 +30,9 @@ authorization and web-security gate. Peter Duscha records the decision after a
 Security Reviewer recommendation and an Independent Reviewer recommendation.
 Passing tests alone does not approve the phase.
 
-This document is a readiness and delivery plan. It authorizes no implementation
-until Peter accepts the plan and the open readiness conditions in §12 are
-closed.
+Peter Duscha accepted this readiness and delivery plan on 2026-08-13. The
+acceptance releases P3.0 contract and security design work only. P3.1 remains
+blocked behind P3.G0.
 
 ## 2. Authority and delivery assignments
 
@@ -320,12 +320,12 @@ likely effort, already reflected in the pessimistic range. Any blocking finding
 or contract change returns through its stop gate; contingency is not permission
 to compress evidence.
 
-## 7. Proposed numeric security and operational contract
+## 7. Accepted numeric security and operational contract
 
-These values are recommended for readiness. They become authoritative only if
-Peter accepts this plan or records replacements.
+Peter accepted these values on 2026-08-13. A later change follows the plan's
+change-control and security-review requirements.
 
-| Control | Proposed value |
+| Control | Accepted value |
 |---|---|
 | Production origin | exactly `https://freedom-blades.rpgworld.org` |
 | OAuth redirect | exactly `https://freedom-blades.rpgworld.org/auth/discord/callback` |
@@ -418,6 +418,14 @@ P3.0 must design and P3.1 must implement these invariants:
 9. Adding an ordinary-member replacement provider later requires an accepted
    provider, privacy, account-linking and migration package. The Phase 3 provider
    interface makes that bounded; it does not pre-approve an unknown provider.
+10. Authentication providers are replaceable adapters. Session integrity,
+    authorization, CSRF, origin/host validation, request and concurrency bounds,
+    rate limiting, audit and safe failure remain provider-independent core
+    controls and cannot be weakened by replacing Discord.
+11. The public web perimeter exposes only the reverse proxy. Unknown hosts are
+    rejected; application and PostgreSQL ports remain private; bounded
+    connections/timeouts and an operator kill switch can disable the portal
+    without stopping the Discord bot or Foundry.
 
 ## 10. Environment and deployment readiness
 
@@ -512,20 +520,20 @@ remain active until their owning package gate closes.
 - material risks and proposed controls are written; and
 - accepted visual direction and freeze evidence exist.
 
-### Requires Peter's acceptance or confirmation
+### Accepted by Peter Duscha on 2026-08-13
 
-1. Accept the P3.0–P3.5 package boundaries and the re-estimated 26/44/70-day
+1. Accepted the P3.0–P3.5 package boundaries and the re-estimated 26/44/70-day
    focused-effort range.
-2. Confirm Peter's accountable roles and availability in principle; calendar
+2. Confirmed Peter's accountable roles and availability in principle; calendar
    windows may be recorded before each package rather than promised now.
-3. Confirm Peter's accountable Security Reviewer and accessibility-review roles,
+3. Confirmed Peter's accountable Security Reviewer and accessibility-review roles,
    with Codex supplying the Independent Reviewer recommendation and a distinct
    security-focused pass as recorded in §2.
-4. Accept or replace every numeric policy in §7 and accept or amend the
+4. Accepted every numeric policy in §7 and the
    provider-neutral identity and break-glass contract in §9.
-5. Confirm that P3.0 is the first authorized package after readiness—not P3.1
+5. Confirmed that P3.0 is the first authorized package after readiness—not P3.1
    implementation and not Gemini production integration.
-6. Confirm the environment rule: disposable PostgreSQL before P3.1, staging
+6. Confirmed the environment rule: disposable PostgreSQL before P3.1, staging
    configuration contract before P3.1, and deployed staging before P3.5.
 
 ### Still operationally open after plan acceptance
