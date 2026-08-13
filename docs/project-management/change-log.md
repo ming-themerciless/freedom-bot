@@ -2510,7 +2510,9 @@ readiness submission, not an accepted baseline and not implementation.
   authentication foundation, P3.2 member reads/identity reconciliation/access
   administration, P3.3 Council import/durable jobs/audit, P3.4 Gemini production
   integration and P3.5 gate evidence, with a stop gate after each package.
-- **Estimate and capacity effect:** re-estimates focused effort at 22/38/60 days
+- **Estimate and capacity effect:** initially re-estimated focused effort at
+  22/38/60 days, then revised to **26/44/70 days** after Peter required
+  Discord-independent administrator recovery and future provider portability.
   optimistic/likely/pessimistic, medium-low overall confidence, including
   explicit review/remediation contingency. It withdraws reliance on the early
   10–18-day rough-order range for forecasting; no calendar commitment is made.
@@ -2519,13 +2521,22 @@ readiness submission, not an accepted baseline and not implementation.
   evidence. It requires Council-reviewed snowflake links, control totals,
   unresolved records, idempotency and recovery; no mutable name or Sheet flag
   grants authorization and Google Sheets is not mutated.
+- **Identity and recovery clarification:** Peter requires Server Administrator
+  access when Discord is unavailable and a credible route to a replacement
+  login provider if Discord is retired. The proposed plan therefore introduces
+  stable internal platform accounts, external provider identities, narrow
+  WebAuthn/passkey break-glass authentication and a host-local single-use
+  recovery grant. It deliberately does not add a permanent local password or
+  pre-approve an ordinary-member replacement provider. P3.G0 must accept the
+  ADR/schema/migration and privilege boundaries before implementation.
 - **Security and operational effect:** proposes numeric session, role-cache,
   OAuth, CSRF, rate-limit, request, pagination, polling, job-lease, retention and
   CSP contracts. None becomes authoritative before Peter accepts it. It requires
   disposable PostgreSQL before P3.1 and deployed staging before P3.5.
-- **Risk effect:** adds proposed Phase 3 risks R-19–R-25 for the web security
+- **Risk effect:** adds proposed Phase 3 risks R-19–R-27 for the web security
   boundary, Discord availability, durable jobs, contract drift, accessibility,
-  co-located-host capacity and environment separation.
+  co-located-host capacity, environment separation, emergency-access backdoors
+  and provider-migration account takeover/lockout.
 - **Implementation/deployment/migration effect:** none. Plan acceptance releases
   P3.0 design/contract work only; P3.1 remains behind P3.G0, Gemini remains
   behind accepted backend contracts, and production deployment remains behind

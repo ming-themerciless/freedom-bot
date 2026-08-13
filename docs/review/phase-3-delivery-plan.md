@@ -18,6 +18,13 @@ character views, Council character-link administration, protected offline
 snapshot import/reconciliation controls, searchable immutable audit views, and
 production Jinja/HTMX integration of the accepted visual direction.
 
+Discord is the initial community identity provider, not an eternal platform
+identity key. Phase 3 also establishes a provider-neutral platform account
+boundary and an independently usable, narrowly privileged break-glass login for
+the Server Administrator. A future decision to leave Discord must require a new
+identity-provider adapter and controlled account-link migration—not a rewrite of
+character ownership, sessions or audit attribution.
+
 The phase closes only at the implementation plan's authentication,
 authorization and web-security gate. Peter Duscha records the decision after a
 Security Reviewer recommendation and an Independent Reviewer recommendation.
@@ -48,6 +55,15 @@ same tool assists both. Peter remains the accountable human decision-maker.
 - typed web configuration independent of the bot's import-time `config.py`;
 - Discord OAuth2 authorization-code flow with PKCE and scopes `identify` and
   `guilds.members.read`;
+- stable internal platform accounts and separately linked external identities;
+  Discord provider/subject is one external identity, never the primary key of
+  authorization-bearing domain relationships;
+- a provider interface and versioned provider identifier so a later approved
+  OpenID Connect or other reviewed provider can authenticate an existing
+  platform account without name/email matching;
+- Server Administrator break-glass authentication independent of Discord,
+  using pre-enrolled phishing-resistant credentials plus a host-local,
+  short-lived one-time recovery path;
 - current membership and stable role-ID verification for guild
   `1052698198180892733`, Council role `1052702392728178688`, DM role
   `1124406915783475241` and Platform Administrator role
@@ -81,6 +97,10 @@ same tool assists both. Peter remains the accountable human decision-maker.
 ## 4. Explicit exclusions
 
 - no ordinary-member website mutation;
+- no general local username/password database and no second ordinary-member
+  identity provider in this phase; the provider-neutral boundary is delivered,
+  while selection and rollout of a Discord replacement requires a later
+  approved provider/privacy/migration package;
 - no character game-state correction or generic edit endpoint;
 - no generic approval centre (Phase 6);
 - no editor for tools, languages, homebrew items or controlled vocabularies;
@@ -108,8 +128,14 @@ Deliver:
   character detail, character links, profile classifications, reconciliation
   jobs/results and audit search;
 - logical schema artifact and schema decision table for sessions, encrypted
-  OAuth credentials, capability mappings and durable jobs;
+  OAuth credentials, platform accounts, external identities, break-glass
+  credentials/recovery grants, capability mappings and durable jobs;
+- migration design replacing Discord snowflakes as foreign keys of
+  authorization-bearing relationships, including `character_access`, while
+  retaining Discord identity/membership as an adapter projection;
 - explicit state machines for sessions and reconciliation jobs;
+- a proposed ADR for provider-neutral identity and break-glass administration,
+  including account-linking, unlinking, provider-retirement and recovery rules;
 - configuration contract and dependency proposal;
 - threat model covering OAuth, session fixation/theft, CSRF, confused deputy,
   object substitution, stale roles, upload abuse, unsafe rendering, retries and
@@ -134,6 +160,14 @@ Deliver:
   dependencies;
 - application factory and typed startup validation;
 - OAuth start/callback/logout with state, PKCE and safe return targets;
+- platform-account/external-identity repositories and a reversible migration of
+  existing Discord-linked access/audit attribution with exact control totals;
+- Server Administrator break-glass login that remains available when Discord is
+  unavailable, cannot imply Council game-policy capability, and cannot silently
+  become an ordinary-member authentication bypass;
+- pre-enrolled WebAuthn/passkey credentials for normal break-glass use and a
+  host-local operator command that can issue a hashed, single-use, 10-minute
+  recovery grant when every enrolled credential is lost;
 - encrypted server-side OAuth-token storage and opaque PostgreSQL sessions;
 - current membership/role adapter and capability resolver;
 - session rotation, expiry and revocation;
@@ -170,6 +204,10 @@ Deliver:
   legacy linkage-evidence workflow without mutating Google Sheets;
 - bounded search/selection of Discord identities and characters without relying
   on mutable display names;
+- explicit linking of an additional external identity to an existing platform
+  account only after strong reauthentication or a separately audited Council/
+  Server-Administrator recovery decision; provider display name or email never
+  links accounts automatically;
 - route/view-model implementations and minimal contract templates; and
 - denial, stale, concurrent and audit-failure tests.
 
@@ -259,13 +297,13 @@ than hidden in coding estimates.
 
 | Package | Optimistic | Likely | Pessimistic | Confidence |
 |---|---:|---:|---:|---|
-| P3.0 contracts/security design | 2 | 4 | 6 | Medium |
-| P3.1 authentication/security foundation | 4 | 7 | 11 | Medium-low |
-| P3.2 member reads/identity migration/access | 4 | 7 | 11 | Medium-low |
+| P3.0 contracts/security/identity design | 3 | 5 | 8 | Medium-low |
+| P3.1 authentication/account/security foundation | 6 | 10 | 16 | Low |
+| P3.2 member reads/identity evidence/access | 5 | 9 | 14 | Medium-low |
 | P3.3 Council import/async jobs/audit | 5 | 8 | 13 | Medium-low |
 | P3.4 production frontend integration | 4 | 7 | 11 | Medium |
 | P3.5 integration/gate evidence | 3 | 5 | 8 | Medium-low |
-| **Total focused effort** | **22** | **38** | **60** | **Medium-low** |
+| **Total focused effort** | **26** | **44** | **70** | **Low** |
 
 The original 10–18 day roadmap range is no longer credible for the decomposed
 scope and evidence burden. Rebaselining the forecast does not change product
@@ -300,6 +338,11 @@ Peter accepts this plan or records replacements.
 | Membership/role cache | 5 minutes maximum |
 | Discord outage | mutations fail immediately; protected reads may use a previously successful membership result for at most 15 minutes total, then fail closed |
 | OAuth token retention | encrypted server-side only; deleted on logout/revocation and no later than the session's absolute expiry unless an active refresh operation requires it |
+| Break-glass privilege | Platform Administrator only; never Council, character ownership or import-apply authority by implication |
+| Break-glass primary credential | at least two pre-enrolled WebAuthn/passkey credentials for the accountable Server Administrator; no permanent local password |
+| Break-glass recovery grant | created only by a host-local operator command; random, stored only as a hash, single use, 10-minute expiry, purpose-bound to recovery login, and fully audited without storing the token |
+| Break-glass session | 15-minute idle, 60-minute absolute expiry; rotate on login; no extension beyond the absolute bound |
+| External identity linking | exact provider plus immutable provider subject; no display-name or email auto-link; strong reauthentication and audited confirmation required |
 | CSRF | session-bound synchronizer token on every cookie-authenticated mutation; rotate with session; reject missing/mismatched token before application service |
 | Auth rate limit | 10 OAuth starts and 20 callbacks per source IP per 10 minutes; bounded in-process limiter is insufficient across processes, so storage/algorithm is settled in P3.0 |
 | General request body | 1 MiB except the existing snapshot submission/import path |
@@ -342,7 +385,41 @@ The P3.0 logical design must preserve these invariants:
 9. Results are bounded summaries/references; raw snapshot bytes are never placed
    in session, HTML, JSON responses, logs or job payloads.
 
-## 9. Environment and deployment readiness
+## 9. Provider-neutral identity and emergency-access contract
+
+P3.0 must design and P3.1 must implement these invariants:
+
+1. A `platform_account` has a stable internal identifier independent of every
+   identity provider. Sessions, `character_access`, acting-user audit attribution
+   and human authorization refer to that account.
+2. An `external_identity` is unique on `(provider, subject)` and links to exactly
+   one platform account. Discord snowflakes remain typed Discord facts, not
+   platform account IDs.
+3. Migration accounts for every existing Discord user, character-access link,
+   membership/role projection and attributable audit reference. It is dry-
+   runnable, idempotent, transactional, reversible before cutover and has exact
+   source/target control totals.
+4. Neither display name, username nor email establishes identity equivalence.
+   Ambiguous or unverified links remain unresolved and grant no access.
+5. Provider unlink/retirement refuses to strand an account without a usable
+   accepted identity or reviewed recovery route. Historical audit attribution
+   remains readable after provider retirement.
+6. The protected Server Administrator bootstrap mapping cannot be edited through
+   ordinary capability administration. Break-glass authentication yields only
+   Platform Administrator capability and does not make imports or game-policy
+   changes legal.
+7. Every break-glass attempt and outcome is rate-limited and audited. Audit
+   records identify the credential/grant record, account, time, source and
+   correlation ID, but never authenticator secrets or recovery tokens.
+8. The host-local recovery command requires existing host/operator authority;
+   it is not exposed as a remote API. Loss of Discord plus loss of every passkey
+   therefore remains recoverable by the Operations Owner without a permanent
+   password backdoor.
+9. Adding an ordinary-member replacement provider later requires an accepted
+   provider, privacy, account-linking and migration package. The Phase 3 provider
+   interface makes that bounded; it does not pre-approve an unknown provider.
+
+## 10. Environment and deployment readiness
 
 | Environment | Required state | Current evidence | Readiness |
 |---|---|---|---|
@@ -354,7 +431,7 @@ The P3.0 logical design must preserve these invariants:
 No implementation package may use the production Discord application or guild
 for automated tests. Staging never receives a production database backup.
 
-## 10. Acceptance and mandatory-test traceability
+## 11. Acceptance and mandatory-test traceability
 
 The implementing handoff must expand these rows to exact test names. No row may
 be removed; `not applicable` requires written reviewer acceptance.
@@ -362,6 +439,11 @@ be removed; `not applicable` requires written reviewer acceptance.
 | Requirement/scenario | Owning package | Required evidence |
 |---|---|---|
 | Unauthenticated users cannot access protected data | P3.1 | route and application denial tests |
+| Discord outage still permits narrow Server Administrator recovery | P3.1 | WebAuthn/recovery-grant success, Discord-unavailable and privilege-boundary tests |
+| Break-glass cannot acquire Council or character authority | P3.1/P3.2 | direct service/HTTP capability and forged-submission denial tests |
+| Recovery grant is host-local, hashed, single-use and expires in 10 minutes | P3.1 | CLI, storage, replay, expiry, audit and lost-response tests |
+| Platform accounts survive provider unlink/retirement without identity ambiguity | P3.0–P3.2 | migration/control-total, uniqueness, unresolved-link and historical-attribution tests |
+| No name/email auto-link can merge accounts | P3.1/P3.2 | collision, case/Unicode, duplicate-name and forged-claim tests |
 | Non-member, ordinary member, Council and administrator matrix for every protected endpoint | P3.1–P3.3 | parameterized direct-HTTP and service tests |
 | Council uses stable role ID; administrator does not imply Council | P3.1/P3.3 | capability and forged-role tests |
 | Revoked membership/role and privilege change | P3.1/P3.3 | cache-expiry, live recheck, session rotation/revocation tests |
@@ -387,10 +469,15 @@ be removed; `not applicable` requires written reviewer acceptance.
 | Migration apply/downgrade/upgrade and recovery | each schema package/P3.5 | disposable PostgreSQL rehearsal |
 | Full gate package | P3.5 | §13.3 evidence checklist and reviewer recommendations |
 
-## 11. Risks and controls
+## 12. Risks and controls
 
 - **Authentication boundary defect:** fail closed, keep protected routes behind
   P3.G1, and require a distinct security review.
+- **Permanent backdoor or overpowered emergency account:** no permanent local
+  password, pre-enrolled phishing-resistant credentials, host-local one-time
+  recovery, short emergency sessions and Platform-Administrator-only authority.
+- **Provider migration account takeover:** stable internal accounts, exact
+  provider subjects, no name/email auto-link and explicit reviewed linking.
 - **Discord outage or rate limiting:** bounded cache/grace policy, mutation
   refusal, safe user state, metrics without identity data.
 - **Session/token compromise:** opaque cookie, encrypted tokens, bounded expiry,
@@ -411,7 +498,7 @@ be removed; `not applicable` requires written reviewer acceptance.
 These risks are added to the RAID register during readiness reconciliation and
 remain active until their owning package gate closes.
 
-## 12. Readiness decision checklist
+## 13. Readiness decision checklist
 
 ### Satisfied
 
@@ -427,14 +514,15 @@ remain active until their owning package gate closes.
 
 ### Requires Peter's acceptance or confirmation
 
-1. Accept the P3.0–P3.5 package boundaries and the re-estimated 22/38/60-day
+1. Accept the P3.0–P3.5 package boundaries and the re-estimated 26/44/70-day
    focused-effort range.
 2. Confirm Peter's accountable roles and availability in principle; calendar
    windows may be recorded before each package rather than promised now.
 3. Confirm Peter's accountable Security Reviewer and accessibility-review roles,
    with Codex supplying the Independent Reviewer recommendation and a distinct
    security-focused pass as recorded in §2.
-4. Accept or replace every numeric policy in §7.
+4. Accept or replace every numeric policy in §7 and accept or amend the
+   provider-neutral identity and break-glass contract in §9.
 5. Confirm that P3.0 is the first authorized package after readiness—not P3.1
    implementation and not Gemini production integration.
 6. Confirm the environment rule: disposable PostgreSQL before P3.1, staging

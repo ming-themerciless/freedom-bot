@@ -1,6 +1,6 @@
 # Decision register
 
-Status date: 2026-08-12
+Status date: 2026-08-13
 
 The authoritative decision text is
 [`docs/discovery/open-decisions.md`](../discovery/open-decisions.md). This file is
@@ -20,6 +20,7 @@ which milestone it blocks. It does not restate or supersede a ruling.
 | OD-39 | Open | Product Owner / Security Reviewer | Phase 5.7/5.8 cutover | Close unauthenticated trade/sale mutation policy and interim control |
 | OD-41 | **Closed 2026-08-02** | Product Owner / Acceptance Authority | Phase 2 remediation | ADR 0008 rejected; the controlled migration register assigns every Sheet-era field, including `character.downtime_progress`, to one typed owning package |
 | OD-42 | **Closed 2026-08-02** | Data Owner / Acceptance Authority | Phase 2 remediation plan approval | Ruled: display names are not unique identities; multiple characters may share one; stable character IDs and external Actor IDs provide identity; any legacy name-based candidate lookup fails closed when more than one candidate exists. **No unique display-name constraint is added.** Closes I-05. Package R2 corrects the single-value claim lookup to return every candidate and refuse on more than one |
+| OD-43 | **Requirement ruled 2026-08-13; design pending** | Product Owner / Security Reviewer / Acceptance Authority | Phase 3 P3.G0 | Preserve Server Administrator access without Discord and provider portability. Accept or amend the proposed internal-account, external-identity and narrow break-glass contract; record the ADR, schema, migration controls and tests before P3.1 |
 
 All other OD entries marked closed or ruled remain decisions, not open actions.
 The Delivery Lead reviews this index before baselining every phase. A decision is

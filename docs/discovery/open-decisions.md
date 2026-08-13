@@ -3,7 +3,7 @@
 Status: Phase 0 deliverable. Sixteen of the 36 entries that existed then were
 closed by maintainer answers on 2026-07-29 and 2026-07-30, including every
 question that blocked Phase 1 or the architecture gate. Further entries have been
-raised since; the list now runs **OD-01 to OD-40**, and every identifier is
+raised since; the list now runs **OD-01 to OD-43**, and every identifier is
 unique. The remainder are marked with when they must be settled. The independent
 Codex re-review approved Phase 0 on 2026-07-30, the maintainer accepted the
 milestone, and the gate is closed.
@@ -1286,6 +1286,39 @@ accepted record removes.
 plan §17 (field/data ownership). Recorded 2026-08-02 with the acceptance of
 [`../review/phase-2-v1.5-remediation-plan.md`](../review/phase-2-v1.5-remediation-plan.md).
 
+### OD-43 — Discord-independent administration and provider portability · **REQUIREMENT RULED 2026-08-13; DESIGN PENDING P3.G0**
+
+**Ruling by Peter Duscha, Product Owner and Acceptance Authority, 2026-08-13.**
+The Server Administrator must retain an independent access route if Discord
+authentication is unavailable. The account and authorization model must also
+permit a controlled replacement of Discord as the community login provider.
+Discord remains the initial provider, but it must not become the permanent
+identity key for sessions, character ownership or audit attribution.
+
+**Required security boundary.** Emergency authentication grants Platform
+Administrator capability only. It does not grant Council authority and cannot
+by itself approve an import or change game policy. A future replacement provider
+must link through immutable provider identifiers and a controlled migration;
+display names, usernames and email addresses never establish identity
+equivalence automatically.
+
+**Implementation design awaiting P3.G0 approval.** The proposed Phase 3 plan
+implements stable internal platform accounts, separately linked
+`(provider, subject)` identities, pre-enrolled WebAuthn credentials and a
+host-local hashed single-use recovery grant. It deliberately does not add a
+permanent local password or choose an ordinary-member replacement provider in
+advance. P3.0 must turn that proposal into an accepted ADR, schema and tested
+migration contract before P3.1 authentication implementation starts.
+
+**Why the split is deliberate.** The availability and portability requirements
+are decided product requirements. Credential mechanics, recovery lifetime,
+session limits and migration mechanics are security architecture and remain
+subject to the Phase 3 readiness and P3.G0 reviews.
+
+**Authority.** Product Owner for required behaviour; Acceptance Authority for
+the phase gate; Security Reviewer recommendation required for the implementation
+contract.
+
 ## H. Product scope
 
 ### OD-40 — Music platform work · **CLOSED 2026-07-31, AMENDED 2026-07-31**
@@ -1403,6 +1436,10 @@ Council approval.)*
 rejecting the generic store and adopting package-owned typed migrations; OD-42
 closed 2026-08-02 by ruling that display names are not unique identities and
 that ambiguous name-based candidate lookup fails closed.
+
+**Blocking Phase 3 P3.G0:** OD-43's product requirement is ruled; its proposed
+credential, account, migration and recovery design must be accepted or amended
+through the P3.0 ADR before P3.1 starts.
 
 **Check independently:** OD-25.
 

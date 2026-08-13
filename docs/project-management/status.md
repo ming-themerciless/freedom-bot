@@ -24,7 +24,8 @@ definition of ready and stable backend route/view-model contracts remain open.
 
 1. **Maintainer readiness decision.** Review and accept or amend
    `docs/review/phase-3-delivery-plan.md`, especially its P3.0–P3.5 boundaries,
-   22/38/60-day focused-effort range, role assignments, numeric security policy
+   26/44/70-day focused-effort range, role assignments, provider-neutral
+   identity/break-glass contract, numeric security policy
    and environment conditions.
 2. **P3.0 contract/security design package.** After plan acceptance, prepare the
    first bounded Claude prompt. P3.0 produces route/view-model/schema contracts
