@@ -348,7 +348,7 @@ async def test_caller_supplied_text_renders_inert_and_bounded(client, hostile):
 
 
 async def test_an_internal_failure_answers_with_a_correlation_id_and_nothing_else(
-    settings, composition, monkeypatch
+    composition, monkeypatch
 ):
     """TC-SEC-12. No exception text, no path, no SQL, no stack frame."""
     import httpx
@@ -359,7 +359,7 @@ async def test_an_internal_failure_answers_with_a_correlation_id_and_nothing_els
         raise RuntimeError("SELECT secret FROM /srv/private/passwords")
 
     monkeypatch.setattr(WebComposition, "services", explode)
-    app = create_app(settings, composition=composition, run_startup_checks=False)
+    app = create_app(composition=composition, run_startup_checks=False)
 
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     async with httpx.AsyncClient(

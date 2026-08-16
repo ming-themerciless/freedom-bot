@@ -45,7 +45,11 @@ from types import MappingProxyType
 from urllib.parse import urlsplit
 
 from adapters.database.config import EXPECTED_DATABASES, DatabaseSettings
-from adapters.database.safety import ConnectionPolicy, UnsafeDatabaseTargetError
+from adapters.database.safety import (
+    ConnectionIdentity,
+    ConnectionPolicy,
+    UnsafeDatabaseTargetError,
+)
 
 # --------------------------------------------------------------------------
 # Accepted policy values (delivery plan §7; numeric register N-01…N-67).
@@ -256,6 +260,56 @@ def _registered_numbers(
     return {field_name: getattr(instance, field_name) for field_name in bounds}
 
 
+#: The answer for a type that holds no other settings object. Named rather than
+#: written as `{}` at the call site so the descent below reads as "these are the
+#: nested fields", not "there might not be a table".
+_NO_NESTED_SETTINGS: "Mapping[str, object]" = MappingProxyType({})
+
+
+class SettingsAuthorityError(TypeError):
+    """Two configurations were offered where a process may hold exactly one.
+
+    Raised at the composition/application boundary, never at the environment one,
+    so it may name a type or a field path — but it still carries **no configured
+    value**, because the graphs it refuses are the ones that hold every secret in
+    the process.
+
+    A `TypeError` because that is what it is: an argument of the wrong kind, or
+    two arguments where the signature admits one. Callers that already catch
+    `TypeError` around composition keep catching this.
+    """
+
+
+def _declared_nested_settings(expected: type) -> "Mapping[str, object]":
+    """Which fields of `expected` hold another settings object — or refuse.
+
+    **Fail closed for a type the graph does not declare** (2026-08-16, P3.G1
+    canonical-graph re-review, finding 3). This lookup was
+    `CANONICAL_SETTINGS_GRAPH.get(expected, {})`, so an undeclared settings type
+    was silently treated as a leaf: canonicalising it would have rebuilt its
+    outer shell and left whatever subclass it nested inside untouched, and
+    `require_canonical` would have declared that shell canonical. A missing entry
+    is not the statement "this type nests nothing"; it is the absence of a
+    statement, and the two must not answer the same.
+
+    The declared graph stays the runtime authority — nothing here infers
+    structure from annotations. `tests/web/test_canonical_settings_graph.py`
+    derives the expected topology independently and proves the declaration is
+    complete.
+    """
+    nested = CANONICAL_SETTINGS_GRAPH.get(expected)
+    if nested is None:
+        raise SettingsAuthorityError(
+            f"{expected.__name__} is not declared in CANONICAL_SETTINGS_GRAPH, so "
+            "nothing states which of its fields hold other settings objects. A "
+            "type whose nested fields are unstated cannot be canonicalised: its "
+            "outer shell would be rebuilt while an overridable object stayed "
+            "inside it. Add the type — and every settings field it holds — to "
+            "the graph."
+        )
+    return nested
+
+
 def canonical_settings(value: object, expected: type) -> object:
     """One read of every field, validated, returned as an instance of `expected`.
 
@@ -273,15 +327,34 @@ def canonical_settings(value: object, expected: type) -> object:
     constructible: the five settings types are valid by construction, and this
     exists for the narrower fact that *reading* a subclass is not the same as
     reading what its constructor saw.
+
+    **It descends** (2026-08-16, canonical settings graph). A settings object may
+    hold another settings object — `WebSettings` holds twelve, a provider holds
+    its client secret, a keyring holds its keys — and rebuilding only the outer
+    type would leave a subclass nested inside an exact-base shell, still free to
+    answer differently on a later read. `CANONICAL_SETTINGS_GRAPH` states which
+    fields those are, so the descent is a declared shape rather than a guess made
+    from annotations. A field holding a *tuple* of settings objects is written as
+    a one-element tuple of the element type; that is the only container the graph
+    contains.
     """
     if not isinstance(value, expected):
         raise TypeError(
             f"{expected.__name__} was expected here, because that is the type "
             f"whose constructor holds the accepted register, not {value!r}"
         )
-    return expected(
-        **{field.name: getattr(value, field.name) for field in fields(expected)}
-    )
+    # One read per declared field, into locals, before anything is rebuilt from
+    # them: whatever is validated below is whatever these reads saw.
+    values = {field.name: getattr(value, field.name) for field in fields(expected)}
+    for name, nested in _declared_nested_settings(expected).items():
+        if isinstance(nested, tuple):
+            (element,) = nested
+            values[name] = tuple(
+                canonical_settings(item, element) for item in values[name]
+            )
+        else:
+            values[name] = canonical_settings(values[name], nested)
+    return expected(**values)
 
 
 class ConfigurationError(Exception):
@@ -1223,6 +1296,145 @@ class WebSettings:
 
 
 # --------------------------------------------------------------------------
+# The canonical settings graph (2026-08-16, P3.G1 canonical-graph remediation)
+# --------------------------------------------------------------------------
+
+#: Every settings type in the graph, mapped to the fields of it that hold
+#: **another** settings object. A type that holds none maps to an empty mapping,
+#: which is what makes this table the complete statement of the shape rather than
+#: a list of the interesting cases; a field holding a *tuple* of settings objects
+#: is written as a one-element tuple of the element type.
+#:
+#: It exists because the previous correction stopped one level too early. Each
+#: settings type validated its own numbers at construction and selected consumers
+#: rebuilt the *one* nested object they used, but the composition root still held
+#: and redistributed the caller's outer `WebSettings`. A genuine subclass of that
+#: type — or of any type below it — passes every construction gate by answering
+#: accepted values while it is being validated and a different value on the read
+#: that is actually used. Rebuilding the whole graph, once, from one read of
+#: every field is what removes the overridden reads instead of guarding against
+#: each of them.
+#:
+#: The register tables above say what a number may *be*. This says what the graph
+#: *is*. Neither restates the other, and no policy number appears here.
+CANONICAL_SETTINGS_GRAPH: "Mapping[type, Mapping[str, object]]" = MappingProxyType(
+    {
+        WebSettings: MappingProxyType(
+            {
+                "csrf_key": SecretKey,
+                "cursor_key": SecretKey,
+                "client_digest_key": SecretKey,
+                "database": DatabaseSettings,
+                "database_pool": DatabasePoolSettings,
+                "discord": DiscordProviderSettings,
+                "session": SessionSettings,
+                "webauthn": WebAuthnSettings,
+                "encryption": EncryptionKeyring,
+                "rate_limits": RateLimitSettings,
+                "bounds": BoundsSettings,
+                "worker": WorkerSettings,
+            }
+        ),
+        DatabaseSettings: MappingProxyType({"identity": ConnectionIdentity}),
+        DiscordProviderSettings: MappingProxyType({"client_secret": SecretKey}),
+        EncryptionKeyring: MappingProxyType({"keys": (EncryptionKey,)}),
+        BoundsSettings: _NO_NESTED_SETTINGS,
+        ConnectionIdentity: _NO_NESTED_SETTINGS,
+        DatabasePoolSettings: _NO_NESTED_SETTINGS,
+        EncryptionKey: _NO_NESTED_SETTINGS,
+        RateLimitSettings: _NO_NESTED_SETTINGS,
+        SecretKey: _NO_NESTED_SETTINGS,
+        SessionSettings: _NO_NESTED_SETTINGS,
+        WebAuthnSettings: _NO_NESTED_SETTINGS,
+        WorkerSettings: _NO_NESTED_SETTINGS,
+    }
+)
+
+
+def canonical_web_settings(settings: object) -> WebSettings:
+    """The one canonical settings graph for a web process.
+
+    Every field of `WebSettings` and of every settings object below it is read
+    **once**, and the exact base types are rebuilt from those locals through the
+    constructors that hold the accepted register. What comes back has no
+    overridden read anywhere in it, so the value each `__post_init__` validated is
+    the value every later consumer sees — including a consumer that reads it once
+    per request for the life of the process.
+
+    Called once, at the composition root. It is deliberately not called again by
+    the consumers below it: a second canonicalization would be a second graph,
+    which is the shape of the defect rather than a defence against it. Consumers
+    that retain a graph call `require_canonical_web_settings` instead, which
+    checks and returns *this* object rather than making another.
+
+    No secret is converted, decoded, rendered or compared. `SecretKey` and
+    `EncryptionKey` are rebuilt from the same `bytes` object they already held,
+    and both keep the `__repr__` that redacts it.
+    """
+    return canonical_settings(settings, WebSettings)
+
+
+def require_canonical(value: object, expected: type, *, subject: str) -> object:
+    """`value` is exactly `expected` and canonical all the way down, or refuse.
+
+    The receiving half of the boundary, for a consumer that **retains** a settings
+    object and reads it again later. `canonical_web_settings` guarantees the
+    property for what it returns; this states it as a requirement on what a
+    consumer accepts, so the guarantee does not depend on every construction site
+    remembering where the graph came from.
+
+    `type(...) is` rather than `isinstance`, for the same reason the registered
+    integers are an exact built-in `int`: a subclass is precisely what may answer
+    one value while it is checked and another while it is used, and every
+    subclass of every type in this graph is such a subclass in potential. The
+    exact-type check on the container is also what makes the field reads below
+    trustworthy — an exact frozen dataclass cannot intercept them.
+
+    The refusal names the subject, the field path and the type that was found. It
+    names **no configured value**, because the graph it refuses holds every secret
+    the process has.
+    """
+    _require_canonical(value, expected, subject=subject, path=expected.__name__)
+    return value
+
+
+def _require_canonical(value: object, expected: type, *, subject: str, path: str) -> None:
+    if type(value) is not expected:
+        raise SettingsAuthorityError(
+            f"{subject} requires the canonical settings graph: {path} must be "
+            f"exactly {expected.__name__}, which is the type whose constructor "
+            f"holds the accepted register and whose reads cannot be overridden, "
+            f"not {type(value).__name__}. Build it with canonical_settings() at "
+            "the composition root and pass that one object."
+        )
+    for name, nested in _declared_nested_settings(expected).items():
+        held = getattr(value, name)
+        if isinstance(nested, tuple):
+            (element,) = nested
+            if type(held) is not tuple:
+                raise SettingsAuthorityError(
+                    f"{subject} requires the canonical settings graph: "
+                    f"{path}.{name} must be an exact tuple, not "
+                    f"{type(held).__name__}."
+                )
+            for index, item in enumerate(held):
+                _require_canonical(
+                    item, element, subject=subject, path=f"{path}.{name}[{index}]"
+                )
+        else:
+            _require_canonical(held, nested, subject=subject, path=f"{path}.{name}")
+
+
+def require_canonical_web_settings(settings: object, *, subject: str) -> WebSettings:
+    """`require_canonical` for the whole graph, typed as what it returns."""
+    _require_canonical(settings, WebSettings, subject=subject, path="WebSettings")
+    # The check above proved `type(settings) is WebSettings`, which is stronger
+    # than this parameter's annotation. The narrowing is stated here rather than
+    # re-derived by a second `isinstance` nothing would act on.
+    return settings  # type: ignore[return-value]
+
+
+# --------------------------------------------------------------------------
 # Readers, one per section of the contract
 # --------------------------------------------------------------------------
 
@@ -1965,6 +2177,7 @@ def _read_worker(reader: _Reader) -> WorkerSettings:
 __all__ = [
     "ACCEPTED_PROVIDER_KEYS",
     "ACCEPTED_USER_VERIFICATION",
+    "CANONICAL_SETTINGS_GRAPH",
     "BoundsSettings",
     "ConfigurationError",
     "ConfigurationProblem",
@@ -1986,6 +2199,7 @@ __all__ = [
     "SETTINGS_NUMERIC_BOUNDS",
     "SecretKey",
     "SessionSettings",
+    "SettingsAuthorityError",
     "WEBAUTHN_BOUNDS",
     "WORKER_BOUNDS",
     "WebAuthnSettings",
@@ -1993,7 +2207,10 @@ __all__ = [
     "WebSettings",
     "WorkerSettings",
     "canonical_settings",
+    "canonical_web_settings",
     "policy_number_problem",
+    "require_canonical",
+    "require_canonical_web_settings",
     "session_policy_problem",
     "session_policy_problems",
     "settings_numeric_problems",

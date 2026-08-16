@@ -24,7 +24,10 @@ package proceeds on a blocking finding.
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import AsyncIterator, Callable
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request, Response
@@ -43,7 +46,11 @@ from adapters.web.middleware import (
 )
 from application.web import WEB_APPLICATION_VERSION
 from application.web.capabilities import AuthMethod, resolve_capabilities
-from application.web.config import BoundsSettings, WebSettings, canonical_settings
+from application.web.config import (
+    SettingsAuthorityError,
+    WebSettings,
+    require_canonical_web_settings,
+)
 from application.web.crypto import keyed_digest
 from application.web.errors import AuthenticationFailure, record_authentication_failure
 from application.web.oauth import safe_return_path
@@ -98,16 +105,336 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+@dataclass(frozen=True, slots=True)
+class RequestAuthority:
+    """The objects a request reads, captured when `create_app()` accepted them.
+
+    **This exists because `app.state` is not a boundary** (2026-08-16, P3.G1
+    request-authority and lifecycle remediation, finding 1). The previous
+    correction bound the *composition* to the routes and left a
+    `_settings(request)` helper that read `request.app.state.settings` on every
+    call — for the client and user-agent digests, mutation-origin validation,
+    cookie names and attributes, CSRF key selection and the health view. Starlette's
+    `State` is an ordinary mutable namespace with an ordinary `__setattr__`, so
+    `app.state.settings = graph_b` gave an already-validated application a second
+    complete settings graph to serve from: a different accepted `Origin`, a
+    different CSRF key, a different cookie contract, and different keyed audit and
+    rate-limit identities than the graph `create_app()` checked. That is the same
+    post-validation replacement shape the provider and engine remediation removed,
+    one level further out.
+
+    The correction is **which object the handler holds**, not another check.
+    `create_app()` builds one of these from the canonical graph it accepted and
+    passes it into route registration and the error handler; the closures below
+    read from it. There is no per-request dereference of mutable state to
+    intercept, so there is nothing for a per-request canonicality check to detect
+    and none is made — comparing a captured graph against `app.state` would be a
+    second authority admitted and then argued with, which is the defect rather
+    than the fix.
+
+    `app.state.settings`, `app.state.composition`, `app.state.templates` and
+    `app.state.address_policy` remain as **diagnostic** references an operator and
+    the suite read. Replacing any of them changes what is reported and nothing
+    that serves a request; `TC-STRUCT-10` asserts that production request code
+    reads none of them.
+
+    The three members are the whole per-request read set:
+
+    * `settings` — the canonical exact-base graph, the one authority;
+    * `address_policy` — N-34's hop count, already fixed at construction from
+      `settings.bounds`, and the object every client-IP resolution goes through;
+      and
+    * `templates` — the Jinja environment whose `autoescape` is set once at
+      construction (TC-SEC-08). Captured for the same reason as the other two: a
+      replaced environment is a replaced escaping policy.
+    """
+
+    settings: WebSettings
+    address_policy: ClientAddressPolicy
+    templates: Jinja2Templates
+
+    def client_address(self, request: Request) -> str:
+        return self.address_policy.resolve(request) or "unknown"
+
+    def client_digest(self, request: Request) -> bytes | None:
+        address = self.address_policy.resolve(request)
+        if address is None:
+            return None
+        return keyed_digest(self.settings.client_digest_key, address)
+
+    def user_agent_digest(self, request: Request) -> bytes | None:
+        agent = request.headers.get("user-agent")
+        if not agent:
+            return None
+        return keyed_digest(self.settings.client_digest_key, agent)
+
+    def origin_is_ours(self, request: Request) -> bool:
+        """Step 5. Missing or mismatched `Origin` on a mutation is refused.
+
+        Missing counts as mismatched, deliberately. Every browser that can reach
+        this application sends `Origin` on a cross-site form post, and treating
+        its absence as permission would make the check optional for exactly the
+        caller it exists to stop.
+
+        The origin compared against is the captured graph's, so the set of
+        accepted origins is fixed when the application is built rather than
+        whenever the check runs.
+        """
+        return request.headers.get("origin") == self.settings.public_origin
+
+    def render(
+        self, request: Request, template: str, *, view, status_code: int
+    ) -> HTMLResponse:
+        return self.templates.TemplateResponse(
+            request=request,
+            name=template,
+            context={"view": view},
+            status_code=status_code,
+        )
+
+
+def _attach_cleanup_failure(failure: BaseException, cleanup: BaseException) -> None:
+    """Record `cleanup` beneath `failure` without letting it take `failure`'s place.
+
+    Both halves of a failed startup that also failed to clean up matter, and they
+    matter differently. The refusal is *why the process must not serve* and is the
+    exception an operator has to act on; the cleanup failure is a second,
+    consequential fault that must not be silently dropped either. Python's default
+    would surface the wrong one: an exception raised inside an `except` block
+    replaces the exception being handled, so a provider whose transport failed to
+    shut down would hide the `ConfigurationError` that refused the boot behind it.
+
+    So the refusal is re-raised and the cleanup failure is attached to the **tail**
+    of its `__context__` chain, where a traceback prints it under "During handling
+    of the above exception, another exception occurred" without displacing it.
+    Attaching at the tail rather than directly on `failure` is what keeps any
+    context `failure` already carried; the `seen` set is what keeps a chain that
+    already reaches `cleanup` from being extended into a cycle.
+
+    Nothing is rendered, formatted or logged here. Both exceptions are attached as
+    they were raised, and `WebComposition.aclose()` states that it adds no settings
+    value, database URL or provider configuration to what it re-raises.
+    """
+    # Python has already set `cleanup.__context__` to `failure`, because `cleanup`
+    # was raised while `failure` was being handled. Clearing that back-reference is
+    # what stops the attachment below from closing a loop, and it loses nothing:
+    # `failure` is the very exception `cleanup` is about to be attached beneath.
+    cleanup.__context__ = None
+    cleanup.__suppress_context__ = False
+    tail = failure
+    seen = {id(failure)}
+    while tail.__context__ is not None and id(tail.__context__) not in seen:
+        tail = tail.__context__
+        seen.add(id(tail))
+    if id(cleanup) not in seen:
+        tail.__context__ = cleanup
+        tail.__suppress_context__ = False
+
+
+def _portal_lifespan(
+    composition: WebComposition,
+    authority: RequestAuthority,
+    *,
+    run_startup_checks: bool,
+) -> Callable[[FastAPI], "AsyncIterator[None]"]:
+    """The ASGI lifespan that owns `composition` — including on a refused startup.
+
+    **Installed because `aclose()` had no caller in production** (2026-08-16,
+    P3.G1 request-authority and lifecycle remediation, finding 2).
+    `WebComposition.aclose()` closed the provider and disposed an owned engine
+    correctly, and `create_app()` registered no lifespan and no shutdown handler,
+    so an ordinary ASGI stop left the production HTTP client and the SQLAlchemy
+    engine and its pool open. Tests calling `composition.aclose()` by hand proved
+    the method, never the process.
+
+    **The resource checks run here, not in the factory** (2026-08-16, P3.G1
+    request-authority and lifecycle re-review, remaining finding). `create_app()`
+    used to construct the composition, call `run_resource_checks()`, and only
+    afterwards build the `FastAPI` object this lifespan is installed on. On the
+    production construction path both process-lifetime resources — the provider's
+    HTTP client and the owned SQLAlchemy engine — already existed by the time that
+    call ran, and a refusal propagated out of the factory: no application was
+    returned, so no lifespan could ever execute, so `aclose()` had no caller on the
+    one path where the process was being told to stop. A composition that owns
+    process-lifetime resources has to release them on every failed startup as well
+    as on a normal shutdown, and "startup refused" is a failed startup.
+
+    Running them inside the lifespan makes a refusal an **ASGI startup failure**:
+    the checks complete before `lifespan.startup.complete` is sent, so an
+    application whose checks refused never serves a request, exactly as a factory
+    that raised never returned one. What changes is that the `finally` below now
+    covers that path.
+
+    The checks cross the sync/async seam through `run_in_threadpool` for the same
+    reason every other database unit of work in this module does: S-14 and S-15
+    open connections and query, and `.agents/AGENTS.md` forbids blocking database
+    work on the event loop. In the factory this was synchronous code on a
+    synchronous call path; on a lifespan it would be blocking the loop that has
+    to answer the startup message.
+
+    The composition and the authority are both **closed over**, not looked up.
+    Resolving either from `app.state` would mean a replaced `app.state.composition`
+    could redirect cleanup to an intruder — leaving the real provider and engine
+    open while reporting a clean stop — or point the checks at an engine other than
+    the one every request will transact on. `authority.settings` is the same
+    canonical graph object every route reads, so the configuration S-12/S-14/S-15
+    are evaluated against is the configuration the application serves from, by
+    identity rather than by agreement.
+
+    **A composition is claimed before anything else happens** (2026-08-16, P3.G1
+    test-clock-authority re-review). `WebComposition.aclose()` permanently closes
+    the provider and disposes an owned engine, and this lifespan performed no
+    live-or-closed check on the way *in*: a composition handed to two applications,
+    or one application whose lifespan was entered twice, answered
+    `lifespan.startup.complete` the second time and served requests against a
+    closed Discord HTTP client until an OAuth route dereferenced it. With
+    `run_startup_checks=False` that was immediate; with the checks enabled it was
+    not caught either, because a disposed SQLAlchemy engine builds a replacement
+    pool and S-14/S-15 pass against a resource nobody may use.
+
+    `claim_for_startup()` is therefore the first statement below, before the
+    checks and before the `yield` that admits requests, and outside the cleanup
+    `try` — a composition this application was refused is one it must not close.
+
+    Everything about *what* is closed, what is only borrowed, and what a repeated
+    shutdown does is `WebComposition.aclose()`'s to state, and is stated there
+    rather than duplicated here. What a startup failure that *also* fails to clean
+    up surfaces is `_attach_cleanup_failure`'s, immediately above.
+    """
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        # **The claim is first, and it is deliberately outside the `try` below.**
+        # A composition that is already started, closing or closed is not this
+        # application's to run and not this application's to clean up: in the
+        # first case the lifespan that holds it is still serving requests through
+        # the provider and the engine, and closing them here would turn a caller's
+        # mistake into an outage; in the other two there is nothing left to
+        # release. A refusal here is an ASGI startup failure like any other, so no
+        # request is served — which is the whole point, because the resource
+        # checks below cannot detect the condition (`WebComposition.aclose()`
+        # leaves the provider closed and `Engine.dispose()` silently builds a
+        # replacement pool, so S-14 and S-15 would both report health).
+        composition.claim_for_startup()
+        try:
+            if run_startup_checks:
+                composition.startup_warnings = await run_in_threadpool(
+                    run_resource_checks, authority.settings, composition.engine
+                )
+            yield
+        except BaseException as failure:
+            # Not `finally`, because the two paths differ in one way that matters:
+            # here the cleanup runs *while* an exception is in flight, and a
+            # cleanup failure must be recorded beneath that exception rather than
+            # be allowed to replace it.
+            try:
+                await composition.aclose()
+            except BaseException as cleanup_failure:  # noqa: BLE001 - re-attached
+                _attach_cleanup_failure(failure, cleanup_failure)
+            raise
+        await composition.aclose()
+
+    return lifespan
+
+
 def create_app(
-    settings: WebSettings,
+    settings: WebSettings | None = None,
     *,
     composition: WebComposition | None = None,
     run_startup_checks: bool = True,
 ) -> FastAPI:
-    """Build the portal. Refuses to start on a failed resource check (S-12/14/15)."""
-    composition = composition or WebComposition(settings=settings)
-    if run_startup_checks:
-        composition.startup_warnings = run_resource_checks(settings, composition.engine)
+    """Build the portal. Its startup refuses on a failed resource check (S-12/14/15).
+
+    **The refusal is the application's, not this function's** (2026-08-16, P3.G1
+    request-authority and lifecycle re-review). S-12, S-14 and S-15 are evaluated
+    by the ASGI lifespan installed below, before `lifespan.startup.complete`, so a
+    refused portal still never serves a request — and, unlike a factory that raised
+    with a live provider and a live engine in hand, it releases them on the way
+    out. `create_app()` returning is therefore no longer a statement that the
+    resource checks passed; entering the returned application's lifespan is.
+
+    **Exactly one configuration authority** (2026-08-16, P3.G1 canonical-graph
+    remediation). Either `settings`, from which the composition is built, or a
+    `composition` that already holds the canonical graph — never both.
+
+    **And a composition backs exactly one running application** (2026-08-16, P3.G1
+    test-clock-authority re-review). Building two applications over one
+    composition is not refused here — the factory opens nothing and closes
+    nothing, so there is no resource for a second call to endanger — but only one
+    of them can *start*: the lifespan installed below claims the composition, and
+    the second startup fails rather than serving requests against the provider and
+    engine the first shutdown released.
+
+    This signature previously took both and required no relationship between
+    them: `create_app(settingsa, composition=composition_b)` produced an
+    application whose middleware, routes, cookies, digests and startup checks
+    used A while every service used B, with no private mutation and no
+    unsupported API anywhere in it. The fix is not a comparison of the two — two
+    authorities that agree today are still two authorities — but the removal of
+    the second. From the line below, `settings` *is* `composition.settings` and
+    the argument is out of scope for the rest of this function.
+
+    **The provider is not checked here, because it can no longer be replaced**
+    (2026-08-16, P3.G1 provider/engine authority remediation). This factory used
+    to call `_require_provider_from()` once, comparing the composition's provider
+    against the graph. That comparison was true at startup and said nothing about
+    the object R-03 and R-04 would dereference afterwards: `provider` was a
+    public attribute, and the regression offered as proof only replaced it and
+    called `create_app` *again*. `WebComposition` now derives the provider from
+    its own canonical `settings.discord` and holds it write-once behind a
+    read-only property, so the check had nothing left to detect and has been
+    removed rather than kept as security theatre. What survives is the graph
+    requirement below, which does detect a supported state: a `WebComposition`
+    subclass — the test harness is one — whose `settings` is not the canonical
+    exact-base graph.
+    """
+    if (settings is None) == (composition is None):
+        raise SettingsAuthorityError(
+            "create_app takes exactly one configuration authority: either "
+            "`settings`, from which it builds the composition, or a "
+            "`composition` that already holds the canonical settings graph. "
+            "Both together are two authorities nothing can require to agree, "
+            "and neither is not a configuration at all."
+        )
+    if composition is None:
+        composition = WebComposition(settings=settings)
+    # The composition's graph, and nothing else, for the rest of this factory and
+    # for every request the application serves. Required rather than assumed:
+    # `WebComposition.settings` is write-once and canonicalised by its own
+    # constructor, but `composition` is a parameter and a *subclass* may answer
+    # this property with something else — the portal suite's harness is such a
+    # subclass. This is the one place where "the canonical graph" becomes a
+    # property of the application rather than of how it happened to be built.
+    settings = require_canonical_web_settings(
+        composition.settings, subject="create_app"
+    )
+    # The resource checks are **not** run here. They run inside the lifespan
+    # installed below, so that a refusal releases the provider and the owned
+    # engine this composition is already holding — see `_portal_lifespan`.
+
+    templates = Jinja2Templates(directory=str(TEMPLATE_ROOT))
+    # Autoescaping for every configured extension, set at environment
+    # construction rather than per template (TC-SEC-08). No template in this
+    # package calls `|safe` on any value, and a test asserts that too.
+    templates.env.autoescape = True
+    # The canonical graph's exact-base request bounds (2026-08-15, I-10;
+    # 2026-08-16, canonical graph). `BodyBound` and `ClientAddressPolicy` keep
+    # these numbers for the process's lifetime, so the read that was checked has
+    # to be the read they are given — a subclass answering `1 MiB` here and
+    # something larger to the middleware would be a body bound that never
+    # applied. It is read directly rather than rebuilt a second time: the graph
+    # was canonicalised once, at the composition root, and a second rebuild here
+    # would be a second authority for the same numbers.
+    bounds = settings.bounds
+    # The one object every handler below reads from, built here from the graph
+    # this factory accepted and handed to route registration and the error
+    # handler (2026-08-16, P3.G1 request-authority remediation). See
+    # `RequestAuthority` for why a captured object rather than `app.state`.
+    authority = RequestAuthority(
+        settings=settings,
+        address_policy=ClientAddressPolicy(trusted_hops=bounds.trusted_proxy_hops),
+        templates=templates,
+    )
 
     app = FastAPI(
         title="Freedom Blades portal",
@@ -115,66 +442,42 @@ def create_app(
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        # Startup checks *and* production cleanup, both wired to the ASGI
+        # lifecycle rather than left to a caller (2026-08-16, P3.G1 lifecycle
+        # remediation and its re-review). The composition and the authority are
+        # closed over by `_portal_lifespan`, so neither the checks nor the
+        # shutdown can be redirected by a later `app.state` assignment, and a
+        # refused startup releases what this composition already holds.
+        lifespan=_portal_lifespan(
+            composition, authority, run_startup_checks=run_startup_checks
+        ),
     )
+    # Diagnostics and test inspection only, from here on. Every one of these is
+    # already held by `authority` or by the closures below, so replacing one
+    # changes what an operator is shown and nothing the application does —
+    # asserted by `TC-STRUCT-10` rather than left as a convention.
     app.state.composition = composition
     app.state.settings = settings
-    app.state.templates = Jinja2Templates(directory=str(TEMPLATE_ROOT))
-    # Autoescaping for every configured extension, set at environment
-    # construction rather than per template (TC-SEC-08). No template in this
-    # package calls `|safe` on any value, and a test asserts that too.
-    app.state.templates.env.autoescape = True
-    # One read of each request bound, validated before either becomes a control
-    # (2026-08-15, I-10). `BodyBound` and `ClientAddressPolicy` keep the numbers
-    # for the process's lifetime, so the read that is checked has to be the read
-    # they are given — a subclass answering `1 MiB` here and something larger to
-    # the middleware would be a body bound that never applied.
-    bounds = canonical_settings(settings.bounds, BoundsSettings)
-    app.state.address_policy = ClientAddressPolicy(
-        trusted_hops=bounds.trusted_proxy_hops
-    )
+    app.state.templates = templates
+    app.state.address_policy = authority.address_policy
 
     # Registration order is reverse execution order in Starlette, so this reads
     # bottom-up: headers wrap everything, then the body bound, then the kill
-    # switch, then the host check outermost.
+    # switch, then the host check outermost. Each takes its values from the same
+    # captured graph the routes use.
     app.add_middleware(SecurityHeaders, session_cookie_name=settings.session.cookie_name)
     app.add_middleware(BodyBound, max_bytes=bounds.max_request_bytes)
     app.add_middleware(KillSwitch, settings=settings)
     app.add_middleware(HostGuard, allowed_hosts=settings.allowed_hosts)
 
-    _register_routes(app)
-    _register_error_handlers(app)
+    _register_routes(app, composition, authority)
+    _register_error_handlers(app, authority)
     return app
 
 
 # ---------------------------------------------------------------------------
 # Request helpers
 # ---------------------------------------------------------------------------
-
-
-def _composition(request: Request) -> WebComposition:
-    return request.app.state.composition
-
-
-def _settings(request: Request) -> WebSettings:
-    return request.app.state.settings
-
-
-def _client_digest(request: Request) -> bytes | None:
-    address = request.app.state.address_policy.resolve(request)
-    if address is None:
-        return None
-    return keyed_digest(_settings(request).client_digest_key, address)
-
-
-def _client_address(request: Request) -> str:
-    return request.app.state.address_policy.resolve(request) or "unknown"
-
-
-def _user_agent_digest(request: Request) -> bytes | None:
-    agent = request.headers.get("user-agent")
-    if not agent:
-        return None
-    return keyed_digest(_settings(request).client_digest_key, agent)
 
 
 #: The only body encoding the portal's form routes accept. A multipart body on a
@@ -188,17 +491,6 @@ FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 def _form_content_type_is_supported(request: Request) -> bool:
     declared = (request.headers.get("content-type") or "").split(";", 1)[0].strip()
     return declared == FORM_CONTENT_TYPE
-
-
-def _origin_is_ours(request: Request) -> bool:
-    """Step 5. Missing or mismatched `Origin` on a mutation is refused.
-
-    Missing counts as mismatched, deliberately. Every browser that can reach this
-    application sends `Origin` on a cross-site form post, and treating its
-    absence as permission would make the check optional for exactly the caller it
-    exists to stop.
-    """
-    return request.headers.get("origin") == _settings(request).public_origin
 
 
 def _set_session_cookie(response: Response, settings: WebSettings, issued) -> None:
@@ -233,8 +525,35 @@ def _login_transaction_cookie_name(settings: WebSettings) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _register_routes(app: FastAPI) -> None:
-    settings: WebSettings = app.state.settings
+def _register_routes(
+    app: FastAPI, composition: WebComposition, authority: RequestAuthority
+) -> None:
+    """Bind the routes to **this** composition and **this** graph, once.
+
+    Both are closed over rather than dereferenced from `app.state` per request
+    (2026-08-16, P3.G1 provider/engine authority remediation). `app.state` is an
+    ordinary mutable namespace, so a per-request `request.app.state.composition`
+    was one more route to a different provider and a different engine than the
+    factory validated — the same shape as the assignable `composition.provider`
+    the remediation removed, one level out.
+
+    **The settings graph now arrives the same way** (2026-08-16, P3.G1
+    request-authority remediation). This function used to open by reading
+    `app.state.settings` — which was the captured graph and was fine — while the
+    request helpers it called went back to `request.app.state.settings` per call.
+    Closing over the graph *here* and leaving that door open elsewhere meant the
+    cookie name a route branched on came from the factory's object and the origin
+    the same route validated came from whatever `app.state` held at the time. The
+    graph is now handed in as part of `authority`, and every helper reads from
+    that object.
+
+    `app.state.composition`, `app.state.settings`, `app.state.templates` and
+    `app.state.address_policy` remain as the diagnostic references an operator
+    and the suite read; replacing any of them changes what is *reported*, and
+    cannot change which provider serves an OAuth start, which engine a
+    transaction opens on, or which origin, key, cookie or digest a request uses.
+    """
+    settings: WebSettings = authority.settings
 
     @app.get("/", name="root")
     async def root(request: Request) -> Response:
@@ -270,7 +589,7 @@ def _register_routes(app: FastAPI) -> None:
                 else None
             ),
         )
-        return _render(request, "login.html", view=view, status_code=200)
+        return authority.render(request, "login.html", view=view, status_code=200)
 
     @app.get("/v1/auth/discord/start", name="oauth_start")
     async def oauth_start(request: Request) -> Response:
@@ -281,10 +600,9 @@ def _register_routes(app: FastAPI) -> None:
         is a documented weakening of the accepted CSP. A navigation is not a form
         submission, so N-26 stands unweakened.
         """
-        composition = _composition(request)
         correlation_id = uuid4()
-        address = _client_address(request)
-        digest = _client_digest(request)
+        address = authority.client_address(request)
+        digest = authority.client_digest(request)
         return_path = safe_return_path(request.query_params.get("return"))
 
         decision = await run_in_threadpool(
@@ -351,9 +669,8 @@ def _register_routes(app: FastAPI) -> None:
         the short answer is a reason and, when one has been validated, a
         transaction id.
         """
-        composition = _composition(request)
         correlation_id = uuid4()
-        address = _client_address(request)
+        address = authority.client_address(request)
         recorder = OAuthRefusalRecorder(
             composition.engine, correlation_id=correlation_id
         )
@@ -451,8 +768,8 @@ def _register_routes(app: FastAPI) -> None:
                 _redirect_to_login("provider_error", correlation_id), settings
             )
 
-        digest = _client_digest(request)
-        agent = _user_agent_digest(request)
+        digest = authority.client_digest(request)
+        agent = authority.user_agent_digest(request)
 
         def complete(connection):
             services = composition.services(connection)
@@ -487,7 +804,7 @@ def _register_routes(app: FastAPI) -> None:
                     checked_at=Instant.of(utcnow()),
                     correlation=Correlation(failure.correlation_id),
                 )
-                response = _render(
+                response = authority.render(
                     request, "non_member.html", view=view, status_code=403
                 )
                 return _clear_transaction(response, settings)
@@ -507,12 +824,10 @@ def _register_routes(app: FastAPI) -> None:
         rule — every cookie-authenticated mutation carries a token — is easier to
         review than an exception for this one.
         """
-        composition = _composition(request)
-        settings_ = _settings(request)
-        token = request.cookies.get(settings_.session.cookie_name)
+        token = request.cookies.get(settings.session.cookie_name)
         if not token:
             return JSONResponse({"error": "not_authenticated"}, status_code=401)
-        if not _origin_is_ours(request):
+        if not authority.origin_is_ours(request):
             return JSONResponse({"error": "origin_invalid"}, status_code=403)
         if not _form_content_type_is_supported(request):
             return JSONResponse(
@@ -530,7 +845,7 @@ def _register_routes(app: FastAPI) -> None:
             record = services.session_service.resolve(token, now=utcnow())
             if record is None:
                 return "not_authenticated"
-            if not csrf.verify(settings_.csrf_key, record.id, presented):
+            if not csrf.verify(settings.csrf_key, record.id, presented):
                 return "csrf_invalid"
             services.session_service.logout(
                 record=record,
@@ -547,7 +862,7 @@ def _register_routes(app: FastAPI) -> None:
             return JSONResponse({"error": "csrf_invalid"}, status_code=403)
 
         response = RedirectResponse("/v1/login", status_code=303)
-        _clear_session_cookie(response, settings_)
+        _clear_session_cookie(response, settings)
         return response
 
     @app.get("/v1/auth/emergency", name="emergency_login_page")
@@ -572,19 +887,18 @@ def _register_routes(app: FastAPI) -> None:
                 else None
             ),
         )
-        response = _render(request, "emergency.html", view=view, status_code=200)
+        response = authority.render(request, "emergency.html", view=view, status_code=200)
         response.headers["X-Robots-Tag"] = "noindex"
         return response
 
     @app.post("/v1/auth/emergency/webauthn/options", name="emergency_webauthn_options")
     async def emergency_webauthn_options(request: Request) -> Response:
         """R-07. `application/json`, because the WebAuthn API requires script."""
-        composition = _composition(request)
         correlation_id = uuid4()
-        if not _origin_is_ours(request):
+        if not authority.origin_is_ours(request):
             return json_refusal(403, "origin_invalid", correlation_id)
-        address = _client_address(request)
-        digest = _client_digest(request)
+        address = authority.client_address(request)
+        digest = authority.client_digest(request)
 
         decision = await run_in_threadpool(
             _consume_rate_limit, composition, _webauthn_action(), client_ip=address
@@ -605,14 +919,12 @@ def _register_routes(app: FastAPI) -> None:
     @app.post("/v1/auth/emergency/webauthn/verify", name="emergency_webauthn_verify")
     async def emergency_webauthn_verify(request: Request) -> Response:
         """R-08. A successful verification creates a break-glass session (N-15)."""
-        composition = _composition(request)
-        settings_ = _settings(request)
         correlation_id = uuid4()
-        if not _origin_is_ours(request):
+        if not authority.origin_is_ours(request):
             return json_refusal(403, "origin_invalid", correlation_id)
-        address = _client_address(request)
-        digest = _client_digest(request)
-        agent = _user_agent_digest(request)
+        address = authority.client_address(request)
+        digest = authority.client_digest(request)
+        agent = authority.user_agent_digest(request)
         try:
             payload = await request.json()
         except Exception:  # noqa: BLE001 - malformed JSON is one outcome
@@ -624,6 +936,22 @@ def _register_routes(app: FastAPI) -> None:
         if not decision.allowed:
             response = json_refusal(429, "rate_limited", correlation_id)
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
+            return response
+
+        # N-32's **second** budget, which the per-address one above does not
+        # cover: ten assertions per platform account per sixty minutes, whatever
+        # addresses they arrive from. It is consumed here, after the presented
+        # credential has been resolved and before anything is verified, in its
+        # own committed transaction — the refusal below rolls its transaction
+        # back, and a budget that rolled back with it would bound nothing.
+        account_decision = await run_in_threadpool(
+            _consume_assertion_account_budget, composition, payload
+        )
+        if account_decision is not None and not account_decision.allowed:
+            response = json_refusal(429, "rate_limited", correlation_id)
+            response.headers["Retry-After"] = str(
+                account_decision.retry_after_seconds
+            )
             return response
 
         def unit(connection):
@@ -648,22 +976,20 @@ def _register_routes(app: FastAPI) -> None:
         response = JSONResponse(
             {"status": "ok", "redirect": "/v1/admin/role-capabilities"}, status_code=200
         )
-        _set_session_cookie(response, settings_, login.session)
+        _set_session_cookie(response, settings, login.session)
         return response
 
     @app.post("/v1/auth/emergency/recovery", name="emergency_recovery_login")
     async def emergency_recovery_login(request: Request) -> Response:
         """R-09. Consumes a host-issued grant (N-14). No route can issue one."""
-        composition = _composition(request)
-        settings_ = _settings(request)
         correlation_id = uuid4()
-        if not _origin_is_ours(request):
+        if not authority.origin_is_ours(request):
             return JSONResponse({"error": "origin_invalid"}, status_code=403)
         if not _form_content_type_is_supported(request):
             return JSONResponse({"error": "unsupported_media_type"}, status_code=415)
-        address = _client_address(request)
-        digest = _client_digest(request)
-        agent = _user_agent_digest(request)
+        address = authority.client_address(request)
+        digest = authority.client_digest(request)
+        agent = authority.user_agent_digest(request)
         form = await request.form()
         token = (form.get("token") or "").strip()
         if not token:
@@ -676,6 +1002,22 @@ def _register_routes(app: FastAPI) -> None:
             response = _redirect_to_emergency("rate_limited", correlation_id)
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
             return response
+
+        # N-33's per-grant cap, spent in its own transaction for the same reason
+        # the per-address one is: the redemption below rolls back on every
+        # refusal, and this counter's whole purpose is to survive refusals. No
+        # `Retry-After` accompanies it — the per-grant budget is for all time,
+        # and a hint would promise a window that does not exist.
+        attempt_refusal = await run_in_threadpool(
+            _consume_grant_attempt, composition, token, correlation_id
+        )
+        if attempt_refusal is not None:
+            await run_in_threadpool(
+                record_authentication_failure, composition.engine, attempt_refusal
+            )
+            return _redirect_to_emergency(
+                attempt_refusal.code, attempt_refusal.correlation_id
+            )
 
         def unit(connection):
             return composition.services(connection).break_glass.redeem_recovery_grant(
@@ -697,7 +1039,7 @@ def _register_routes(app: FastAPI) -> None:
             return _redirect_to_emergency(failure.code, failure.correlation_id)
 
         response = RedirectResponse("/v1/admin/role-capabilities", status_code=303)
-        _set_session_cookie(response, settings_, login.session)
+        _set_session_cookie(response, settings, login.session)
         return response
 
     @app.get("/healthz", name="health")
@@ -707,9 +1049,8 @@ def _register_routes(app: FastAPI) -> None:
         Contains no secret, no player data, no identity, no database URL and no
         configuration value — only check names and pass/fail (VM-16).
         """
-        composition = _composition(request)
         view = await run_in_threadpool(
-            build_health_view, _settings(request), composition.engine, provider_ok=True
+            build_health_view, settings, composition.engine, provider_ok=True
         )
         return JSONResponse(
             view.as_payload(), status_code=200 if view.status == "ok" else 503
@@ -758,11 +1099,53 @@ def _consume_rate_limit(composition, action, *, client_ip: str):
         )
 
 
-def _render(request: Request, template: str, *, view, status_code: int) -> HTMLResponse:
-    templates: Jinja2Templates = request.app.state.templates
-    return templates.TemplateResponse(
-        request=request, name=template, context={"view": view}, status_code=status_code
-    )
+def _consume_assertion_account_budget(composition, payload):
+    """N-32's per-account budget, in its **own** transaction, before verification.
+
+    Two statements in one short transaction: resolve the presented credential to
+    the account it protects, then spend that account's budget. Both have to be
+    here rather than inside the assertion, because the assertion's transaction is
+    rolled back by every refusal — and an assertion budget that only counted
+    successful logins would be a budget on nobody.
+
+    A credential that resolves to no account spends an equivalent per-credential
+    budget instead, so the caller cannot tell an enrolled credential from an
+    invented one by which attempt starts answering `rate_limited`. A payload
+    carrying no credential id at all spends neither and returns `None`: the
+    per-address budget above already counted it, and the assertion refuses it a
+    moment later.
+    """
+    from application.web.rate_limit import LimitedAction
+
+    now = utcnow()
+    with composition.engine.begin() as connection:
+        services = composition.services(connection)
+        subject = services.break_glass.assertion_subject(credential_payload=payload)
+        if subject.account_id is not None:
+            return services.rate_limiter.check_account(
+                LimitedAction.WEBAUTHN_ASSERTION,
+                account_id=subject.account_id,
+                now=now,
+            )
+        if subject.credential_id is not None:
+            return services.rate_limiter.check_credential(
+                LimitedAction.WEBAUTHN_ASSERTION,
+                credential_id=subject.credential_id,
+                now=now,
+            )
+        return None
+
+
+def _consume_grant_attempt(composition, token: str, correlation_id: UUID):
+    """N-33's per-grant attempt, in its **own** transaction, before redemption.
+
+    Returns the refusal to raise rather than raising it, because raising inside
+    this transaction would roll back the increment that produced it.
+    """
+    with composition.engine.begin() as connection:
+        return composition.services(connection).break_glass.note_recovery_attempt(
+            token=token, correlation_id=correlation_id
+        )
 
 
 def _redirect_to_login(code: str, correlation_id: UUID) -> RedirectResponse:
@@ -845,7 +1228,15 @@ def _recovery_action():
     return LimitedAction.RECOVERY_LOGIN
 
 
-def _register_error_handlers(app: FastAPI) -> None:
+def _register_error_handlers(app: FastAPI, authority: RequestAuthority) -> None:
+    """The safe error page renders through the captured Jinja environment too.
+
+    It is the one handler that runs for *any* unhandled exception on *any* route,
+    so leaving it to dereference `app.state.templates` would have kept a mutable
+    escaping policy on the single response path a caller is most likely to be
+    able to provoke.
+    """
+
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception) -> Response:
         """VM-20: a correlation id and nothing else (N-25).
@@ -864,7 +1255,7 @@ def _register_error_handlers(app: FastAPI) -> None:
         )
         view = SafeErrorView(state="error", correlation=Correlation(correlation_id))
         try:
-            return _render(request, "error.html", view=view, status_code=500)
+            return authority.render(request, "error.html", view=view, status_code=500)
         except Exception:  # noqa: BLE001 - the error page must never fail twice
             return JSONResponse(
                 {"error": "unexpected_error", "correlation_id": str(correlation_id)},
@@ -872,4 +1263,9 @@ def _register_error_handlers(app: FastAPI) -> None:
             )
 
 
-__all__ = ["DEFERRED_ROUTES", "ROUTE_INVENTORY", "create_app"]
+__all__ = [
+    "DEFERRED_ROUTES",
+    "ROUTE_INVENTORY",
+    "RequestAuthority",
+    "create_app",
+]

@@ -106,6 +106,34 @@ class RateLimiter:
             now=now,
         )
 
+    def check_credential(
+        self, action: LimitedAction, *, credential_id: bytes, now: datetime
+    ) -> LimitDecision:
+        """The **same** budget, for a credential id that resolves to no account.
+
+        It exists so that spending N-32's second budget cannot become an
+        account-existence oracle (2026-08-16, P3.G1 security review). If only
+        known credentials had an account bucket, the eleventh attempt against an
+        enrolled credential would answer `rate_limited` while the eleventh
+        attempt against an invented one still answered `invalid` — and that
+        difference is exactly the fact break-glass refuses to disclose. With this
+        bucket both answer `rate_limited` at the same attempt, in the same
+        window, with the same retry hint.
+
+        The bucket carries a keyed digest for the same reason an address does:
+        a credential id is a public-key handle held by one authenticator, and
+        the rate-limit table is not the place to accumulate a list of them. Rows
+        are bounded by the per-address budget that runs first and by N-31's
+        sweep, so an attacker cannot grow the table faster than five rows per
+        address per ten minutes.
+        """
+        return self._check(
+            bucket=f"{action.value}:credential:{self._digest(credential_id.hex())}",
+            limit=self._settings.webauthn_assertions_per_account,
+            window_minutes=self._settings.webauthn_account_window_minutes,
+            now=now,
+        )
+
     def _budget_for(self, action: LimitedAction) -> tuple[int, int]:
         settings = self._settings
         window = settings.window_minutes

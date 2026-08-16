@@ -1,222 +1,78 @@
-# Claude remediation handover — N-23 exact worker lease
+# Claude independent implementation re-review — P3.G1 composition lifecycle claim
 
-You are Claude, the implementing Technical Lead for the existing Phase 3 P3.1
-settings-construction validation remediation in the Freedom Blades Platform.
+Date: 2026-08-16
 
-Work only in `/opt/discord-bots/freedom-bot`.
+Outcome: **no findings; the lifecycle-claim remediation is recommended for acceptance as implementation evidence.**
 
-Before planning, reviewing, or editing, read these files completely:
+P3.G1 remains open pending the separately required security-focused review and the maintainer's gate decision. This review does not accept the package or close RAID I-09/I-10.
 
-1. `AGENTS.md`
-2. `.agents/AGENTS.md`
-3. `docs/implementation-plan.md`, especially Phase 3 and §§16.3–16.4
-4. `docs/review/phase-3-delivery-plan.md`
-5. `docs/contracts/phase-3-numeric-policy-register.md`
-6. `docs/contracts/phase-3-configuration-and-dependency-contract.md`
-7. `docs/contracts/phase-3-state-machines.md`, especially SM-05
-8. `docs/contracts/phase-3-logical-schema.md`, especially the job claim and
-   lease-renewal statements
-9. `docs/contracts/phase-3-operational-contract.md`
-10. `docs/contracts/phase-3-test-traceability.md`
-11. `docs/review/phase-3-p3-1-settings-construction-validation-remediation-submission.md`
-12. `application/web/config.py`
-13. `tests/web/test_settings_construction_validation.py`
-14. every project-management document changed by the current remediation
+## Scope reviewed
 
-Check `git status --short` before editing. The worktree contains a large,
-intentional, unstaged Phase 3 change set. Preserve every unrelated change. Do
-not commit, stage, reset, restore, or reformat unrelated files. Never read or
-print secrets or `.env` contents.
+- `adapters/web/composition.py`
+- `adapters/web/app.py`
+- `tests/web/test_request_authority_and_lifecycle.py`
+- `docs/review/phase-3-p3-g1-composition-lifecycle-claim-remediation-submission-2026-08-16.md`
+- the surrounding canonical-settings, provider/engine-authority, startup-check, and cleanup behavior needed to assess the correction in context
 
-## Independent review finding to remediate
+The review targeted the prior important finding: a composition whose cleanup had begun or completed could previously be started again, allowing ASGI startup to succeed while the Discord provider was closed and the owned SQLAlchemy engine had been disposed.
 
-The exact-integer fix is sound, but the worker lease entry does not implement
-the accepted N-23 policy.
+## Conclusion
 
-`application/web/config.py` currently defines:
+The correction closes the reported lifecycle gap.
 
-```python
-"lease_seconds": PolicyBound(minimum=1, maximum=60, policy="N-23")
-```
+`WebComposition` now has an explicit one-way `NEW -> STARTED -> CLOSING -> CLOSED` lifecycle. `claim_for_startup()` accepts only `NEW`; every later state raises `CompositionLifecycleError`. The ASGI lifespan makes that claim before resource checks and before yielding request service. Consequently, a second application or a second entry into the same application's lifespan produces `lifespan.startup.failed` and never reaches request serving.
 
-That treats 60 seconds as a ceiling and accepts every exact built-in integer
-from 1 through 60. The accepted source does not state “at most 60 seconds.” It
-states:
+The claim is deliberately outside the cleanup `try`. A refused competing startup therefore does not close the provider or dispose the engine beneath the application that already owns and may still be serving with the composition. This placement is correct and is covered by a regression that drives an OAuth route after the competing startup is refused.
 
-```text
-N-23 | Job lease | 60 seconds, heartbeat at most every 20 seconds
-```
+Cleanup semantics remain appropriate: `aclose()` is idempotent for repeated and overlapping asynchronous cleanup calls, marks cleanup before its first suspension point, disposes an owned engine even if provider closure fails, leaves borrowed engines alone, and permanently prevents later startup. Direct cleanup of an unstarted composition also spends its lifecycle and causes a later startup to fail.
 
-The distinction in that sentence is deliberate: the lease is 60 seconds; the
-heartbeat interval has a maximum of 20 seconds. The accepted state machine and
-logical schema likewise renew a lease with `now() + 60 seconds`, and the
-operational/recovery bounds calculate from a 60-second lease.
+The former regression that mislabeled a second lifespan as repeated shutdown was corrected. The replacement coverage proves both two-application reuse and same-application re-entry fail, including ordering before resource checks, no cleanup of a live claimant, no duplicate cleanup after refusal, and absence of configured secrets from the failure channels.
 
-Therefore `lease_seconds=1, heartbeat_seconds=20` is not evidence that an
-ordering rule is missing. It exists only because the implementation incorrectly
-broadened N-23. A one-second lease would contradict the accepted state machine
-and recovery calculations and would make ordinary heartbeat scheduling lose a
-live claim.
+No blocking, important, or minor implementation finding was identified in the reviewed remediation.
 
-## Required outcome
+## Verification performed
 
-Make `WorkerSettings.lease_seconds` accept exactly the built-in integer `60`.
-The authoritative runtime entry should be equivalent to:
+- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv-web/bin/python -m pytest -q -rs tests/web/test_request_authority_and_lifecycle.py tests/web/test_canonical_settings_graph.py`
+  - **100 passed**, 6 deprecation warnings, 0 skipped.
+- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv-web/bin/python -m pytest -q -rs tests/web`
+  - **707 passed**, 20 deprecation warnings, 0 skipped.
+- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv/bin/python -m pytest -q -rs`
+  - **2260 passed**, 1 deprecation warning, 0 skipped.
+- `git diff --check`
+  - clean before this report was written.
 
-```python
-"lease_seconds": PolicyBound(minimum=60, maximum=60, policy="N-23")
-```
+The warnings are existing dependency deprecations (`httpx` per-request cookies in the web suite and Python's `audioop` deprecation through Discord in the full suite); none indicates a failure of this remediation.
 
-Keep `heartbeat_seconds` as an exact built-in integer in the currently accepted
-range 1 through 20. Do not invent a new heartbeat/lease relationship: once the
-lease is exactly 60, every accepted heartbeat is already shorter than it. Do
-not add an N-45 relationship without a separately accepted policy decision.
+No production file was changed by this review. Only this handover report was updated. Existing unstaged implementation and documentation changes were preserved.
 
-This is a correction to the implementation and its inaccurate descriptions,
-not a new baseline decision. Do not change N-23, the state machine, the logical
-schema, worker behavior, database migrations, routes, services, environment
-variable names, defaults outside the single authority, or deployment topology.
-P3.2 and P3.3 remain unstarted.
+## Subsequent distinct security-focused review
 
-## Implementation requirements
+The separately required security pass was completed on 2026-08-16 and recorded in `docs/review/phase-3-p3-g1-security-review-2026-08-16.md`.
 
-1. Correct the single runtime N-23 lease definition in
-   `application/web/config.py`.
-2. Preserve the existing exact-type rule: only `type(value) is int` is valid.
-   `bool`, floats, and all `int` subclasses must remain refused.
-3. Preserve the one-authority design. Do not restate 60 in a second validator,
-   constructor branch, environment reader, consumer, or test helper.
-4. Preserve aggregate startup validation. An invalid
-   `WORKER_LEASE_SECONDS` must contribute a redacted `ConfigurationProblem`,
-   fall back only for continued validation, and ultimately produce the one
-   aggregate `ConfigurationError`; it must not leak the supplied environment
-   value or escape as `ValueError`.
-5. Preserve `canonical_settings` behavior and the base-type holding seams.
-6. Do not implement worker execution merely to test this setting. The runtime
-   consumers remain P3.3 scope.
+Security outcome: **changes requested; P3.G1 remains open.** Two blocking gate findings remain:
 
-## Required test corrections and additions
+1. N-32's per-account WebAuthn assertion limiter is implemented but has no production caller.
+2. N-33's per-grant recovery-attempt increment is inside the failed authentication transaction and rolls back on every refused matched grant.
 
-Use behavior tests, not source-text, annotation, or signature-only assertions.
-Parameterize from `WORKER_BOUNDS` wherever doing so avoids a second numeric
-authority.
+The earlier “no findings” outcome above applies only to the composition-lifecycle implementation remediation. It does not supersede the security review. P3.2 is not authorized until both findings are remediated, independently re-reviewed, and accepted by the maintainer.
 
-At minimum prove all of the following:
+Both findings were accepted and remediated on 2026-08-16, recorded in `docs/review/phase-3-p3-g1-security-review-remediation-submission-2026-08-16.md`. The per-account assertion budget is now consumed by R-08 in its own committed transaction after credential resolution and before verification, with an equivalent keyed per-credential budget so the limit is not an account-existence oracle; the per-grant recovery counter is spent by R-09 through a service method that returns its refusal instead of raising it, so the increment survives the refusal it counts. Evidence is TC-BG-16 and TC-BG-17, both direct HTTP against real PostgreSQL from several source addresses, with 712 portal and 2260 bot tests passing and four falsification mutations killed.
 
-- direct `WorkerSettings(...)` construction accepts exactly 60;
-- direct construction refuses 59, 61, 0, negative integers, `True`, `False`,
-  integral and fractional floats, non-finite floats, and a comparison-overriding
-  `int` subclass;
-- `dataclasses.replace(valid_worker, lease_seconds=59)` and the corresponding
-  61/subclass cases refuse at construction;
-- the environment reader accepts an unset lease as the register-derived exact
-  value and accepts the explicit string `"60"`;
-- environment strings `"59"` and `"61"` are both refused with N-23/S-10’s
-  exact-value semantics, the variable name is present, and the supplied value
-  is absent from the rendered error;
-- invalid lease configuration still aggregates with invalid fields from other
-  settings types into one `ConfigurationError`;
-- a `WorkerSettings` subclass whose later field read lies is refused by
-  `canonical_settings`, and a valid object is rebuilt as the exact base type;
-- accepted heartbeat boundaries remain 1 and 20, with 0 and 21 refused;
-- the previously documented counterexample
-  `lease_seconds=1, heartbeat_seconds=20` now halts at `WorkerSettings`
-  construction because the lease is invalid.
+**That remediation is submitted, not accepted.** The security review's outcome remains *changes requested* until an independent security re-review of it, and P3.G1, RAID I-09 and RAID I-10 remain open.
 
-If existing generic boundary tests derive `minimum` and `maximum` from
-`WORKER_BOUNDS`, ensure they exercise exact-bound behavior for the corrected
-entry rather than accidentally treating a minimum equal to a maximum as two
-different cases. Keep assertions meaningful and non-vacuous.
+## Final P3.G1 decision — 2026-08-16
 
-Perform a falsification check without leaving the worktree modified: temporarily
-restore only the old `minimum=1, maximum=60` behavior in memory or through the
-existing non-persistent falsification mechanism, show that the new N-23 cases
-fail, then prove the repository status is identical before and after. Do not
-call this mutation testing unless an actual configured mutation tool is used.
+The complete independent implementation and distinct security-focused re-review
+was subsequently completed and is recorded in
+`docs/review/phase-3-p3-g1-independent-and-security-re-review-2026-08-16.md`.
+It found no remaining blocking or important implementation or security finding.
 
-## Documentation corrections
+Peter Duscha accepted P3.1 and closed P3.G1 on 2026-08-16. I-07, I-09 and I-10
+are closed; P3.2 is authorized. P3.3 remains behind P3.G2. I-06 and A-05 remain
+open and block staging/production exposure under the acceptance criteria recorded
+in the final review and RAID register.
 
-Find every statement introduced by the current remediation that says or implies
-any of the following and correct it:
-
-- N-23 lease is `1…60`;
-- every worker number is a ceiling with a floor of one;
-- `lease_seconds=1, heartbeat_seconds=20` is inside the accepted register;
-- an additional heartbeat-less-than-lease decision is required;
-- the N-23 ordering question blocks P3.3.
-
-At minimum inspect and update, where applicable:
-
-- `application/web/config.py` comments/docstrings;
-- `docs/review/phase-3-p3-1-settings-construction-validation-remediation-submission.md`;
-- `docs/contracts/phase-3-numeric-policy-register.md` remediation commentary;
-- `docs/contracts/phase-3-configuration-and-dependency-contract.md` remediation commentary;
-- `docs/contracts/phase-3-test-traceability.md`;
-- `docs/project-management/raid-register.md`;
-- `docs/project-management/status.md`;
-- `docs/project-management/change-log.md`.
-
-Do not rewrite the accepted N-23 row to match the buggy code. The accepted row,
-state machine, schema, and operational calculations are the authority and
-should remain 60 seconds. Preserve append-only management history: add a dated
-correction/amendment where those documents require append-only updates rather
-than silently rewriting historical claims. It is acceptable—and useful—to say
-that the independent review found the earlier `1…60` interpretation wrong.
-
-The remaining honest gaps should still be reported accurately:
-
-- worker lease/heartbeat/attempt consumers are P3.3’s;
-- no new relationship involving N-45 has been accepted;
-- `WEB_WEBAUTHN_USER_VERIFICATION` and
-  `WEB_RECOVERY_GRANT_MINUTES` still have no runtime consumer as previously
-  documented;
-- N-09/N-10 have no P3.1 route consumer and N-21/N-22 have none;
-- P3.G1 and RAID I-09/I-10 remain open pending the required independent,
-  security-focused, availability-focused reviews and maintainer acceptance.
-
-Do not describe the two deliverables, I-10, P3.1, P3.G1, or any review gate as
-accepted or closed merely because tests pass.
-
-## Verification
-
-Run narrow tests first, then the full available portal and bot suites using the
-project’s documented interpreters and disposable PostgreSQL configuration. Also
-run:
-
-- `compileall` under both supported interpreters;
-- the Alembic head/check command used by this repository;
-- `git diff --check`;
-- the established 14-case visual-freeze check if the current package handoff
-  claims it;
-- any configured formatter, linter, or type checker—or explicitly report, with
-  inspection evidence, that none is configured.
-
-Do not claim zero skips unless the actual reported test output says zero skips.
-Do not claim a PostgreSQL case passed if it skipped because
-`TEST_DATABASE_URL` was absent. Record exact commands, pass/fail/skip counts,
-and any check that could not run.
-
-Review the final diff for secrets, generated files, unrelated edits, policy
-restatements, and accidental changes to accepted contracts. Confirm
-`git status --short` after verification and leave all changes unstaged and
-uncommitted.
-
-## Final handoff format
-
-Lead with the corrected result, then report:
-
-1. root cause and why N-23 already resolves the apparent ordering problem;
-2. exact files changed;
-3. tests added or corrected and why they discriminate against the old model;
-4. exact verification commands and results, including skips;
-5. falsification results and proof the worktree was restored;
-6. documentation/history corrections;
-7. security and availability implications;
-8. unchanged configuration/deployment/migration/rollback facts;
-9. remaining honest gaps and review focus;
-10. explicit statement that changes are unstaged/uncommitted and that P3.G1,
-    RAID I-09/I-10, and maintainer acceptance remain open.
-
-Stop and ask the maintainer rather than inventing policy if you discover a real
-conflict among accepted documents. The issue described above is not such a
-conflict: the accepted documents consistently use a 60-second lease.
+TC-BG-16's evidence wording is corrected: enrolled and invented credentials
+produce the same externally meaningful statuses and coarse error codes at the
+same attempts. Literal bodies differ because correlation identifiers are
+per-request, and literal `Retry-After` equality is not claimed.

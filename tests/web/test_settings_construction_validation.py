@@ -48,6 +48,7 @@ from application.web.config import (
     DatabasePoolSettings,
     RateLimitSettings,
     SessionSettings,
+    SettingsAuthorityError,
     WebAuthnSettings,
     WebSettings,
     WorkerSettings,
@@ -56,6 +57,7 @@ from application.web.config import (
 from application.web.breakglass import BreakGlassService
 from application.web.rate_limit import LimitedAction, RateLimiter
 from application.web.startup import build_health_view
+from tests.web.composition_harness import substituted_composition
 from tests.web.conftest import utcnow
 from tests.web.test_session_exact_integer_policy import LyingInt
 from tests.web_fixtures import TEST_GUILD_ID, web_environment, web_settings
@@ -814,16 +816,19 @@ def test_the_limiter_is_never_built_from_budgets_that_lie(migrated_database, set
 def test_the_application_is_never_built_from_bounds_that_lie(
     settings, composition, migrated_database
 ):
-    """`create_app` reads the request bounds once, before either becomes a control."""
+    """`create_app` reads the request bounds once, before either becomes a control.
+
+    Rewritten 2026-08-16 for the canonical-graph correction: the read now happens
+    at the composition root rather than in the factory, and `create_app` no longer
+    accepts a settings graph *beside* a composition, so the lying bounds are
+    supplied as the factory's one authority. What is asserted is unchanged — the
+    bound is read exactly once, and the refusal happens before anything holds it.
+    """
     lying, reads = lying_subclass(settings.bounds, "max_request_bytes", 64 * 1024 * 1024)
     reads_at_construction = len(reads)
 
     with pytest.raises(ValueError, match="max_request_bytes"):
-        create_app(
-            replace(settings, bounds=lying),
-            composition=composition,
-            run_startup_checks=False,
-        )
+        create_app(replace(settings, bounds=lying), run_startup_checks=False)
 
     assert len(reads) - reads_at_construction == 1, (
         f"application composition must read the bound exactly once. Reads: {reads}"
@@ -831,23 +836,29 @@ def test_the_application_is_never_built_from_bounds_that_lie(
 
 
 def test_the_break_glass_service_is_never_built_from_a_relying_party_that_lies(
-    settings, composition, migrated_database
+    settings, composition, migrated_database, provider
 ):
-    """The relying party is read once, at construction, and checked as it is read.
+    """The relying party is read once, at composition, and checked as it is read.
 
     It was previously re-read from the settings tree on every assertion and every
     verification, so an identifier could be one value when the challenge was
     minted and another when the response was verified — which is the credential
     scope moving out from under a verification that had already passed.
+
+    **Rewritten 2026-08-16 for the canonical-graph correction.** The read moved
+    one layer up: the service no longer rebuilds `settings.webauthn` itself, it
+    requires the canonical graph and holds the exact-base object that graph
+    already carries. So the lying subclass is now offered where a graph is built
+    — the composition root — and the service is built from the composition that
+    survives, which is the only way it can now be built at all. The two
+    properties asserted are unchanged: the identifier is read exactly once, and
+    what the service holds is the base type.
     """
-    def build(services, webauthn):
-        return BreakGlassService(
-            accounts=services.accounts,
-            webauthn_repository=services.credentials,
-            recovery_grants=services.grants,
-            session_service=services.session_service,
-            audit=services.audit,
+    def compose(webauthn):
+        return substituted_composition(
             settings=replace(settings, webauthn=webauthn),
+            engine=migrated_database,
+            provider=provider,
         )
 
     malformed, malformed_reads = lying_subclass(settings.webauthn, "rp_id", "not a host")
@@ -855,27 +866,43 @@ def test_the_break_glass_service_is_never_built_from_a_relying_party_that_lies(
         settings.webauthn, "rp_id", "elsewhere.test"
     )
 
+    with pytest.raises(ValueError, match="rp_id"):
+        compose(malformed)
+    # A lie that is still *shaped* like a relying party is not refused, and
+    # nothing here pretends otherwise: whether an identifier is the **right**
+    # one is S-09's question, answered against the public origin, which this
+    # type does not carry. What the seam guarantees is the property the
+    # finding was about — the identifier is read once, so the challenge and
+    # the verification cannot see two different ones.
+    plausible_composition = compose(plausible)
     with migrated_database.connect() as connection:
-        services = composition.services(connection)
-        with pytest.raises(ValueError, match="rp_id"):
-            build(services, malformed)
-        # A lie that is still *shaped* like a relying party is not refused, and
-        # nothing here pretends otherwise: whether an identifier is the **right**
-        # one is S-09's question, answered against the public origin, which this
-        # type does not carry. What the seam guarantees is the property the
-        # finding was about — the identifier is read once, so the challenge and
-        # the verification cannot see two different ones.
-        service = build(services, plausible)
+        service = plausible_composition.services(connection).break_glass
         held = service._webauthn  # noqa: SLF001 - the value under test
 
     assert len(malformed_reads) == 2, (
-        f"the service must read the relying party exactly once. {malformed_reads}"
+        f"composition must read the relying party exactly once. {malformed_reads}"
     )
     assert len(plausible_reads) == 2, plausible_reads
     assert type(held) is WebAuthnSettings, (
         "the service must hold the base type, so no later read can answer again"
     )
     assert held.rp_id == "elsewhere.test"
+    assert held is plausible_composition.settings.webauthn, (
+        "and it must be the canonical graph's object, not a second copy of it"
+    )
+    # A service built from anything else refuses, so the property above is not a
+    # convention the composition root happens to follow.
+    with migrated_database.connect() as connection:
+        services = plausible_composition.services(connection)
+        with pytest.raises(SettingsAuthorityError, match="BreakGlassService"):
+            BreakGlassService(
+                accounts=services.accounts,
+                webauthn_repository=services.credentials,
+                recovery_grants=services.grants,
+                session_service=services.session_service,
+                audit=services.audit,
+                settings=replace(settings, webauthn=plausible),
+            )
 
 
 def test_the_startup_checks_are_never_run_against_a_worker_root_that_lies(
@@ -1071,7 +1098,12 @@ def test_the_limiter_spends_exactly_the_configured_ip_budget(
 def test_the_limiter_spends_exactly_the_configured_account_budget(
     migrated_database, settings
 ):
-    """TC-LIM-06, `RateLimitSettings` → N-32's second, per-account budget."""
+    """TC-LIM-06, `RateLimitSettings` → N-32's second, per-account budget.
+
+    The *route* consumer evidence for this budget is TC-BG-16 (2026-08-16, P3.G1
+    security review): this case proves the configured number is the one spent,
+    and that one proves a WebAuthn request reaches it.
+    """
     now = utcnow()
     budget = settings.rate_limits.webauthn_assertions_per_account
     with migrated_database.begin() as connection:
@@ -1085,6 +1117,35 @@ def test_the_limiter_spends_exactly_the_configured_account_budget(
     assert all(decision.allowed for decision in decisions[:budget])
     assert decisions[-1].allowed is False
     assert decisions[-1].limit == budget
+
+
+def test_an_unresolved_credential_spends_the_same_configured_budget(
+    migrated_database, settings
+):
+    """TC-LIM-06, `RateLimitSettings` → N-32's budget for an unknown credential.
+
+    The same configured number and the same configured window, so the attempt at
+    which a caller is refused cannot tell them whether the credential they
+    presented is enrolled.
+    """
+    now = utcnow()
+    budget = settings.rate_limits.webauthn_assertions_per_account
+    with migrated_database.begin() as connection:
+        limiter = _limiter(connection, settings)
+        decisions = [
+            limiter.check_credential(
+                LimitedAction.WEBAUTHN_ASSERTION,
+                credential_id=b"never-enrolled-000001",
+                now=now,
+            )
+            for _ in range(budget + 1)
+        ]
+    assert all(decision.allowed for decision in decisions[:budget])
+    assert decisions[-1].allowed is False
+    assert decisions[-1].limit == budget
+    assert decisions[-1].retry_after_seconds <= (
+        settings.rate_limits.webauthn_account_window_minutes * 60
+    )
 
 
 def test_a_stricter_configured_budget_is_the_one_the_limiter_enforces(
@@ -1133,7 +1194,22 @@ async def test_the_body_bound_middleware_applies_the_configured_limit(
     number the middleware holds is the configured one and not the 1 MiB ceiling.
     """
     strict = replace(settings, bounds=replace(settings.bounds, max_request_bytes=4096))
-    app = create_app(strict, composition=composition, run_startup_checks=False)
+    # One authority (2026-08-16): the stricter graph is what the composition is
+    # built from, rather than a second graph handed to the factory beside a
+    # composition built from something else.
+    app = create_app(
+        composition=substituted_composition(
+            settings=strict,
+            engine=composition.engine,
+            # The fixture's double, which carries no Discord configuration. A
+            # real provider cannot be passed between compositions at all: the
+            # production constructor has no provider parameter, and this
+            # substitution path is `tests/web/composition_harness.py`
+            # (2026-08-16, P3.G1 provider/engine authority remediation).
+            provider=composition.provider,
+        ),
+        run_startup_checks=False,
+    )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport, base_url="https://portal.test", follow_redirects=False
@@ -1149,7 +1225,7 @@ def test_the_client_address_policy_holds_the_exact_accepted_hop_count(
     settings, composition
 ):
     """TC-LIM-06, `BoundsSettings` → N-34 at the object that interprets the header."""
-    app = create_app(settings, composition=composition, run_startup_checks=False)
+    app = create_app(composition=composition, run_startup_checks=False)
     assert app.state.address_policy.trusted_hops == settings.bounds.trusted_proxy_hops
     assert app.state.address_policy.trusted_hops == 1
 

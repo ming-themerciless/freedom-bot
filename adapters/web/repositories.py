@@ -1241,20 +1241,31 @@ class RecoveryGrantRepository:
         )
         return result.rowcount or 0
 
-    def note_attempt(self, *, token_hash: bytes) -> None:
+    def note_attempt(self, *, token_hash: bytes) -> int:
         """Count an attempt against the grant record itself (N-33's per-grant bound).
 
         Deliberately not conditional on the grant being live: an attempt against
         an expired or already-consumed grant is exactly the attempt worth
         counting.
+
+        **One statement, and it returns the count it wrote** (2026-08-16, P3.G1
+        security review). Incrementing and then reading in a second statement
+        left two concurrent attempts able to read the same number, which is the
+        `check_ip` mistake N-30 avoided by construction; `RETURNING` makes the
+        increment and the reading of it the same operation. A token matching no
+        grant updates no row and returns zero — no row is created, so an
+        attacker cannot grow this table with invented tokens.
         """
-        self._connection.execute(
+        value = self._connection.execute(
             update(recovery_grants)
             .where(recovery_grants.c.token_hash == token_hash)
             .values(attempt_count=recovery_grants.c.attempt_count + 1)
-        )
+            .returning(recovery_grants.c.attempt_count)
+        ).scalar_one_or_none()
+        return int(value or 0)
 
     def attempts_for(self, *, token_hash: bytes) -> int:
+        """The durable count, read without spending one. Zero for no such grant."""
         value = self._connection.execute(
             select(recovery_grants.c.attempt_count).where(
                 recovery_grants.c.token_hash == token_hash

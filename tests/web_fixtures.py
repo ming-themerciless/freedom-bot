@@ -77,6 +77,20 @@ class FakeDiscordProvider:
     It is a *double*, not a mock of `httpx`: the tests that use it are about what
     the platform does with a verified identity, and driving them through a fake
     HTTP layer would be testing `httpx`.
+
+    **It goes in through `tests/web/composition_harness.py`** (2026-08-16, P3.G1
+    provider/engine authority remediation). `WebComposition` has no provider
+    parameter at all: production derives the Discord adapter from its own
+    canonical `settings.discord` and holds it write-once. Substituting this
+    object needs `substituted_composition()`, which reaches a protected hook by
+    subclassing — deliberately not something a production caller can do by
+    passing an argument.
+
+    This class carries no Discord configuration: no client id, no secret, no
+    redirect URI, no endpoint — it answers from the fields below, so there is
+    nothing for it to disagree with the graph about. A test that needs the real
+    adapter over deterministic HTTP passes `provider_client=` instead, which
+    supplies transport and never configuration.
     """
 
     provider_key: str = "discord"

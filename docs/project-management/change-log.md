@@ -3692,6 +3692,1063 @@ accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have not started.*
 - **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
   `docs/review/phase-3-p3-1-n-23-exact-lease-remediation-submission.md`.
 
+## C-P3.1-N — Phase 3 P3.1 one canonical settings graph per web process (RAID I-09/I-10)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for review. Not
+accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have not started.*
+
+- **Affected requirement, milestone and release:** the configuration boundary of
+  the web process — `application/web/config.py` (the descending
+  `canonical_settings`, the declared `CANONICAL_SETTINGS_GRAPH`,
+  `canonical_web_settings`, `require_canonical`, `require_canonical_web_settings`
+  and the typed `SettingsAuthorityError`), `adapters/web/composition.py` (one
+  canonical graph, and the Discord adapter built here rather than injected),
+  `adapters/web/app.py` (exactly one configuration authority, and the provider
+  required to hold it), `adapters/web/discord_provider.py`,
+  `application/web/oauth.py` and `application/web/breakglass.py`, with
+  `tests/web/test_canonical_settings_graph.py` as the evidence and the
+  configuration/dependency and test-traceability contracts amended by addition.
+  **No accepted numeric value moved, no environment variable was added, renamed
+  or removed, `.env.example` is unchanged, and no state machine, logical schema,
+  migration, route, service, worker behaviour, runtime grant, deployment value or
+  visual asset changed.** No release boundary changes. Phase 3 P3.1 only.
+- **Reason.** C-P3.1-K and C-P3.1-L made each settings *type* valid by
+  construction. That is a property of an object, not of a process, and a process
+  could still hold two individually valid graphs and use each in different
+  places: `WebComposition` retained the caller's `WebSettings`;
+  `create_app(settings_a, composition=composition_b)` installed middleware,
+  cookies, digests and startup checks from A while every service used B;
+  `OAuthLoginService` and `BreakGlassService` re-read
+  `session.oauth_transaction_minutes` and `encryption.active_version` from
+  whatever they were handed; and the composition accepted a **ready-made identity
+  provider**, so a genuine `DiscordIdentityProvider` built from a valid graph B
+  could serve R-03's authorization URL and R-04's token exchange for an
+  application that had validated graph A — putting S-05's redirect-origin check
+  and the redirect URI actually used on two different objects. Two further
+  defects were found in the evidence offered for the first correction and are
+  fixed here: ten adversarial cases engaged their lie *before* the genuine
+  constructor ran, so they proved a settings constructor refuses rather than that
+  the canonicalisation boundary does; and the graph-completeness test iterated
+  the declaration it was meant to verify, so an omitted nested field removed both
+  the obligation and the check.
+- **Alternatives considered:** comparing the composition's graph with the
+  injected provider's, or with `create_app`'s second `settings` argument
+  (rejected — two authorities that agree today are still two authorities, and a
+  field comparison of provider settings is a comparison of the client secret);
+  inspecting the provider's private `_settings` from the composition (rejected —
+  private-attribute introspection in production, and it would still admit a
+  second graph that happened to match); accepting a provider *factory* closure
+  (rejected — a closure can capture graph B as easily as an object can hold it);
+  deleting provider injection outright (rejected — the portal's suite needs a
+  double that is not a Discord provider at all, and deterministic HTTP tests need
+  a transport seam); inferring the graph's shape from annotations at runtime
+  (rejected — reflection guessing security policy from arbitrary objects is
+  exactly what the declared graph exists to avoid; the annotations are used by
+  the **test**, and the declaration remains the runtime authority); and adjusting
+  the ten failing assertions until they passed (rejected — they were failing
+  because they never reached the boundary they described).
+- **Added/removed scope:** none. One descending canonicalisation, one declared
+  graph, one typed refusal, a provider built where it was previously injected, a
+  renamed and narrowed test-adapter seam (`provider_double`, plus
+  `provider_client` for transport), and a rewritten 46-case evidence module. No
+  feature, route, environment variable, dependency or worker behaviour added.
+- **Dependency and critical-path effect:** none beyond the re-review already
+  blocking P3.G1. P3.2 and P3.3 remain unstarted.
+- **Estimate/forecast and capacity effect:** within the P3.1 remediation
+  allowance; no forecast change.
+- **New or changed risks:** RAID **I-09 and I-10 amended and both left open**.
+  The residuals recorded by C-P3.1-L and C-P3.1-M are unchanged. One new
+  obligation is recorded rather than silently taken: a settings type added to the
+  graph in future must be declared in `CANONICAL_SETTINGS_GRAPH`, and an
+  undeclared one now refuses at runtime instead of being canonicalised as a leaf.
+- **Testing, migration, security and operational effect:** strictly a tightening,
+  applied at startup rather than per request. A misconfigured or two-authority
+  composition refuses to start with a typed error naming a type or a field path
+  and **never a configured value**; no control was relaxed, no authority widened,
+  no secret rendered, compared or decoded, and the environment boundary still
+  aggregates every problem into one redacted `ConfigurationError`. Evidence is
+  TC-STRUCT-08 (46 cases in `tests/web/test_canonical_settings_graph.py`), **653
+  portal and 2260 bot tests with 0 failed and 0 skipped**, compilation under both
+  configured interpreters, `alembic check` reporting no new upgrade operations,
+  `git diff --check` clean and the 14-entry visual-freeze manifest verified. **No
+  formatter, linter or type checker is configured** — verified by inspection, not
+  assumed. **Four falsification runs are recorded rather than asserted**, each
+  reverted with a byte-for-byte checksum comparison: restoring the
+  mismatched-provider path fails three provider-authority cases; restoring the
+  premature-engagement harness fails 25 of the 46; deleting one nested
+  classification fails the independent completeness test **while the old
+  self-referential assertion still passes**; and restoring the unrecognised
+  environment-variable name fails the aggregation case. **Mutation testing was
+  not run and is not claimed**; no mutation tool is configured. No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected, because nothing persisted changed shape or meaning.
+- **Recommendations:** the Technical Lead asks the implementation review to
+  confirm that the provider seam admits no supported route back to two
+  authorities, and asks the security review to confirm the redaction of every new
+  refusal and the treatment of the injected `httpx` client as transport-only. The
+  SQLAlchemy engine seam is **deliberately** left as a supplied infrastructure
+  dependency, with the reasoning stated in the submission §5 — reviewers are
+  asked to accept or reject that reasoning explicitly rather than by silence.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-g1-canonical-settings-graph-remediation-submission.md`.
+
+## C-P3.1-O — Phase 3 P3.G1 provider and engine authority (corrects C-P3.1-N)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the composition root and
+  application factory of the web process — `adapters/web/composition.py` (no
+  `engine`, `provider` or `provider_double` parameter; the engine and the
+  identity provider derived from the composition's own canonical graph through
+  two protected hooks; `settings`, `engine` and `provider` write-once behind
+  read-only properties; explicit engine ownership in a new `EngineHandle`) and
+  `adapters/web/app.py` (`_require_provider_from()` removed; the routes closed
+  over the composition the factory accepted rather than dereferencing
+  `app.state` per request), with `tests/web/composition_harness.py` as the
+  suite's single substitution path and `tests/web/test_canonical_settings_graph.py`
+  as the evidence. The configuration/dependency and test-traceability contracts
+  are amended by addition. **No accepted numeric value moved, no environment
+  variable was added, renamed or removed, `.env.example` is unchanged, and no
+  state machine, logical schema, migration, route, service, worker behaviour,
+  runtime grant, deployment value or visual asset changed.** No release boundary
+  changes. Phase 3 P3.1 only.
+- **Reason.** The independent re-review of C-P3.1-N found three blocking defects,
+  all of the same shape: a rule stated where it could be described rather than
+  where it could be enforced.
+  1. `provider_double: IdentityProvider` refused only a concrete
+     `DiscordIdentityProvider`. `IdentityProvider` is a **structural protocol**,
+     so a wrapper, a delegating adapter or an alternate implementation holding a
+     second graph's client id, secret, redirect URI, scopes, guild and endpoints
+     passed that exclusion and then served R-03's authorization URL and R-04's
+     token exchange. Naming a parameter "double" is not a type.
+  2. `create_app()` called `_require_provider_from()` **once**, while
+     `WebComposition.provider` stayed publicly assignable and both routes
+     dereferenced it per request. A caller could build the application, replace
+     the provider, and make requests through a graph nothing validated; the
+     regression offered as proof replaced the provider and called `create_app`
+     *again*, so it never tested the actual bypass. Reproduced before the fix:
+     an already-built application answered R-03 through a provider assigned
+     after startup.
+  3. `WebComposition(settings=A, engine=B)` accepted any SQLAlchemy engine.
+     C-P3.1-N's recorded reasoning — that `settings.database.url` has one reader,
+     so an injected engine cannot disagree with a second consumer — proved the
+     wrong thing: with one reader and an injected engine, the configured database
+     selection is simply *ignored*, and running S-14/S-15 against B shows B is
+     usable, not that B is the database A names. Reproduced before the fix: a
+     composition built from a graph naming `freedom_test` served from an engine
+     naming another database. That reasoning was explicitly offered for reviewer
+     acceptance in C-P3.1-N's recommendations and is **rejected**.
+- **Alternatives considered:** keeping the parameter and widening the refusal to
+  wrappers (rejected — a structural protocol makes classifying a delegating
+  adapter undecidable, and each new exclusion is a blacklist); an environment or
+  "test mode" flag selecting the seam (rejected — a magic mode is a production
+  code path by another name); a constructor capability token held by test
+  infrastructure (considered, and a sound shape; the protected-hook subclass was
+  chosen as the smaller design, because reaching it already requires writing a
+  subclass and nothing needs to be threaded through the entry point); comparing
+  rendered database URLs (rejected — equality still admits two authorities, the
+  string may carry credentials, and dialect spellings make the comparison
+  unreliable); keeping `_require_provider_from()` as defence in depth (rejected —
+  with the provider derived and write-once it detects nothing a supported caller
+  can produce, and keeping it would describe a startup comparison as a boundary);
+  and leaving the engine parameter with documentation (rejected — the finding is
+  precisely that documentation is not a construction rule).
+- **Added/removed scope:** none. Two constructor parameters removed, two
+  protected construction hooks added, one ownership value object added, one
+  startup comparison removed, one test-infrastructure module added, one route
+  binding narrowed. No feature, route, environment variable, dependency or worker
+  behaviour added.
+- **Dependency and critical-path effect:** none beyond the re-review already
+  blocking P3.G1. P3.2 and P3.3 remain unstarted.
+- **Estimate/forecast and capacity effect:** within the P3.1 remediation
+  allowance; no forecast change.
+- **New or changed risks:** RAID **I-09 and I-10 amended and both left open**.
+  One obligation is recorded rather than silently taken: any future dependency a
+  composition needs must be *derived* from the canonical graph or arrive through
+  a declared protected hook with stated ownership — a new constructor parameter
+  accepting a whole infrastructure object would reintroduce this finding.
+- **Testing, migration, security and operational effect:** strictly a tightening,
+  applied at construction rather than at startup or per request. Evidence is
+  **TC-STRUCT-09** and the amended TC-STRUCT-08 (56 cases in
+  `tests/web/test_canonical_settings_graph.py`), **663 portal and 2260 bot tests
+  with 0 failed and 0 skipped**, compilation under both configured interpreters,
+  `alembic check` reporting no new upgrade operations, `git diff --check` clean
+  and the 14-entry visual-freeze manifest verified. **No formatter, linter or
+  type checker is configured** — verified by inspection, not assumed. **Four
+  falsification runs and two before/after reproductions are recorded rather than
+  asserted**, each reverted with a byte-for-byte checksum comparison. **Mutation
+  testing was not run and is not claimed**; no mutation tool is configured. No
+  migration, deployment, configuration-variable or runtime-grant change; rollback
+  is unaffected, because nothing persisted changed shape or meaning.
+- **Recommendations:** the Technical Lead asks the implementation review to
+  confirm that no supported production construction can supply or replace a
+  provider or an engine, and that the protected-hook seam is the smallest design
+  that keeps the portal suite runnable; and asks the security review to confirm
+  the redaction of every new refusal, that the harness's engine guard is the
+  suite's existing contract rather than a second copy of it, and that closing the
+  routes over the composition removes the `app.state` route without creating a
+  reporting/behaviour divergence that could mislead an operator.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-g1-provider-and-engine-authority-remediation-submission.md`.
+
+## C-P3.1-P — Phase 3 P3.G1 request authority and lifecycle (corrects C-P3.1-O)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the application factory and
+  composition root of the web process — `adapters/web/app.py` (a frozen
+  `RequestAuthority` built once from the accepted canonical graph and passed into
+  route registration and the exception handler; `_settings(request)`,
+  `_client_digest`, `_user_agent_digest`, `_origin_is_ours` and `_render` removed;
+  `run_resource_checks()` moved out of the factory and into the ASGI lifespan that
+  owns the accepted composition) and `adapters/web/composition.py` (`aclose()`
+  documented and exercised as the cleanup for a refused startup as well as a normal
+  shutdown; the constructor disposes an owned engine when a later construction step
+  raises), with `tests/web/lifespan.py`, `tests/web/test_request_authority_and_lifecycle.py`
+  and `tests/web/test_canonical_settings_graph.py` as the evidence. The
+  configuration/dependency and test-traceability contracts are amended by addition.
+  **No accepted numeric value moved, no environment variable was added, renamed or
+  removed, `.env.example` is unchanged, no dependency changed, and no state
+  machine, logical schema, migration, route, service, worker behaviour, runtime
+  grant, deployment value or visual asset changed.** No release boundary changes.
+  Phase 3 P3.1 only.
+- **Reason.** The independent re-review of C-P3.1-O found two blocking defects and
+  one was still outstanding when this work began. Both are the shape RAID I-09 and
+  I-10 track — validate one thing, then use another — and both were, additionally,
+  claims that had been *described* as general while being established only for one
+  object or one path.
+  1. **The settings graph was still resolved per request.** C-P3.1-O bound the
+     *composition* to the routes and recorded `app.state.settings` as a diagnostic
+     reference whose replacement could not affect behaviour. The code disagreed: a
+     `_settings(request)` helper read `request.app.state.settings` on every call,
+     and the request paths used it for the client and user-agent digests,
+     mutation-origin validation, the session and login cookie names and attributes,
+     CSRF key selection and the health view. Starlette's `State` is an ordinary
+     mutable namespace, so one assignment gave an already-validated application a
+     second complete settings graph to serve from — a different accepted `Origin`,
+     a different CSRF key, a different cookie contract and different keyed audit
+     and rate-limit identities. No private mutation and no unsupported API.
+  2. **A refused startup leaked both process-lifetime resources.** `create_app()`
+     constructed or accepted the composition, called `run_resource_checks()`, and
+     only afterwards built the `FastAPI` object the lifespan is installed on. On
+     the production construction path the provider's `httpx.AsyncClient` and the
+     owned SQLAlchemy engine and its N-53 pool already existed when that call ran,
+     and a refusal raised out of the factory: no application was returned, so no
+     lifespan could execute, so `aclose()` had no caller on the one path where the
+     process was being told not to run. The lifecycle-ownership claim held for a
+     normal shutdown and not for the refusal an operator meets first.
+- **Correction.** The authority a handler reads is now an object it **holds**: one
+  frozen `RequestAuthority` carrying the accepted graph, the address policy whose
+  hop count is fixed at construction, and the Jinja environment whose `autoescape`
+  is set once. The four `app.state` references remain as diagnostics and are proved
+  inert against a second **independently valid** settings graph, with the structural
+  half asserted over the AST rather than reviewed. The resource checks now run
+  inside the lifespan, before `lifespan.startup.complete`, closing over the exact
+  accepted composition and the same graph object every route reads — so a refusal
+  is an ASGI startup failure that never serves a request and still releases what the
+  composition holds, and the original typed `ConfigurationError` is what surfaces
+  even when releasing the provider also fails. They cross the sync/async seam
+  through `run_in_threadpool`, as every other database unit of work in that module
+  does. Separately, `WebComposition.__init__` disposes an engine it built if a later
+  step raises; a provider constructed and then rejected is deliberately not closed
+  there, because a synchronous constructor has no loop to await its `aclose()` on,
+  and that limit is recorded rather than papered over.
+- **Scope, schedule and risk effect.** No scope, authority, privacy, data-ownership
+  or migration change. `create_app()` returning is no longer a statement that the
+  resource checks passed — entering the returned application's lifespan is — which
+  is a contract change for any future non-serving caller and is recorded in the
+  configuration/dependency contract rather than left to be discovered. Risk is
+  reduced: a refused portal no longer leaves an HTTP client and a SQLAlchemy pool
+  open on a host co-located with three Foundry instances, the live bot and
+  PostgreSQL, and no production request or startup path resolves a process-lifetime
+  authority through a mutable namespace.
+- **Evidence and verification.** TC-STRUCT-10 and TC-STRUCT-11 are added to the
+  test-traceability contract by addition; TC-STRUCT-11's stated coverage explicitly
+  includes failed-startup cleanup and partial construction, not merely normal
+  shutdown. 694 portal tests and 2260 bot tests pass with **no skips and no
+  failures** against the guarded disposable PostgreSQL database, run serially
+  because both suites share it; `alembic check` reports `No new upgrade operations
+  detected.` with the one pre-existing unrelated `SAWarning`; `compileall` passes
+  under both required interpreters; `git diff --check` is clean and the 14-entry
+  visual-freeze manifest verifies. **No formatter, linter or type checker is
+  configured** — re-verified by inspection, not assumed. **Six falsification runs
+  are recorded rather than asserted**, each reverted with a byte-for-byte checksum
+  comparison. **Mutation testing was not run and is not claimed.** No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected, because nothing persisted changed shape or meaning.
+- **Defect found in the work being verified.** While running the sweep,
+  `tests/web/test_canonical_settings_graph.py` — C-P3.1-N/O's own uncommitted
+  evidence — was found to pin its injected clock to a literal
+  `datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc)`. The repositories stamp
+  `created_at` from the real clock, and `ck_oauth_transactions_expiry_after_creation`
+  and `ck_webauthn_challenges_expiry_after_creation` refuse a row that expires
+  before it was created, so five database cases began failing at 12:00 UTC on the
+  day they were written. The constant is now anchored to the run's own clock,
+  truncated to the second; **no assertion and no accepted value changed**. Recorded
+  here because a suite that expires silently is a control that stops working
+  without reporting it.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that no production request or startup path resolves an authority through
+  `app.state`, that running the resource checks inside the lifespan preserves every
+  property §2.3 promises of them, and that the constructor's engine disposal is the
+  smallest correct fix rather than the start of a redesign; and asks the security
+  review to confirm that a refused startup transmits no configured secret through
+  the surfaced exception, its chained context, the `lifespan.startup.failed`
+  traceback or the logs, and that keeping the refusal at the head of the exception
+  while attaching a cleanup failure beneath it hides neither failure.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-g1-request-authority-and-lifecycle-remediation-submission.md`.
+
+## C-P3.1-Q — Phase 3 P3.G1 test clock authority (corrects C-P3.1-P's §"Defect found in the work being verified")
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** one test module,
+  `tests/web/test_canonical_settings_graph.py` — TC-STRUCT-08's evidence. **No
+  production file changed.** The test-traceability contract is amended by
+  addition. **No accepted numeric value moved, no environment variable was added,
+  renamed or removed, `.env.example` is unchanged, no dependency changed, and no
+  state machine, logical schema, migration, route, service, worker behaviour,
+  runtime grant, deployment value, provider/engine authority, lifecycle behaviour
+  or visual asset changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-P recorded a defect found in C-P3.1-N/O's own uncommitted
+  evidence — a literal `datetime(2026, 8, 16, 12, 0)` that made five database
+  cases start failing at noon — and replaced it with
+  `datetime.now(timezone.utc)`. Independent re-review found the replacement was
+  not a correction. That instant is captured at **module import**, while
+  `created_at` is stamped later by two other authorities:
+  `adapters.web.repositories.utcnow()` for `oauth_transactions` (the repository
+  supplies the column) and PostgreSQL's `server_default = now()` for
+  `webauthn_challenges` (it does not). `expires_at` is derived by the service from
+  the injected instant, and `ck_oauth_transactions_expiry_after_creation` and
+  `ck_webauthn_challenges_expiry_after_creation` compare the two. The module
+  therefore still had **two clock authorities** and a result that depended on
+  elapsed wall time; the failure was postponed from a calendar time to "more than
+  N-04's ten minutes between import and execution", which collection, an earlier
+  case, a debugger pause or a slow CI worker each produce. This is the same shape
+  RAID I-09/I-10 track — validate against one thing, use another — appearing in
+  the evidence rather than in the code.
+- **Change.** The constant is removed. A function-scoped `OperationClock` fixture
+  reads the instant from **inside the operation's own transaction** — PostgreSQL's
+  `now()` is the transaction timestamp, so the value read *is* what the database
+  will stamp `created_at` with — and binds the repository's `utcnow` to that same
+  reading for the test, so the application-stamped row shares it too. Every
+  original assertion is preserved with `NOW` replaced by the operation's instant,
+  including N-04's accepted lifetime, the derived N-06 bound, the relying-party
+  scoping, the single-snapshot identity assertions and the encryption-version
+  round trip. Nothing sleeps, no lifetime is extended, no constraint is relaxed or
+  mocked, PostgreSQL still stamps the WebAuthn row itself, and no timestamp is
+  captured at module or session scope — after the change the module has no
+  module-level datetime at all, asserted over the AST rather than by reading.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced in one specific way: a
+  control that would silently stop working after an unpredictable amount of
+  elapsed time is replaced by one whose result does not depend on elapsed time,
+  and the two expiry check constraints are now positively exercised rather than
+  merely not violated.
+- **A production observation, declared and not acted on.**
+  `OAuthTransactionRepository.create()` re-reads the clock (`created_at=utcnow()`)
+  instead of deriving `created_at` from the `now` the service already used for
+  `expires_at`. It is **not** observable as a production defect — every production
+  caller injects the same process clock microseconds earlier, so `expires_at` is
+  always `created_at` plus the lifetime to within one statement — but it is the
+  same "two readings, one operation" shape, and `.agents/AGENTS.md` asks for
+  injected clocks. Recorded for the reviewer rather than fixed, because changing it
+  would broaden a task scoped to tests. The same paragraph records that
+  `oauth_transactions.created_at` comes from the application clock while
+  `webauthn_challenges.created_at` comes from the database clock; harmless on one
+  host, a question if the database is ever moved off it.
+- **Evidence and verification.** TC-STRUCT-08 is amended **by addition** with the
+  one-clock requirement and the two regressions it now owns. 696 portal tests and
+  2260 bot tests pass with **no skips and no failures** against the guarded
+  disposable PostgreSQL database, run serially because both suites share it;
+  `alembic check` reports `No new upgrade operations detected.` with the one
+  pre-existing unrelated `SAWarning`; `compileall` passes under both required
+  interpreters; `git diff --check` is clean and the 14-entry visual-freeze manifest
+  verifies 14/14. **No formatter, linter or type checker is configured** —
+  re-verified by inspection, not assumed. **Two falsification runs are recorded
+  rather than asserted**: restoring the import-time model fails the new
+  discriminator on a 1.996-second import-to-execution gap, and the same model with
+  the operation clock advanced 11 minutes reproduces the original
+  `ck_oauth_transactions_expiry_after_creation` violation across all five formerly
+  affected cases; the module was restored byte-for-byte and verified by digest and
+  by `cmp`. **Mutation testing beyond those two runs was not run and is not
+  claimed.** No migration, deployment, configuration-variable or runtime-grant
+  change; rollback is unaffected, because nothing persisted changed shape or
+  meaning.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that the timestamp-ownership trace is complete, that binding the transaction's
+  own timestamp is the smallest honest correction rather than a broadening, and
+  that no assertion's policy meaning changed; and asks the security review to
+  confirm that no lifetime, window, constraint or accepted value was relaxed to
+  make these cases pass, that both expiry constraints remain exercised against real
+  PostgreSQL, and that nothing recorded a secret or a real player datum.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-g1-test-clock-authority-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-S — Phase 3 P3.G1 test-clock AST evidence (corrects C-P3.1-Q's §"Change" claim)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the same one test module,
+  `tests/web/test_canonical_settings_graph.py` — TC-STRUCT-08's evidence. **No
+  production file changed.** The test-traceability contract is amended by
+  addition for the second time. **No accepted numeric value moved, no environment
+  variable was added, renamed or removed, `.env.example` is unchanged, no
+  dependency changed** — the guard uses the standard library's `ast` — **and no
+  state machine, logical schema, migration, route, service, worker behaviour,
+  runtime grant, deployment value, provider/engine authority, lifecycle behaviour
+  or visual asset changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-Q's §"Change" ended with the words "after the change the
+  module has no module-level datetime at all, **asserted over the AST rather than
+  by reading**", and the submission it records said the same in §3.1. Fresh
+  independent implementation re-review found that **no such assertion existed**:
+  the module did not import `ast`, no case in it parsed the module or inspected
+  module-scope statements, and a module-import clock could therefore have been
+  reintroduced without failing anything. The absence itself was real and
+  `OperationClock` was and is technically coherent — the defect was in the
+  evidence, not in the fix. It is nevertheless the same shape RAID I-09/I-10
+  track, appearing this time in a claim about a check rather than in a check: a
+  property established by reading, then described as established by a control.
+- **Change.** The claim is made true rather than withdrawn, because a robust
+  invariant could be stated. Two cases are added to the module in a new §0.1:
+  `test_this_module_captures_no_instant_while_it_is_imported` parses the module
+  and fails if any code that runs **at import** reads or constructs an instant,
+  and `test_the_import_time_clock_guard_reports_both_forms_and_no_others`
+  falsifies the detector against synthetic sources on every run. Import-time is
+  taken to mean module-level statements, class bodies, decorator expressions and
+  the default arguments of declared functions and lambdas; function, method and
+  lambda **bodies**, imports and annotations are deliberately outside it, being
+  respectively the operation's own clock, not a clock at all, and unevaluated
+  under `from __future__ import annotations`. `timedelta` and `timezone` are not
+  findings — a duration and a fixed offset are not instants, and rejecting them
+  would have been the brittle detector the alternative resolution warns about.
+  Nothing else changed: `OperationClock`, the two clock regressions, N-04's
+  accepted lifetime and both live expiry check constraints are untouched.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced narrowly: the two constants
+  this module has already carried were each removed by hand, and a third
+  reintroduction now fails a case instead of relying on a reviewer's memory.
+- **Evidence and verification.** TC-STRUCT-08 is amended **by addition** with the
+  AST clause. **Three falsification mutations of the real module are recorded
+  rather than asserted**: reintroducing `NOW = datetime.now(timezone.utc)` after
+  `pytestmark`, replacing it with the fixed constructor
+  `datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc)`, and hiding a capture in a
+  default argument (`_at=datetime.now(timezone.utc)`) each produced **1 failed, 1
+  passed** with the offending line reported; the module was restored from a
+  digested copy after each and verified byte-for-byte by `sha256sum -c` **and** by
+  `cmp`. The detector inspects AST semantics rather than text, which the clean
+  module's **seven** literal occurrences of `datetime.now(timezone.utc)` in
+  comments, docstrings and synthetic test inputs make necessary rather than
+  stylistic. **698 portal tests and 2260 bot tests pass with no failures and — every
+  run executed with `-rs` — no skips**, against the guarded disposable PostgreSQL
+  database over its Unix-domain socket, run serially because both suites share it;
+  the whole module is 60 passed, the TC-STRUCT-08/10/11 selection 91 passed, and
+  the OAuth/WebAuthn/clock selection 575 passed. `git diff --check` is clean,
+  `compileall` passes under both required interpreters, the 14-entry visual-freeze
+  manifest verifies 14/14, and `git status` lists exactly the entries it listed
+  before this correction. **`alembic check` was not re-run and is not re-claimed**
+  — no schema, migration, table or model was touched; C-P3.1-Q records its result
+  for the work this corrects. **Mutation testing beyond the three recorded runs was
+  not performed and is not claimed.** **No formatter, linter or type checker is
+  configured**; C-P3.1-Q's inspection stands and was not repeated. No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected.
+- **An honest limit, declared.** The detector is name-based. A capture reached
+  through indirection — `NOW = _read_the_clock()`, where the helper is named
+  outside the fifteen-name set — is not seen. Both forms that have actually
+  occurred in this module, and the alias form one step from them, are caught.
+  Closing the general case would need whole-name resolution or a blanket ban on
+  every module-level binding; the latter was considered and rejected as brittle,
+  because it would reject a future harmless constant and would state a broader
+  invariant than the one claimed.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that the invariant is the one §3.1 now claims and no more, that the
+  walked/not-walked boundary is right for "import-time", that excluding
+  `timedelta`, `timezone` and annotations is correct rather than convenient, and
+  that the three mutations prove the detector rather than merely exercise it; and
+  asks the security review to confirm that no lifetime, window, constraint or
+  accepted value was relaxed by this correction, that both expiry constraints
+  remain exercised against real PostgreSQL, and that nothing in the new code or the
+  falsification recorded a secret, a credential or a real player datum.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  §10 of
+  `docs/review/phase-3-p3-g1-test-clock-authority-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-T — Phase 3 P3.G1 import-time clock detector completeness (corrects C-P3.1-S's §"Change" lambda-body claim)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the same one test module,
+  `tests/web/test_canonical_settings_graph.py` — TC-STRUCT-08's evidence. **No
+  production file changed.** The test-traceability contract is amended by
+  addition for the third time. **No accepted numeric value moved, no environment
+  variable was added, renamed or removed, `.env.example` is unchanged, no
+  dependency changed** — the guard still uses only the standard library's `ast` —
+  **and no state machine, logical schema, migration, route, service, worker
+  behaviour, runtime grant, deployment value, provider/engine authority,
+  lifecycle behaviour or visual asset changed.** No release boundary changes.
+  Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-S recorded that the new regression "fails if any code that
+  runs **at import** reads or constructs an instant", and listed lambda **bodies**
+  among the positions deliberately outside it because "they run when a case calls
+  them". Fresh independent implementation re-review read the detector and found
+  the two statements incompatible: `visit_Lambda()` always skipped the body, so
+  `NOW = (lambda: datetime.now(timezone.utc))()` — a lambda invoked where it is
+  written, whose body executes during the import — produced **no finding**. The
+  reason given is true of a stored lambda and false of an invoked one. Nothing was
+  wrong with `OperationClock`, N-04 or the module's actual state; what was wrong is
+  that the control's declared scope exceeded its real scope, which is RAID I-10's
+  shape appearing this time inside the check rather than in a claim about it.
+- **Change.** The detector is corrected to its stated invariant rather than the
+  invariant narrowed to the detector — the handover's preferred resolution, chosen
+  because the missed construct is recognisable directly from the AST. A lambda is
+  now decided by **when its body runs**: walked where the source shows it invoked
+  in place (the callable of an import-time call, including the curried
+  `(lambda: lambda: ...)()()`, since parentheses leave no trace in the AST and an
+  immediately invoked lambda is simply a `Call` whose callable is the `Lambda`);
+  excluded where it is stored, returned or passed, because that body runs when its
+  holder calls it; and its defaults walked in both cases, as before. Function and
+  method bodies, decorators, class bodies, imports, annotations, `timedelta` and
+  `timezone` are unchanged, and no interprocedural or call-graph analysis was
+  introduced. A third case,
+  `test_the_import_time_clock_guard_reads_an_invoked_lambda_body`, carries the
+  reproducer, the curried form, the stored-lambda and passed-lambda negative
+  controls, the defaults, and an ordinary call's unchanged walk.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced narrowly and precisely: the
+  guard now covers a construct it claimed to cover and did not, and the negative
+  controls record where its boundary genuinely is.
+- **Evidence and verification.** TC-STRUCT-08 is amended **by addition**, with the
+  new clause explicitly **superseding** the earlier lambda-body wording rather than
+  editing it. **Before and after are both recorded:** the pre-correction detector
+  (reconstructed by disabling only the new `visit_Call`) reports nothing for the
+  reproducer, the corrected detector reports `datetime.now` at its source line, and
+  the clean module reports nothing under either. **Three falsification mutations of
+  the real module** were run after `pytestmark`: the invoked lambda and the curried
+  invoked lambda each produced **1 failed, 2 passed** naming
+  `test_canonical_settings_graph.py:119 datetime.now`, and a **stored** lambda
+  reading the same clock produced **3 passed** — the negative control proving the
+  fix did not simply widen the net. The module was restored from a digested copy
+  after each and verified byte-for-byte by `sha256sum -c` **and** by `cmp`.
+  **699 portal tests and 2260 bot tests pass with no failures and — every run
+  executed with `-rs` — no skips**, against the guarded disposable PostgreSQL
+  database over its Unix-domain socket, run serially because both suites share it;
+  the whole module is 61 passed and the TC-STRUCT-08/10/11 selection 92 passed.
+  `git diff --check` is clean, `compileall` passes under both required
+  interpreters, the 14-entry visual-freeze manifest verifies 14/14, and
+  `git status` lists exactly the entries it listed before this correction.
+  **`alembic check` was not re-run and is not re-claimed** — no schema, migration,
+  table or model was touched. **Mutation testing beyond the three recorded runs was
+  not performed and is not claimed.** **No formatter, linter or type checker is
+  configured**; C-P3.1-Q's inspection stands and was not repeated. No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected.
+- **Honest limits, declared.** The detector remains **name-based**: a capture
+  reached through a helper named outside the fifteen-name set is still unseen, as
+  C-P3.1-S declared. It is also **syntactic** about invocation: a lambda bound to a
+  name and called on the next line (`f = lambda: datetime.now(...)`, then `f()`) is
+  not resolved, because doing so is the interprocedural analysis the handover
+  excludes. Both are limits of the guard, not of the invariant, and are stated
+  rather than implied.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that "invoked where it is written" is the right boundary for a lambda, that the
+  curried form is included for the same reason and not by accident, that the
+  stored/passed negative controls are the correct other side of that line, and that
+  no previously accepted example became a finding; and asks the security review to
+  confirm that no lifetime, window, constraint or accepted value was relaxed, that
+  both expiry constraints remain exercised against real PostgreSQL, and that neither
+  the new case nor the falsification recorded a secret, a credential or a real
+  player datum.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  §12 of
+  `docs/review/phase-3-p3-g1-test-clock-authority-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-U — Phase 3 P3.G1 import-time clock detector: named-expression recognition (corrects C-P3.1-T's §"Change" claim that the invoked-lambda rule was fully recognised)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the same one test module,
+  `tests/web/test_canonical_settings_graph.py` — TC-STRUCT-08's evidence. **No
+  production file changed.** The test-traceability contract is amended by
+  addition for the fourth time. **No accepted numeric value moved, no environment
+  variable was added, renamed or removed, `.env.example` is unchanged, no
+  dependency changed** — the guard still uses only the standard library's `ast`,
+  and `ast.NamedExpr` has existed since Python 3.8 — **and no state machine,
+  logical schema, migration, route, service, worker behaviour, runtime grant,
+  deployment value, provider/engine authority, lifecycle behaviour or visual asset
+  changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-T recorded that a lambda is now decided by **when its body
+  runs**, walked "where the source shows it invoked in place", and that the
+  construct is decidable from the AST with no name resolution. Fresh independent
+  implementation re-review read the detector against that claim and found the rule
+  right and its recognition incomplete: `_invoked_lambda()` knew only `ast.Lambda`
+  and a chain of `ast.Call`, so `NOW = (reader := lambda: datetime.now(timezone
+  .utc))()` and the curried `NOW = (factory := lambda: lambda: datetime.now(
+  timezone.utc))()()` were reported clean although both bodies execute during the
+  import and neither requires a separately stored name to be resolved. Nothing was
+  wrong with `OperationClock`, N-04 or the module's actual state; what was wrong is
+  that a claim about the control's *reach* was verified against the constructs
+  already raised rather than the constructs it claimed to cover — RAID I-10's shape
+  one turn further in.
+- **Change.** Three lines in the pure helper: a callable position is now read
+  **through** an `ast.NamedExpr`, recursively, so a walrus around a direct lambda,
+  around a curried lambda, or nested in another walrus is answered by the same
+  rule. `(reader := L)` evaluates `L`, binds it as a side effect and answers that
+  same object to the call standing beside it in the same expression, so the lambda
+  is still invoked where it is written. The unwrapping decides **only whether the
+  body runs**: the named expression's target is still walked as import-time code (a
+  target that is itself an instant name remains a finding, reported first), the
+  bound lambda still reaches `visit_Lambda` for its defaults, and no position is
+  reported twice or in a different order. The boundary is stated and closed: a
+  **selection** (`(f if flag else g)()` or `(f or g)()`) is not unwrapped because
+  the source does not say which body runs, and a name, attribute, subscript,
+  container element or argument is not unwrapped because that is the
+  interprocedural resolution the handover excludes. Function and method bodies,
+  decorators, class bodies, imports, annotations, `timedelta` and `timezone` are
+  unchanged. A fourth case,
+  `test_the_import_time_clock_guard_sees_through_a_named_expression`, carries both
+  reproducers, the preserved target and defaults, the ordinary walrus call, the
+  bound-but-not-called and applied-once silences, and the two declared limits as
+  explicit controls.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced narrowly and precisely: the
+  guard now covers a construct it claimed to cover and did not, and two limits that
+  were previously implicit are now asserted as cases and declared in writing.
+- **Evidence and verification.** TC-STRUCT-08 is amended **by addition**, with the
+  new clause explicitly **superseding in part** the earlier recognition wording
+  rather than editing it. **The new case was proved to fail first:** with only the
+  three-line branch removed it reports `{'direct': [], 'curried': []}` against the
+  expected `datetime.now` findings — the false negative reproduced, not some other
+  failure standing in for it. **Before and after are both recorded** over seven
+  inputs, the pre-correction detector reconstructed by rebinding only the helper:
+  both reproducers `[]` → `datetime.now` at their source line, the real module
+  mutated with either reproducer `[]` → line 119, and the clean real module `[]`
+  under both. **Three falsification mutations of the real module** were run after
+  `pytestmark`: the direct and curried named-expression forms each produced **1
+  failed, 3 passed** naming `test_canonical_settings_graph.py:119 datetime.now`,
+  and the stored-then-called-by-name control produced **4 passed** — a real
+  import-time capture the guard does not see, run as evidence that the fix did not
+  widen the net and that the declared limit is real. The module was restored from a
+  digested copy after each and verified byte-for-byte by `sha256sum -c` **and** by
+  `cmp`. **700 portal tests and 2260 bot tests pass with no failures and — every
+  run executed with `-rs` — no skips**, against the guarded disposable PostgreSQL
+  database over its Unix-domain socket, run serially because both suites share it;
+  the whole module is 62 passed and the TC-STRUCT-08/10/11 selection 93 passed.
+  `git diff --check` is clean, `compileall` passes under both required
+  interpreters (CPython 3.12.3), the 14-entry visual-freeze manifest verifies
+  14/14, and `git status` lists exactly the 17 modified and 8 untracked entries it
+  listed before this correction. **`alembic check` was not re-run and is not
+  re-claimed** — no schema, migration, table or model was touched. **Mutation
+  testing beyond the three recorded runs and the before/after table was not
+  performed and is not claimed.** **No formatter, linter or type checker is
+  configured**; C-P3.1-Q's inspection stands and was not repeated. No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected.
+- **Honest limits, declared.** The detector remains **name-based** (C-P3.1-S's
+  declaration, unchanged). It remains **syntactic** about invocation, and the true
+  edge is now stated: a lambda bound in one statement and called through its name
+  in another is a live false negative, asserted as a case so it cannot be mistaken
+  for coverage. **New, and disclosed rather than left to be found:** a lambda
+  reached through a **selection** in a callable position is not reported either,
+  because the source does not say which of the two bodies runs; closing it needs a
+  set-valued analysis and belongs to a separately scoped task. The guard is still
+  scoped to this one module.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that an `ast.NamedExpr` is a directly evaluated wrapper rather than the excluded
+  separately stored name, that the wrapper set is closed rather than opened, that
+  the unwrapping removed nothing from the ordinary walk (target and defaults still
+  reported, once each, in source order), and that the two declared limits are
+  honestly placed; and asks the security review to confirm that no lifetime,
+  window, constraint or accepted value was relaxed, that both expiry constraints
+  remain exercised against real PostgreSQL, and that neither the new case nor the
+  falsification recorded a secret, a credential or a real player datum.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  §14 of
+  `docs/review/phase-3-p3-g1-test-clock-authority-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-V — Phase 3 P3.G1 import-time clock detector: literal conditional selection (corrects C-P3.1-U's §"Change" claim that no selection can be unwrapped)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** the same one test module,
+  `tests/web/test_canonical_settings_graph.py` — TC-STRUCT-08's evidence. **No
+  production file changed.** The test-traceability contract is amended by addition
+  for the fifth time. **No accepted numeric value moved, no environment variable
+  was added, renamed or removed, `.env.example` is unchanged, no dependency
+  changed** — the guard still uses only the standard library's `ast` — **and no
+  state machine, logical schema, migration, route, service, worker behaviour,
+  runtime grant, deployment value, provider/engine authority, lifecycle behaviour
+  or visual asset changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-U recorded that the boundary beside the named-expression
+  unwrapping was "stated and closed", with a selection excluded because "the source
+  does not say which body runs". Fresh independent implementation re-review found
+  that claim false for an AST literal: `NOW = ((lambda: datetime.now(timezone.utc))
+  if True else (lambda: None))()` captures an instant at import and the AST names
+  the branch that runs, so neither data flow nor a set of possible bodies is
+  involved — yet the detector reported it clean, because `_invoked_lambda()` did
+  not handle `ast.IfExp` at all. The existing control used `PREFER_UTC`, a **name**,
+  as its test, so it exercised only the decidable half of a claim made for every
+  selection. Nothing was wrong with `OperationClock`, N-04 or the module's actual
+  state; what was wrong is that the guard did not enforce its stated import-time
+  invariant and an open boundary was presented as an exact one — RAID I-10's shape
+  one turn further in.
+- **Change.** Two local, AST-syntactic behaviours. A pure `_literal_selection()`
+  answers the conditional's `body` for `ast.Constant` `value is True`, its `orelse`
+  for `value is False`, and `None` otherwise; `_invoked_lambda()` recurses through
+  it, so a literal selection composes with the lambda, call and named-expression
+  chain already supported rather than being special-cased beside it. The helper
+  still answers **one** body or none — its contract is unchanged and no set-valued
+  analysis was introduced. A `visit_IfExp` preserves ordinary evaluation: the test
+  always runs and is always walked; the branches are walked as Python evaluates
+  them, both when the test is not a literal and the selected one alone when it is,
+  because the unselected expression is never evaluated and so builds no lambda and
+  runs none of its defaults. The boundary is **identity, not truthiness**: `1`,
+  `1.0`, `'yes'`, `(0,)`, `None`, a comparison, a `not`, a name and `ast.BoolOp`
+  are all left exactly where they were. Function and method bodies, decorators,
+  class bodies, imports, annotations, `timedelta` and `timezone` are unchanged. A
+  fifth case,
+  `test_the_import_time_clock_guard_selects_a_literal_conditional_branch`, carries
+  both reproducers, a clock in each selectable branch, the dead branch proved dead
+  at a lambda default with its live counterpart beside it, a clock in the
+  condition, the curried and walrus compositions, and eight non-literal tests as
+  explicit limits. The preserved name-conditioned control is unchanged in behaviour
+  and its comment corrected.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced narrowly: the guard now
+  covers a construct its own boundary statement wrongly excluded, and the limit
+  that genuinely remains is stated where the earlier over-claim stood.
+- **Evidence and verification.** TC-STRUCT-08 is amended **by addition**, with the
+  new clause explicitly **superseding in part** the earlier conditional-expression
+  wording rather than editing it. **The new case was proved to fail first:** with
+  only the helper branch removed it reports `{'true': [], 'false': []}` against the
+  expected findings — the false negative reproduced, not some other failure
+  standing in for it. **Before and after are both recorded** over six inputs, the
+  pre-correction detector loaded from the previous module's own definitions: both
+  reproducers `[]` → `datetime.now` / `datetime.utcnow`, the name-conditioned and
+  truthy-constant controls `[]` under both, and the clean real module `[]` under
+  both. **One row reports less and is disclosed rather than left to be found:** a
+  capture written in a branch the source proves dead is no longer reported, because
+  Python never evaluates that expression. **Three falsification mutations of the
+  real module** were run after `pytestmark`: the literal-`True` and literal-`False`
+  positives each produced **1 failed, 4 passed** naming
+  `test_canonical_settings_graph.py:119`, and the name-conditioned control produced
+  **5 passed** — a real import-time capture the guard does not see, run as evidence
+  that the fix did not widen the net. The literal-`False` run carries independent
+  corroboration that the mutated module executed a clock during its import: CPython
+  itself emitted `DeprecationWarning: datetime.datetime.utcnow() is deprecated` at
+  line 119 during collection. The module was restored from a digested copy after
+  each and verified byte-for-byte by `sha256sum -c` **and** by `cmp`. **701 portal
+  tests and 2260 bot tests pass with no failures and — every run executed with
+  `-rs` — no skips**, against the guarded disposable PostgreSQL database over its
+  Unix-domain socket, run serially because both suites share it; the whole module
+  is 63 passed and the TC-STRUCT-08/10/11 selection 94 passed. `git diff --check`
+  is clean, `compileall` passes under both required interpreters (CPython 3.12.3),
+  the 14-entry visual-freeze manifest verifies 14/14, and `git status` lists exactly
+  the 17 modified and 8 untracked entries it listed before this correction.
+  **`alembic check` was not re-run and is not re-claimed** — no schema, migration,
+  table or model was touched. **Mutation testing beyond the three recorded runs and
+  the before/after table was not performed and is not claimed.** **No formatter,
+  linter or type checker is configured**; C-P3.1-Q's inspection stands and was not
+  repeated. No migration, deployment, configuration-variable or runtime-grant
+  change; rollback is unaffected.
+- **Honest limits, declared.** The detector remains **name-based** and remains
+  **syntactic** about invocation; a lambda bound in one statement and called
+  through its name in another is still a live false negative, asserted as a case.
+  **Narrowed, not removed:** a selection is unwrapped only when its test is an
+  exact boolean literal, so `((lambda: datetime.now(...)) if flag else (lambda:
+  None))()` still executes one of two bodies at import and is still not reported.
+  Closing *that* needs the data-flow or set-valued analysis this task excludes;
+  closing the literal case did not. The guard is still scoped to this one module.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that an exact boolean literal makes the selected branch decidable from the one
+  node, that identity rather than truthiness is the right boundary, that walking
+  the test always and the dead branch never is correct and that the resulting
+  single behaviour removal is a false-positive removal rather than a narrowed
+  invariant, and that the preserved control is now described accurately; and asks
+  the security review to confirm that no lifetime, window, constraint or accepted
+  value was relaxed, that both expiry constraints remain exercised against real
+  PostgreSQL, and that neither the new case nor the falsification recorded a
+  secret, a credential or a real player datum.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  §16 of
+  `docs/review/phase-3-p3-g1-test-clock-authority-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-W — Phase 3 P3.G1 composition lifecycle claimed once (corrects C-P3.1-P's lifecycle contract, which guarded only the way out)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have
+not started.*
+
+- **Affected requirement, milestone and release:** `adapters/web/composition.py`,
+  `adapters/web/app.py` and `tests/web/test_request_authority_and_lifecycle.py` —
+  TC-STRUCT-11's subject and evidence. The test-traceability contract is amended by
+  addition. **No accepted numeric value moved, no environment variable was added,
+  renamed or removed, `.env.example` is unchanged, no dependency changed, and no
+  logical schema, migration, route, view model, service, repository, worker
+  behaviour, runtime grant, deployment value, provider/engine authority or visual
+  asset changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** C-P3.1-P wired `WebComposition.aclose()` to the ASGI lifecycle and
+  recorded the lifecycle contract as complete. Fresh independent implementation
+  re-review (`docs/review/Handover information`, 2026-08-16) found it complete in
+  one direction only. `aclose()` is **permanent** — it closes the provider's HTTP
+  client and disposes an owned engine — and the lifespan performed no
+  live-or-closed check on the way *in*. A composition passed to two applications,
+  or one application whose lifespan was entered again, answered
+  `lifespan.startup.complete` and began serving with a closed Discord client
+  behind R-03 and R-04; the first failure would have been an OAuth request, not a
+  startup. The resource checks were no defence and could not become one: they never
+  receive the provider, and `Engine.dispose()` does not invalidate an engine but
+  discards its pool, so S-14 opens a connection through the replacement and reports
+  a healthy database. **The suite had codified the unsafe outcome**: the
+  repeated-shutdown case entered a second lifespan over a closed composition and
+  *required* `lifespan.startup.complete` from it, reading as repeated-shutdown
+  idempotency while asserting a new startup after shutdown. This is RAID I-09's
+  shape in its lifecycle form — release one way, admit the other — and getting the
+  exit right is precisely what made the entry look already handled.
+- **Change.** An explicit, one-way lifecycle on the composition root.
+  `CompositionLifecycle` is `NEW -> STARTED -> CLOSING -> CLOSED`; `_lifecycle`
+  replaces the `_cleanup_started` boolean, which could say whether cleanup had
+  begun but not whether a startup was permitted, so one attribute now answers both
+  and the two cannot disagree. `claim_for_startup()` is the only transition out of
+  `NEW` and raises the new `CompositionLifecycleError` — a `RuntimeError`, because
+  nothing is wrong with the configuration, only with *when* — from every other
+  state. `__setattr__` refuses any non-forward write to `_lifecycle`, the analogue
+  of the write-once rule for an attribute that has to move: a spent composition
+  cannot be reset to `NEW` and re-claimed with its provider closed. The lifespan
+  calls the claim as its **first** statement, before the resource checks (which
+  cannot detect the condition) and **outside** the cleanup `try` — a composition
+  this application was refused is not this application's to close, and cleaning up
+  underneath a claimant that is still serving would turn a caller's mistake into an
+  outage. `aclose()`'s contract is otherwise unchanged: at most once, guard moved
+  before the first `await`, owned engine disposed in a `finally` even when the
+  provider raises, lent engine untouched, failure re-raised. `create_app()` still
+  builds two applications from one composition without complaint, because the
+  factory opens and closes nothing; only one of them can start.
+- **Scope, schedule and risk effect.** No scope, authority, privacy,
+  data-ownership or migration change. Risk is reduced: a portal can no longer
+  report a completed startup and then serve OAuth against a closed transport, and
+  the refusal is visible to the server as `lifespan.startup.failed` rather than to
+  a caller of the factory.
+- **Evidence and verification.** TC-STRUCT-11 is amended **by addition**. The
+  case that codified the defect is corrected to two shutdown paths and carries a
+  note saying why the third was removed; six new cases assert the opposite outcome —
+  a second application over a closed composition, a second entry of the *same*
+  application's lifespan, a startup attempted while the first is still serving
+  (with R-03 then driven through the live provider to show it was left alone), the
+  claim proved to run before any resource check, the refusal proved to name no
+  configured value across the exception, its context chain and the
+  `lifespan.startup.failed` traceback, and `NEW -> CLOSING -> CLOSED` for a
+  composition discarded before it served. Every case drives the real ASGI lifespan
+  protocol. **Five falsification mutations** of the real production files: removing
+  the claim call **7 failed**, moving it after the checks **2 failed**, moving it
+  inside the cleanup `try` **1 failed** (the live claimant's provider closed by a
+  second application's failed startup — the outage case), removing the forward-only
+  `__setattr__` guard **1 failed**, and a pure no-op `claim_for_startup()` **7
+  failed**. **A sixth mutation killed nothing and is disclosed rather than
+  omitted:** neutralising only the refusal while leaving the `STARTED` write in
+  place produced **37 passed**, because the monotonic `__setattr__` guard refuses
+  the second `STARTED -> STARTED` write from the other direction; the two mechanisms
+  cover each other, which is why the fifth mutation removes both. Every mutation was
+  reverted and both files verified by `sha256sum -c` **and** `cmp`. **707 portal
+  tests and 2260 bot tests pass with no failures and — every run executed with
+  `-rs` — no skips**, against the guarded disposable PostgreSQL database over its
+  Unix-domain socket, run serially because both suites share it; the lifecycle
+  module alone is 37 passed. `git diff --check` is clean and `compileall` passes.
+  **`alembic check` was not re-run and is not re-claimed** — no schema, migration,
+  table or model was touched. **Mutation testing beyond the six recorded runs was
+  not performed and is not claimed.** **No formatter, linter or type checker is
+  configured**; C-P3.1-Q's inspection stands and was not repeated. No migration,
+  deployment, configuration-variable or runtime-grant change; rollback is
+  unaffected.
+- **Honest limits, declared.** The claim is a **single-process** rule: two uvicorn
+  workers each build their own composition, which is correct and unchanged, and
+  N-53's pool arithmetic remains per-process. It is a check-and-set with no `await`
+  between test and write, so it is safe against concurrent lifespans on one event
+  loop — the only concurrency this application has — and is **not** thread-safe and
+  not claimed to be. `CLOSING` is not asserted directly by any case, because there
+  is no suspension point one could reliably observe it from without instrumenting
+  the provider; the states either side of it are asserted.
+- **Recommendations:** the Technical Lead asks the implementation review to confirm
+  that a state transition on the way in is the right correction rather than a check
+  inside `run_resource_checks`, that the claim belongs outside the cleanup `try`,
+  that a monotonic `_lifecycle` is the right analogue of the write-once rule for an
+  attribute that must move, and that closing an unclaimed composition
+  (`NEW -> CLOSING`) is correct rather than an omission; and asks the security
+  review to confirm that no lifetime, window, constraint or accepted value was
+  relaxed, that a refused claim releases nothing belonging to a serving
+  application, that neither `CompositionLifecycleError` nor the
+  `lifespan.startup.failed` traceback carries a configured value, and that a
+  refused startup remains incapable of serving a request.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  §8 of
+  `docs/review/phase-3-p3-g1-composition-lifecycle-claim-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-X — Phase 3 P3.G1 break-glass attempt budgets survive the refusals they count (corrects the N-32 per-account budget, which had no production caller, and the N-33 per-grant counter, which rolled back with every refused matched grant)
+
+**Date:** 2026-08-16 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for fresh independent
+security re-review. Not accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and
+P3.3 have not started.*
+
+- **Affected requirement, milestone and release:** `application/web/rate_limit.py`,
+  `application/web/breakglass.py`, `adapters/web/app.py` (R-08, R-09),
+  `adapters/web/repositories.py` (`RecoveryGrantRepository.note_attempt`),
+  `tests/web/test_break_glass_login.py` and
+  `tests/web/test_settings_construction_validation.py` — N-32 and N-33 as the
+  numeric register already accepts them. The test-traceability contract is amended
+  by addition (TC-BG-16, TC-BG-17). **No accepted numeric value moved, no
+  environment variable was added, renamed or removed, `.env.example` is unchanged,
+  no dependency changed, and no logical schema, migration, route, view model,
+  worker behaviour, runtime grant, deployment value, provider/engine authority or
+  visual asset changed.** No release boundary changes. Phase 3 P3.G1 only.
+- **Reason.** The distinct security-focused review
+  (`docs/review/phase-3-p3-g1-security-review-2026-08-16.md`, 2026-08-16) returned
+  two `[Blocking]` findings, both accepted without qualification. **N-32's second
+  budget had no production caller**: `RateLimiter.check_account()` was implemented,
+  validated and unit-tested, and no HTTP request ever reached it, so WebAuthn
+  assertion attempts distributed over fresh source addresses were bounded only by
+  the five-per-address budget and the accepted ten-per-account, sixty-minute budget
+  was inoperative. **N-33's per-grant counter was inside the transaction it was
+  bounding**: `redeem_recovery_grant()` incremented `recovery_grants.attempt_count`
+  and R-09 ran the whole call inside `_in_transaction()`, so an attempt matching a
+  real but expired, invalidated or already-consumed grant updated the row, failed
+  `consume()`, and rolled the update back — the cap could be walked past from new
+  addresses while only the per-IP counter advanced. This is RAID I-09's shape
+  twice: the control exists and the path does not reach it, masked in both cases by
+  a per-address budget that does work.
+- **Alternatives considered.** (a) Leaving the account budget to a later package —
+  refused: N-32 is an accepted P3.1 number and an unenforced one is worse than an
+  absent one, because the register reads as satisfied. (b) Charging the account
+  budget inside `complete_assertion()` — refused: that transaction is rolled back
+  by every refusal, which is the same defect in a new place. (c) Spending nothing
+  for a credential that resolves to no account — refused: it makes the eleventh
+  attempt against an enrolled credential distinguishable from the eleventh against
+  an invented one, which is the account-existence oracle `begin_assertion()` exists
+  to avoid; an equivalent keyed per-credential budget was added instead. (d)
+  Keeping the per-grant increment in the service and raising as before — refused
+  for the reason the finding gives; the service method now **returns** its refusal
+  so the caller's transaction commits the increment.
+- **Change.** `RateLimiter.check_credential()` added, spending the same configured
+  N-32 limit and window in a keyed per-credential bucket.
+  `BreakGlassService.assertion_subject()` added: one row read, nothing verified,
+  nothing written, nothing raised. `BreakGlassService.note_recovery_attempt()`
+  added, returning `AuthenticationFailure | None`. R-08 and R-09 each call one new
+  `adapters/web/app.py` helper that runs the consumption in **its own** transaction,
+  beside the existing `_consume_rate_limit()` and for the identical reason.
+  `redeem_recovery_grant()`'s increment becomes a read-only fail-closed check.
+  `note_attempt()` becomes one `UPDATE … RETURNING attempt_count` statement, so the
+  increment and the reading of it are the same operation. `complete_assertion()`
+  and `assertion_subject()` share one credential-id reader; a non-`dict` JSON body
+  now takes the ordinary `403 invalid` path instead of the generic 500 handler.
+- **Added/removed scope.** Added: two limiter/service consumption paths, one
+  limiter method, one repository return value, five test cases, two traceability
+  rows. Removed: nothing. **No route, capability, lifetime, window, constraint or
+  accepted value was relaxed**, and every refusal a caller can see keeps the code
+  it had.
+- **Dependency and critical-path effect.** None. P3.G1 remains the gate; P3.2 is
+  still not authorized.
+- **Testing, migration, security and operational effect.** TC-BG-16 and TC-BG-17
+  are new, both **direct HTTP against real PostgreSQL**, both spending their budget
+  from several source addresses because that is the attack the per-address halves
+  do not bound. The overstated per-grant case is renamed
+  `test_a_token_matching_no_grant_counts_against_no_grant_record` and re-scoped to
+  the property it actually held. **712 portal and 2260 bot tests pass with no
+  failures and no skips**, run serially against the guarded disposable PostgreSQL
+  database over its Unix-domain socket. Four falsification mutations were killed —
+  including one that reintroduces the original rollback mechanism at the new
+  boundary — and every mutation was reverted and verified byte-for-byte.
+  `git diff --check` is clean. **`alembic check` was not re-run and is not
+  re-claimed**: no schema, migration, table or model was touched, and
+  `recovery_grants.attempt_count` is unchanged. **Mutation testing beyond the four
+  recorded runs was not performed and is not claimed.** **No formatter, linter or
+  type checker is configured**; C-P3.1-Q's inspection stands and was not repeated.
+  No migration, deployment, configuration-variable or runtime-grant change;
+  rollback is unaffected.
+- **New or changed risks.** RR-03's fixed-window 2× boundary burst now applies to
+  the per-account budget as well as the per-address ones; that is the accepted cost
+  of N-30's algorithm rather than a new decision, and it is disclosed rather than
+  smoothed over. The per-credential bucket is genuinely new storage in
+  `auth_rate_limits`, bounded by the per-address budget that runs before it and
+  swept by N-31.
+- **Honest limits, declared.** R-08 now reads the credential row twice — once to
+  charge the budget in a committed transaction, once inside the verification
+  transaction that authorizes — and that is deliberate rather than an oversight.
+  `redeem_recovery_grant()` no longer counts, so direct service callers do not
+  advance the per-grant counter; the route is its only production caller and the
+  read-only cap check keeps the service fail-closed. No concurrency case was added
+  for either counter.
+- **Recommendations:** the Technical Lead asks the security review to confirm that
+  consuming the account budget after credential resolution and before verification
+  is the right boundary; that the per-credential fallback removes the oracle rather
+  than moving it; that returning a refusal instead of raising it is the right way
+  to keep an increment committed; that no refusal code, audit payload or response
+  shape now discloses more than it did; and that the read-only per-grant check left
+  in the service is a safeguard rather than a second authority.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see §9
+  of
+  `docs/review/phase-3-p3-g1-security-review-remediation-submission-2026-08-16.md`.
+
+## C-P3.1-Y — P3.1 and stop gate P3.G1 accepted after complete independent and security re-review
+
+**Date:** 2026-08-16 · **Decision:** Peter Duscha, Acceptance Authority and
+accountable Security Reviewer · **Status:** **Accepted; P3.G1 closed; P3.2
+authorized.**
+
+- **Affected requirement, milestone and release:** the complete P3.1
+  authentication/security foundation and P3.G1 gate, including migrations
+  0006–0009, OD-44, session lifetime and numeric policy, canonical settings and
+  dependency authority, startup/lifecycle ownership, N-32 and N-33. No product
+  scope, accepted numeric value, route, schema, dependency or release boundary
+  changes in this decision.
+- **Reason and review:** Codex completed the independent implementation re-review
+  and distinct security-focused pass recorded in
+  `docs/review/phase-3-p3-g1-independent-and-security-re-review-2026-08-16.md`.
+  No remaining blocking or important implementation or security finding was
+  identified. Peter accepted the recommendation.
+- **Evidence:** 712 portal tests and 2260 bot tests passed with no skips against
+  the guarded disposable PostgreSQL database; changed Python modules compiled;
+  `git diff --check` was clean. Historical mutation evidence was inspected but
+  not all mutation runs were repeated. No formatter, linter or type checker is
+  configured.
+- **Evidence correction:** TC-BG-16 proves the same externally meaningful
+  outcomes for enrolled and invented credential IDs: status and coarse error
+  code at the same attempt under the same configured window. Literal response
+  bodies are not identical because correlation identifiers are intentionally
+  unique, and literal `Retry-After` equality is timing-dependent and not claimed.
+- **Dependency and critical-path effect:** P3.G1 is closed and P3.2 may begin.
+  P3.3 remains behind P3.G2; this decision does not bypass any later stop gate.
+- **RAID effect:** I-07, I-09 and I-10 are closed by the completed evidence,
+  review and acceptance. **I-06 remains open:** staging, browser and real-device
+  evidence is still unavailable and is required before staging/production
+  exposure and final Phase 3 production-readiness acceptance. **A-05 remains
+  open:** the implementation is accepted, but two real WebAuthn credentials must
+  be validated on the deployment host before public staging/production exposure.
+- **Approval:** Peter Duscha accepted P3.1 and closed P3.G1 on 2026-08-16.
+
 ## Required fields for later entries
 
 Every material entry must identify:

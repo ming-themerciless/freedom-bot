@@ -13,8 +13,11 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select, text, update
 
+from webauthn.helpers import bytes_to_base64url
+
 from adapters.database.tables import (
     audit_events,
+    auth_rate_limits,
     recovery_grants,
     sessions,
     webauthn_challenges,
@@ -508,15 +511,34 @@ def test_two_concurrent_redemptions_create_exactly_one_session(
         other.dispose()
 
 
-def test_the_per_grant_attempt_cap_refuses_the_sixth_attempt(
+def test_a_token_matching_no_grant_counts_against_no_grant_record(
     migrated_database, composition, protected_account
 ):
-    """TC-BG-11's per-grant half (N-33). The grant is single use; five tries is an attack."""
+    """A wrong token cannot be used to exhaust somebody else's per-grant budget.
+
+    **Renamed and re-scoped 2026-08-16** (P3.G1 security review). It was called
+    `test_the_per_grant_attempt_cap_refuses_the_sixth_attempt` and claimed to be
+    TC-BG-11's per-grant half, which it never was: every attempt below presents
+    `"wrong-" + token`, which matches no row, so no attempt is counted, no cap is
+    approached and no sixth attempt is reached. That is a real and worthwhile
+    property — the counter is keyed by the grant, so an attacker holding no token
+    cannot spend a real grant's budget — and it is the only one this test has.
+    N-33's cap itself is proved by TC-BG-17 below, over HTTP, against a grant the
+    token actually matches.
+    """
     token = mint_token()
     with migrated_database.begin() as connection:
         issue_grant(connection, protected_account, token_hash=token_hash(token))
 
     for _ in range(5):
+        # Through **both** boundaries the route uses: the committed attempt
+        # counter first, then the redemption that rolls back. Counting only the
+        # second would no longer touch the counter at all.
+        with migrated_database.begin() as connection:
+            refusal = composition.services(connection).break_glass.note_recovery_attempt(
+                token="wrong-" + token, correlation_id=uuid4()
+            )
+        assert refusal is None
         with pytest.raises(AuthenticationFailure):
             with migrated_database.begin() as connection:
                 composition.services(connection).break_glass.redeem_recovery_grant(
@@ -555,3 +577,217 @@ def test_a_grant_naming_another_account_is_refused(
                 user_agent_digest=None,
             )
     assert refusal.value.audit.payload["reason"] == "grant_names_another_account"
+
+
+# ---------------------------------------------------------------------------
+# TC-BG-16, TC-BG-17 — the two budgets that must survive a refusal
+#
+# Added 2026-08-16 by the P3.G1 security-review remediation. Both are direct
+# HTTP against real PostgreSQL, and both spend their budget from a **different
+# source address every time**, because that is the attack the per-address halves
+# of N-32 and N-33 do not bound and the second halves exist for.
+# ---------------------------------------------------------------------------
+
+
+def _from(address: str) -> dict:
+    """Headers for one request from one source address.
+
+    `ASGITransport` presents `127.0.0.1` as the transport peer, which is exactly
+    the loopback peer N-34 trusts one forwarded hop from, so the right-most
+    `X-Forwarded-For` entry is the address the limiter sees.
+    """
+    return {"origin": PUBLIC_ORIGIN, "x-forwarded-for": address}
+
+
+async def _verify(client, credential_id: bytes, *, address: str):
+    """One refused assertion for a credential id: resolved, never verified.
+
+    The payload deliberately carries no `response`, so verification refuses at
+    `no_client_data` **after** the credential has been resolved. That is the
+    shape of a refused attempt, which is the only shape an attacker sends.
+    """
+    return await client.post(
+        "/v1/auth/emergency/webauthn/verify",
+        json={"rawId": bytes_to_base64url(credential_id)},
+        headers=_from(address),
+    )
+
+
+async def test_one_credential_shares_one_assertion_budget_across_addresses(
+    client, migrated_database, faulted_provider, authenticator, protected_account
+):
+    """TC-BG-16. N-32's per-account half, at the route (P3.G1 security review).
+
+    Ten refused assertions against the enrolled credential, each from its own
+    source address so the five-per-address budget is never the thing refusing,
+    and the eleventh is `429`. Before this remediation the per-account budget had
+    no production caller at all: `check_account` existed, a unit test called it
+    directly, and no HTTP request ever reached it — so attempts spread over
+    eleven addresses were bounded by nothing.
+
+    Every one of the eleven is a **refusal**, which is the second half of the
+    property: the budget is consumed in its own committed transaction, so it
+    survives the rollback of the assertion it counted.
+    """
+    budget = 10
+    for attempt in range(budget):
+        response = await _verify(
+            client, authenticator.credential_id, address=f"198.51.100.{attempt + 1}"
+        )
+        assert response.status_code == 403, attempt
+        assert response.json()["error"] == "invalid", attempt
+
+    eleventh = await _verify(
+        client, authenticator.credential_id, address="198.51.100.200"
+    )
+    assert eleventh.status_code == 429
+    assert eleventh.json()["error"] == "rate_limited"
+    assert "retry-after" in eleventh.headers
+
+    # One bucket, named for the account and not for any address, holding all
+    # eleven attempts. Two buckets would mean two budgets.
+    with migrated_database.connect() as connection:
+        counts = connection.execute(
+            select(auth_rate_limits.c.bucket, auth_rate_limits.c.count).where(
+                auth_rate_limits.c.bucket.like("webauthn_assertion:account:%")
+            )
+        ).all()
+    assert counts == [(f"webauthn_assertion:account:{protected_account}", 11)]
+    # Nothing was verified, so nothing was created.
+    with migrated_database.connect() as connection:
+        assert connection.execute(select(sessions)).all() == []
+
+
+async def test_an_unknown_credential_is_refused_exactly_as_an_enrolled_one_is(
+    client, migrated_database, faulted_provider, authenticator, protected_account
+):
+    """TC-BG-16, the disclosure half. The budget must not become an oracle.
+
+    `begin_assertion` refuses to say whether an account exists, so the *limit* on
+    assertions must not say it either. An invented credential id spends an
+    equivalent per-credential budget, so the sequence of responses an attacker
+    sees is identical for an enrolled credential and an invented one — same
+    status codes, same bodies, same attempt at which `rate_limited` starts.
+    """
+    invented = b"no-such-credential-id-000099"
+    assert invented != authenticator.credential_id
+
+    async def sequence(credential_id: bytes, *, block: int):
+        seen = []
+        for attempt in range(11):
+            response = await _verify(
+                client, credential_id, address=f"203.0.{block}.{attempt + 1}"
+            )
+            seen.append((response.status_code, response.json()["error"]))
+        return seen
+
+    enrolled_sequence = await sequence(authenticator.credential_id, block=10)
+    invented_sequence = await sequence(invented, block=11)
+
+    assert invented_sequence == enrolled_sequence
+    assert enrolled_sequence[-1] == (429, "rate_limited")
+    # The invented credential's bucket names no account and carries a keyed
+    # digest, so the table does not become a list of credential ids either.
+    with migrated_database.connect() as connection:
+        buckets = connection.execute(
+            select(auth_rate_limits.c.bucket).where(
+                auth_rate_limits.c.bucket.like("webauthn_assertion:credential:%")
+            )
+        ).scalars().all()
+    assert len(buckets) == 1
+    assert invented.hex() not in buckets[0]
+
+
+async def test_the_sixth_attempt_against_one_grant_is_refused_across_addresses(
+    client, composition, migrated_database, faulted_provider, protected_account
+):
+    """TC-BG-17. N-33's per-grant half, durably (P3.G1 security review).
+
+    The grant is real and the token matches it, but it has been invalidated —
+    the case the previous coverage never presented, and the one an attacker who
+    obtained a stale token is in. Each attempt therefore reaches the grant row,
+    and each is refused. Before this remediation the increment lived
+    inside the redemption transaction that the refusal rolls back, so five
+    attempts left `attempt_count` at zero and the cap could be walked past
+    indefinitely from fresh addresses; the per-address budget was the only thing
+    counting.
+
+    Five attempts, five distinct addresses, five durable increments, and a sixth
+    that is refused `rate_limited` without a session.
+    """
+    token = mint_token()
+    with migrated_database.begin() as connection:
+        issue_grant(connection, protected_account, token_hash=token_hash(token))
+        # Through the repository, not a hand-written `UPDATE`: this is the state
+        # C-01 leaves a superseded grant in (N-61), so it is the state an
+        # attacker's stale token is really in.
+        composition.services(connection).grants.invalidate_all(
+            account_id=protected_account, reason="superseded_by_new_grant"
+        )
+
+    for attempt in range(5):
+        response = await client.post(
+            "/v1/auth/emergency/recovery",
+            data={"token": token},
+            headers=_from(f"192.0.2.{attempt + 1}"),
+        )
+        assert response.status_code == 303, attempt
+        assert "failure=invalid" in response.headers["location"], attempt
+        # Durable after the refusal rolled its transaction back — the property
+        # the whole finding was about.
+        with migrated_database.connect() as connection:
+            assert connection.execute(
+                select(recovery_grants.c.attempt_count)
+            ).scalar_one() == attempt + 1
+
+    sixth = await client.post(
+        "/v1/auth/emergency/recovery",
+        data={"token": token},
+        headers=_from("192.0.2.99"),
+    )
+    assert sixth.status_code == 303
+    assert "failure=rate_limited" in sixth.headers["location"]
+
+    with migrated_database.connect() as connection:
+        assert connection.execute(
+            select(recovery_grants.c.attempt_count)
+        ).scalar_one() == 6
+        assert connection.execute(select(sessions)).all() == []
+        reasons = connection.execute(
+            select(audit_events.c.payload).where(
+                audit_events.c.action == "auth.emergency.refused"
+            )
+        ).scalars().all()
+    # The cap's refusal is audited like every other emergency refusal, in its own
+    # committed transaction.
+    assert any(payload.get("reason") == "grant_attempt_cap" for payload in reasons)
+
+
+async def test_a_successful_redemption_spends_one_of_the_grant_attempts(
+    client, migrated_database, faulted_provider, protected_account
+):
+    """The counter counts *attempts*, so the one that succeeds is one of them.
+
+    It also proves the reordering did not break the live path: the attempt is
+    spent before the redemption transaction opens, and the redemption still
+    consumes the grant and issues a session.
+    """
+    token = mint_token()
+    with migrated_database.begin() as connection:
+        issue_grant(connection, protected_account, token_hash=token_hash(token))
+
+    response = await client.post(
+        "/v1/auth/emergency/recovery",
+        data={"token": token},
+        headers=_from("192.0.2.150"),
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/v1/admin/role-capabilities"
+
+    with migrated_database.connect() as connection:
+        row = connection.execute(
+            select(recovery_grants.c.attempt_count, recovery_grants.c.consumed_at)
+        ).mappings().one()
+        assert connection.execute(select(sessions.c.id)).scalars().all() != []
+    assert row["attempt_count"] == 1
+    assert row["consumed_at"] is not None

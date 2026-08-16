@@ -56,12 +56,7 @@ from application.web.capabilities import (
     AuthMethod,
     resolve_capabilities,
 )
-from application.web.config import (
-    RateLimitSettings,
-    WebAuthnSettings,
-    WebSettings,
-    canonical_settings,
-)
+from application.web.config import WebSettings, require_canonical_web_settings
 from application.web.crypto import token_hash
 from application.web.errors import AuthenticationFailure, FailureAudit
 from application.web.sessions import IssuedSession, SessionService
@@ -88,6 +83,28 @@ class EmergencyLogin:
     account_id: UUID
     credential_record_id: UUID | None
     grant_record_id: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class AssertionSubject:
+    """What N-32's per-account budget is spent against, before anything is verified.
+
+    Exactly one of the two is set for a well-formed attempt: `account_id` when
+    the presented credential resolves to an enabled record, `credential_id` when
+    it does not. Both are `None` only when the payload carries no usable
+    credential id at all, which the assertion itself refuses a moment later.
+    """
+
+    account_id: UUID | None
+    credential_id: bytes | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ParsedCredentialId:
+    """The presented credential id, or the audit reason it is not one."""
+
+    value: bytes | None
+    problem: str | None
 
 
 class BreakGlassService:
@@ -119,15 +136,25 @@ class BreakGlassService:
         self._grants = recovery_grants
         self._sessions = session_service
         self._audit = audit
-        self._settings = settings
-        # The relying party and the per-grant attempt cap are read **once**, here,
-        # and validated as they are read (2026-08-15, I-10). Both were previously
-        # re-read from the settings tree on every assertion and every redemption,
-        # so a subclass that answered one relying-party identifier when it was
-        # checked and another when it was used would have moved the credential
-        # scope out from under a verification that had already passed.
-        self._webauthn = canonical_settings(settings.webauthn, WebAuthnSettings)
-        self._rate_limits = canonical_settings(settings.rate_limits, RateLimitSettings)
+        #: **The canonical graph, or nothing** (2026-08-16, P3.G1
+        #: canonical-graph remediation). This service reads
+        #: `session.oauth_transaction_minutes` after construction, to set the
+        #: expiry of every WebAuthn challenge it mints; while any `WebSettings`
+        #: was accepted here, a genuine subclass could answer N-04's accepted ten
+        #: minutes to every construction gate and a longer window to that read,
+        #: leaving break-glass challenges replayable for as long as it liked.
+        self._settings = require_canonical_web_settings(
+            settings, subject="BreakGlassService"
+        )
+        # The relying party and the per-grant attempt cap are held as their own
+        # attributes because they are re-read on every assertion and every
+        # redemption (2026-08-15, I-10). They are taken **from the canonical
+        # graph** rather than rebuilt here (2026-08-16): the graph is exact-base
+        # all the way down, so these are already the objects whose constructors
+        # validated them, and a second rebuild would be a second authority for
+        # the same values rather than a second check of them.
+        self._webauthn = self._settings.webauthn
+        self._rate_limits = self._settings.rate_limits
 
     # -- WebAuthn ---------------------------------------------------------
     def begin_assertion(
@@ -163,6 +190,37 @@ class BreakGlassService:
             expires_at=expires_at,
         )
 
+    def assertion_subject(self, *, credential_payload) -> AssertionSubject:
+        """Resolve **who** an assertion attempt is spent against. Verifies nothing.
+
+        N-32's per-account budget can only be charged once the presented
+        credential has been resolved to an account, and it has to be charged in a
+        transaction that outlives the refusal it is counting — otherwise the
+        budget is rolled back with every refused attempt and bounds nothing
+        (2026-08-16, P3.G1 security review). This method exists so the route can
+        do the resolution in its own committed transaction, before the
+        verification transaction opens.
+
+        It reads one row and returns two facts. It performs no signature
+        verification, consumes no challenge, writes nothing, and raises nothing:
+        a malformed payload is a subject of `None`, not an exception, because the
+        caller's next step must be the ordinary refusal path rather than a
+        different one for callers who sent rubbish.
+        """
+        parsed = self._credential_id_from(credential_payload)
+        if parsed.value is None:
+            return AssertionSubject(account_id=None, credential_id=None)
+        record = self._credentials.find_by_credential_id(parsed.value)
+        if record is None:
+            # An unknown credential still spends a budget — see
+            # `RateLimiter.check_credential`. Answering "no budget applies" here
+            # would make the eleventh attempt distinguishable, which is the
+            # account-existence disclosure `begin_assertion` refuses to make.
+            return AssertionSubject(account_id=None, credential_id=parsed.value)
+        return AssertionSubject(
+            account_id=record.platform_account_id, credential_id=None
+        )
+
     def complete_assertion(
         self,
         *,
@@ -178,15 +236,10 @@ class BreakGlassService:
         sentence in the audit record. The response must not let a caller tell an
         unknown credential from a bad signature from a replayed challenge.
         """
-        raw_id = credential_payload.get("rawId") or credential_payload.get("id")
-        if not raw_id:
-            raise self._refuse("invalid", correlation_id, reason="no_credential_id")
-        try:
-            credential_id = base64url_to_bytes(raw_id)
-        except Exception as error:  # noqa: BLE001 - malformed input is one outcome
-            raise self._refuse(
-                "invalid", correlation_id, reason="malformed_credential_id"
-            ) from error
+        parsed = self._credential_id_from(credential_payload)
+        if parsed.problem is not None:
+            raise self._refuse("invalid", correlation_id, reason=parsed.problem)
+        credential_id = parsed.value
 
         record = self._credentials.find_by_credential_id(credential_id)
         if record is None:
@@ -248,6 +301,28 @@ class BreakGlassService:
             grant_record_id=None,
         )
 
+    @staticmethod
+    def _credential_id_from(payload) -> _ParsedCredentialId:
+        """`rawId`, else `id`, base64url-decoded. One reader, two callers.
+
+        Both the budget resolution and the assertion itself have to agree about
+        which bytes were presented: a budget spent against one credential id
+        while the lookup used another would bound nothing. The audit reasons the
+        assertion needs are carried out of here rather than raised, because the
+        budget path must not raise at all.
+        """
+        if not isinstance(payload, dict):
+            return _ParsedCredentialId(value=None, problem="no_credential_id")
+        raw_id = payload.get("rawId") or payload.get("id")
+        if not raw_id or not isinstance(raw_id, str):
+            return _ParsedCredentialId(value=None, problem="no_credential_id")
+        try:
+            return _ParsedCredentialId(value=base64url_to_bytes(raw_id), problem=None)
+        except Exception:  # noqa: BLE001 - malformed input is one outcome
+            return _ParsedCredentialId(
+                value=None, problem="malformed_credential_id"
+            )
+
     def _challenge_from(self, payload: dict, correlation_id: UUID) -> bytes:
         response = payload.get("response") or {}
         client_data = response.get("clientDataJSON")
@@ -264,6 +339,32 @@ class BreakGlassService:
             ) from error
 
     # -- Recovery grant ---------------------------------------------------
+    def note_recovery_attempt(
+        self, *, token: str, correlation_id: UUID
+    ) -> AuthenticationFailure | None:
+        """Spend N-33's per-grant attempt, and say whether the cap is now exceeded.
+
+        **Returned, never raised** (2026-08-16, P3.G1 security review). This runs
+        in its own transaction, opened by the route before the redemption
+        transaction; raising here would roll back the very increment the cap is
+        made of. That is precisely the defect this method exists to close: the
+        increment used to live inside `redeem_recovery_grant`, whose transaction
+        every refused attempt rolls back, so an attempt against a real but
+        expired, invalidated or already-consumed grant counted for nothing and
+        the cap could be walked past from a second address.
+
+        A token matching no grant row updates nothing and returns zero, so a
+        caller cannot use one to exhaust somebody else's budget — and cannot use
+        the response to learn that a grant exists, because the per-address budget
+        of N-33 refuses the fourth attempt either way.
+        """
+        count = self._grants.note_attempt(token_hash=token_hash(token))
+        if count > self._rate_limits.recovery_attempts_per_grant:
+            return self._refuse(
+                "rate_limited", correlation_id, reason="grant_attempt_cap"
+            )
+        return None
+
     def redeem_recovery_grant(
         self,
         *,
@@ -282,7 +383,12 @@ class BreakGlassService:
         rollback removes the session with it.
         """
         hashed = token_hash(token)
-        self._grants.note_attempt(token_hash=hashed)
+        # **Read only.** The attempt was spent by `note_recovery_attempt` in a
+        # transaction that has already committed; counting it here again would
+        # both double-count a successful redemption and, on every refusal below,
+        # be rolled back. The check is kept as a second, fail-closed reading of
+        # the same durable counter, so a caller that reached this method without
+        # spending an attempt still cannot redeem past the cap.
         if (
             self._grants.attempts_for(token_hash=hashed)
             > self._rate_limits.recovery_attempts_per_grant
@@ -425,6 +531,7 @@ class BreakGlassService:
 
 
 __all__ = [
+    "AssertionSubject",
     "BreakGlassService",
     "ChallengeOptions",
     "EmergencyLogin",

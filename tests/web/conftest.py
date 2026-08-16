@@ -34,7 +34,7 @@ from adapters.database.tables import (
     webauthn_credentials,
 )
 from adapters.web.app import create_app
-from adapters.web.composition import WebComposition
+from tests.web.composition_harness import substituted_composition
 from tests.web_fixtures import (
     BOOTSTRAP_ADMIN_ROLE_ID,
     COUNCIL_ROLE_ID,
@@ -89,15 +89,31 @@ def provider():
 
 @pytest.fixture()
 def composition(settings, provider, migrated_database):
-    composition = WebComposition(
+    """The production composition root, with two dependencies lent to it.
+
+    Built through `tests/web/composition_harness.py` (2026-08-16, P3.G1
+    provider/engine authority remediation), which is the suite's only
+    substitution path. `WebComposition` itself takes a settings graph and an
+    optional HTTP transport: it derives the engine and the identity provider
+    from that graph and holds both write-once, so neither can be passed here and
+    neither can be replaced afterwards.
+    """
+    yield substituted_composition(
         settings=settings, engine=migrated_database, provider=provider
     )
-    yield composition
 
 
 @pytest.fixture()
-def app(composition, settings):
-    return create_app(settings, composition=composition, run_startup_checks=False)
+def app(composition):
+    """Built from the composition alone (2026-08-16, P3.G1 canonical-graph fix).
+
+    `create_app` takes **exactly one** configuration authority. This fixture
+    passes the composition, whose `settings` is the canonical exact-base graph
+    built from the `settings` fixture — so `app.state.settings` and every service
+    are the same object, which is the property the fixture used to establish only
+    by passing the same argument twice.
+    """
+    return create_app(composition=composition, run_startup_checks=False)
 
 
 @pytest.fixture()

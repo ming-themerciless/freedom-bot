@@ -34,7 +34,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from application.web.config import DiscordProviderSettings
+from application.web.config import DiscordProviderSettings, require_canonical
 from application.web.providers import (
     ProviderMembership,
     ProviderRefused,
@@ -59,12 +59,55 @@ class DiscordIdentityProvider:
     def __init__(
         self, settings: DiscordProviderSettings, *, client: httpx.AsyncClient | None = None
     ) -> None:
-        self._settings = settings
-        self._client = client or httpx.AsyncClient(
-            timeout=httpx.Timeout(settings.api_timeout_seconds),
-            limits=_LIMITS,
-            follow_redirects=False,
+        #: **Exactly `DiscordProviderSettings`, and an exact `SecretKey` inside
+        #: it** (2026-08-16, P3.G1 canonical-graph remediation). This object is
+        #: held for the life of the process and every field of it is read again
+        #: per call: the client id and redirect URI go into the authorization URL
+        #: and the token exchange, the scopes into the consent screen, the guild
+        #: id into the membership lookup, and the client secret's material into
+        #: the exchange body. A subclass could answer the configured redirect URI
+        #: while startup checked it against the public origin (S-05) and another
+        #: one when the URL was built, sending the authorization code somewhere
+        #: else entirely.
+        self._settings = require_canonical(
+            settings, DiscordProviderSettings, subject="DiscordIdentityProvider"
         )
+        if client is None:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._settings.api_timeout_seconds),
+                limits=_LIMITS,
+                follow_redirects=False,
+            )
+        else:
+            #: **An injected client supplies transport, never configuration**
+            #: (2026-08-16, P3.G1 canonical-graph re-review, finding 1). Client
+            #: injection exists so a test can drive this adapter over
+            #: `httpx.MockTransport` without a socket, and it must not become a
+            #: second place where the provider's timeout is decided: a client
+            #: built with a timeout of its own would have made
+            #: `WEB_DISCORD_API_TIMEOUT_SECONDS` inoperative for every call this
+            #: adapter makes. Both values are taken from the settings object
+            #: above, so the configured timeout and this module's documented
+            #: no-redirect rule hold whoever supplied the transport.
+            client.timeout = httpx.Timeout(self._settings.api_timeout_seconds)
+            client.follow_redirects = False
+            self._client = client
+
+    def is_configured_from(self, settings: DiscordProviderSettings) -> bool:
+        """Whether this provider's configuration authority **is** that object.
+
+        Identity, deliberately, and never equality: two independently built
+        settings graphs that happen to hold equal values today are still two
+        authorities, and a comparison of their fields would also be a comparison
+        of the client secret. The answer is a `bool`; nothing about the held
+        configuration is exposed by asking.
+
+        `WebComposition` builds this adapter from its canonical
+        `settings.discord`, so `create_app` uses this to state as an application
+        property what would otherwise be a property of how the composition
+        happened to be built.
+        """
+        return self._settings is settings
 
     async def aclose(self) -> None:
         await self._client.aclose()

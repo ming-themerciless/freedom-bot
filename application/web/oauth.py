@@ -71,7 +71,7 @@ from application.web.capabilities import (
     MembershipProjection,
     resolve_capabilities,
 )
-from application.web.config import WebSettings
+from application.web.config import WebSettings, require_canonical_web_settings
 from application.web.crypto import (
     DecryptionError,
     Envelope,
@@ -178,7 +178,23 @@ class OAuthLoginService:
         self._sessions = session_service
         self._audit = audit
         self._envelope = envelope
-        self._settings = settings
+        #: **The canonical graph, or nothing** (2026-08-16, P3.G1
+        #: canonical-graph remediation). This service reads
+        #: `session.oauth_transaction_minutes` when it mints a transaction and
+        #: `encryption.active_version` when it seals a verifier and again when it
+        #: reads one back — three reads, all after construction. While any
+        #: `WebSettings` was accepted here, those reads were of whatever the
+        #: caller retained: a genuine subclass could answer N-04's accepted ten
+        #: minutes to every construction gate and something else to the read that
+        #: sets a transaction's expiry, and could name one encryption key version
+        #: in the AAD and another in the ciphertext's own key selection.
+        #:
+        #: Requiring the canonical graph makes those reads answer what was
+        #: validated, and does so structurally: the property no longer depends on
+        #: the composition root being the only construction site.
+        self._settings = require_canonical_web_settings(
+            settings, subject="OAuthLoginService"
+        )
 
     # -- 1. start ---------------------------------------------------------
     def start(

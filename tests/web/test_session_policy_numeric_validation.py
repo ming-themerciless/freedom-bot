@@ -52,7 +52,6 @@ import pytest
 from sqlalchemy import select
 
 from adapters.database.tables import audit_events, sessions
-from adapters.web.composition import WebComposition
 from application.audit import ActorCapability
 from application.web.capabilities import (
     AdministratorScope,
@@ -67,6 +66,7 @@ from application.web.config import (
     WebSettings,
 )
 from application.web.sessions import SessionPolicy
+from tests.web.composition_harness import substituted_composition
 from tests.web.conftest import make_account, seed_oauth_transaction, utcnow
 from tests.web.test_session_touch_lifetime import VALID_SESSION_SETTINGS
 from tests.web_fixtures import TEST_GUILD_ID, web_environment, web_settings
@@ -527,7 +527,7 @@ def test_a_stricter_configured_maximum_is_enforced_exactly_and_not_a_default(
     """
     settings = web_settings(tmp_path, WEB_MAX_SESSIONS_PER_ACCOUNT="3")
     assert settings.session.max_sessions_per_account == 3
-    strict = WebComposition(
+    strict = substituted_composition(
         settings=settings, engine=migrated_database, provider=provider
     )
     with migrated_database.connect() as connection:
