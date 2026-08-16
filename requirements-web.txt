@@ -1,0 +1,48 @@
+# Freedom Blades web portal (Phase 3) — production dependency set.
+#
+# The portal runs in its **own** virtualenv (topology §1, delivery plan §10), so
+# this file is complete on its own rather than layering on `requirements.txt`:
+# the bot's dependency set and the portal's must be able to move independently.
+#
+# The set and the pinning strategy are the accepted P3.0 contract,
+# `docs/contracts/phase-3-configuration-and-dependency-contract.md` §1.2. Every
+# direct dependency carries an upper bound, matching the existing
+# `requirements.txt` style. `requirements-web.lock` records the resolved set.
+#
+# Deliberately absent, each for a recorded reason (§1.4): Redis, Celery/RQ/arq,
+# fastapi-users, authlib, starlette-session, fastapi-csrf-protect, slowapi,
+# pydantic-settings, any JWT library, passlib/argon2, npm and any bundler.
+
+# HTTP application, routing, dependency injection, request validation (ADR 0002).
+fastapi>=0.115,<0.116
+# ASGI server behind Caddy. `[standard]` supplies httptools and uvloop, which are
+# what let the process hold its N-51/N-52 timeouts.
+uvicorn[standard]>=0.32,<0.33
+# Server-rendered templates (ADR 0002). 3.1.4 is the floor: earlier versions
+# carry known sandbox/XSS advisories.
+jinja2>=3.1.4,<3.2
+# HMAC signing for the pagination cursor (N-64) and the CSRF derivation helper
+# (N-17). The audited implementation, rather than forty hand-written lines.
+itsdangerous>=2.2,<3
+# Outbound HTTP to Discord with explicit timeouts and connection limits. It also
+# doubles as the in-process ASGI test client, so tests need no second client.
+httpx>=0.27,<0.29
+# WebAuthn registration/assertion verification (N-13, N-60). Hand-rolling FIDO2
+# assertion verification is the cryptographic own-goal a dependency exists to
+# avoid.
+webauthn>=2.2,<3
+# AES-256-GCM for OAuth-token and PKCE-verifier encryption (schema §9.5). Already
+# a transitive dependency of py_webauthn; named directly so the pin is explicit.
+cryptography>=43,<45
+# Starlette's form parser requires it before it will read *any* form body, not
+# only a multipart one. R-05 (logout) and R-09 (recovery login) are form routes,
+# so this is a functional dependency rather than an optional extra. It is the
+# library FastAPI documents for the purpose; nothing here parses an upload.
+python-multipart>=0.0.9,<0.1
+
+# Inherited from the bot's set, repeated with the same bounds because this
+# virtualenv is separate and must resolve them itself.
+SQLAlchemy>=2.0.36,<2.1
+alembic>=1.14.0,<2
+psycopg[binary]>=3.2.3,<4
+python-dotenv>=1.0.1

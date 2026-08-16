@@ -1,5 +1,8 @@
 # venv & Python
 venv/
+# The portal's separate virtualenv (topology §1). Its resolved contents are
+# committed as `requirements-web.lock`; the tree itself is not.
+venv-web
 __pycache__/
 *.pyc
 *.pyo

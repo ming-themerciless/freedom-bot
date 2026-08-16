@@ -1,2 +1,7 @@
 -r requirements.txt
 pytest>=8.2,<9
+# The portal's route tests are `async def`, because the routes are. This is a
+# test-only dependency and the bot imports nothing from it; it lives here rather
+# than only in `requirements-web-dev.txt` so that `pytest.ini`'s asyncio options
+# are recognised by whichever interpreter runs the suite.
+pytest-asyncio>=0.24,<0.25

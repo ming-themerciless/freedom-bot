@@ -27,8 +27,23 @@ class ActorCapability(Enum):
     SYSTEM = "system"
 
 
-#: The capabilities that may act without an identified Discord user. They match
-#: the `human_action_has_an_actor` check constraint.
+#: The capabilities that may act without an identified *person*. They match the
+#: `human_action_has_an_attribution` check constraint installed by migration
+#: 0006.
+#:
+#: **This guard changed with that migration, and had to.** Until Phase 3 the rule
+#: was "a human capability requires an acting *Discord user*", enforced here and
+#: by `ck_audit_events_human_action_has_an_actor`. A break-glass administrator
+#: acting while Discord is unavailable is a human capability with **no** Discord
+#: user id (ADR 0010 D8), so the old rule refused the audit event that the
+#: emergency path must write — and because SM-03 commits the emergency session
+#: and its audit event in one transaction, it refused the emergency login itself.
+#:
+#: The rule was not relaxed. Its subject was widened from *a Discord user* to
+#: *an identified person*: either attribution column satisfies it, and an
+#: unattributed human action is still refused. Changing the database without
+#: changing this guard would have left the platform refusing in Python instead
+#: of in SQL, which is why the two moved in one revision (schema §6.1.1).
 UNATTENDED_CAPABILITIES = frozenset(
     {ActorCapability.SERVICE_PRINCIPAL, ActorCapability.SYSTEM}
 )
@@ -138,6 +153,10 @@ class AuditEvent:
     correlation_id: UUID
     payload: Mapping[str, Any]
     actor_discord_user_id: int | None = None
+    #: The stable platform account that acted (ADR 0010 D1). New rows carry it;
+    #: history keeps only its Discord column and is never rewritten, so a read
+    #: resolves the older form through `external_identities` (schema §6.5).
+    actor_platform_account_id: UUID | None = None
     id: UUID = field(default_factory=uuid4)
 
     def __post_init__(self) -> None:
@@ -149,11 +168,14 @@ class AuditEvent:
             raise ValueError("An audit event requires an entity id.")
         if (
             self.actor_discord_user_id is None
+            and self.actor_platform_account_id is None
             and self.actor_capability not in UNATTENDED_CAPABILITIES
         ):
             raise ValueError(
                 f"{self.actor_capability.value} is a human capability and requires "
-                "an acting Discord user."
+                "an identified actor: a platform account, or the Discord user id "
+                "history was written with. Either satisfies the attribution rule; "
+                "neither is not an option."
             )
         if self.actor_discord_user_id is not None and self.actor_discord_user_id <= 0:
             raise ValueError("Discord IDs must be positive snowflakes.")

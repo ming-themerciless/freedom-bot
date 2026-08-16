@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Temporarily unavailable — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    The visible face of *fail closed*. It carries no cached role data and no
+    character data, because the point at which this page appears is exactly the
+    point at which cached authorization stopped being trustworthy.
+  #}
+  <h1>Authorization cannot be confirmed</h1>
+  <p data-state="error" data-reason="{{ view.reason.category.value }}" data-subsystem="{{ view.subsystem }}">
+    The platform is refusing rather than guessing. Please try again shortly.
+  </p>
+  <p>Reference {{ view.correlation.id }}.</p>
+{% endblock %}

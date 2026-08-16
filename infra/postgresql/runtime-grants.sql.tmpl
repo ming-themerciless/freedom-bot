@@ -38,6 +38,11 @@ GRANT USAGE ON SCHEMA public TO __APP_ROLE__;
 -- also correct against an older cluster or one that has drifted.)
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
+-- The list below covers the Phase 1-2 schema and the Phase 3 identity, session
+-- and credential tables added by migration 0006. It is checked against the live
+-- schema by `tests/test_runtime_grants.py`, which parses these statements, so
+-- keep the table lists free of inline comments.
+--
 -- Normalise PUBLIC on every retained table, before granting anything. Ordering
 -- matters: a REVOKE issued after the GRANTs below would still be correct, but
 -- reading it in this order is what makes "the runtime role holds exactly what
@@ -55,7 +60,18 @@ REVOKE ALL PRIVILEGES ON
     audit_events,
     foundry_snapshots,
     snapshot_imports,
-    platform_initialization
+    platform_initialization,
+    platform_accounts,
+    external_identities,
+    oauth_token_grants,
+    sessions,
+    oauth_transactions,
+    webauthn_credentials,
+    webauthn_challenges,
+    recovery_grants,
+    auth_rate_limits,
+    role_capability_mappings,
+    role_capability_mapping_events
 FROM PUBLIC;
 
 -- Operational tables: the application creates, reads and maintains these.
@@ -70,6 +86,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     idempotency_keys
 TO __APP_ROLE__;
 
+-- `role_capability_mapping_events` joins the append-only set here: it records
+-- every attempted role-capability change including refusals (schema §8.1), and
+-- the service whose behaviour it records must not be able to edit it — the same
+-- rule, for the same reason, as `audit_events`.
+--
 -- Append-only tables. The application exposes no update or delete use case for
 -- any of these, the runtime role is not granted one, and a database trigger
 -- refuses UPDATE and DELETE even for the schema owner (migration 0002).
@@ -92,7 +113,8 @@ GRANT SELECT, INSERT ON
     audit_events,
     foundry_snapshots,
     snapshot_imports,
-    platform_initialization
+    platform_initialization,
+    role_capability_mapping_events
 TO __APP_ROLE__;
 
 -- REVOKE after GRANT is deliberate and not redundant: it is what makes the
@@ -104,6 +126,62 @@ REVOKE UPDATE, DELETE, TRUNCATE ON snapshot_imports FROM __APP_ROLE__;
 -- The supervised first-import bootstrap writes this row once and nothing may
 -- change it again; the singleton primary key is what makes that irreversible.
 REVOKE UPDATE, DELETE, TRUNCATE ON platform_initialization FROM __APP_ROLE__;
+REVOKE UPDATE, DELETE, TRUNCATE ON role_capability_mapping_events FROM __APP_ROLE__;
+
+-- ## Phase 3 identity, session and credential tables (schema §11.2)
+--
+-- Three bands, and the boundaries between them are the design rather than an
+-- accident of what each service happens to call.
+--
+-- **No DELETE.** An account is `closed` and an identity is `retired`, never
+-- deleted, because audit attribution resolves through them after a provider is
+-- retired (ADR 0010 D4). A session, a mapping and a credential are revoked,
+-- expired or disabled in place, so the history of who could do what stays
+-- readable. A recovery grant is consumed, not removed: the audit event is the
+-- permanent record, but the grant row is what an operator compares a suspected
+-- compromise against while it is still retained.
+GRANT SELECT, INSERT, UPDATE ON
+    platform_accounts,
+    external_identities,
+    sessions,
+    oauth_transactions,
+    webauthn_credentials,
+    recovery_grants,
+    role_capability_mappings
+TO __APP_ROLE__;
+REVOKE DELETE, TRUNCATE ON
+    platform_accounts,
+    external_identities,
+    sessions,
+    oauth_transactions,
+    webauthn_credentials,
+    recovery_grants,
+    role_capability_mappings
+FROM __APP_ROLE__;
+
+-- **DELETE, deliberately.** These three hold nothing that is evidence of
+-- anything after its window closes, and two of them must be deletable as a
+-- control rather than as a convenience:
+--
+-- - `oauth_token_grants` — N-11 requires the stored provider tokens to be
+--   *deleted* on logout, on revocation and no later than the session's absolute
+--   expiry. Token deletion is a privacy control that outranks the forensic value
+--   of keeping the row, and it is the reason this table is not append-only.
+-- - `auth_rate_limits` — fixed windows older than N-31 are swept opportunistically
+--   so the table cannot grow without bound; a counter has no history to lose.
+-- - `webauthn_challenges` — a spent or expired challenge is a public nonce whose
+--   whole life is one login attempt. The audit record names the credential, not
+--   the challenge.
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    oauth_token_grants,
+    auth_rate_limits,
+    webauthn_challenges
+TO __APP_ROLE__;
+REVOKE TRUNCATE ON
+    oauth_token_grants,
+    auth_rate_limits,
+    webauthn_challenges
+FROM __APP_ROLE__;
 
 -- Sequences: none of the retained tables uses one. Identifiers are application
 -- generated UUIDs (ADR 0003, OD-35), so no sequence privilege is granted.

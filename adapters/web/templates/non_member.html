@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Not a member — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    The whole content of this view is the distinction from "not signed in": the
+    person authenticated successfully and is not in the guild. That is what they
+    need in order to recover. It names no roles, no characters and no other
+    members.
+  #}
+  <h1>You are not currently a member</h1>
+  <p data-state="denied" data-reason="{{ view.reason.category.value }}">
+    Your {{ view.guild_display_name }} membership could not be confirmed at
+    {{ view.checked_at.display }}.
+  </p>
+  <p>Reference {{ view.correlation.id }}.</p>
+  <p><a href="/v1/login">Back to sign in</a></p>
+{% endblock %}

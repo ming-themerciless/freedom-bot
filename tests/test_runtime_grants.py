@@ -25,14 +25,38 @@ from adapters.database import tables  # noqa: F401 - registers tables on metadat
 TEMPLATE = Path(__file__).resolve().parents[1] / "infra" / "postgresql" / "runtime-grants.sql.tmpl"
 
 #: Kept in step with `adapters.database.tables.APPEND_ONLY_TABLES` and the
-#: triggers in migration 0002. `platform_initialization` joins them for the same
-#: reason: the bootstrap disables itself by writing that row, so a role able to
-#: delete it could re-enable the bootstrap.
+#: triggers in migrations 0002 and 0006. `platform_initialization` joins them for
+#: the same reason: the bootstrap disables itself by writing that row, so a role
+#: able to delete it could re-enable the bootstrap.
 APPEND_ONLY_TABLES = {
     "audit_events",
     "foundry_snapshots",
     "snapshot_imports",
     "platform_initialization",
+    "role_capability_mapping_events",
+}
+
+#: The migrations that install `<table>_append_only` triggers. 0002 introduced
+#: the pattern and the shared `reject_history_mutation()` function; 0006 reuses
+#: both for the role-capability mapping event log.
+TRIGGER_MIGRATIONS = (
+    "0002_foundry_snapshot_and_identity.py",
+    "0006_platform_identity_stage_a.py",
+)
+
+#: Tables the runtime role may read, insert and update, but never delete
+#: (schema §11.2). An account is closed and an identity retired rather than
+#: removed, because audit attribution resolves through them after a provider is
+#: retired; a session, mapping or credential is revoked or disabled in place so
+#: the history of who could do what stays readable.
+NO_DELETE_TABLES = {
+    "platform_accounts",
+    "external_identities",
+    "sessions",
+    "oauth_transactions",
+    "webauthn_credentials",
+    "recovery_grants",
+    "role_capability_mappings",
 }
 
 
@@ -61,6 +85,12 @@ def mutable_tables() -> set[str]:
     )
 
 
+def no_delete_granted() -> set[str]:
+    return granted_tables(
+        r"GRANT\s+SELECT,\s*INSERT,\s*UPDATE\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__"
+    )
+
+
 def append_only_granted() -> set[str]:
     return granted_tables(
         r"GRANT\s+SELECT,\s*INSERT\s+ON(?P<tables>.*?)TO\s+__APP_ROLE__"
@@ -72,7 +102,12 @@ def read_only_granted() -> set[str]:
 
 
 def test_every_table_is_granted_to_the_runtime_role():
-    granted = mutable_tables() | append_only_granted() | read_only_granted()
+    granted = (
+        mutable_tables()
+        | no_delete_granted()
+        | append_only_granted()
+        | read_only_granted()
+    )
 
     expected = set(metadata.tables)
     assert granted == expected, "a table is missing from the runtime grants"
@@ -80,7 +115,27 @@ def test_every_table_is_granted_to_the_runtime_role():
 
 def test_audit_tables_receive_no_update_or_delete_grant():
     assert APPEND_ONLY_TABLES & mutable_tables() == set()
+    assert APPEND_ONLY_TABLES & no_delete_granted() == set()
     assert APPEND_ONLY_TABLES <= append_only_granted()
+
+
+def test_identity_tables_are_never_granted_delete():
+    """Schema §11.2's middle band, and the reason it is a band rather than a list.
+
+    Deleting an account or an identity would break historical audit attribution,
+    which resolves through `external_identities` after a provider is retired
+    (ADR 0010 D4). Deleting a session, mapping or credential row would erase the
+    record of an authority that existed. Each is revoked, retired, closed or
+    disabled in place instead, so the grant is the control rather than the
+    convention.
+    """
+    assert NO_DELETE_TABLES <= no_delete_granted()
+    assert NO_DELETE_TABLES & mutable_tables() == set()
+
+    body = statements()
+    for table in sorted(NO_DELETE_TABLES):
+        assert f"REVOKE DELETE, TRUNCATE ON" in body
+        assert table.upper() in body, table
 
 
 def test_the_admission_fence_is_readable_and_not_writable():
@@ -123,17 +178,19 @@ def test_the_append_only_set_matches_the_schema_and_the_triggers():
     # and this grants template.
     from adapters.database.tables import APPEND_ONLY_TABLES as SCHEMA_TABLES
 
-    migration = (
-        Path(__file__).resolve().parents[1]
-        / "migrations"
-        / "versions"
-        / "0002_foundry_snapshot_and_identity.py"
-    ).read_text()
+    versions = Path(__file__).resolve().parents[1] / "migrations" / "versions"
+    migrations = {
+        name: (versions / name).read_text() for name in TRIGGER_MIGRATIONS
+    }
 
     assert set(SCHEMA_TABLES) <= APPEND_ONLY_TABLES
     for table in SCHEMA_TABLES:
-        assert f'"{table}"' in migration, f"{table} has no append-only trigger"
-        assert f"CREATE TRIGGER {{table}}_append_only" in migration
+        installing = [
+            body
+            for body in migrations.values()
+            if f'"{table}"' in body and "CREATE TRIGGER {table}_append_only" in body
+        ]
+        assert installing, f"{table} has no append-only trigger in any migration"
 
 
 def test_every_retained_table_has_its_public_privileges_revoked():

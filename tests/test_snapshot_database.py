@@ -964,6 +964,16 @@ def _insert_snapshot(connection, checksum: str | None = None):
     return snapshot_id
 
 
+#: The Council member these raw fixtures act as.
+#:
+#: Naming one is not decoration. Migration 0006 added
+#: `ck_snapshot_imports_import_has_an_attribution`, which closes the gap that a
+#: `guild_council` import row could previously name nobody at all. These fixtures
+#: exercise the *uniqueness* rules, so their capability is real and their actor
+#: has to be too.
+_COUNCIL_ACTOR = 700000000000000101
+
+
 def _insert_import(
     connection,
     snapshot_id,
@@ -974,11 +984,19 @@ def _insert_import(
 ):
     connection.execute(
         text(
+            "INSERT INTO discord_users (id, username) VALUES (:actor, 'council-fixture') "
+            "ON CONFLICT (id) DO NOTHING"
+        ),
+        {"actor": _COUNCIL_ACTOR},
+    )
+    connection.execute(
+        text(
             "INSERT INTO snapshot_imports (id, snapshot_id, folder_id, "
             "folder_path, profile_version, request_key, operation_digest, "
-            "status, mode, actor_capability, summary, correlation_id) VALUES "
+            "status, mode, actor_discord_user_id, actor_capability, summary, "
+            "correlation_id) VALUES "
             "(:id, :snapshot, :folder, '/actors/x', :profile, :key, :digest, "
-            ":status, 'council', 'guild_council', '{}'::jsonb, :c)"
+            ":status, 'council', :actor, 'guild_council', '{}'::jsonb, :c)"
         ),
         {
             "id": uuid4(),
@@ -988,6 +1006,7 @@ def _insert_import(
             "key": request_key,
             "digest": digest,
             "status": status,
+            "actor": _COUNCIL_ACTOR,
             "c": uuid4(),
         },
     )

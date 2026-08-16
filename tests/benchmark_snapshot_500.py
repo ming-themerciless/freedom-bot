@@ -149,8 +149,29 @@ def get_complete_table_inventory(connection: Any) -> dict[str, int]:
     return counts
 
 
+#: Rows a **migration** puts there, which are therefore part of an empty
+#: database rather than evidence somebody has been using it.
+#:
+#: Migration 0006 inserts the protected Server Administrator role-capability
+#: mapping (OD-24, ADR 0010 D10). It cannot be revoked, edited or deleted by any
+#: caller — that is the whole point of it — so "clean means every table has zero
+#: rows" stopped being true of a freshly migrated database at that revision.
+#: Naming the expected count here keeps the check as strict as it was: a
+#: *second* mapping, or a row in any other table, is still dirt.
+MIGRATION_SEEDED_ROWS: dict[str, int] = {"role_capability_mappings": 1}
+
+
+def baseline_dirt(counts: dict[str, int]) -> dict[str, int]:
+    """The rows in `counts` that a freshly migrated database would not have."""
+    return {
+        table: count
+        for table, count in counts.items()
+        if table != "alembic_version" and count != MIGRATION_SEEDED_ROWS.get(table, 0)
+    }
+
+
 def assert_clean_baseline_no_mutation(counts: dict[str, int]) -> None:
-    dirty = {t: c for t, c in counts.items() if t != "alembic_version" and c != 0}
+    dirty = baseline_dirt(counts)
     if dirty:
         raise BenchmarkError(
             f"Baseline database is not clean. Refusing execution without modifying database. Dirty tables: {dirty}"
@@ -645,7 +666,7 @@ def run_benchmark() -> dict[str, Any]:
                 pass
 
             # If initial_counts was clean, truncate and compare exact initial vs final inventory table-for-table
-            dirty_initial = {t: c for t, c in initial_counts.items() if t != "alembic_version" and c != 0}
+            dirty_initial = baseline_dirt(initial_counts)
             if not dirty_initial:
                 truncate_checked_tables_without_cascade(connection)
                 final_counts = get_complete_table_inventory(connection)

@@ -228,7 +228,10 @@ def test_injected_failure_cleanup(migrated_database, monkeypatch):
     engine = migrated_database
     with engine.connect() as conn:
         counts = bm.get_complete_table_inventory(conn)
-        dirty = {t: c for t, c in counts.items() if t != "alembic_version" and c != 0}
+        # `baseline_dirt` rather than "every count is zero": migration 0006
+        # inserts the protected administrator mapping, which no failure path can
+        # or should remove. A second mapping would still be dirt.
+        dirty = bm.baseline_dirt(counts)
         assert not dirty, f"Injected failure left dirty tables: {dirty}"
 
 

@@ -2554,6 +2554,1144 @@ readiness submission, not an accepted baseline and not implementation.
   audit and safe failure remain provider-independent controls. Acceptance
   releases P3.0 design work only. P3.1 remains blocked behind P3.G0.
 
+### Phase 3 P3.0 contract and security design submission
+
+Recorded 2026-08-13. Claude, as working Technical Lead, produced the P3.0
+package under `docs/contracts/` plus proposed ADR 0010. This is a design
+submission, not an accepted contract and not implementation.
+
+- **Affected milestone:** numbered Phase 3, package P3.0 only. Phases 0–2 and the
+  §12.1 visual gate are unchanged.
+- **Scope delivered:** route/authorization contract with a closed route set and
+  seven-role matrices; versioned view-model contract `vm-1`; logical schema and
+  schema decision table; staged identity-migration contract; six state machines;
+  threat model with 53 threats and 12 residual risks; dependency, configuration
+  and operational contracts; expanded acceptance/test traceability; and a single
+  numeric-policy register.
+- **Implementation effect: none.** No route, dependency, migration, framework
+  scaffold, service, template or runtime module was added. No service was started,
+  no deployment performed, no production data or secret accessed.
+- **Material proposals requiring the Acceptance Authority's decision at P3.G0:**
+  (1) a separate `freedom-worker` systemd service, because the measured
+  9.566-second preview is GIL-holding work that would stall `freedom-web`;
+  (2) route-level restriction of break-glass sessions to identity/capability
+  administration and audit reads (N-65), tighter than the accepted §7 boundary;
+  (3) treating the Council **apply** as a durable job for the same measured reason
+  as the preview; (4) the P3.0-proposed numeric values N-30…N-66; and
+  (5) proposed ADR 0010.
+- **Migration effect:** designs, but does not write, a four-stage reversible
+  migration off Discord-keyed authorization. It establishes that append-only
+  history is **never rewritten** — historical attribution resolves through
+  `external_identities` — because rewriting it would require suspending the
+  migration-0005 trigger the Phase 2 gate accepted.
+- **Security effect:** validates the accepted CSP against the Discord redirect and
+  concludes it can stand **unweakened**; settles the cross-process rate-limiter
+  storage §7 left open; and records break-glass, provider-portability and
+  co-located-host residual risks with named owners.
+- **Risk effect:** substantiates proposed risks R-19–R-27 with design and tests;
+  adds R-28 (unmeasured real-folder apply duration and worker peak memory).
+- **Evidence honesty:** two quantities remain unmeasured and are labelled as such
+  (real-folder apply duration; worker peak memory). Staging does not exist, the
+  OD-25 firewall question is open, and assistive-technology evidence is not yet
+  scheduled. None is claimed as satisfied.
+- **Review:** prepared by Claude. **Codex independent architecture/security review
+  is requested and has not occurred.**
+- **Acceptance Authority decision:** **Not yet decided.** Recorded for Peter
+  Duscha at stop gate P3.G0. P3.1 remains blocked; Gemini production integration
+  remains blocked.
+
+### Phase 3 P3.G0 remediation decision
+
+Recorded and accepted by Peter Duscha on 2026-08-13 after Codex independent
+architecture/security review.
+
+- **D-1 approved:** add the separate `freedom-worker` process in the later P3.3
+  implementation package.
+- **D-2 approved:** Council apply is a durable job; its retry machine remains a
+  blocking remediation item.
+- **D-3 conditionally approved:** keep the tighter break-glass route boundary,
+  but prevent a break-glass session from creating any mapping that can confer
+  Council, character or import authority after ordinary-provider login.
+- **D-4 partly/provisionally approved:** N-30–N-42 and N-44–N-66 are accepted as
+  proposed starting values subject to their named later evidence. N-43 is
+  withheld pending a coherent atomic attempt-exhaustion transition and re-review.
+- **D-5 conditionally approved:** ADR 0010's direction is accepted. Final ADR
+  acceptance requires account-aware audit attribution and correction of the
+  break-glass escalation path.
+- **Review disposition:** remediation required. The four findings are account
+  attribution versus the legacy audit constraint; indirect Council escalation
+  through role mappings; the stranded third job attempt; and contradictory PKCE
+  verifier storage. P3.G0 remains open and P3.1/Gemini production integration
+  remain unauthorized until remediation and independent re-review.
+
+### Phase 3 P3.0 remediation submitted for re-review
+
+Prepared by Claude on 2026-08-13 from
+`docs/review/phase-3-p3-0-remediation-claude-prompt.md`, after Peter Duscha's
+P3.G0 remediation decision of the same date. **Submitted, not accepted.**
+
+- **Affected requirement/milestone/release:** implementation plan §12 Phase 3;
+  delivery plan §7, §8, §9; milestone P3.0; gate P3.G0. No release effect.
+- **Reason:** the four findings recorded in the P3.G0 remediation decision —
+  account attribution versus the legacy audit constraint, indirect Council
+  escalation from break-glass, unreachable job attempt exhaustion, and the PKCE
+  verifier contradiction.
+- **Scope added:** one route (R-38, ratification of an emergency-created
+  role-capability mapping); one numeric policy (N-67, the administrator-continuity
+  allowlist); one state machine (SM-07, mapping provenance); one caller state
+  (`AC`, bound to the `BG` matrix column by rule and by test); mapping provenance,
+  scope and ratification columns on `role_capability_mappings`; and the
+  `audit_events` constraint swap. Scope removed: none. Test TC-BG-05 is
+  **withdrawn** as wrong and replaced by five tests.
+- **Alternatives considered and rejected:** giving the emergency administrator a
+  placeholder Discord id to satisfy the legacy constraint (it would put a lie in
+  the audit trail); a bare capability allowlist without provenance (a
+  break-glass session would still reach Council through two hops); raising the job
+  attempt cap instead of moving the terminal transition (the stranding is a state
+  machine defect, not a budget defect).
+- **Implementation effect: none.** No route, dependency, migration, framework
+  scaffold, service, template or runtime module was added. Nothing was deployed or
+  started; no production data or secret was accessed.
+- **Migration effect:** stage A of the identity migration now **replaces**
+  `ck_audit_events_human_action_has_an_actor` with an account-aware constraint by
+  explicit DDL, adding the wider rule `NOT VALID` before dropping the narrower one.
+  History is still never rewritten, and no row is read, updated or deleted:
+  `ADD COLUMN`, `ADD CONSTRAINT … NOT VALID` and `DROP CONSTRAINT` are catalogue
+  operations for which row triggers never fire. `snapshot_imports` gains a new
+  `NOT VALID` attribution check; `foundry_snapshots` gains none, because a
+  supervised-bootstrap row that names no human is legitimate. Two new control
+  totals (T7, T8) and nine named PostgreSQL tests cover it. A correction of record:
+  the append-only trigger is from **migration 0002**, not 0005, as the earlier P3.0
+  documents said.
+- **Security effect:** the break-glass boundary is closed against a two-session
+  escalation it did not previously cover, by three independent controls — an
+  application allowlist, a check constraint that depends on what is written rather
+  than on who is writing, and the N-65 route surface — plus provenance, so the
+  restriction cannot be shed by logging in through Discord. Threat T-10b is new.
+  PKCE verifier storage is stated identically in every contract.
+- **Estimate/forecast and capacity effect:** none. The remediation is documentation
+  and design within P3.0's existing allowance; P3.1's likely range is unchanged.
+- **New or changed risks:** R-26 widened; R-29 added (a design defect found only at
+  implementation); residual risks RR-13 (emergency persistence) and RR-14 (terminal
+  verdict written by the reaper) added to the threat model.
+- **Testing effect:** TC-BG-05 withdrawn; TC-BG-05a…05e, TC-BG-15, TC-AUTH-12,
+  TC-AUD-09…14, TC-MIG-14…16, TC-CAP-08…11, TC-JOB-15 and TC-JOB-16 added;
+  TC-JOB-05 and TC-JOB-13 rewritten against the corrected N-43. **No test in the
+  package has been written or run**; they remain a specification.
+- **Operational effect:** three monitoring signals added (oldest expired lease,
+  unratified emergency mappings, mapping refusals by code) with matching recovery
+  procedures. No topology, perimeter or worker conclusion changed.
+- **Numeric policy effect:** N-43 corrected and no longer withheld-as-defined;
+  N-65's **subject widened** from a break-glass session to any continuity-scoped
+  session, with its value and surface unchanged; N-67 new. Every other
+  provisionally accepted value is preserved unchanged.
+- **Review:** prepared by Claude. **Codex independent architecture and distinct
+  security re-review is requested and has not occurred.**
+- **Acceptance Authority decision:** **Not yet decided.** P3.G0 remains open, ADR
+  0010 remains conditionally accepted, and P3.1 and Gemini production integration
+  remain unauthorized.
+
+### Phase 3 P3.G0 final acceptance and P3.1 authorization
+
+Recorded by Peter Duscha on 2026-08-13 after Codex independent architecture and
+distinct security-focused re-review of the P3.0 remediation.
+
+- **Decision:** accept the complete remediated P3.0 route/view-model, schema,
+  state-machine, numeric, migration, configuration, operational, threat and test
+  contracts; accept ADR 0010; close P3.G0.
+- **Additional accepted items:** corrected N-43, widened N-65, new N-67, mapping
+  provenance and ratification route R-38. N-43's 225-second figure is explicitly
+  a live-reaper lease-expiry-recovery bound, excluding queue wait, successful
+  execution time and N-45's separate runtime cap.
+- **Scope and authority effect:** no product scope or release boundary changes.
+  The accepted contracts define implementation authority; they do not claim that
+  prospective migrations, routes or PostgreSQL tests already exist.
+- **Risk decision:** accept RR-13, the deliberate persistence of
+  continuity-scoped administrator authority needed for recovery. It cannot reach
+  Council, character or import authority before full-scope ratification.
+- **Evidence decision:** P3.0's documentation checks remain valid only as design
+  evidence. No database evidence is inherited. P3.1 must implement and execute
+  its named tests against guarded disposable PostgreSQL.
+- **Authorization:** Claude may begin P3.1 after confirming the delivery plan's
+  disposable-PostgreSQL prerequisite. Gemini production integration remains
+  blocked behind its later contract/freeze gate. P3.G1 remains the next stop
+  gate and requires Codex independent review plus a distinct security pass.
+- **Approval:** **Accepted by Peter Duscha on 2026-08-13.**
+
+## C-P3.1 — Phase 3 P3.1 authentication and security foundation implemented
+
+**Date:** 2026-08-14 · **Recorded by:** Claude (Working Technical Lead) ·
+**Status:** *Submitted for review. Not accepted. P3.G1 is open.*
+
+- **Affected requirement, milestone and release:** implementation plan §12
+  Phase 3; delivery plan §5 package P3.1. No release boundary moves.
+- **Reason:** execution of `docs/review/phase-3-p3-1-claude-prompt.md`, under the
+  authority Peter Duscha recorded when he closed P3.G0 on 2026-08-13.
+- **Environment prerequisite:** confirmed 2026-08-14 before any migration ran.
+  `freedom_test` was proven through the repository's own guards — statically by
+  `assert_disposable_target` under `UNIX_SOCKET_ONLY`, and live by
+  `verify_connected_unix_socket_target`, which reported
+  `current_database() = 'freedom_test'` with both `inet_server_addr()` and
+  `inet_client_addr()` null. No credential was recorded.
+- **Added scope:** a separate `freedom-web` virtualenv and an eleven-package
+  bounded dependency set; typed web configuration with the fifteen startup
+  refusals; Alembic revisions `0006`, `0007` and `0008` (identity stages A, B and
+  C, including the `audit_events` constraint swap and the protected
+  role-capability mapping); the OAuth, session, break-glass, capability and
+  role-mapping services; the web security middleware and ten routes; four
+  host-local operator commands; minimal contract templates; and
+  `docs/operations/web-portal.md`.
+- **Removed scope:** none.
+- **Deliberately not delivered:** P3.2's administration UI and its routes
+  (R-20…R-38), P3.3's worker, job system and audit views, Gemini production
+  integration, any deployment, Caddy change, OAuth-provider registration or
+  production database access. Migration stage D is not in this package and
+  remains a separate later decision.
+- **Dependency and critical-path effect:** P3.G1 replaces the environment
+  prerequisite as the critical-path item. P3.2 remains blocked behind it.
+- **Estimate and capacity effect:** none recorded; the P3.1 range in delivery
+  plan §6 is not rebaselined by this entry.
+- **New or changed risks:** A-02 re-confirmed; A-05 gains its mechanism but
+  remains unvalidated because no credential has been enrolled on any host; A-07
+  and I-06 are new — the three declared contract deviations, and the
+  staging-class evidence that cannot be produced because staging does not exist.
+- **Testing effect:** 2250 tests pass under the bot virtualenv and 197 under the
+  web virtualenv, both against guarded disposable PostgreSQL with **no skips**.
+  Every staging-, browser-, real-device- and assistive-technology-class check in
+  the traceability contract is reported as unrun rather than as passing.
+- **Migration effect:** three reversible revisions, each round-tripped against
+  real PostgreSQL. Stage A checks control totals T1–T8 inside its own
+  transaction and aborts on disagreement. **No historical row is read, updated or
+  deleted**, and the migration-0002 append-only trigger is neither dropped,
+  disabled nor evaded. A downgrade of `0006` discards the attribution of audit
+  events written by a break-glass session after the upgrade; that consequence is
+  stated in the revision docstring and in the operations document.
+- **Security effect:** the `audit_events` attribution rule is **replaced**, not
+  relaxed — its subject widened from *a Discord user* to *an identified person* —
+  which is what makes an emergency login recordable, and therefore possible, during
+  a Discord outage. `application/audit.py`'s copy of the rule moved in the same
+  revision. The N-67 allowlist is enforced by three independent controls, one of
+  which does not depend on the session at all.
+- **Operational effect:** a second systemd-managed process will be required at
+  deployment; none is created here. The kill switch, session revocation,
+  credential enrolment and recovery-grant commands are host-local and documented.
+- **Product Owner recommendation:** proceed to P3.G1 review.
+- **Technical Lead and specialist reviews:** **not yet performed.** Codex
+  independent implementation review and a separately reported security-focused
+  pass are requested.
+- **Acceptance Authority decision:** **not recorded. P3.G1 remains open.**
+
+## C-P3.1-R — Phase 3 P3.1 remediation after Codex independent and security review
+
+**Date:** 2026-08-14 · **Recorded by:** Claude (Working Technical Lead) ·
+**Status:** *Submitted for re-review. Not accepted. P3.G1 is open. Two findings
+are blocked on maintainer decisions.*
+
+This entry **supersedes two claims** in entry C-P3.1 above. That entry is not
+edited; it remains the record of what was submitted on 2026-08-14 before review.
+
+- **Affected requirement, milestone and release:** implementation plan §12
+  Phase 3; delivery plan §5 package P3.1. No release boundary moves.
+- **Reason:** execution of `docs/review/Handover information` — Codex's
+  independent implementation review and distinct security-focused review of P3.1,
+  which returned three blocking findings and one important finding.
+- **Alternatives considered:** for finding 1, implementing SM-01 literally by
+  holding a transaction open across the Discord call, and consuming the
+  transaction after provider verification — both rejected in the decision note,
+  the first because it violates the accepted no-transaction-across-provider-I/O
+  invariant and would convert a Discord slowdown into a portal outage on the
+  five-connection pool, the second because it breaks schema §9.2.1's single-
+  statement recovery-and-erasure and reopens the replay window TC-AUTH-12 closes.
+  For finding 3, a P3.1 contract-test route harness and a package/gate reordering
+  — both rejected as, respectively, evidence about a harness rather than the
+  platform, and a larger restructuring than the finding warrants.
+- **Corrections to entry C-P3.1:**
+  1. *"**No historical row is read, updated or deleted**"* is **false as
+     written**. Migration 0006 **reads** `discord_users` for the backfill and
+     **updates** `character_access` with account attribution. The append-only
+     half of the claim is correct: `audit_events`, `snapshot_imports` and
+     `foundry_snapshots` are not rewritten, the catalogue-only DDL does not fire
+     the migration-0002 row trigger, and the `xmin` evidence proves the
+     specifically seeded append-only rows were not rewritten — not that the
+     migration read or wrote no historical data anywhere. **Migration 0006 was
+     not altered**; the prose was corrected to match it.
+  2. *"197 [portal tests] … with **no skips**"* stands, but the traceability it
+     supported overstated two rows: TC-AUTH-11 was claimed complete while five
+     terminal OAuth callback refusals wrote no audit event, and TC-BG-05a…05e
+     were claimed collectively "implemented, passing" while the direct-HTTP
+     portions of 05b, 05c and 05e are unrun.
+- **Added scope:** `application/web/refusals.py`, a single refusal-recording
+  boundary that writes exactly one `auth.login.refused` event per terminal
+  callback refusal with the caller's correlation id, a closed non-secret reason
+  vocabulary and no secret or attacker-controlled value; guarded provider payload
+  readers in `adapters/web/discord_provider.py` so malformed provider data
+  becomes a classified refusal rather than an unhandled `500`; and 72 new tests.
+- **Removed scope:** none.
+- **Deliberately not delivered:** the fix for finding 1, and the contract change
+  for finding 3. Both change accepted contracts, no approval exists in the
+  repository record, and both are returned as decision notes rather than chosen
+  silently. **No P3.2 route was added, no migration was added or edited, and no
+  document under `docs/contracts/` or `docs/adr/` was edited.**
+- **Dependency and critical-path effect:** P3.G1 remains the critical-path item
+  and now additionally depends on two maintainer decisions, registered as RAID
+  issues **I-07** and **I-08**. P3.2 remains blocked.
+- **Estimate and capacity effect:** none recorded.
+- **New or changed risks:** I-07 and I-08 are new and blocking. A-05, A-07 and
+  I-06 are unchanged.
+- **Testing effect:** the portal suite rises from 197 to **269 tests**, all
+  passing with no skips against guarded disposable PostgreSQL; the bot suite from
+  2251 to **2252**, the single addition being an existing repository-wide guard
+  automatically covering the new module. Three mutations were run and reverted,
+  restoring the pre-remediation early return for the provider-outage,
+  missing-cookie and rate-limited branches; each was killed by named tests.
+- **Migration effect:** **none.** No migration was added, edited or removed;
+  `alembic check` reports no new upgrade operations. The `upgrade → downgrade →
+  upgrade` round trip was re-run against `freedom_test` and reaches head `0008`.
+- **Security effect:** every terminal login refusal is now recorded. Previously an
+  attacker probing the callback with a forged cookie, a spent transaction or
+  during a provider outage left no trace distinguishable from an attempt that
+  never happened. A refusal that cannot be audited fails closed to a safe error
+  and never to a session. No blanket exception handler was introduced.
+- **Operational effect:** refusal audit volume rises, bounded by the same N-18
+  limit that already bounded the attempts. `docs/operations/web-portal.md` gains
+  §3.2a, naming exactly which existing rows migration 0006 reads and writes.
+- **Product Owner recommendation:** decide I-07 and I-08, then complete the
+  finding-1 implementation and the finding-3 contract update before P3.G1.
+- **Technical Lead and specialist reviews:** **not yet performed.** Codex
+  independent implementation review and a separately reported security-focused
+  pass are requested over
+  `docs/review/phase-3-p3-1-remediation-submission.md` §13.
+- **Acceptance Authority decision:** **not recorded. P3.G1 remains open.**
+
+## C-P3.1-D — Phase 3 P3.1 findings I-07 and I-08 ruled
+
+**Date:** 2026-08-14 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Accepted decisions; P3.G1
+remains open.*
+
+- **Affected requirement, milestone and release:** SM-01, logical schema
+  §9.1–§9.2, threat/test traceability, Phase 3 delivery-plan gates P3.G1/P3.G2.
+  No release boundary changes.
+- **Reason:** the accepted same-transaction completion mechanism contradicted
+  the no-transaction-across-provider-I/O invariant, and three TC-BG-05 HTTP
+  portions targeted P3.2 routes that do not exist before P3.G1.
+- **Decision I-07 / OD-44:** approve durable one-way OAuth completion binding.
+  `sessions.oauth_transaction_id` is the sole authoritative, unique relationship;
+  it is required for Discord OAuth. `completion_claimed_at`, session creation and
+  success audit commit atomically after provider I/O. No reverse transaction-to-
+  session FK is added. Migration 0009 and named PostgreSQL/re-review evidence are
+  required.
+- **Decision I-08 / OD-45:** retain service and constraint evidence at P3.G1;
+  allocate the direct-HTTP portions of TC-BG-05b/c/e to P3.2 as mandatory P3.G2
+  evidence against real routes. No test-only route or early P3.2 work is
+  authorized, and no evidence is waived.
+- **Alternatives rejected:** a database transaction spanning Discord I/O;
+  consume-after-provider verification; an unclaimed re-read; a redundant cyclic
+  reverse FK; a test-only HTTP harness; and package/gate merger.
+- **Scope effect:** one P3.1 migration and focused OAuth/service/repository/tests
+  are authorized. No P3.2 implementation is added to P3.1.
+- **Dependency/critical-path effect:** I-08 no longer blocks P3.G1. OD-44
+  implementation and independent plus distinct security re-review still block
+  P3.G1. The HTTP portions become explicit P3.G2 blockers.
+- **Estimate/capacity effect:** no forecast change is recorded; the Technical
+  Lead must report actual remediation effect in the next submission.
+- **Risk, testing, migration, security and operations effect:** the completion
+  binding becomes database-enforced without consuming a pool connection during
+  provider I/O. Revision 0009 must be reversible and must document rollback;
+  PostgreSQL constraint, concurrency, failure and mutation evidence is required.
+  HTTP authorization evidence is delayed only until its production handlers
+  exist and remains mandatory before their gate closes.
+- **Recommendations:** Technical Lead recommendation accepted with the single-FK
+  refinement; Security Reviewer accepts that refinement. Independent re-review
+  remains prospective after implementation.
+- **Approval:** **Accepted by Peter Duscha on 2026-08-14. P3.G1 is not closed.**
+
+## C-P3.1-E — Phase 3 P3.1 OD-44 completion binding implemented and resubmitted
+
+**Date:** 2026-08-14 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for Codex independent
+implementation re-review and a distinct security-focused pass. Not accepted.
+P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** the OD-44 ruling recorded in
+  C-P3.1-D; SM-01; logical schema §9.1–§9.2; the threat model; the test
+  traceability contract; `docs/operations/web-portal.md`. Phase 3 P3.1 only. No
+  release boundary changes.
+- **Reason:** C-P3.1-D authorized the remediation and required implementation
+  plus evidence before P3.G1 could be considered again.
+- **What was implemented:** new reversible Alembic revision `0009`; revisions
+  0006–0008 were **not** edited. `oauth_transactions.completion_claimed_at` and
+  `sessions.oauth_transaction_id` with a `RESTRICT` foreign key, a unique index
+  and the `discord_oauth`-equivalence check constraint.
+  `OAuthLoginService.complete()` now takes the transaction id and atomically
+  claims the completion as the first statement of the provider-I/O-free
+  transaction that also creates the bound session and writes the success audit;
+  zero matched rows is a typed, safely audited refusal
+  (`completion_not_claimable`) and never a session. R-04 remains orchestration
+  only.
+- **One declared reading of the ruling:** the unique index is scoped
+  `WHERE rotated_from_session_id IS NULL`. Transcribed literally, the ruled
+  table-wide `UNIQUE` and the ruled check constraint are jointly unsatisfiable
+  with N-08 privilege rotation, which mints a second session row for the same
+  login. Both stated purposes of the ruling survive the scoping; the alternative
+  would have silently disabled rotation for the platform's main authentication
+  method. Recorded for the Acceptance Authority's confirmation.
+- **Alternatives rejected:** relaxing the check constraint for rotated rows
+  (would permit an unbound `discord_oauth` session); bounding the claim by
+  `expires_at` (would refuse a legitimate login whose provider round trip
+  crossed N-04); and a reverse `oauth_transactions.session_id`, which the ruling
+  had already rejected.
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, and OD-45's allocation is unchanged.
+- **Dependency/critical-path effect:** OD-44 implementation no longer blocks
+  P3.G1; the Codex independent implementation re-review and the distinct
+  security-focused pass do.
+- **Estimate/capacity effect:** the remediation was completed within the same
+  working day as the ruling. No forecast change is recorded.
+- **Risk, testing, migration, security and operations effect:** 30 new portal
+  tests (TC-AUTH-13) and 4 new migration tests (TC-AUTH-14) were added and run
+  against real PostgreSQL, including two barrier-rendezvous concurrency tests
+  with no timing sleeps, six injected write failures, a commit failure, the
+  direct internal completion call and every constraint with the application
+  bypassed. Four mutations were run and reverted, each killed. Revision 0009
+  **refuses** to apply while unbindable `discord_oauth` sessions exist and states
+  the remedy; a rollback past it ends every Discord OAuth login and loses no
+  history. Runtime grants are unchanged. Two residual risks are newly recorded,
+  RR-05a and RR-15, both bounded and neither reachable through a route in P3.1.
+- **Recommendations:** the Technical Lead requests confirmation of the scoped
+  unique index and of the two residual risks alongside the independent reviews.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-remediation-submission.md`.
+
+## C-P3.1-F — Phase 3 P3.1 OD-44 provider binding and rotation integrity
+
+**Date:** 2026-08-14 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for Codex independent
+implementation re-review and a distinct security-focused pass. Not accepted.
+P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** Codex's two blocking findings
+  against the C-P3.1-E package, and Peter's 2026-08-14 conditional approval of the
+  scoped unique index (decision record §8). SM-01 and SM-02; logical schema
+  §9.1–§9.2; the threat model; the test traceability contract;
+  `docs/operations/web-portal.md`; migration 0009, which is uncommitted and not
+  accepted and was therefore updated rather than superseded. Phase 3 P3.1 only. No
+  release boundary changes.
+- **Reason:** the completion claim bound the transaction but not the **provider**,
+  so an internal caller holding another provider's verified identity and tokens
+  could spend a consumed Discord transaction; and the scoped unique index, which
+  Peter approved, is only safe if a rotation chain cannot branch or cross.
+- **What was implemented:** (1) the claim gained
+  `AND provider_key = :provider_key`, and the expected key is derived from
+  `VerifiedCompletion` — one indivisible verified result whose identity and tokens
+  must name the same provider, each stamped by the adapter that made the network
+  call from its own constant. `ProviderTokens` gained `provider_key`;
+  `IdentityProvider.verify()` must refuse another provider's tokens, and the
+  Discord adapter does. (2) `sessions` gained a unique index on
+  `rotated_from_session_id` where not null and two composite foreign keys making a
+  successor's account, authentication method and OAuth binding its predecessor's
+  own; rotation became one locked transactional repository operation that requires
+  a live, unrotated predecessor, inserts the successor from the locked row and
+  revokes the predecessor atomically, refusing anything else with the typed
+  `SessionRotationRefused`. No creation path accepts a rotation label any more.
+- **Alternatives rejected:** a database trigger (the locked operation plus
+  declarative keys is smaller and needs no new mechanism); `MATCH FULL` foreign
+  keys (would make break-glass rotation impossible); a route-level provider check
+  (route ordering is exactly what the finding says must not be relied on); and
+  distinguishing the provider-mismatch refusal from the other claim refusals in
+  the caller-visible code (would confirm to a prober that a transaction exists and
+  which provider it belongs to).
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, OD-45's allocation is unchanged, and
+  revisions 0006–0008 were not edited. One behavioural consequence is recorded
+  deliberately: rotation no longer re-runs the N-66 session limit, because a
+  rotation replaces a session rather than adding one and the limit could otherwise
+  revoke the very predecessor being rotated.
+- **Dependency/critical-path effect:** unchanged. The Codex independent
+  implementation re-review and the distinct security-focused pass block P3.G1.
+- **Estimate/capacity effect:** completed within the same working day as the
+  ruling. No forecast change is recorded.
+- **Risk, testing, migration, security and operations effect:** 24 new portal
+  tests (TC-AUTH-15, TC-AUTH-16) and 3 new migration tests (TC-AUTH-17) were added
+  and run against real PostgreSQL, including a barrier-rendezvous rotation race
+  with no timing sleep and every new constraint exercised with the application
+  bypassed. Six mutations were run and reverted, each killed. Migration 0009 gained
+  a second precondition that refuses a pre-existing branched or crossing rotation
+  chain with a count and a remedy. Runtime grants are unchanged. RR-15 is recorded
+  **closed**; T-05b and T-05c are new threat entries.
+- **Recommendations:** the Technical Lead requests that the re-reviews verify the
+  conditions in decision record §8 specifically, rather than the package as a
+  whole being re-read for the first time.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-provider-binding-remediation-submission.md`.
+
+## C-P3.1-G — Phase 3 P3.1 OD-44 session lifetime (rotation and idle refresh)
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for Codex independent
+implementation re-review and a distinct security-focused pass. Not accepted.
+P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** Codex's two blocking
+  session-lifetime findings against the C-P3.1-F package, plus the documentation
+  the rotation-lifetime correction of 2026-08-14 left outstanding. SM-02; logical
+  schema §9.1; the numeric policy register (N-07, N-08, N-15 clarified, **no value
+  changed**); the threat model (T-05d); the test traceability contract (TC-AUTH-18,
+  TC-AUTH-19); `docs/operations/web-portal.md` §4.3/§4.3a; RAID I-09. Phase 3 P3.1
+  only. **No migration was changed** — 0006–0008 were not edited and 0009 needed no
+  schema or metadata change, because the defect and its fix are both in the
+  repository and application boundary. No release boundary changes.
+- **Reason:** `SessionRepository.touch()` updated a row on
+  `id = :id AND revoked_at IS NULL` alone. An expired session stays unrevoked
+  until something observes it, so a caller holding a `SessionRecord` resolved
+  while the session was valid could refresh it after its idle bound and push that
+  bound into the future — an expired session revived and kept live to its absolute
+  bound. Separately, `SessionService.touch()` always passed
+  `SessionSettings.idle_minutes`, so WebAuthn and recovery-grant sessions received
+  N-06's 60-minute idle window instead of N-15's 15-minute one, leaving that
+  accepted value inoperative for the life of an emergency session. A third defect
+  found while fixing them: the repository returned nothing, so a zero-row update —
+  a refused refresh — was reported to the caller as success.
+- **What was implemented:** the refresh became **one conditional `UPDATE`** that
+  matches only while the row is unrevoked and strictly inside both bounds
+  (`idle_expires_at > :now`, `absolute_expires_at > :now`; equality at either is
+  expired), verifies the expected `auth_method` in the same statement, sets
+  `idle_expires_at = LEAST(:now + :idle, absolute_expires_at)` and **never writes
+  `absolute_expires_at`**. It `RETURNING`s the persisted bounds as the typed
+  immutable `TouchedSession`. `SessionService.touch()` now takes the trusted
+  `SessionRecord` rather than a bare id, selects the idle duration from the
+  record's persisted authentication method through the existing `bounds_for`, and
+  raises the new typed `SessionTouchRefused` when no row matched. The rotation
+  correction present at review time was preserved unchanged.
+- **Alternatives rejected:** calling `resolve()` before the write (time advances
+  after resolution, and the write is the serialization boundary — this is the
+  control the finding explicitly rejects); a check constraint (it can relate the
+  two bounds to each other but not either to `now()`, which is not immutable); a
+  database trigger (a second mechanism where one statement suffices); deriving the
+  idle duration inside the repository (would move an accepted numeric policy into
+  the adapter layer, away from `bounds_for`); and keeping the `touch(session_id)`
+  signature with an added method argument (a caller-supplied method is exactly the
+  input that must not be trusted).
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, OD-45 is unchanged, no dependency was added,
+  and no migration was edited. One deliberate interface change: `touch()` takes a
+  record, and both of its callers — which are tests, since no P3.1 route calls it —
+  were updated.
+- **Dependency/critical-path effect:** unchanged. A new Codex independent
+  implementation re-review and a distinct security-focused pass block P3.G1.
+- **Estimate/capacity effect:** completed within one working session. No forecast
+  change is recorded.
+- **Risk, testing, migration, security and operations effect:** TC-AUTH-19 is new
+  (17 portal tests) and TC-AUTH-18 is recorded in the traceability contract for the
+  first time. The whole portal suite is 354 passed / 0 failed / 0 skipped against
+  guarded `freedom_test`, and the bot suite 2260 passed. **Nine mutations** were run
+  and reverted, each killed, with byte-identical restoration verified by SHA-256;
+  two of them are observable only inside a rolled-back `ck_sessions_idle_within_absolute`
+  drop, and the first harness run was corrected after it was found to be mutating
+  `rotate()`'s identically-shaped predicate instead of `touch()`'s. No migration,
+  deployment or runtime-grant change; rollback is unaffected. Operationally,
+  §4.3a now states that a refused continuation means *end the session, do not
+  retry*, and §4.3 states that a break-glass idle window is fifteen minutes in
+  practice and not only at creation. New issue **I-09**; new threat entry **T-05d**.
+- **Recommendations:** the Technical Lead requests that the re-reviews test the
+  stale-record path specifically — resolve while valid, advance only the injected
+  `now`, then continue the session without re-resolving — and check the two
+  boundary comparisons for strictness, since an inclusive absolute comparison is an
+  equivalent mutant for every row the check constraint permits.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-session-lifetime-remediation-submission.md`.
+
+## C-P3.1-H — Phase 3 P3.1 OD-44 session-touch policy composition
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for Codex independent
+implementation re-review and a distinct security-focused pass. Not accepted.
+P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** the single blocking finding
+  from Codex's 2026-08-15 independent implementation and security re-reviews of
+  the C-P3.1-G package. SM-02; logical schema §9.1; the threat model (T-05d); the
+  test traceability contract (TC-AUTH-19); `docs/operations/web-portal.md`
+  §4.3/§4.3a; RAID I-09. N-06 and N-15 are **clarified, not changed** — no accepted
+  numeric value moved and configuration remains their source. Phase 3 P3.1 only.
+  **No migration was changed:** 0006–0008 were not edited and 0009 needed no
+  schema or metadata change, because the defect and its correction are entirely in
+  interface and policy composition. No release boundary changes.
+- **Reason:** the C-P3.1-G remediation corrected the break-glass idle window in
+  `SessionService` only. `SessionRepository.touch()` still took `idle` and
+  `expected_auth_method` as independent arguments, and its SQL verified only that
+  the supplied method equalled the row's. A caller supplying a break-glass row's
+  **correct** method together with N-06's 60-minute duration therefore matched the
+  row and extended its idle window to the emergency absolute bound: N-15's fifteen
+  minutes bypassed for a session that resolves to `platform_administrator`, with
+  every predicate in the statement satisfied. The method predicate refuses a false
+  *method*; it has no view of the duration standing beside it. The repository test
+  offered as evidence supplied a mismatched `discord_oauth` method, which exercises
+  the predicate and not the bypass, so TC-AUTH-19(h), SM-02, logical schema §9.1,
+  T-05d and the C-P3.1-G submission each asserted a property no test established.
+- **What was implemented:** `SessionIdlePolicy`, an immutable validated
+  method-to-idle mapping built from `SessionSettings` and injected once at the
+  composition root. `SessionRepository` requires one at construction; its
+  `touch(session_id, *, now)` takes no duration, deadline or authentication-method
+  argument, and the single conditional `UPDATE` chooses the window with
+  `CASE auth_method` over bind parameters generated from that policy, guarded by an
+  `auth_method IN (…)` predicate so an ungoverned method is refused rather than
+  silently given its absolute bound through a `NULL` interval. The statement is
+  otherwise unchanged: same liveness predicates, strict at both bounds, same clamp,
+  `absolute_expires_at` in no `SET` clause, zero rows still `SessionTouchRefused`.
+  `SessionService.touch(record, *, now)` keeps its signature and now selects
+  nothing. Every construction site was reviewed and updated: the composition root,
+  `tools/session_revoke.py`, and the test helper.
+- **Alternatives rejected:** adding a second predicate that compares the supplied
+  duration against the row's method (keeps the pairing expressible and makes the
+  API's safety depend on the caller getting two arguments consistent); naming,
+  comments or underscore privacy on the existing signature (the finding explicitly
+  refuses this, and the supported API is what P3.2 will call); hard-coding N-06 and
+  N-15 in the adapter or the SQL (moves accepted numeric policy out of
+  configuration); a check constraint or trigger (neither can express "this
+  duration belongs to this method" for a value that is not in the row); and making
+  the policy an optional constructor argument with a default (a default is the
+  adapter owning the numbers, and it lets a future construction site acquire a
+  window nobody configured).
+- **Reversal recorded:** C-P3.1-G listed "deriving the idle duration inside the
+  repository" as a rejected alternative, on the ground that it would move accepted
+  numeric policy into the adapter. That objection stands against adapter-owned
+  *constants* and is respected — the adapter still contains no duration. It does
+  not stand against the adapter *consuming* configured policy injected through
+  composition, which is what is implemented, and the earlier framing is what left
+  the duration as a caller-supplied argument.
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, OD-45 is unchanged, no dependency was added,
+  no migration was edited, and no frozen visual asset changed.
+- **Dependency/critical-path effect:** unchanged. A new Codex independent
+  implementation re-review and a separately reported security-focused re-review
+  remain the gating items for P3.G1.
+- **Estimate/forecast and capacity effect:** none beyond the remediation itself.
+- **New or changed risks:** the finding is a corrected implementation defect
+  rather than a new risk. I-09 is amended to record that its first remediation was
+  incomplete and that resolution additionally requires no supported API to admit a
+  caller-selected refresh duration. T-05d's mitigation text is corrected: an
+  authentication-method equality predicate does not validate a caller-supplied
+  duration, and no check constraint establishes liveness.
+- **Testing, migration, security and operational effect:** TC-AUTH-19(h) is
+  rewritten and its inadequate mismatched-method test replaced. The new evidence is
+  behavioural through the repository alone — N-06 applied to a Discord OAuth row,
+  N-15 to WebAuthn and recovery-grant rows — plus a narrow signature assertion, a
+  `TypeError` proof that the former pairing is unexpressible under any spelling,
+  policy-validation cases, and a rolled-back `ck_sessions_auth_method` drop that
+  makes the governed-method predicate observable. Thirteen mutants were applied and
+  reverted, each killed, with byte-identical restoration verified by SHA-256 and
+  the focused suite rerun after restoration. No migration, deployment or
+  runtime-grant change; rollback is unaffected. Operationally, §4.3 now records
+  that the fifteen-minute rule holds at both layers and not only in the service.
+- **Recommendations:** the Technical Lead requests that the re-reviews attempt the
+  bypass directly — construct a break-glass session, then try to obtain N-06's
+  window through the repository by any route including the policy object — and
+  check that no construction site defaults the policy.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-session-touch-policy-remediation-submission.md`.
+
+## C-P3.1-I — Phase 3 P3.1 OD-44 session idle-policy construction
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for Codex independent
+implementation re-review and a distinct security-focused pass. Not accepted.
+P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** the single blocking finding
+  from Codex's 2026-08-15 independent re-review of the C-P3.1-H package, plus the
+  related composition defect reported with it. SM-02; logical schema §9.1; the
+  threat model (T-05d); the test traceability contract (TC-AUTH-19);
+  `docs/operations/web-portal.md` §4.3; RAID I-09; the OD-44 addendum. N-06 and
+  N-15 are **unchanged** — no accepted numeric value moved, `SessionSettings`
+  remains their source, and the configuration contract's accepted ranges are
+  untouched. Phase 3 P3.1 only. **No migration was changed:** 0006–0009 were not
+  edited and none needed editing, because the defect and its correction are
+  entirely in interface and composition. No release boundary changes.
+- **Reason:** C-P3.1-H removed `idle` and `expected_auth_method` from
+  `SessionRepository.touch()` but moved the same authority into a publicly
+  constructible `SessionIdlePolicy`. It was a frozen dataclass whose generated
+  constructor took `tuple[tuple[AuthMethod, timedelta], ...]`, and the mapping
+  that assigns N-06's 60-minute window to *every* method is complete,
+  duplicate-free and positive — so the constructor accepted it, the generated
+  `CASE` selected 60 minutes for a persisted WebAuthn or recovery-grant row, and
+  N-15's 15-minute idle limit was bypassed up to the 60-minute emergency absolute
+  bound. The existing policy tests asserted completeness, uniqueness and
+  positivity and never attempted a complete but semantically false mapping.
+  C-P3.1-H's statements that no supported API could pair a method with another
+  policy's duration, and that policy was built once and injected, were therefore
+  both false. The second was false of the composition independently:
+  `WebComposition.services()` constructed a policy for the repository while
+  `SessionService.__init__()` constructed another from settings — equivalent under
+  production inputs, but two derivations that an alternate construction site could
+  make disagree, leaving creation/rotation bounds at odds with refresh policy.
+- **What was implemented:** `SessionIdlePolicy` has **no public constructor**.
+  `__init__` refuses every call; the only supported factory is
+  `from_settings(SessionSettings)`; and which methods receive the emergency window
+  is classification derived inside the class from `AuthMethod.is_break_glass`
+  rather than a mapping any caller supplies. The object is immutable
+  (`__setattr__`/`__delattr__` refuse) and defines no `__eq__`, so "the same
+  policy instance" is a property a test can assert with `is` and cannot be
+  weakened into a value comparison. `WebComposition` builds **one** policy at
+  construction and injects that same object into `SessionRepository` and into
+  `SessionService`, whose `idle_policy` is now a required constructor argument
+  instead of a second derivation; `tools/session_revoke.py` follows the same
+  pattern. Both layers expose a read-only `idle_policy` property so the wiring is
+  assertable without reaching into a private attribute. `for_method` refuses
+  anything that is not an `AuthMethod` rather than defaulting it. The conditional
+  `UPDATE` is **unchanged**: same generated `CASE`/`IN` over bind parameters, same
+  liveness predicates strict at both bounds, same clamp, `absolute_expires_at` in
+  no `SET` clause, zero rows still `SessionTouchRefused`, transactions still owned
+  by the caller.
+- **Alternatives rejected:** keeping the dataclass constructor and adding a
+  validator that the break-glass durations equal the configured emergency value
+  (re-derives the settings the caller was allowed to contradict, so the pairing
+  stays expressible and the class becomes a second numeric authority);
+  an `emergency < ordinary` invariant (the configuration contract permits
+  `WEB_SESSION_IDLE_MINUTES` down to 1 against a `WEB_EMERGENCY_SESSION_IDLE_MINUTES`
+  ceiling of 15, so this would refuse accepted configurations, and the finding
+  explicitly rules it out); underscore-privacy, naming or a documented convention
+  to use `from_settings()` (the finding explicitly refuses all four);
+  a constructor taking two bare durations rather than `SessionSettings` (narrower
+  than the mapping, but still a second numeric entry point beside the validated
+  configuration object); passing the policy to `SessionService` as an optional
+  argument defaulting to a derivation (a default is exactly how the second
+  derivation survived); and hard-coding 60/15 in the adapter or the SQL (moves
+  accepted numeric policy out of configuration).
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, OD-45 is unchanged, no dependency was added,
+  no migration was edited, and no frozen visual asset changed.
+- **Dependency/critical-path effect:** unchanged. A new Codex independent
+  implementation re-review and a separately reported security-focused re-review
+  remain the gating items for P3.G1.
+- **Estimate/forecast and capacity effect:** none beyond the remediation itself.
+- **New or changed risks:** a corrected implementation defect rather than a new
+  risk. I-09 is amended to record that the second remediation was also incomplete
+  and that resolution additionally requires no supported API to admit a
+  caller-*constructed* method-to-duration mapping, and requires the repository and
+  service to demonstrably hold the same policy instance. T-05d, SM-02 and logical
+  schema §9.1 are corrected where they concluded from the absence of call
+  arguments that the pairing was unrepresentable.
+- **Testing, migration, security and operational effect:** TC-AUTH-19 gains (j),
+  which attempts the finding's exact all-ordinary mapping and the subtler
+  single-method variant against the new construction boundary, runs the finding's
+  full four-line sequence and shows it halting before any database work, asserts
+  the class's public surface and the absence of dataclass machinery, proves
+  classification against real PostgreSQL for a configuration whose ordinary window
+  is **shorter** than its emergency one, and asserts single-instance injection
+  with `is` across two `services()` calls. Sixteen mutants were applied and
+  reverted, each killed, with byte-identical restoration verified by SHA-256 and
+  the focused suite rerun after restoration. No migration, deployment,
+  configuration or runtime-grant change; rollback is unaffected. Operationally,
+  §4.3 records that the fifteen-minute rule now holds against how the policy is
+  built and not only against how it is called.
+- **Recommendations:** the Technical Lead requests that the re-reviews attempt to
+  obtain N-06's window for a break-glass row by **any** route — the repository
+  API, the service API, the policy factory, and construction of a policy by any
+  means the module exposes — and that they check every `SessionRepository` and
+  `SessionService` construction site for a second derivation.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-session-idle-policy-construction-remediation-submission.md`.
+
+## C-P3.1-J — Phase 3 P3.1 OD-44 session settings/bounds construction model
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for a fresh
+independent implementation re-review and a distinct security-focused pass. Not
+accepted. P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** the three blocking
+  counterexamples from Codex's 2026-08-15 independent re-review of the C-P3.1-I
+  package. SM-02; logical schema §9.1; the threat model (T-05d); the numeric
+  policy register (enforcement location); the test traceability contract
+  (TC-AUTH-19); `docs/operations/web-portal.md` §4.3; RAID I-09. **No accepted
+  numeric value moved, no configuration variable was renamed and no deployment
+  value changed**; configuration remains the source of N-04, N-06, N-07, N-15 and
+  N-66. Phase 3 P3.1 only. **No migration was changed:** 0006–0009 were not
+  edited, because the defect and its correction are entirely in construction and
+  composition. No release boundary changes.
+- **Reason:** C-P3.1-I closed `SessionIdlePolicy`'s constructor, and three
+  counterexamples survived it. **F1:** `from_settings()` validated only
+  positivity, and `SessionSettings` was a public frozen dataclass with no
+  construction-time validation, so `SessionSettings(..., emergency_idle_minutes=60,
+  ...)` was an accepted object and the derived policy returned sixty minutes for
+  both break-glass methods. Environment-reader validation cannot make invalid
+  instances of a public settings type impossible, and the removed factory's own
+  docstring named tests and operator tools as supported builders. **F2:** the
+  refresh statement was generated by iterating the policy's public, overridable
+  `__iter__`, so a subclass inheriting the supported factory replaced the mapping
+  the database used while `for_method()` reported fifteen minutes; the recorded
+  reproduction bound `idle_seconds = 3600.0` for all three methods. This is
+  ordinary Python subclassing, and C-P3.1-I was wrong to treat it as process-memory
+  forgery. **F3:** `SessionService.__init__()` accepted a repository and an
+  independently supplied policy and required no relationship between them, so a
+  supported caller could build a graph creating sessions under one idle window and
+  refreshing them under another; correct wiring at the two production sites was
+  true and was not an invariant.
+- **What was implemented:** the construction model was **simplified**, not
+  guarded further. `SessionIdlePolicy` is **deleted**. `SessionSettings` validates
+  the accepted register in `__post_init__` against `SESSION_CEILINGS`, a single
+  table also read by the environment reader, so an out-of-register instance cannot
+  exist however it was built (F1). `SessionRepository(connection, settings=…)`
+  **derives** a `SessionPolicy` — five numbers with fixed roles, no mapping and no
+  `__iter__` — reading each configured value exactly once, and accepts no policy
+  object; the `CASE` branches are generated by walking `AuthMethod` and asking
+  `session_class_of()`, so there is nothing to iterate and nothing a subclass can
+  replace (F2). `SessionService(sessions=…, token_grants=…, audit=…)` reads its
+  bounds from that repository and has **no** settings or policy argument, so two
+  independently configured bounds sources are not constructible (F3);
+  `WebComposition` no longer holds a policy of its own, and
+  `tools/session_revoke.py` follows the same shape. `AuthMethod.is_break_glass`
+  stopped being `not is_ordinary_provider`: classification is now the explicit
+  `_SESSION_CLASSES` table, and a method absent from it raises
+  `UnclassifiedAuthMethod` at module import and again at repository construction.
+  The conditional `UPDATE` is **unchanged**: same generated `CASE`/`IN` over bind
+  parameters, same liveness predicates strict at both bounds, same
+  `LEAST(..., absolute_expires_at)` clamp, `absolute_expires_at` in no `SET`
+  clause, zero rows still `SessionTouchRefused`, transactions still owned by the
+  caller.
+- **Alternatives rejected:** adding a validator to `from_settings()` that
+  re-derived the emergency value (a third guard on the same extensible object,
+  which the finding explicitly rules out); custom immutability machinery,
+  reflection guards or interface-inspection assertions (same); making
+  `SessionSettings` private (it is the configuration contract's public type and
+  tests and tools legitimately build it); keeping `is_break_glass` as
+  `not is_ordinary_provider` (silently classifies a future method, which the
+  finding explicitly forbids); carrying the classification in `AuthMethod`'s member
+  values (would change the persisted `.value` used as the `auth_method` column);
+  giving `SessionService` an optional `settings` argument defaulting to the
+  repository's (a default is exactly how the second derivation survived twice);
+  and hard-coding 60/15 in the adapter or the SQL (moves accepted numeric policy
+  out of configuration).
+- **Scope effect:** none beyond the authorized remediation. No P3.2 route was
+  added, no HTTP evidence was waived, OD-45 is unchanged, no dependency was added,
+  no migration was edited, and no frozen visual asset changed. One collateral
+  correction was required and is called out rather than folded in:
+  `_Reader.integer` and `_read_session` now follow a recorded problem with an
+  **in-range** fallback, because the settings constructor runs inside the reader
+  and would otherwise abort the collection and report one problem where there are
+  several. `test_every_out_of_range_session_bound_is_reported_in_one_pass` is the
+  regression test for that.
+- **Dependency/critical-path effect:** unchanged. A fresh independent
+  implementation re-review and a separately reported security-focused re-review
+  remain the gating items for P3.G1.
+- **Estimate/forecast and capacity effect:** none beyond the remediation itself.
+- **New or changed risks:** a corrected implementation defect rather than a new
+  risk. I-09 is amended to record that the third remediation was also incomplete
+  and that resolution additionally requires the type carrying the accepted bounds
+  to be unconstructible outside the register, no object consumed by the refresh
+  SQL to be caller-supplied or overridable, and a service/repository graph to
+  admit only one bounds source. T-05d, SM-02, logical schema §9.1 and the numeric
+  register are corrected where they concluded a property from a closed constructor
+  or from correct production wiring.
+- **Testing, migration, security and operational effect:** TC-AUTH-19 gains (k):
+  every register bound refused at `SessionSettings` construction in both
+  directions with the ceiling and 1 accepted and N-15's 15/16 boundary named; F1's
+  sequence run in order against PostgreSQL and shown to halt before any write with
+  the row byte-identical; the bind parameters of the conditional write asserted to
+  classify rather than repeat one window; a genuinely forged `SessionPolicy`
+  subclass shown to have no keyword through which to reach a repository, with the
+  persisted break-glass row still receiving N-15 from PostgreSQL; a
+  `SessionSettings` subclass whose field answers 15 then 60 shown to be read
+  exactly once; F3's mismatch sequence executed with two different valid
+  configurations; every construction site exercised; and an unclassified
+  authentication method proved to refuse twice — through the real guard given a
+  synthetic enum, and by removing an entry from the production table and observing
+  `SessionRepository` construction raise, with restoration asserted afterwards.
+  The portal suite rose from 381 to 392 collected tests; no test was removed, and
+  the superseded policy-construction tests were **replaced** by stronger ones.
+  **Mutation testing was not run for this remediation** and is not claimed: the
+  three direct counterexamples are closed and demonstrated by recorded before/after
+  reproductions, and the prompt makes mutation useful only afterwards. No
+  migration, deployment, configuration or runtime-grant change; rollback is
+  unaffected.
+- **Recommendations:** the Technical Lead requests that the re-reviews attempt to
+  obtain N-06's window for a break-glass row by **any** route — the settings
+  constructor, `SessionPolicy.derive`, subclassing either type, the repository
+  constructor, the service constructor, and every construction site — and that
+  they specifically probe whether `SessionPolicy` being a public frozen dataclass
+  leaves a residual worth closing, since it is derived and never accepted but is
+  still nameable.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-session-bounds-construction-remediation-submission.md`.
+
+## C-P3.1-K — Phase 3 P3.1 OD-44 session-policy numeric validation
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for a fresh
+independent implementation re-review and a distinct security-focused pass. Not
+accepted. P3.G1 remains open. P3.2 has not started.*
+
+- **Affected requirement, milestone and release:** the single blocking finding
+  from Codex's 2026-08-15 independent re-review of the C-P3.1-J package, reported
+  from two perspectives — **F1** in the implementation review and **S1** in the
+  distinct security-focused pass. They are **one defect**, not two. N-66; the
+  numeric policy register (the *type* half of the accepted fields); the test
+  traceability contract (TC-AUTH-19(l), new TC-SESS-08b); RAID I-09. **No accepted
+  numeric value moved, no configuration variable was added, renamed or removed,
+  and no deployment value changed**; configuration remains the source of N-04,
+  N-06, N-07, N-15 and N-66. Phase 3 P3.1 only. **No migration was changed:**
+  0006–0009 were not edited, because the defect and its correction are entirely
+  in runtime validation. No release boundary changes.
+- **Reason:** C-P3.1-J gave both enforcement gates the same *bounds* and left each
+  to state independently what a value of these fields may **be**.
+  `SessionSettings.__post_init__` said "an actual `int`, never a `bool`, positive,
+  within its ceiling". The derived-policy gate restated the rule as the two
+  ordering comparisons `value < 1` and `value > ceiling` and dropped the type
+  half. Two ordering comparisons are not a whole-number rule: `float("nan")` makes
+  both of them false. A non-finite `max_sessions_per_account` therefore survived
+  `SessionPolicy.derive()`, and `len(live) >= maximum` in `_enforce_session_limit`
+  was false for **every** live-session count — the accepted per-account
+  live-session bound revoked nothing. It was reachable through the supported
+  repository constructor with no `object.__new__`, no mutation of a frozen
+  instance, no forged `SessionPolicy` and no private helper, because `derive()`
+  deliberately accepts `SessionSettings` subclasses and a subclass whose inherited
+  `__post_init__` observes the valid stored integer may answer differently on the
+  single later derivation read.
+- **Alternatives considered:** patching NaN specifically (rejected — it names one
+  value of a class of values, and `10.0`, `2.5` and `True` would still pass);
+  relying on the `int` annotations (rejected — annotations are not enforcement);
+  forbidding subclassing of `SessionSettings` (rejected — `derive()` accepts
+  subclasses deliberately, and the honest fix is to validate what it reads);
+  reflection or source inspection of the caller (rejected outright); and adding a
+  third type check inside `SessionPolicy` (rejected — a third restatement is the
+  mechanism that produced this defect twice).
+- **Added/removed scope:** none. One shared validator, called by both gates, and
+  regression tests. No feature, route, variable or dependency added.
+- **Dependency and critical-path effect:** none beyond the re-review already
+  blocking P3.G1. P3.2 remains unstarted.
+- **Estimate/forecast and capacity effect:** within the P3.1 remediation
+  allowance; no forecast change.
+- **New or changed risks:** RAID I-09 amended a fifth time. The residual recorded
+  for reviewers is that `SessionPolicy` remains a public, nameable frozen
+  dataclass — derived and never accepted — and that the other `WebSettings`
+  sub-dataclasses have **not** been audited for the same shape.
+- **Testing, migration, security and operational effect:** the correction is
+  strictly a tightening; no control was relaxed. `application/web/config.py` now
+  holds `session_policy_problem`/`session_policy_problems` beside
+  `SESSION_CEILINGS` as the single runtime definition of the accepted type and
+  range, and both `SessionSettings.__post_init__` and `_validate_policy_values` in
+  `application/web/sessions.py` call it. Evidence is the new
+  `tests/web/test_session_policy_numeric_validation.py` (28 cases), mapped
+  one-to-one to the eight prompt requirements and recorded as TC-AUTH-19(l) and
+  TC-SESS-08b. **A falsification run is recorded rather than asserted:** with the
+  reviewed two-comparison validator restored in memory, nine of the new cases fail
+  while the entire pre-existing 54-test session-lifetime suite stays green —
+  direct evidence that the earlier suite contained no counterexample. Fresh
+  results: 420 portal tests and 2260 bot tests, 0 failed and **0 skipped**;
+  `alembic check` reports no new upgrade operations; `git diff --check` clean; the
+  14-entry visual-freeze manifest verified. **Mutation testing was not run for
+  this remediation and is not claimed.** No migration, deployment, configuration
+  or runtime-grant change; rollback is unaffected, because nothing persisted
+  changed shape or meaning.
+- **Recommendations:** the Technical Lead requests that the re-reviews attempt to
+  reach `_enforce_session_limit` with a `max_sessions_per_account` that is not an
+  `int` by **any** route, and then check whether any *other* accepted numeric
+  policy in `WebSettings` has the same shape — a settings dataclass whose bounds
+  or types only one of its gates enforces. This remediation fixed the session
+  register; it did not audit the others, and that is a stated gap rather than an
+  oversight reported as complete.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-od-44-session-policy-numeric-validation-remediation-submission.md`.
+
+## C-P3.1-L — Phase 3 P3.1 settings-construction validation (exact `int`; RAID I-10)
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for a fresh
+independent implementation review, a distinct security-focused pass and an
+availability review of the pool and worker bounds. Not accepted. P3.G1 remains
+open. P3.2 and P3.3 have not started.*
+
+- **Affected requirement, milestone and release:** two connected deliverables in
+  one package. (1) The still-open comparison-overriding `int`-subclass bypass in
+  the shared session-policy validator — N-66, RAID I-09, TC-AUTH-19(m). (2) RAID
+  I-10: `RateLimitSettings`, `BoundsSettings`, `WebAuthnSettings`,
+  `DatabasePoolSettings` and `WorkerSettings` made valid by construction —
+  N-09, N-10, N-14, N-18, N-19, N-21, N-22, N-23, N-30…N-34, N-41…N-45, N-53,
+  N-60; the numeric policy register (the *type* half and the enforcement points);
+  the configuration and dependency contract (§2.2's bounds, where they hold); the
+  test traceability contract (TC-AUTH-19(m), new TC-STRUCT-07, new TC-LIM-06).
+  **No accepted numeric value moved, no environment variable was added, renamed
+  or removed, no deployment value changed, and no migration was touched** —
+  0006–0009 were not edited, because both defects and both corrections are
+  entirely in runtime validation. No release boundary changes. Phase 3 P3.1 only.
+- **Reason.** (1) C-P3.1-K gave both session gates one definition of the accepted
+  type and left that definition stating it as `isinstance(value, int) and not
+  isinstance(value, bool)`. That refuses `bool` and every float and admits every
+  **other** subclass of `int`. An `int` subclass may override `__lt__`, `__gt__`,
+  `__le__` and `__ge__`, and Python gives the right-hand subclass's reflected
+  comparison priority, so `len(live) >= maximum` is answered by the subclass:
+  `dataclasses.replace(settings, max_sessions_per_account=LyingInt(10))` survived
+  settings construction **and** `SessionPolicy.derive()`, and
+  `_enforce_session_limit` saw false for every live-session count — N-66
+  inoperative for the third time, through the supported public constructor with
+  no `object.__new__`, no frozen-object mutation, no private helper, no forged
+  policy and no skipped `__post_init__`. (2) The five settings types had no
+  construction-time validation at all; `WebSettings.from_environment()` validated
+  the strings it parsed, which protects the ordinary path and is not an invariant
+  of a public value object. This is **not** an environment-string bypass and none
+  is claimed; it is the same authority-boundary shape the session work found five
+  times.
+- **Alternatives considered:** excluding known `int` subclasses by name (rejected
+  — it names members of a class of values, exactly as patching NaN did); relying
+  on the `int` annotations (rejected — annotations are not enforcement); checking
+  one comparison result to detect a lying value (rejected — it asks the value
+  under test to grade itself); coercing with `int(value)` (rejected — a coercion
+  accepts the input and then changes it, which is how a refusal becomes a silent
+  reinterpretation); a single generic validator taking arbitrary field names
+  (rejected — it cannot prove a type's cross-field rules); five copies of the
+  same primitive integer rule (rejected — that is the drift mechanism this whole
+  line of remediation is about); independently injectable policy objects
+  (rejected — a second bounds source, which OD-44's F3 already demonstrated);
+  and enforcing a worker heartbeat/lease ordering (rejected — no accepted
+  document states one, and choosing policy in a constructor is not the accepted
+  route for new policy; it is raised as an open maintainer question instead).
+- **Added/removed scope:** none. One shared `PolicyBound`/`policy_number_problem`
+  definition, six register tables citing it, `__post_init__` on the five types,
+  read-once canonicalisation at five composition seams, and regression tests. No
+  feature, route, environment variable or dependency added.
+- **Dependency and critical-path effect:** none beyond the re-review already
+  blocking P3.G1. P3.2 and P3.3 remain unstarted.
+- **Estimate/forecast and capacity effect:** within the P3.1 remediation
+  allowance; no forecast change.
+- **New or changed risks:** RAID I-09 amended a sixth time; RAID I-10 amended
+  with implementation and evidence state and **left open**. Residuals recorded
+  for reviewers: N-09/N-10 have no P3.1 route consumer and N-21/N-22 have no
+  consumer at all; `WEB_WEBAUTHN_USER_VERIFICATION` and
+  `WEB_RECOVERY_GRANT_MINUTES` are validated but read by no runtime consumer;
+  the worker's lease, heartbeat, attempt, timeout and queue consumers belong to
+  P3.3; and the relational rules (S-02, S-05, S-09) necessarily remain at the
+  environment boundary, because no sub-dataclass carries both sides of them.
+- **Testing, migration, security and operational effect:** the correction is
+  strictly a tightening; no control was relaxed and no accepted value was
+  replaced by a default — a stricter configured value is proved to survive
+  unchanged. Evidence is `tests/web/test_session_exact_integer_policy.py` (22
+  cases, TC-AUTH-19(m)) and `tests/web/test_settings_construction_validation.py`
+  (145 cases, TC-STRUCT-07 and TC-LIM-06). **Two falsification runs are recorded
+  rather than asserted:** with the reviewed `isinstance` predicate restored in
+  memory, 16 of the 22 new session cases fail while the entire pre-existing
+  28-case numeric-validation module stays green; with `__post_init__` removed
+  from the five types in memory, 81 of the 145 new cases fail while all 442
+  pre-existing portal tests stay green. Neither existing suite contained a
+  counterexample. Neither run edited a tracked file, proved by an identical
+  `git status --short` before and after. Fresh results: **587 portal tests and
+  2260 bot tests, 0 failed and 0 skipped**; compilation under both configured
+  interpreters; `alembic check` reports no new upgrade operations; `git diff
+  --check` clean; the 14-entry visual-freeze manifest verified. **Mutation
+  testing was not run and is not claimed**; no mutation tool is configured. No
+  formatter, linter or type checker is configured in this repository — verified
+  by inspection, not assumed. No migration, deployment, configuration or
+  runtime-grant change; rollback is unaffected, because nothing persisted changed
+  shape or meaning.
+- **Recommendations:** the Technical Lead requests that the re-reviews attempt to
+  reach any enforcement comparison — the session limit, a rate-limit budget, the
+  body bound — with a value that is not an exact built-in `int`, by any route
+  including a subclass that lies only on a later read; and that the availability
+  review consider whether the pool and worker bounds should additionally carry a
+  relationship rule, which this package deliberately did **not** invent.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-settings-construction-validation-remediation-submission.md`.
+
+## C-P3.1-M — Phase 3 P3.1 N-23 worker lease corrected to an exact 60 seconds (corrects C-P3.1-L)
+
+**Date:** 2026-08-15 · **Recorded for:** Peter Duscha (Product Owner, Security
+Reviewer and Acceptance Authority) · **Status:** *Submitted for review. Not
+accepted. P3.G1 and RAID I-09/I-10 remain open. P3.2 and P3.3 have not started.*
+
+- **Affected requirement, milestone and release:** N-23's worker job lease, as
+  implemented by C-P3.1-L. One runtime definition in `application/web/config.py`
+  (`WORKER_BOUNDS["lease_seconds"]`), the tests that exercise it, and the
+  descriptions C-P3.1-L introduced in the numeric policy register, the
+  configuration and dependency contract, the test traceability contract
+  (TC-STRUCT-07, TC-LIM-06), the RAID register, status and its own submission.
+  **The accepted N-23 row is unchanged and remains the authority: the lease is 60
+  seconds.** No accepted numeric value moved, no environment variable was added,
+  renamed or removed, `.env.example` is unchanged (it already shipped
+  `WORKER_LEASE_SECONDS=60`), and no state machine, logical schema, migration,
+  route, service, worker behaviour, runtime grant or deployment value changed.
+  No release boundary changes. Phase 3 P3.1 only.
+- **Reason.** Independent review found C-P3.1-L's N-23 entry wrong. It defined
+  `"lease_seconds": PolicyBound(minimum=1, maximum=60, policy="N-23")`, treating
+  the accepted "60 seconds" as a ceiling and accepting every exact integer from 1
+  to 60 as a lease. The accepted row reads `Job lease | 60 seconds, heartbeat at
+  most every 20 seconds`: one sentence stating a lease **value** and a heartbeat
+  **maximum**, and the distinction is deliberate. SM-05 renews with
+  `lease_expires_at = now() + 60s`; the logical schema's claim and lease-renewal
+  statements write the same 60; the operational contract's reaper liveness signal,
+  wedged-worker procedure and `N-23 + N-44` recovery bound are all calculated from
+  a 60-second lease. A one-second lease was therefore a contradiction of the
+  accepted documents rather than a permitted tightening, and would have lost a
+  live claim to ordinary heartbeat scheduling. The entry is now
+  `PolicyBound(minimum=60, maximum=60, policy="N-23")` — the same exact-value
+  shape N-41's concurrency and N-34's proxy hop count already had.
+  `heartbeat_seconds` is **unchanged** at a ceiling of 20 with a floor of 1.
+- **Alternatives considered:** rewriting the accepted N-23 row to match the
+  delivered code (rejected — the accepted row, state machine, schema and
+  operational calculations are the authority, and a register edited to agree with
+  its implementation is not a register); leaving `1…60` and adding a
+  heartbeat-less-than-lease ordering rule (rejected — it would make new policy in
+  a constructor to compensate for a bound that was simply wrong, and would still
+  accept a two-second lease); adding an N-45 relationship (rejected — no accepted
+  document states one, and one may not be added without a separately accepted
+  policy decision); restating 60 in a second validator, constructor branch,
+  environment reader, consumer or test helper (rejected — a second authority is
+  the drift this structure exists to prevent, so the tests parameterise from
+  `WORKER_BOUNDS`, with a single deliberate exception that binds the register to
+  the accepted row).
+- **Added/removed scope:** none. One `PolicyBound`, its comment, twenty test
+  cases and the descriptions that were inaccurate. No feature, route, environment
+  variable, dependency or worker behaviour added; **no worker execution was
+  implemented to test this setting** — the runtime consumers remain P3.3's.
+- **Dependency and critical-path effect:** none beyond the re-review already
+  blocking P3.G1. **The "lease/heartbeat ordering" item C-P3.1-L raised as a
+  P3.3 prerequisite is withdrawn**, not answered: `lease_seconds=1,
+  heartbeat_seconds=20` was never inside the accepted register, so it was never
+  evidence that an ordering rule was missing. With the lease exactly 60 every
+  accepted heartbeat is already far inside it, no ordering rule was added, none
+  is needed, and nothing about N-23 blocks P3.3. P3.2 and P3.3 remain unstarted.
+- **Estimate/forecast and capacity effect:** within the P3.1 remediation
+  allowance; no forecast change.
+- **New or changed risks:** RAID **I-10 amended and left open**; I-09 unchanged.
+  C-P3.1-L's residuals still stand and are unchanged by this correction:
+  N-09/N-10 have no P3.1 route consumer and N-21/N-22 have no consumer at all;
+  `WEB_WEBAUTHN_USER_VERIFICATION` and `WEB_RECOVERY_GRANT_MINUTES` are validated
+  but read by no runtime consumer; the worker's lease, heartbeat, attempt,
+  timeout and queue **consumers** belong to P3.3; and the relational rules (S-02,
+  S-05, S-09) remain at the environment boundary. **No new risk is introduced**:
+  the change refuses more configurations than before and refuses them at startup.
+- **Testing, migration, security and operational effect:** strictly a tightening
+  of a configuration bound. Availability is improved rather than reduced — a
+  lease shorter than the accepted 60 could have expired mid-attempt and let the
+  reaper requeue live work — and the failure mode is a startup refusal naming
+  `WORKER_LEASE_SECONDS` without echoing its value, not a request-time
+  degradation. Evidence is TC-STRUCT-07 and TC-LIM-06 as corrected: twenty new
+  cases in `tests/web/test_settings_construction_validation.py` (165 total, up
+  from 145) covering direct construction, `dataclasses.replace()`, the exact-type
+  rule, canonicalisation of a lying subclass, the environment reader unset and
+  explicit, S-10 refusal of 59 and 61 with the variable named and the value
+  absent, aggregation with other settings types, the unchanged heartbeat
+  boundaries, and the withdrawn counterexample proved to halt at construction
+  **for its lease**. **One falsification run is recorded rather than asserted:**
+  with only the `minimum=1, maximum=60` entry restored in memory by a plugin held
+  outside the worktree, 10 of the new cases fail and every other portal test stays
+  green; `git status --short` is byte-identical before and after. **Mutation
+  testing was not run and is not claimed**; no mutation tool is configured. Fresh
+  results: **607 portal tests and 2260 bot tests, 0 failed and 0 skipped**;
+  compilation under both configured interpreters; `alembic check` reports no new
+  upgrade operations; `git diff --check` clean; the 14-entry visual-freeze
+  manifest verified. No formatter, linter or type checker is configured — verified
+  by inspection, not assumed. No migration, deployment, configuration-variable or
+  runtime-grant change; rollback is unaffected, because nothing persisted changed
+  shape or meaning.
+- **Recommendations:** the Technical Lead requests that the availability review
+  confirm the exact 60-second lease against SM-05, the schema's claim and renewal
+  statements and the `N-23 + N-44` recovery calculation, and that reviewers treat
+  the withdrawal of the ordering question as a correction of a false premise
+  rather than as a policy decision. Any relationship involving N-45 remains
+  unaccepted and must not be introduced without a separate decision.
+- **Approval:** **Not yet decided.** Recorded for the Acceptance Authority; see
+  `docs/review/phase-3-p3-1-n-23-exact-lease-remediation-submission.md`.
+
 ## Required fields for later entries
 
 Every material entry must identify:

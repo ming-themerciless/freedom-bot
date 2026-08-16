@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Emergency access — Freedom Blades{% endblock %}
+{% block content %}
+  <h1>Server Administrator emergency access</h1>
+
+  {#
+    This page is byte-identical whether or not a credential is enrolled and
+    whether or not a grant is outstanding. It names no account, no credential
+    nickname and no grant state — a page that revealed any of them would be an
+    oracle reachable without authentication.
+  #}
+  <section data-section="webauthn">
+    <h2>Security key</h2>
+    <p>Present an enrolled security key.</p>
+  </section>
+
+  <section data-section="recovery">
+    <h2>Recovery grant</h2>
+    {#
+      No CSRF token: there is no session yet. The origin check and the N-33 rate
+      limit are what bound this form, and the grant itself is single-use with a
+      ten-minute life.
+    #}
+    <form method="post" action="/v1/auth/emergency/recovery">
+      <label for="token">One-time recovery token</label>
+      <input id="token" name="token" type="password" autocomplete="off" required>
+      <button type="submit">Sign in</button>
+    </form>
+  </section>
+
+  {% if view.failure %}
+    <p data-state="error" data-code="{{ view.failure.code }}">
+      Emergency sign-in did not complete. Reference {{ view.failure.correlation.id }}.
+    </p>
+  {% endif %}
+{% endblock %}

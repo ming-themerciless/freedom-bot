@@ -1286,7 +1286,7 @@ accepted record removes.
 plan §17 (field/data ownership). Recorded 2026-08-02 with the acceptance of
 [`../review/phase-2-v1.5-remediation-plan.md`](../review/phase-2-v1.5-remediation-plan.md).
 
-### OD-43 — Discord-independent administration and provider portability · **REQUIREMENT RULED 2026-08-13; DESIGN PENDING P3.G0**
+### OD-43 — Discord-independent administration and provider portability · **CLOSED 2026-08-13; DESIGN ACCEPTED AT P3.G0**
 
 **Ruling by Peter Duscha, Product Owner and Acceptance Authority, 2026-08-13.**
 The Server Administrator must retain an independent access route if Discord
@@ -1302,22 +1302,86 @@ must link through immutable provider identifiers and a controlled migration;
 display names, usernames and email addresses never establish identity
 equivalence automatically.
 
-**Implementation design awaiting P3.G0 approval.** The proposed Phase 3 plan
-implements stable internal platform accounts, separately linked
+**Implementation design accepted at P3.G0.** ADR 0010 and the accepted Phase 3
+contracts implement stable internal platform accounts, separately linked
 `(provider, subject)` identities, pre-enrolled WebAuthn credentials and a
 host-local hashed single-use recovery grant. It deliberately does not add a
 permanent local password or choose an ordinary-member replacement provider in
-advance. P3.0 must turn that proposal into an accepted ADR, schema and tested
-migration contract before P3.1 authentication implementation starts.
+advance. The accepted remediation also replaces the Discord-only audit constraint
+and makes emergency-derived administrator authority continuity-scoped through
+mapping provenance until full-scope ratification. P3.1 implements the accepted
+design; its named database evidence remains prospective until executed.
 
 **Why the split is deliberate.** The availability and portability requirements
 are decided product requirements. Credential mechanics, recovery lifetime,
-session limits and migration mechanics are security architecture and remain
-subject to the Phase 3 readiness and P3.G0 reviews.
+session limits and migration mechanics are security architecture. Peter accepted
+that architecture at P3.G0 on 2026-08-13 after independent architecture and
+security-focused re-review.
 
 **Authority.** Product Owner for required behaviour; Acceptance Authority for
 the phase gate; Security Reviewer recommendation required for the implementation
 contract.
+
+### OD-44 — OAuth completion binding across provider I/O · **CLOSED 2026-08-14**
+
+**Ruling by Peter Duscha, Product Owner, Security Reviewer and Acceptance
+Authority, 2026-08-14.** Adopt the durable one-way completion binding in
+[`../review/phase-3-p3-1-sm-01-completion-binding-decision.md`](../review/phase-3-p3-1-sm-01-completion-binding-decision.md).
+A Discord OAuth session carries a unique, non-null
+`sessions.oauth_transaction_id` referencing a consumed transaction. Completion
+atomically claims `oauth_transactions.completion_claimed_at`, creates the
+session and writes the success audit in one transaction after provider I/O.
+
+There is no reverse `oauth_transactions.session_id`: the session foreign key is
+the single authoritative relationship, avoiding a redundant cyclic value. The
+accepted outcome is exactly one session from one consumed browser-bound OAuth
+transaction without holding a database transaction across Discord I/O. A new
+revision 0009 and the named PostgreSQL, rollback, concurrency and mutation
+evidence are required before P3.G1 can close.
+
+**Implementation recorded 2026-08-14** (change-log C-P3.1-E,
+[`../review/phase-3-p3-1-od-44-remediation-submission.md`](../review/phase-3-p3-1-od-44-remediation-submission.md)).
+Migration 0009 adds both columns, the `RESTRICT` foreign key, the unique index
+and the check constraint; `complete()` takes the transaction id and claims it
+atomically as the first statement of the provider-I/O-free transaction. One
+reading of the ruling is declared for confirmation rather than assumed: the
+unique index is scoped `WHERE rotated_from_session_id IS NULL`, because a
+table-wide `UNIQUE` together with the ruled check constraint would make N-08
+privilege rotation of a Discord OAuth session impossible. Independent
+implementation re-review and a distinct security-focused pass remain outstanding;
+this ruling is not thereby accepted as delivered.
+
+**Second ruling, 2026-08-14** (decision record §8, change-log C-P3.1-F,
+[`../review/phase-3-p3-1-od-44-provider-binding-remediation-submission.md`](../review/phase-3-p3-1-od-44-provider-binding-remediation-submission.md)).
+Peter approves the declared partial index
+`UNIQUE (oauth_transaction_id) WHERE rotated_from_session_id IS NULL` as the
+authoritative interpretation of OD-44, **conditionally on rotation integrity**:
+one successor per predecessor; a rotation's account, authentication method and
+OAuth binding equal to its predecessor's; only a live, unrotated predecessor
+rotatable; insertion and revocation atomic; concurrent rotations deterministic;
+no arbitrary session labellable a rotation; and break-glass rotations unbound to
+OAuth transactions.
+
+The same ruling covers Codex's re-review finding that the completion claim did
+not bind the **provider**: the claim now compares `provider_key` on the row it is
+claiming, and the expected key is derived from an indivisible verified provider
+result rather than from route ordering. Implemented 2026-08-14 in migration 0009
+and the OAuth, session and provider boundaries. Codex independent implementation
+re-review and a distinct security-focused pass remain required; OD-44's closure
+stands, P3.G1 does not.
+
+### OD-45 — TC-BG-05 HTTP evidence gate allocation · **CLOSED 2026-08-14**
+
+**Ruling by Peter Duscha, Product Owner and Acceptance Authority, 2026-08-14.**
+Adopt Option 1 in
+[`../review/phase-3-p3-1-tc-bg-05-http-evidence-decision.md`](../review/phase-3-p3-1-tc-bg-05-http-evidence-decision.md).
+P3.G1 retains TC-BG-05a, TC-BG-05d and the service/database portions of
+TC-BG-05b/c/e. The direct-HTTP portions move to P3.2 and are mandatory blocking
+evidence at P3.G2 against the real R-33, R-34 and R-38 routes.
+
+This changes evidence timing only. It is not a waiver, does not accept the HTTP
+boundary at P3.G1, and does not authorize test-only substitutes or early P3.2
+implementation.
 
 ## H. Product scope
 

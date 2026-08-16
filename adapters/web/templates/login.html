@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Freedom Blades{% endblock %}
+{% block content %}
+  <h1>Sign in</h1>
+
+  {#
+    `start_path` is a path, not a URL, so this button cannot be made to point
+    off-site by anything the view model carries. It is an ordinary link rather
+    than a form: a form submission would put `form-action 'self'` in the way of
+    the redirect to Discord, and widening that directive is a documented
+    weakening of the accepted CSP (route contract §6.4).
+  #}
+  {% for provider in view.providers %}
+    {% if provider.enabled %}
+      <a href="{{ provider.start_path }}" rel="nofollow">Continue with {{ provider.display_name }}</a>
+    {% else %}
+      <p data-provider="{{ provider.key }}">{{ provider.display_name }} is not available.</p>
+    {% endif %}
+  {% endfor %}
+
+  {% if view.degraded %}
+    <p data-state="degraded" data-code="{{ view.degraded.message_code }}">
+      The identity provider is currently unreachable.
+    </p>
+  {% endif %}
+
+  {% if view.failure %}
+    {# A code and a correlation id. The provider's error string reaches nothing. #}
+    <p data-state="error" data-code="{{ view.failure.code }}">
+      Sign-in did not complete. Quote reference {{ view.failure.correlation.id }} if you contact an operator.
+    </p>
+  {% endif %}
+
+  {% if view.emergency_access_available %}
+    <p><a href="/v1/auth/emergency">Server Administrator emergency access</a></p>
+  {% endif %}
+{% endblock %}

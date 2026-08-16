@@ -26,7 +26,30 @@ PHASE_2_TABLES = {
     "submission_admissions",
 }
 
-EXPECTED_TABLES = PHASE_1_TABLES | PHASE_2_TABLES
+#: Phase 3 P3.1 (migration 0006). The set is the identity boundary ADR 0010
+#: decides: an account is the identity of a person here, an external identity is
+#: an exact `(provider_key, subject)` link to one, and everything else in this
+#: group is a credential, a session or a bound on authenticating.
+#:
+#: `role_capability_mappings` and its append-only event log belong to the
+#: administration UI of P3.2, but the **table** is P3.1's: capability resolution
+#: reads it on every request, the protected bootstrap row is inserted by
+#: migration 0006, and the N-67 allowlist lives in its check constraints.
+PHASE_3_TABLES = {
+    "platform_accounts",
+    "external_identities",
+    "oauth_token_grants",
+    "sessions",
+    "oauth_transactions",
+    "webauthn_credentials",
+    "webauthn_challenges",
+    "recovery_grants",
+    "auth_rate_limits",
+    "role_capability_mappings",
+    "role_capability_mapping_events",
+}
+
+EXPECTED_TABLES = PHASE_1_TABLES | PHASE_2_TABLES | PHASE_3_TABLES
 
 #: Tables the Acceptance Authority rejected with ADR 0008 on 2026-08-02. Named
 #: rather than merely absent, so that reintroducing one fails a test that says
@@ -137,7 +160,27 @@ def test_audit_records_the_authorization_context():
     assert table.c.actor_capability.nullable is False
     assert "guild_council" in checks["ck_audit_events_actor_capability"]
     assert "character_owner" in checks["ck_audit_events_actor_capability"]
-    assert "ck_audit_events_human_action_has_an_actor" in checks
+
+    # Migration 0006 **replaced** `human_action_has_an_actor`, which required a
+    # Discord user id for every human capability. It had to go: a break-glass
+    # administrator acting during a Discord outage is a human capability with no
+    # Discord user, so the old rule refused the audit event ADR 0010 D8's
+    # recovery path must write — and with it the emergency login, because the
+    # session and its event share a transaction.
+    #
+    # The rule was not relaxed. Both halves are asserted, because "the new one is
+    # present" alone would also pass if the replacement had quietly dropped a
+    # case: an identified person is still required, and only the two machine
+    # capabilities may act unattributed.
+    assert "ck_audit_events_human_action_has_an_actor" not in checks
+    attribution = checks["ck_audit_events_human_action_has_an_attribution"]
+    assert "actor_platform_account_id IS NOT NULL" in attribution
+    assert "actor_discord_user_id IS NOT NULL" in attribution
+    assert "service_principal" in attribution and "system" in attribution
+    for human in ("guild_council", "platform_administrator", "character_owner"):
+        assert human not in attribution, (
+            f"{human} must not be able to act without an identified actor"
+        )
 
 
 def test_character_access_uniqueness_does_not_erase_revocation_history():

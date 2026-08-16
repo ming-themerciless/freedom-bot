@@ -1,283 +1,222 @@
-# Prompt for Claude — C-24 independent-review remediation
+# Claude remediation handover — N-23 exact worker lease
 
-Claude, remediate the two findings below in the C-24 submission-admission
-fence, then return the result for another independent review. The durable
-admission-generation design remains the right direction. This task is not
-permission to revive observation-based settlement, approve B-1, or close the
-Phase 2 gate.
+You are Claude, the implementing Technical Lead for the existing Phase 3 P3.1
+settings-construction validation remediation in the Freedom Blades Platform.
 
-The priority is to make the fence structurally unavoidable for every path that
-returns a successful submission receipt. Do not implement only a local
-`if closed` check in the currently identified branch if that leaves successful
-receipt paths independently responsible for remembering the invariant.
+Work only in `/opt/discord-bots/freedom-bot`.
 
-## Read and preserve context
+Before planning, reviewing, or editing, read these files completely:
 
-Before planning or editing, read completely:
+1. `AGENTS.md`
+2. `.agents/AGENTS.md`
+3. `docs/implementation-plan.md`, especially Phase 3 and §§16.3–16.4
+4. `docs/review/phase-3-delivery-plan.md`
+5. `docs/contracts/phase-3-numeric-policy-register.md`
+6. `docs/contracts/phase-3-configuration-and-dependency-contract.md`
+7. `docs/contracts/phase-3-state-machines.md`, especially SM-05
+8. `docs/contracts/phase-3-logical-schema.md`, especially the job claim and
+   lease-renewal statements
+9. `docs/contracts/phase-3-operational-contract.md`
+10. `docs/contracts/phase-3-test-traceability.md`
+11. `docs/review/phase-3-p3-1-settings-construction-validation-remediation-submission.md`
+12. `application/web/config.py`
+13. `tests/web/test_settings_construction_validation.py`
+14. every project-management document changed by the current remediation
 
-1. `AGENTS.md`, `.agents/AGENTS.md`, and `docs/implementation-plan.md`;
-2. change-log C-24 and the C-24 finishing-pass record;
-3. `application/admissions.py` and `application/foundry/submission.py`;
-4. `application/repositories.py`, `application/idempotency.py`, and the service
-   principal/authentication path;
-5. `adapters/database/repositories.py`, `translation.py`, `unit_of_work.py`,
-   `tables.py`, and the HTTP composition/adapter;
-6. `migrations/versions/0005_submission_admission_fence.py`;
-7. `tools/submission_admission.py`;
-8. `docs/operations/foundry-snapshot-submission.md` and the B-1 review records;
-9. all submission-admission, submission, database, HTTP, runtime-grant,
-   migration, CLI, and recovery tests.
+Check `git status --short` before editing. The worktree contains a large,
+intentional, unstaged Phase 3 change set. Preserve every unrelated change. Do
+not commit, stage, reset, restore, or reformat unrelated files. Never read or
+print secrets or `.env` contents.
 
-Preserve unrelated working-tree and index changes. Do not touch production
-services, production or staging PostgreSQL, Caddy, Foundry, credentials, or
-real snapshot data. Use synthetic fixtures and only the declared disposable
-`freedom_test` database.
+## Independent review finding to remediate
 
-## Invariant and retained design
+The exact-integer fix is sound, but the worker lease entry does not implement
+the accepted N-23 policy.
 
-The invariant is:
+`application/web/config.py` currently defines:
 
-> After closure of admission generation N commits, no request presenting the
-> credential belonging to N can create or reuse an accepted snapshot, return a
-> successful receipt, or write an acceptance audit event. An acceptance made
-> durable before closure is a hit that closure orders behind; work ordered
-> after closure refuses. Only a newly issued credential with a new principal id
-> may use a later generation.
+```python
+"lease_seconds": PolicyBound(minimum=1, maximum=60, policy="N-23")
+```
 
-Retain these load-bearing decisions unless a real PostgreSQL counterexample
-demonstrates a durable violation:
+That treats 60 seconds as a ceiling and accepts every exact built-in integer
+from 1 through 60. The accepted source does not state “at most 60 seconds.” It
+states:
 
-- Admission is a durable generation, not an inference of quiescence.
-- A request uses the principal id from its own authenticated request; it never
-  inherits a current generation.
-- A principal id holds at most one admission for all time.
-- Admission moves only `open` to `closed`; there is no reopen.
-- Recovery uses a new credential, principal id, and admission.
-- Acceptance records `idempotency_keys.admission_id` through its foreign key.
-- Closure uses the exclusive advisory lock and explicit `FOR UPDATE`.
-- Submission transactions use the shared advisory lock and the explicit
-  `READ COMMITTED` contract.
-- A closed generation cannot replay a successful receipt.
-- Deployment is fail-closed until an admission is deliberately opened.
-- Settlement requires no process, proxy, or site-wide downtime.
+```text
+N-23 | Job lease | 60 seconds, heartbeat at most every 20 seconds
+```
 
-Do not add process inspection, socket checks, watermarks, queue/drain readings,
-`pg_stat_activity`, or `pg_locks` observations as settlement conditions.
+The distinction in that sentence is deliberate: the lease is 60 seconds; the
+heartbeat interval has a maximum of 20 seconds. The accepted state machine and
+logical schema likewise renew a lease with `now() + 60 seconds`, and the
+operational/recovery bounds calculate from a 60-second lease.
 
-## Blocking finding — uniqueness-conflict replay bypasses the fence
+Therefore `lease_seconds=1, heartbeat_seconds=20` is not evidence that an
+ordering rule is missing. It exists only because the implementation incorrectly
+broadened N-23. A one-second lease would contradict the accepted state machine
+and recovery calculations and would make ordinary heartbeat scheduling lose a
+live claim.
 
-The ordinary replay path inside `_store_and_record()` is fenced: it takes the
-shared advisory lock, resolves the authenticated principal's admission,
-requires it to be open, and requires the stored receipt's `admission_id` to
-match.
+## Required outcome
 
-The uniqueness-conflict recovery path is not. When `_store_and_record()` loses
-an `idempotency_key.scope_key` race, `_persist()` calls `_replay_stored()`.
-That method opens a fresh transaction, reads the winning receipt, rolls back,
-and returns it without:
+Make `WorkerSettings.lease_seconds` accept exactly the built-in integer `60`.
+The authoritative runtime entry should be equivalent to:
 
-- taking the admission advisory lock;
-- resolving or checking the authenticated principal's admission;
-- requiring the generation to remain open; or
-- checking that the receipt was earned under that admission.
+```python
+"lease_seconds": PolicyBound(minimum=60, maximum=60, policy="N-23")
+```
 
-The counterexample is:
+Keep `heartbeat_seconds` as an exact built-in integer in the currently accepted
+range 1 through 20. Do not invent a new heartbeat/lease relationship: once the
+lease is exactly 60, every accepted heartbeat is already shorter than it. Do
+not add an N-45 relationship without a separately accepted policy decision.
 
-1. Two requests authenticated as principal P enter with the same request key
-   and bytes while P's generation N is open.
-2. The winner commits the accepted receipt under N.
-3. The loser receives the uniqueness conflict and its original transaction
-   rolls back, releasing the shared admission lock.
-4. Settlement closes N and commits.
-5. The loser enters `_replay_stored()` and returns the winner's successful
-   receipt after closure.
+This is a correction to the implementation and its inaccurate descriptions,
+not a new baseline decision. Do not change N-23, the state machine, the logical
+schema, worker behavior, database migrations, routes, services, environment
+variable names, defaults outside the single authority, or deployment topology.
+P3.2 and P3.3 remain unstarted.
 
-No post-closure database write is needed for this to violate the invariant:
-returning or reusing the successful receipt is expressly forbidden.
+## Implementation requirements
 
-### Required remediation
+1. Correct the single runtime N-23 lease definition in
+   `application/web/config.py`.
+2. Preserve the existing exact-type rule: only `type(value) is int` is valid.
+   `bool`, floats, and all `int` subclasses must remain refused.
+3. Preserve the one-authority design. Do not restate 60 in a second validator,
+   constructor branch, environment reader, consumer, or test helper.
+4. Preserve aggregate startup validation. An invalid
+   `WORKER_LEASE_SECONDS` must contribute a redacted `ConfigurationProblem`,
+   fall back only for continued validation, and ultimately produce the one
+   aggregate `ConfigurationError`; it must not leak the supplied environment
+   value or escape as `ValueError`.
+5. Preserve `canonical_settings` behavior and the base-type holding seams.
+6. Do not implement worker execution merely to test this setting. The runtime
+   consumers remain P3.3 scope.
 
-Refactor successful receipt replay so there is one intention-revealing,
-principal-bound operation used by both:
+## Required test corrections and additions
 
-- an ordinary same-key retry; and
-- recovery after an `idempotency_key.scope_key` uniqueness race.
+Use behavior tests, not source-text, annotation, or signature-only assertions.
+Parameterize from `WORKER_BOUNDS` wherever doing so avoids a second numeric
+authority.
 
-That operation must, within one transaction:
+At minimum prove all of the following:
 
-1. take the shared side of the admission fence before reading a receipt;
-2. resolve the admission belonging to the authenticated request's principal id;
-3. require that admission to remain open;
-4. require the stored idempotency record's `admission_id` to equal that
-   admission's id;
-5. validate the request digest exactly as `_replay()` does today; and
-6. return the stored receipt only while the fence still orders the transaction
-   before any closure.
+- direct `WorkerSettings(...)` construction accepts exactly 60;
+- direct construction refuses 59, 61, 0, negative integers, `True`, `False`,
+  integral and fractional floats, non-finite floats, and a comparison-overriding
+  `int` subclass;
+- `dataclasses.replace(valid_worker, lease_seconds=59)` and the corresponding
+  61/subclass cases refuse at construction;
+- the environment reader accepts an unset lease as the register-derived exact
+  value and accepts the explicit string `"60"`;
+- environment strings `"59"` and `"61"` are both refused with N-23/S-10’s
+  exact-value semantics, the variable name is present, and the supplied value
+  is absent from the rendered error;
+- invalid lease configuration still aggregates with invalid fields from other
+  settings types into one `ConfigurationError`;
+- a `WorkerSettings` subclass whose later field read lies is refused by
+  `canonical_settings`, and a valid object is rebuilt as the exact base type;
+- accepted heartbeat boundaries remain 1 and 20, with 0 and 21 refused;
+- the previously documented counterexample
+  `lease_seconds=1, heartbeat_seconds=20` now halts at `WorkerSettings`
+  construction because the lease is invalid.
 
-Pass the authenticated `ServicePrincipal` (or its validated stable identity)
-through uniqueness recovery; do not recover authorization from the stored
-record, from a globally current generation, or from caller-controlled data.
+If existing generic boundary tests derive `minimum` and `maximum` from
+`WORKER_BOUNDS`, ensure they exercise exact-bound behavior for the corrected
+entry rather than accidentally treating a minimum equal to a maximum as two
+different cases. Keep assertions meaningful and non-vacuous.
 
-Prefer consolidation over duplicated checks. Mechanically enumerate every
-place in production code that can return a `SubmissionReceipt`, including
-direct returns and helpers, and demonstrate that no path can return a stored
-successful receipt without crossing the same principal-bound fenced boundary.
-Keep new repository interfaces cohesive and usable by both real and fake unit
-of work implementations.
+Perform a falsification check without leaving the worktree modified: temporarily
+restore only the old `minimum=1, maximum=60` behavior in memory or through the
+existing non-persistent falsification mechanism, show that the new N-23 cases
+fail, then prove the repository status is identical before and after. Do not
+call this mutation testing unless an actual configured mutation tool is used.
 
-Preserve the existing semantics for:
+## Documentation corrections
 
-- same key and same bytes while the earning generation is open: return the
-  original receipt;
-- same key and different bytes: typed conflict;
-- a key earned by another admission: refuse;
-- no admission or a closed admission: `admission_closed` refusal;
-- an unreadable or missing race winner: fail closed without inventing success;
-- atomic audit/refusal behavior and safe messages.
+Find every statement introduced by the current remediation that says or implies
+any of the following and correct it:
 
-### Required regression evidence
+- N-23 lease is `1…60`;
+- every worker number is a ceiling with a floor of one;
+- `lease_seconds=1, heartbeat_seconds=20` is inside the accepted register;
+- an additional heartbeat-less-than-lease decision is required;
+- the N-23 ordering question blocks P3.3.
 
-First add a real PostgreSQL regression test that reproduces the exact five-step
-interleaving above. Use `threading.Event` rendezvous and database lock/state
-conditions where necessary; do not use timing sleeps as proof. Include a
-control showing that without closure the loser returns the original receipt.
+At minimum inspect and update, where applicable:
 
-The decisive test must establish after closure:
+- `application/web/config.py` comments/docstrings;
+- `docs/review/phase-3-p3-1-settings-construction-validation-remediation-submission.md`;
+- `docs/contracts/phase-3-numeric-policy-register.md` remediation commentary;
+- `docs/contracts/phase-3-configuration-and-dependency-contract.md` remediation commentary;
+- `docs/contracts/phase-3-test-traceability.md`;
+- `docs/project-management/raid-register.md`;
+- `docs/project-management/status.md`;
+- `docs/project-management/change-log.md`.
 
-- the losing request raises typed `admission_closed`, not success;
-- no second snapshot, receipt, or acceptance event was written;
-- the winner's pre-closure durable acceptance remains intact; and
-- closure is durable and no old-principal request can replay it.
+Do not rewrite the accepted N-23 row to match the buggy code. The accepted row,
+state machine, schema, and operational calculations are the authority and
+should remain 60 seconds. Preserve append-only management history: add a dated
+correction/amendment where those documents require append-only updates rather
+than silently rewriting historical claims. It is acceptable—and useful—to say
+that the independent review found the earlier `1…60` interpretation wrong.
 
-Also add focused fake/application tests for both callers of the consolidated
-replay operation and a path-enumeration or behavioral test that will fail if a
-future conflict-recovery branch bypasses admission checking.
+The remaining honest gaps should still be reported accurately:
 
-Run and revert a targeted mutation that restores the old unfenced
-`_replay_stored()` behavior; name the regression test that kills it.
+- worker lease/heartbeat/attempt consumers are P3.3’s;
+- no new relationship involving N-45 has been accepted;
+- `WEB_WEBAUTHN_USER_VERIFICATION` and
+  `WEB_RECOVERY_GRANT_MINUTES` still have no runtime consumer as previously
+  documented;
+- N-09/N-10 have no P3.1 route consumer and N-21/N-22 have none;
+- P3.G1 and RAID I-09/I-10 remain open pending the required independent,
+  security-focused, availability-focused reviews and maintainer acceptance.
 
-## Important finding — an absent SQLSTATE does not prove no commit
-
-`tools/submission_admission.py` currently classifies every `DBAPIError` without
-a SQLSTATE as an inability to connect and says, for `close`, that no generation
-was closed and the fence is unchanged. That conclusion is not generally sound.
-A connection can be lost while PostgreSQL is processing or acknowledging
-`COMMIT`; the server may have committed even though the client receives a
-driver error without a server SQLSTATE. Client observation alone cannot
-distinguish those outcomes.
-
-This is an operational outcome-ambiguity problem, not a defect in the durable
-admission model. Do not claim rollback merely because the context manager
-raised.
-
-### Required remediation
-
-Make the CLI distinguish at least:
-
-- a connection failure established before the operation/transaction could
-  begin, where it is sound to say nothing was written; and
-- a lost connection or other failure after the operation may have begun,
-  especially during commit, where the result is **Outcome unknown / Unsettled**.
-
-For an ambiguous `open` or `close` outcome:
-
-- use a distinct documented nonzero exit code or an equally unambiguous
-  documented classification;
-- never claim the fence is unchanged or the transition did not commit;
-- instruct the operator to reconnect and run `show` (and consult the correlated
-  audit record where appropriate) before retrying or authorizing a fresh export;
-- explain that `close` is idempotent after verification, while an ambiguous
-  `open` must be verified before attempting another principal/generation; and
-- emit no traceback, URL, credential, parameters, or SQL for this expected
-  operational condition.
-
-Do not infer transaction phase from SQLSTATE alone. Track whether the command
-entered its database operation/transaction if that is sufficient, and examine
-SQLAlchemy/psycopg behavior carefully. If exact pre-BEGIN versus post-BEGIN
-classification cannot be made reliably through the existing abstraction,
-choose the conservative ambiguous outcome. False uncertainty is safer than a
-false assertion that settlement did not occur.
-
-Keep programmer defects visible; do not add `except Exception`.
-
-### Required regression evidence
-
-Add deterministic tests for failures injected:
-
-- before connection/transaction establishment;
-- during an operation before commit;
-- at commit acknowledgement, representing a connection loss after the server
-  may have committed; and
-- after a genuinely committed close, with verification showing the generation
-  closed and its correlation/audit evidence intact.
-
-At minimum, the commit-ambiguity test must prove the CLI returns nonzero,
-prints **Unsettled/outcome unknown**, directs verification, leaks no sensitive
-detail, and makes no “nothing was closed” or “fence unchanged” claim.
-
-Where a realistic commit-acknowledgement fault cannot be injected through the
-real driver deterministically, use a narrow test double at the transaction
-boundary and state exactly what it models. Do not present a mock as proof of
-PostgreSQL internals.
-
-Run and revert a mutation restoring `sqlstate is None => definitely nothing
-committed`; name the regression test that kills it.
-
-## Scope and quality constraints
-
-- Fix both findings before requesting re-review.
-- Do not weaken admission uniqueness, monotonicity, FK constraints, locks,
-  isolation pinning, runtime grants, authentication, or audit policy.
-- Do not edit migration 0005 unless the remediation genuinely changes its
-  schema contract. Explain any migration edit precisely and rehearse it.
-- Do not create another large historical rewrite. Update the runbook, change
-  log, status, and review record only where required to state the corrected
-  behavior and evidence accurately.
-- Do not claim C-24, B-1, or the Phase 2 gate approved or closed. Tests are
-  evidence, not acceptance authority.
-- If investigation reveals a new durable counterexample, write the shortest
-  failing PostgreSQL regression first and report it. Repair within the durable
-  admission model if possible; do not silently expand into another settlement
-  redesign.
+Do not describe the two deliverables, I-10, P3.1, P3.G1, or any review gate as
+accepted or closed merely because tests pass.
 
 ## Verification
 
-Run narrow tests first, then all available checks:
+Run narrow tests first, then the full available portal and bot suites using the
+project’s documented interpreters and disposable PostgreSQL configuration. Also
+run:
 
-```bash
-./venv/bin/pytest -q <focused admission, submission, CLI, and database tests>
-./venv/bin/pytest -q
-TEST_DATABASE_URL=postgresql+psycopg:///freedom_test ./venv/bin/pytest -q
-(cd foundry-module && npm test)
-git diff --check
-./venv/bin/python -m compileall -q adapters application domain tools tests migrations
-./venv/bin/alembic check
-```
+- `compileall` under both supported interpreters;
+- the Alembic head/check command used by this repository;
+- `git diff --check`;
+- the established 14-case visual-freeze check if the current package handoff
+  claims it;
+- any configured formatter, linter, or type checker—or explicitly report, with
+  inspection evidence, that none is configured.
 
-If migration 0005 changes, rehearse `upgrade 0005 -> downgrade 0004 -> upgrade
-head` against only `freedom_test`. Run configured formatter, linter, and type
-checker, or state accurately that none is configured. Do not count skipped
-PostgreSQL tests as evidence and do not claim commands that were not run.
+Do not claim zero skips unless the actual reported test output says zero skips.
+Do not claim a PostgreSQL case passed if it skipped because
+`TEST_DATABASE_URL` was absent. Record exact commands, pass/fail/skip counts,
+and any check that could not run.
 
-Review the final diff for secrets, real player/Actor data, unrelated edits,
-unsafe error output, and any successful-receipt path outside the consolidated
-fence.
+Review the final diff for secrets, generated files, unrelated edits, policy
+restatements, and accidental changes to accepted contracts. Confirm
+`git status --short` after verification and leave all changes unstaged and
+uncommitted.
 
-## Required handoff
+## Final handoff format
 
-Return a concise, evidence-based handoff containing:
+Lead with the corrected result, then report:
 
-1. root cause and remediation for each finding;
-2. the consolidated successful-replay boundary and the complete enumeration of
-   production `SubmissionReceipt` return paths;
-3. the exact PostgreSQL race ordering and observed outcome;
-4. the commit-ambiguity model and operator-facing outcomes/exit codes;
-5. files, interfaces, documentation, and migration changes;
-6. named regression tests and mutations performed and reverted;
-7. exact commands with pass/skip counts;
-8. deployment, operational, and rollback implications;
-9. limitations and anything not run or not proven; and
-10. an explicit statement that the work carries no independent approval and
-    does not close C-24, B-1, or the Phase 2 gate.
+1. root cause and why N-23 already resolves the apparent ordering problem;
+2. exact files changed;
+3. tests added or corrected and why they discriminate against the old model;
+4. exact verification commands and results, including skips;
+5. falsification results and proof the worktree was restored;
+6. documentation/history corrections;
+7. security and availability implications;
+8. unchanged configuration/deployment/migration/rollback facts;
+9. remaining honest gaps and review focus;
+10. explicit statement that changes are unstaged/uncommitted and that P3.G1,
+    RAID I-09/I-10, and maintainer acceptance remain open.
 
-Stop after the handoff and wait for independent re-review.
+Stop and ask the maintainer rather than inventing policy if you discover a real
+conflict among accepted documents. The issue described above is not such a
+conflict: the accepted documents consistently use a 60-second lease.

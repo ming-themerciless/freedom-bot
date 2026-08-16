@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from tests.conftest import run_alembic
+from tests.conftest import account_for, link_platform_account, run_alembic
 
 pytestmark = pytest.mark.database
 
@@ -28,10 +28,18 @@ MIGRATED_TABLES = {
 
 
 def insert_user(connection, discord_id: int, username: str = "synthetic-user") -> int:
+    """A Discord user **and** the platform account stage A would have linked to it.
+
+    The two are inseparable from migration 0007 onward: `character_access` is
+    keyed by the account, and the stage C trigger refuses a row whose account has
+    no active Discord identity. Creating only the Discord fact would produce a
+    user no authorization row could name.
+    """
     connection.execute(
         text("INSERT INTO discord_users (id, username) VALUES (:id, :username)"),
         {"id": discord_id, "username": username},
     )
+    link_platform_account(connection, discord_id)
     return discord_id
 
 
@@ -60,13 +68,21 @@ def grant_access(connection, character_id, discord_user_id, **overrides) -> None
         "correlation": uuid4(),
     }
     values.update(overrides)
+    # The account is resolved from the Discord identity rather than passed in,
+    # exactly as the application does after the stage C cutover: a caller that
+    # could name an account directly could name one whose identity is somebody
+    # else's, which is the mistake control total T6 exists to catch.
+    values["platform_account_id"] = account_for(connection, values["discord_user_id"])
+    values["granted_by_account_id"] = account_for(connection, values["granted_by"])
     connection.execute(
         text(
             "INSERT INTO character_access (id, character_id, discord_user_id, "
-            "access_kind, active, default_character, granted_by_discord_user_id, "
+            "platform_account_id, access_kind, active, default_character, "
+            "granted_by_discord_user_id, granted_by_account_id, "
             "granted_at, revoked_at, expires_at, reason, audit_correlation_id) VALUES "
-            "(:id, :character_id, :discord_user_id, :access_kind, :active, "
-            ":default_character, :granted_by, :granted_at, :revoked_at, :expires_at, "
+            "(:id, :character_id, :discord_user_id, :platform_account_id, "
+            ":access_kind, :active, :default_character, :granted_by, "
+            ":granted_by_account_id, :granted_at, :revoked_at, :expires_at, "
             ":reason, :correlation)"
         ),
         values,

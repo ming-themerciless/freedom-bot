@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Something went wrong — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-20: one code, one UUID, nothing else (N-25). There is deliberately no
+    detail field to render — adding one is a security change, not a usability
+    improvement.
+  #}
+  <h1>Something went wrong</h1>
+  <p data-state="error" data-code="{{ view.message_code }}">
+    Quote reference {{ view.correlation.id }} if you contact an operator.
+  </p>
+{% endblock %}

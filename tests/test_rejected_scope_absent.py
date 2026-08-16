@@ -391,16 +391,48 @@ def test_the_public_import_graph_reaches_no_rejected_module():
     """
     import sys
 
+    #: Third-party packages that live only in the **web** virtualenv
+    #: (`./venv-web`). Under the bot's interpreter the portal's modules cannot be
+    #: imported at all, so they are skipped here and covered by the same test
+    #: when the suite runs under `./venv-web`, where every module below imports.
+    #:
+    #: The skip is bounded on purpose: a module that fails to import for any
+    #: *other* reason still fails this test, so an accidental breakage cannot
+    #: hide behind the exemption.
+    web_only = {
+        "fastapi",
+        "starlette",
+        "jinja2",
+        "httpx",
+        "webauthn",
+        "cryptography",
+        "itsdangerous",
+        "multipart",
+    }
+
+    skipped: list[str] = []
     for directory in ("application", "adapters", "domain"):
         for path in sorted((ROOT / directory).glob("**/*.py")):
             if "__pycache__" in path.parts:
                 continue
             name = ".".join(path.relative_to(ROOT).with_suffix("").parts)
             name = name.removesuffix(".__init__")
-            importlib.import_module(name)
+            try:
+                importlib.import_module(name)
+            except ModuleNotFoundError as missing:
+                root_package = (missing.name or "").split(".", 1)[0]
+                if root_package not in web_only:
+                    raise
+                skipped.append(name)
 
     for rejected in REMOVED_MODULES:
         assert rejected not in sys.modules
+
+    # Whatever was skipped was skipped for the one permitted reason, and is a
+    # portal module rather than anything else that happens to fail.
+    assert all(
+        name.startswith(("application.web", "adapters.web")) for name in skipped
+    ), skipped
 
 
 # -- the behavioural proof ------------------------------------------------------

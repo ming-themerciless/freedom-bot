@@ -10,6 +10,7 @@ change") and implementation plan §20.
 |---|---|
 | **Proposed** | Written, not yet accepted. Does **not** authorize implementation |
 | **Accepted** | Maintainer-approved. Implementation may proceed |
+| **Conditionally accepted** | Direction approved, but named remediation remains blocking. Does **not** authorize implementation |
 | **Superseded by NNNN** | Replaced; kept for history |
 | **Rejected** | Considered and declined; kept for history |
 
@@ -35,6 +36,7 @@ acceptance criteria is *"maintainer approves architecture ADRs"* (plan §12).
 | [0007](0007-field-ownership-and-conflict-policy.md) | Field ownership and conflict policy | **Accepted** |
 | [0008](0008-profile-driven-character-state.md) | Profile-driven storage for database-managed character state | **Rejected 2026-08-02** |
 | [0009](0009-snapshot-submission-http-boundary.md) | The snapshot submission HTTP boundary | **Accepted 2026-08-04** |
+| [0010](0010-provider-neutral-identity-and-emergency-administration.md) | Provider-neutral platform identity and Discord-independent emergency administration | **Accepted 2026-08-13 at P3.G0** after remediation and independent architecture/security re-review |
 
 ## Maintainer approval checklist (Phase 0 gate)
 
@@ -93,6 +95,18 @@ why it is a stdlib WSGI application rather than the FastAPI stack 0002 names for
 the Phase 3 web application. It **narrows the scope of 0002 for one endpoint
 without changing it**: FastAPI remains the recorded choice for the web
 application, and the WSGI application mounts inside it unchanged.
+
+**Addition, 2026-08-13. 0010 was proposed as part of the Phase 3 P3.0 package and
+is not accepted.** It extends 0004 and supersedes none of it: OAuth2 with PKCE,
+the two scopes, rejection of non-members at callback, capabilities from role
+snowflakes, non-proof cached roles, `character_access` separate from role, opaque
+server-side sessions and synchronizer CSRF all carry forward verbatim. What 0010
+decides is what a session, an access grant and an audit attribution **point at** —
+a stable internal platform account rather than a Discord snowflake — and how
+emergency administration works without Discord. It answers 0004's open question
+about break-glass administration, which OD-24 answered for policy and 0010 answers
+for mechanism. Acceptance is Peter Duscha's decision at stop gate P3.G0, after
+Codex's independent architecture/security review.
 
 Two limits on that acceptance are worth restating, because an accepted ADR is
 easy to read as more than it is:

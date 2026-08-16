@@ -54,6 +54,39 @@ from adapters.database.safety import (
 from adapters.database import tables  # noqa: F401 - registers tables on metadata
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: The portal's tests need FastAPI, Jinja2, httpx and py_webauthn, which live in
+#: the **web** virtualenv (`./venv-web`) rather than the bot's. The bot's
+#: virtualenv is a live production environment and this package does not add a
+#: web framework to it; the portal suite is run separately:
+#:
+#:     ./venv-web/bin/python -m pytest tests/web
+#:
+#: Collecting `tests/web` under an interpreter that cannot import FastAPI would
+#: be an error rather than a result, so it is ignored there — and the P3.1
+#: submission reports both commands, because a suite that is silently not run is
+#: a suite nobody has evidence for.
+try:  # pragma: no cover - import probe, not behaviour
+    import fastapi  # noqa: F401
+
+    _WEB_DEPENDENCIES_PRESENT = True
+except ModuleNotFoundError:  # pragma: no cover
+    _WEB_DEPENDENCIES_PRESENT = False
+
+_WEB_TESTS = Path(__file__).resolve().parent / "web"
+
+
+def pytest_ignore_collect(collection_path, config):  # noqa: ARG001 - pytest hook
+    """Skip the portal suite's whole directory when FastAPI is not importable.
+
+    A hook rather than `collect_ignore_glob`, because the directory's own
+    `conftest.py` imports FastAPI and is loaded when pytest *descends into* the
+    directory — before a per-file ignore list is consulted. Refusing to descend
+    is what actually prevents the import.
+    """
+    if _WEB_DEPENDENCIES_PRESENT:
+        return False
+    return collection_path == _WEB_TESTS or _WEB_TESTS in collection_path.parents
 TEST_ENVIRONMENT = "test"
 TEST_URL_VARIABLE = "TEST_DATABASE_URL"
 EXPECTED_TEST_DATABASE = EXPECTED_DATABASES[TEST_ENVIRONMENT]
@@ -61,6 +94,29 @@ EXPECTED_TEST_DATABASE = EXPECTED_DATABASES[TEST_ENVIRONMENT]
 #: Passed to Alembic unchanged, minus anything that could redirect the child to
 #: a target the parent did not validate.
 UNSAFE_CHILD_VARIABLES = ("PGSERVICE", "PGSERVICEFILE", "PGOPTIONS")
+
+#: Migration 0006 inserts the protected administrator role-capability mapping and
+#: requires the guild and role snowflakes. It has no defaults, deliberately: a
+#: default would be a production identifier compiled into source, and skipping
+#: the insert would leave the schema with no anchor for administrator capability.
+#:
+#: These are **synthetic** snowflakes for the disposable database, set here so
+#: the suite does not require the operator's environment to carry web
+#: configuration. They are far outside the range Discord has issued and are not
+#: the production guild — which `WebSettings` refuses outside production anyway
+#: (S-07).
+BOOTSTRAP_TEST_IDENTIFIERS = {
+    "WEB_DISCORD_GUILD_ID": "900000000000000001",
+    "WEB_BOOTSTRAP_ADMIN_ROLE_ID": "900000000000000002",
+}
+
+# Set on the pytest process itself, not only on the Alembic subprocesses:
+# `tests/test_migration_safety.py` drives Alembic **in process** through
+# `alembic.command`, and a revision that refused there would leave the disposable
+# database at `base` for every test that followed it. `setdefault`, so an
+# operator running the suite with their own values keeps them.
+for _name, _value in BOOTSTRAP_TEST_IDENTIFIERS.items():
+    os.environ.setdefault(_name, _value)
 
 
 def resolve_test_database_url() -> str:
@@ -107,6 +163,8 @@ def run_alembic(url: str, *arguments: str) -> subprocess.CompletedProcess[str]:
     }
     environment["DATABASE_URL"] = url
     environment["APP_ENVIRONMENT"] = TEST_ENVIRONMENT
+    for name, value in BOOTSTRAP_TEST_IDENTIFIERS.items():
+        environment.setdefault(name, value)
     return subprocess.run(
         [sys.executable, "-m", "alembic", *arguments],
         cwd=ROOT,
@@ -163,6 +221,77 @@ def committed_database(migrated_database: Engine) -> Engine:
     table_list = ", ".join(sorted(metadata.tables))
     with migrated_database.begin() as connection:
         connection.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
+
+
+def link_platform_account(connection, discord_user_id: int) -> UUID:
+    """Create the account and Discord identity stage A's backfill would create.
+
+    From migration 0007 onward `character_access` is keyed by
+    `platform_account_id`, and from 0008 a trigger refuses any row whose account
+    has no **active** Discord identity — the guard that keeps every
+    authorization-bearing row expressible both ways until stage D. A test that
+    inserts a Discord user and then grants access therefore has to do what the
+    migration does, and doing it here once is what keeps every such test honest
+    about the real shape of the table rather than about a convenient one.
+
+    Idempotent, like the backfill it mirrors: called twice for the same Discord
+    user it returns the existing account.
+    """
+    existing = connection.execute(
+        text(
+            "SELECT platform_account_id FROM external_identities "
+            "WHERE provider_key = 'discord' AND subject = :subject"
+        ),
+        {"subject": str(discord_user_id)},
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing
+
+    account_id = uuid4()
+    connection.execute(
+        text(
+            "INSERT INTO platform_accounts (id, status, is_protected_admin) "
+            "VALUES (:id, 'active', false)"
+        ),
+        {"id": account_id},
+    )
+    connection.execute(
+        text(
+            "INSERT INTO external_identities (id, platform_account_id, provider_key, "
+            "subject, state, audit_correlation_id) "
+            "VALUES (:id, :account, 'discord', :subject, 'active', :correlation)"
+        ),
+        {
+            "id": uuid4(),
+            "account": account_id,
+            "subject": str(discord_user_id),
+            "correlation": uuid4(),
+        },
+    )
+    return account_id
+
+
+def account_for(connection, discord_user_id: int) -> UUID:
+    """The platform account linked to `discord_user_id`, or fail loudly.
+
+    Deliberately not "create it if missing": a test that reaches here without an
+    identity is asserting something about a row the migration could not have
+    produced, and silently inventing one would hide that.
+    """
+    account_id = connection.execute(
+        text(
+            "SELECT platform_account_id FROM external_identities "
+            "WHERE provider_key = 'discord' AND subject = :subject AND state = 'active'"
+        ),
+        {"subject": str(discord_user_id)},
+    ).scalar_one_or_none()
+    if account_id is None:
+        raise AssertionError(
+            f"Discord user {discord_user_id} has no linked platform account. Call "
+            "`link_platform_account` first: from migration 0007 the account is the "
+            "authorization-bearing key."
+        )
+    return account_id
 
 
 def open_admission(

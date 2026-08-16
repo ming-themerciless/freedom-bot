@@ -1,0 +1,15 @@
+# Freedom Blades web portal (Phase 3) — test dependency set.
+#
+# `docs/contracts/phase-3-configuration-and-dependency-contract.md` §1.3.
+# `starlette.testclient` is deliberately not used: it would pull `requests` back
+# in for tests only, and `httpx.ASGITransport` drives the application in-process
+# without a socket.
+
+-r requirements-web.txt
+
+pytest>=8.2,<9
+# Async application-service and adapter tests.
+pytest-asyncio>=0.24,<0.25
+# Asserting rendered HTML structure — and the absence of controls — without
+# regular expressions over markup.
+beautifulsoup4>=4.12,<5

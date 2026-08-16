@@ -180,6 +180,17 @@ Deliver:
 
 **Stop gate P3.G1:** authentication/authorization and schema/security review.
 No member or Council production query package proceeds on a blocking finding.
+Per the 2026-08-14 I-08 ruling, this gate requires TC-BG-05a, TC-BG-05d and the
+service/database portions of TC-BG-05b/c/e. It does not accept the corresponding
+P3.2 HTTP boundary.
+
+Per the 2026-08-14 I-07 ruling, this gate also requires the OD-44 durable
+completion binding and its evidence, TC-AUTH-13 and TC-AUTH-14. Both were
+delivered on 2026-08-14 in
+[`phase-3-p3-1-od-44-remediation-submission.md`](phase-3-p3-1-od-44-remediation-submission.md)
+and await the Codex independent implementation re-review and the distinct
+security-focused pass that this gate turns on. The migration deliverable for this
+package is therefore revisions **0006–0009**.
 
 ### P3.2 — member reads, identity reconciliation and access administration
 
@@ -216,7 +227,9 @@ whose typed database package is already authoritative. Legacy fields render
 `migration deferred` and their owning package.
 
 **Stop gate P3.G2:** read-path, identity migration and Council-link/role-mapping
-authorization review. Accepted contracts are frozen for P3.4 integration.
+authorization review. The direct-HTTP portions of TC-BG-05b/c/e must pass here
+against the real R-33, R-34 and R-38 handlers; they are blocking evidence, not a
+waiver inherited from P3.G1. Accepted contracts are frozen for P3.4 integration.
 
 ### P3.3 — Council import, durable reconciliation jobs and audit views
 

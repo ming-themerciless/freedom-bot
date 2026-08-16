@@ -572,6 +572,7 @@ class SqlAlchemyAuditRepository:
             insert(audit_events).values(
                 id=event.id,
                 actor_discord_user_id=event.actor_discord_user_id,
+                actor_platform_account_id=event.actor_platform_account_id,
                 actor_capability=event.actor_capability.value,
                 action=event.action,
                 entity_type=event.entity_type,
