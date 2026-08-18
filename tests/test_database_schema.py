@@ -49,7 +49,29 @@ PHASE_3_TABLES = {
     "role_capability_mapping_events",
 }
 
-EXPECTED_TABLES = PHASE_1_TABLES | PHASE_2_TABLES | PHASE_3_TABLES
+#: Phase 3 P3.2 (migration 0010). The Sheet-era identity-evidence pipeline of
+#: migration contract M-2, and **the whole of the schema P3.2 adds** — everything
+#: else it needs was created and cut over by revisions 0006-0009.
+#:
+#: The accepted schema decision table names one of these three. The run carries
+#: §7.4's source-side control totals, which have nowhere to live on a proposal
+#: (a player with no character produces no proposal row); the candidate rows
+#: carry §7.6's durable ambiguity as typed child rows, because plan §7.3.1
+#: prohibits the delimited, JSON and array alternatives. Both additions are
+#: recorded in the P3.2 submission.
+#:
+#: None of them is authorization-bearing. A `character_access` row is still the
+#: only thing that confers reach over a character, and a proposal can name one
+#: only when it is `confirmed` — a check constraint, not a convention.
+PHASE_3_P3_2_TABLES = {
+    "identity_migration_runs",
+    "identity_link_proposals",
+    "identity_link_proposal_candidates",
+}
+
+EXPECTED_TABLES = (
+    PHASE_1_TABLES | PHASE_2_TABLES | PHASE_3_TABLES | PHASE_3_P3_2_TABLES
+)
 
 #: Tables the Acceptance Authority rejected with ADR 0008 on 2026-08-02. Named
 #: rather than merely absent, so that reintroducing one fails a test that says

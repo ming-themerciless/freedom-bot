@@ -9,6 +9,17 @@ symmetrically; its downgrade restores the legacy constraint `NOT VALID` and name
 what a downgrade costs; control totals T7 and T8 are added; and §8 gains the
 break-glass attribution property the design has to deliver.
 
+**Amended 2026-08-17 by change-log entry C-P3.2-A (Peter Duscha, Acceptance
+Authority).** §7.2 previously described a three-step M-2 pipeline whose third
+step, `C-05 --apply`, materialized confirmed proposals into `character_access`.
+That contradicted §7.5 of this document, §5.1 of the route-authorization contract
+and TC-MIG-09/TC-MIG-11/TC-MIG-13 of the test traceability, all of which place the
+write at the Council confirmation. The maintainer resolved the contradiction in
+favour of **immediate activation**: a Guild Council confirmation at R-29 creates
+the `character_access` row atomically with its audit events, and there is no
+later materialization step. C-05 is withdrawn from this contract and from the
+command register. §7.2, §7.3, §7.4 and §7.5 below are the corrected text.
+
 **No migration is written in P3.0.** This is the design the P3.1 and P3.2
 revisions will be reviewed against. Package: P3.0 · Owner: Claude · Implemented
 by P3.1 (stages A–C, §3) and P3.2 (the Sheet-era evidence migration, §7).
@@ -248,19 +259,39 @@ capability (OD-18, migration register). Display names are not identities (OD-42)
 
 ### 7.2 The pipeline
 
+Two steps, and the second is the one that authorizes.
+
 ```text
-C-04 --dry-run                     Council (R-28/R-29/R-30)          C-05 --apply
-──────────────────                 ────────────────────────          ─────────────
-read-only Sheet boundary   ──▶     one proposal at a time    ──▶     confirmed only
-writes identity_link_proposals     confirm / reject with reason      writes character_access
-writes NO character_access         nothing auto-confirms             through the same service
-                                                                     R-25 uses
+C-04 --dry-run                          Council (R-28/R-29/R-30)
+──────────────────                      ────────────────────────
+read-only Sheet boundary          ──▶   review one proposal at a time
+writes identity_link_proposals          confirm: creates the character_access row
+writes NO character_access               and both audit events in one transaction,
+nothing is resolved by row order         through the same service R-25 uses
+                                        reject: decision + audit, and no link
+                                        nothing auto-confirms, nothing in bulk
 ```
 
 Nothing in this pipeline can create an authorization row without a named Council
-member having confirmed that specific proposal. The dry run and the apply share
-one deterministic resolver, so the apply cannot resolve differently from what was
-shown.
+member having confirmed that specific proposal, under a **live** server-side
+resolution of that member's Council capability taken on the confirming request.
+C-04 resolves; the confirmation does not resolve again — it links to the subject
+C-04 recorded and R-28 displayed, and refuses if that subject is absent.
+
+**There is no deferred apply step.** A confirmation is the activation: the
+proposal's `confirmed` transition, the `character_access` row, the character's
+optimistic version bump, the `character_access.granted` audit event and the
+`identity_migration.confirmed` audit event commit together or not at all. A
+confirmed proposal therefore never denotes an instruction someone still has to
+carry out, and R-28 never has to distinguish "decided" from "materialized",
+because they are the same moment.
+
+Google Sheets is **legacy migration input** to C-04 and nothing else: not an
+operational data store, not a portal dependency, and not a participant in the
+Council decision. C-04 is a temporary operator utility, run from a separate
+environment that carries the read-only Google client libraries and credentials
+(§7.7); the portal runtime and the normal PostgreSQL-backed operation of the
+platform require neither.
 
 ### 7.3 Resolution rules
 
@@ -279,6 +310,43 @@ Actors. Comparison uses the existing shared policy in `domain/names.py` rather
 than a second implementation — a second copy of a name-comparison rule is a
 second place for it to be wrong.
 
+#### 7.3.1 The join key must be unique, and the run refuses when it is not
+
+*Added 2026-08-17 by C-P3.2-A, in response to an independent-review defect.*
+
+The table above resolves a character through its *Player Name*. That join is only
+meaningful if the player tab names each player once. Two rows whose player names
+are equal under the same NFC-normalized, case-folded comparison the resolver uses
+— `Ada` and `ADA` — are **two claims to one key**, and if they carry different
+Discord names the platform cannot tell which person a character's *Player Name*
+refers to. Choosing between them by Sheet order is not a tie-break, it is a name
+deciding an identity by an accident of layout, which is exactly what OD-42 and
+N-16 forbid.
+
+So the run **refuses**, before anything is written:
+
+| Situation | Outcome |
+|---|---|
+| Two or more player-tab rows share one normalized *Player Name* key | The whole C-04 run is refused. No run row, no proposal, no candidate and no `character_access` row is written, and no control total is reported — there is nothing partial to hide a duplicate in |
+
+The refusal names the number of colliding keys and the number of rows involved,
+and no name, cell or Discord identity: an operator's terminal is not the place for
+the personal data the player tab holds. The remedy is operational and belongs to
+the person who owns the spreadsheet — resolve the duplicate in the legacy Sheet,
+then re-run C-04. Nothing in this workflow writes to Google, so the platform does
+not resolve it for them.
+
+The alternative considered and rejected was to persist each affected character as
+non-confirmable evidence. It fails closed too, but it lets a source-integrity
+defect appear in the control totals as an ordinary ambiguity, and §7.4's balance
+would then be reported over a player set the run had silently decided was
+self-consistent. A refusal states the problem where it is.
+
+The uniqueness rule lives with the resolver rather than in the Sheets adapter,
+because it is the same normalization the resolution rules use, and §7.3 forbids a
+second implementation of *"are these the same name?"*. The adapter supplies rows
+and positions; it does not decide identity.
+
 **Nothing in this pipeline consults `Active DM`, and nothing derives capability
 from any Sheet value.** Capability comes from Discord role snowflakes resolved
 server-side (OD-18).
@@ -291,23 +359,56 @@ C-04 emits, and R-28 displays (VM-10), a reconciliation that must balance:
 source_characters        = rows in Characters with a non-blank column C
 source_players           = rows in the player tab
 already_linked           + proposed + ambiguous + unresolved  =  source_characters
-confirmed + rejected + outstanding                            =  proposed + ambiguous + unresolved
+confirmed + confirmed_revoked + rejected + outstanding        =  proposed + ambiguous + unresolved
 ```
 
 Every source row lands in exactly one bucket. An unbalanced report is a refusal to
 proceed, not a warning — the plan's success measure is *"no identity discrepancy
 is silently accepted"* (§0.5).
 
+`confirmed` counts proposals that are **active links**, because under §7.2 a
+confirmation is the activation. There is no fourth decision state between
+`confirmed` and an existing `character_access` row, and R-28 shows none.
+
+`confirmed_revoked` counts confirmations whose `character_access` row Council has
+since revoked through R-26 (*added 2026-08-17 by C-P3.2-C, in response to an
+independent-review defect*). §7.5 has always made that revocation supported and
+§7.4 has always defined `confirmed` as active links; what was missing was the
+bucket the revoked one moves into. Without it the second balance loses a proposal
+every time Council corrects a link, and the only balanced reading left is the
+false one the defect produced — counting a revoked grant as an active confirmed
+link and telling a Council member on R-28 that it *"is active now"*.
+
+The revoked confirmation is **counted, not re-decided**. Its `resolution` stays
+`confirmed`, it is never rewritten to `rejected`, never returned to `outstanding`,
+and it keeps its decider, its reason, its `granted_access_id` and both audit
+events: the compensating-action model of §7.5, applied to the report as well as to
+the row. Activation is determined from that exact `granted_access_id` joined to
+`character_access.active`, and never inferred from another active link on the same
+character or account.
+
 ### 7.5 Idempotency, atomicity, reversibility
 
 - **Idempotent.** A second dry run over unchanged sources produces the same
-  proposal set, keyed `(run_id, character_id)`; confirming an already-confirmed
-  proposal is a no-op returning the original result.
-- **Atomic.** One confirmation writes one `character_access` row and one audit
-  event in one transaction (plan §6.5, *atomic apply*). An audit failure rolls the
-  grant back.
+  proposal set, keyed `(run_id, character_id)`; a character that an earlier run's
+  confirmation has already linked is counted `already_linked` by the next run and
+  proposed again to nobody. Confirming a proposal twice is refused, not applied
+  twice: the decision transition is a conditional update, so a double submission
+  and two concurrent Council confirmations produce **one** durable authorization
+  and **one** of each audit effect, and the loser is told the state moved. A newer
+  C-04 run also supersedes every older run for decisions: older evidence remains
+  durable and readable, but R-29/R-30 refuse it. The decision update independently
+  requires the proposal to belong to the latest run, so a newer run committed
+  during a confirmation rolls the entire grant back.
+- **Atomic.** One confirmation writes one `character_access` row and its audit
+  events in one transaction (plan §6.5, *atomic apply*). An audit failure, a
+  proposal-transition failure, a grant failure or a commit failure rolls the whole
+  confirmation back: no link, no decision, no version bump, no audit.
 - **Reversible.** A wrong link is revoked through R-26, leaving the historical row
-  and its reason — the compensating-action model, not deletion.
+  and its reason — the compensating-action model, not deletion. The proposal that
+  created it stays `confirmed` and R-28 reports the revocation rather than
+  concealing or undoing it: the confirmed row renders `confirmed-and-revoked` and
+  moves from `confirmed` to `confirmed_revoked` in §7.4's totals (C-P3.2-C).
 - **No Sheet mutation, ever.** C-04 uses the existing read-only Sheet boundary
   (`adapters/sheets/read_only.py`, and the separate read-only service account
   documented in `.env.example`). Rollback to the legacy linkage workflow requires
@@ -321,6 +422,43 @@ later run choosing differently. They appear in VM-10 with their evidence and the
 totals until a Council member acts on them. That is delivery plan §9.4's *"ambiguous
 or unverified links remain unresolved and grant no access"* made durable rather
 than transient.
+
+## 7.7 Google is temporary, and lives outside the platform runtime
+
+*Added 2026-08-17 by C-P3.2-A.*
+
+C-04 is a **migration/import utility with an end date**, not a component. The
+constraints on it are:
+
+1. **Read-only, and only the identity-evidence columns.** `Characters C` and
+   `Players A/B/D`, through `adapters/sheets/read_only.py`. No game-state column
+   is read (§9), and there is no write path in the reader, the adapter or the
+   command.
+2. **No Google dependency in the platform runtime.** `google-api-python-client`
+   and `google-auth` are **not** in `requirements-web.txt` or its lock file, and
+   the portal, the Discord bot and every PostgreSQL-backed runtime path start and
+   run without them. `read_only.py` imports them lazily and refuses with a typed
+   operator-facing message when they are absent.
+3. **A separate, temporary operator environment.** The operator runs C-04 from an
+   environment provisioned for the migration window with those two libraries and
+   the read-only service-account credential. It is not the portal virtualenv, it
+   is not deployed, and it is torn down at retirement.
+4. **Verify in PostgreSQL, then retire.** After a run, the imported evidence is
+   verified in the database (control totals, per-character resolutions, candidate
+   sets). The legacy Google access is retained only for the approved
+   verification/rollback window recorded with the gate, and is then retired:
+   credential revoked, service account removed, operator environment destroyed.
+   `.agents/AGENTS.md` already requires the Sheets credentials to be removed after
+   Sheets is retired; this is the P3.2 half of that.
+5. **The tab name is supplied, never assumed.** Peter Duscha confirmed on
+   2026-08-17 that the one-time migration source tab is **`Players`**
+   (`C-P3.2-B`), and the Sheet inventory §2.1 records it. C-04 still takes
+   `--player-tab` as a **required** argument, and `C-P3.2-B` rejected restoring a
+   code default: a default would turn one-time migration input into enduring
+   runtime configuration and remove the explicit wrong-tab guard, and a run that
+   silently reads whichever tab the default names is how one player's Discord name
+   is attributed to another character. The recorded name is operational input to
+   the invocation `--player-tab Players`, not portal configuration.
 
 ## 8. Historical audit readability after migration
 
@@ -366,7 +504,9 @@ A fourth property was added by remediation and belongs with them:
 | Exact source/target control totals | delivery plan §9.3; plan §0.5 | TC-MIG-02, TC-MIG-08 |
 | No name/email establishes equivalence | delivery plan §9.4; N-16; OD-42 | TC-ID-05, TC-MIG-09 |
 | Ambiguous stays unresolved and grants nothing | delivery plan §9.4 | TC-MIG-10 |
-| Council confirms every proposed link | delivery plan §5 P3.2 | TC-MIG-11 |
+| A duplicate player-name key refuses the whole run | §7.3.1; plan §0.5 | TC-MIG-17 |
+| Council confirms every proposed link, and the confirmation is the activation | delivery plan §5 P3.2; §7.2 | TC-MIG-11 |
+| Google stays out of the platform runtime | §7.7; C-P3.2-A | TC-MIG-18 |
 | Historical attribution survives retirement | delivery plan §9.5 | TC-AUD-05 |
 | Backup/restore rehearsal | plan §14.3; topology §6 | TC-MIG-07 |
 | Rollback boundary is explicit | P3.0 prompt §3 | §4 of this document; TC-MIG-12 |

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ view.display_name.value }} — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-06, R-21. Two absences are the contract here, and both are structural
+    rather than editorial:
+
+    - **No editable control, anywhere.** There is no form, no `POST` sibling and
+      no route that accepts one. That absence is the acceptance criterion "no
+      Phase 3 route or form mutates character game state", and TC-STRUCT-01 is
+      what keeps it true.
+    - **A deferred field cannot show a value.** `MigrationDeferred` carries a
+      field key and its owning package and has no value field at all, so this
+      template could not print one if it tried.
+  #}
+  <h1>{{ view.display_name.value }}</h1>
+  {% if view.long_name %}<p data-field="long_name">{{ view.long_name.value }}</p>{% endif %}
+  <p data-field="level">{% if view.level is none %}not recorded{% else %}{{ view.level }}{% endif %}</p>
+  <p data-field="active">{{ 'active' if view.active else 'inactive' }}</p>
+  <p data-field="viewer-access">{{ view.viewer_access_kind or 'council' }}</p>
+
+  <h2>Platform-authoritative fields</h2>
+  <ul data-section="snapshot-fields">
+    {% for field in view.snapshot_fields %}
+      <li data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}">
+        {{ field.label }}:
+        {% if field.value is none %}
+          <span data-unavailable="{{ field.unavailable_reason }}">not available</span>
+        {% else %}
+          {{ field.value.value }}
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Awaiting migration</h2>
+  <ul data-section="deferred-fields">
+    {% for field in view.deferred_fields %}
+      <li data-field-key="{{ field.field_key }}" data-owning-package="{{ field.owning_package }}">
+        {{ field.field_key }}: migration deferred (package {{ field.owning_package }})
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Who may reach this character</h2>
+  <ul data-section="access">
+    {% for fact in view.access %}
+      <li data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}">
+        {{ fact.account.label.value }} — granted {{ fact.granted_at.display }}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <p data-section="provenance" data-profile-version="{{ view.provenance.profile_version }}">
+    {% if view.provenance.snapshot %}
+      Snapshot {{ view.provenance.snapshot.checksum_short }} from {{ view.provenance.world_id }}
+    {% else %}
+      No Foundry snapshot is mapped to this character.
+    {% endif %}
+  </p>
+{% endblock %}

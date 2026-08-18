@@ -50,6 +50,20 @@ COUNCIL_USER = 4200000000000000001
 EXPECTED_ACTOR_COUNT = 500
 
 CHECKED_MUTATED_TABLES = (
+    # **Extended by P3.2** (migration 0010). The three identity-evidence tables come
+    # first because `TRUNCATE` here is deliberately *not* `CASCADE`: a cascade would
+    # silently empty whatever a later migration attached to these tables, which is
+    # the opposite of what a benchmark harness that verifies a clean baseline is for.
+    # `identity_link_proposals.granted_access_id` references `character_access`, so
+    # PostgreSQL refuses to truncate `character_access` unless the referencing table
+    # is truncated in the same statement — which is why they are listed rather than
+    # the statement being weakened. Without them the whole benchmark harness fails
+    # with `cannot truncate a table referenced in a foreign key constraint`, and the
+    # first failure leaves the advisory lock held, so the *second* case reports "another
+    # benchmark may be running" and hides the real cause.
+    "identity_link_proposal_candidates",
+    "identity_link_proposals",
+    "identity_migration_runs",
     "external_actor_mappings",
     "snapshot_imports",
     "foundry_snapshots",

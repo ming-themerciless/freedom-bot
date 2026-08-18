@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Identity migration — Council — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-10, R-28, and the two controls R-29/R-30 carry.
+
+    Three things on this page are evidence and confer nothing: the Sheet player
+    name, the Sheet Discord name and the Active DM flag. A username is not a
+    snowflake and usernames change; one Discord name is recorded per player
+    while several people may be authorized on one character; and `Active DM`
+    never grants capability (OD-18). The only identity here is the snowflake.
+
+    **A confirmation is the activation** (migration contract §7.2 as amended by
+    change-log entry C-P3.2-A, OD-46). Confirming a proposal creates that
+    character's access row immediately, in the same transaction as the decision
+    and its audit events. So this page has four decision states and not five:
+    outstanding evidence, ambiguous/unresolved evidence, a confirmed proposal,
+    and a rejected one. There is no "confirmed but not applied" row, no apply
+    outcome and no run apply status, because there is nothing between a
+    confirmation and the row it writes.
+
+    **A confirmed row also says whether its link is active now** (change-log
+    entry C-P3.2-C). Council may revoke a link through R-26 afterwards, and the
+    confirmation stays confirmed — the decision, its decider and its reason are
+    history and are not rewritten (§7.5). What changes is the access row, so this
+    page reads `character_access.active` for the **exact** row that confirmation
+    created and says `is active now` only when it is. Another active link on the
+    same character or the same account is a different row and cannot answer this
+    question.
+
+    Nothing is auto-confirmed, nothing is confirmed in bulk — there is no
+    bulk control on this page and adding one would remove the per-proposal
+    decision the contract requires — and an ambiguous or unresolved proposal
+    has no confirm control, because it has no snowflake to link to. The server
+    refuses it regardless of what the browser submits.
+
+    The confirm form states what it is about to do before doing it: the
+    character, the stable Discord identity, the access kind the confirmation
+    will create, and the required reason. It carries the character's optimistic
+    `version`, exactly as R-25's grant form does, because a confirmation now
+    changes the character and must not be applied on top of somebody else's
+    change. The reject form carries no version: a rejection changes no
+    character.
+
+    The totals are §7.4's control totals, shown to the person doing the
+    confirming rather than only in a report they may not read.
+  #}
+  <h1>Identity migration</h1>
+  {% if view.run %}
+    <p data-run-id="{{ view.run.run_id }}"
+       data-dry-run="{{ 'true' if view.run.dry_run else 'false' }}">
+      {{ view.run.source_snapshot }} — produced {{ view.run.produced_at.display }}
+    </p>
+    <p data-notice="confirmation-creates-the-link">
+      Confirming a proposal creates that character's access row immediately and
+      records the decision, the reason and both audit events in the same
+      transaction. Rejecting one creates nothing. A link created here is
+      administered on the character's links page like any other, and is revoked
+      there.
+    </p>
+  {% endif %}
+  <dl data-section="totals" data-balances="{{ 'true' if view.totals.balances() else 'false' }}">
+    <dt>source characters</dt><dd data-total="source_characters">{{ view.totals.source_characters }}</dd>
+    <dt>source players</dt><dd data-total="source_players">{{ view.totals.source_players }}</dd>
+    <dt>already linked</dt><dd data-total="already_linked">{{ view.totals.already_linked }}</dd>
+    <dt>proposed</dt><dd data-total="proposed">{{ view.totals.proposed }}</dd>
+    <dt>ambiguous</dt><dd data-total="ambiguous">{{ view.totals.ambiguous }}</dd>
+    <dt>unresolved</dt><dd data-total="unresolved">{{ view.totals.unresolved }}</dd>
+    <dt>confirmed (link active now)</dt><dd data-total="confirmed">{{ view.totals.confirmed }}</dd>
+    {#
+      Confirmations Council has since revoked through R-26. Counted beside
+      `confirmed` rather than inside it, so the number above is the number of
+      links that exist, and counted rather than dropped, so the second balance
+      still accounts for every proposal (§7.4, C-P3.2-C).
+    #}
+    <dt>confirmed (link revoked)</dt><dd data-total="confirmed_revoked">{{ view.totals.confirmed_revoked }}</dd>
+    <dt>rejected</dt><dd data-total="rejected">{{ view.totals.rejected }}</dd>
+    <dt>outstanding</dt><dd data-total="outstanding">{{ view.totals.outstanding }}</dd>
+  </dl>
+
+  <ul data-state="{{ view.state }}">
+    {% for proposal in view.proposals %}
+      {#
+        `data-stage` is the one attribute that answers "where is this row?" in
+        the two-stage pipeline, so a reader does not have to combine
+        `resolution` and `decided` themselves to find out.
+      #}
+      <li data-proposal-id="{{ proposal.proposal_id }}"
+          data-resolution="{{ proposal.resolution }}"
+          data-confirmable="{{ 'true' if proposal.confirmable else 'false' }}"
+          data-decided="{{ 'true' if proposal.decided else 'false' }}"
+          data-stage="{% if proposal.decided %}decided{% else %}outstanding{% endif %}"
+          data-notice="{{ proposal.evidence_notice_code }}">
+        <span data-field="character">{{ proposal.character.display_name.value }}</span>
+        <span data-evidence="player-name">{{ proposal.sheet_player_name.value }}</span>
+        {% if proposal.sheet_discord_name %}
+          <span data-evidence="discord-name">{{ proposal.sheet_discord_name.value }}</span>
+        {% endif %}
+        <span data-evidence="active-dm">{{ 'true' if proposal.active_dm_flag else 'false' }}</span>
+        {% if proposal.proposed_subject %}
+          <span data-field="subject">{{ proposal.proposed_subject }}</span>
+        {% endif %}
+        {% if proposal.candidate_subjects %}
+          {#
+            Bounded to VM-10's ten, and the bound is *reported*. The run persisted
+            every candidate (§7.6); this list is the rendering of it, and a
+            rendering that showed ten of fifteen without saying so would tell a
+            Council member they were choosing from a complete set.
+          #}
+          <ul data-section="candidates"
+              data-candidate-count="{{ proposal.candidate_count }}"
+              data-candidates-truncated="{{ 'true' if proposal.candidate_subjects_truncated else 'false' }}">
+            {% for subject in proposal.candidate_subjects %}
+              <li data-candidate="{{ subject }}">{{ subject }}</li>
+            {% endfor %}
+          </ul>
+          {% if proposal.candidate_subjects_truncated %}
+            <p data-notice="candidates-truncated">
+              Showing {{ proposal.candidate_subjects|length }} of
+              {{ proposal.candidate_count }} recorded candidates. All of them were
+              stored with this proposal; none has been chosen.
+            </p>
+          {% endif %}
+        {% endif %}
+
+        {#
+          The states a row can be read in, each said in words rather than left
+          for the reader to infer from a resolution string. `data-link-state` is
+          the access row's current state and is absent on every row that created
+          no link, so "no link exists" and "the link was revoked" are never the
+          same rendering.
+        #}
+        {% if proposal.decided and proposal.resolution == 'confirmed' and proposal.link_state == 'active' %}
+          <p data-status="confirmed-and-active" data-link-state="active">
+            Confirmed. This character's access row was created by the
+            confirmation and is active now.
+          </p>
+        {% elif proposal.decided and proposal.resolution == 'confirmed' %}
+          {#
+            Confirmed, and the link it created has since been revoked. The
+            decision is not undone and is not re-opened: it stays recorded with
+            its decider and reason, and this says only what is true of the access
+            row today. Re-linking is R-25 on the character's links page, which
+            inserts a new row rather than reviving this one.
+          #}
+          <p data-status="confirmed-and-revoked" data-link-state="revoked">
+            Confirmed, and the access row this confirmation created has since
+            been revoked. It is not active now. The confirmation itself stands
+            and is not re-opened; this proposal cannot be decided again.
+          </p>
+        {% elif proposal.decided and proposal.resolution == 'rejected' %}
+          <p data-status="rejected">
+            Rejected. Nothing was created for this proposal.
+          </p>
+        {% else %}
+          <p data-status="outstanding">
+            Outstanding evidence. No decision has been recorded and no access
+            row exists.
+          </p>
+        {% endif %}
+
+        {#
+          Controls appear only on an outstanding row. A decided proposal cannot
+          be decided again — `decide()` is conditional on it still being
+          outstanding — and rendering a control the server would refuse is how a
+          page teaches an operator to distrust it.
+        #}
+        {% if not proposal.decided %}
+          {% if proposal.confirmable %}
+            <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/confirm">
+              <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+              <input type="hidden" name="version" value="{{ proposal.character_version }}">
+              {#
+                What the confirmation will do, stated before it does it. The
+                access kind is the server's and there is no field for it: it is
+                shown so the Council member can see it, not so the browser can
+                choose it.
+              #}
+              <p data-section="confirm-summary"
+                 data-character-id="{{ proposal.character.character_id }}"
+                 data-subject="{{ proposal.proposed_subject }}"
+                 data-access-kind="{{ proposal.resulting_access_kind }}"
+                 data-character-version="{{ proposal.character_version }}">
+                Confirming links Discord identity
+                <span data-field="confirm-subject">{{ proposal.proposed_subject }}</span>
+                to <span data-field="confirm-character">{{ proposal.character.display_name.value }}</span>
+                as <span data-field="confirm-access-kind">{{ proposal.resulting_access_kind }}</span>,
+                immediately. The names above are evidence; the identity is the
+                snowflake.
+              </p>
+              <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+              <button type="submit">Confirm and create the link</button>
+            </form>
+          {% endif %}
+          {#
+            Rejection is available on every outstanding row, including the
+            ambiguous and unresolved ones: rejecting one is how a Council member
+            says "there is nothing here" and stops it standing outstanding for
+            ever (§7.6). It changes no character, so it carries no version.
+          #}
+          <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/reject">
+            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+            <button type="submit">Reject</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% if view.cursor.has_more %}
+    <a rel="next" href="/v1/council/identity-migration?cursor={{ view.cursor.token }}">Next</a>
+  {% endif %}
+{% endblock %}

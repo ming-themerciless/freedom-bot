@@ -298,7 +298,7 @@ session row's id never changes.
 | Two accounts holding the same `(provider, subject)` | The unique constraint, which covers retired rows |
 | Re-linking a retired subject to a **different** account | Same constraint. Re-linking to the *same* account is an explicit, audited administrative action |
 | Linking by display name, username or email | No such column exists on `external_identities` (schema §5) |
-| Unlinking the last usable identity | The application refuses when no other `active` identity exists and no reviewed recovery route applies (delivery plan §9.5). For the protected account, enrolled WebAuthn credentials count as that route; for an ordinary member they do not |
+| Unlinking the last usable identity | The application refuses when no other `active` identity exists and no reviewed recovery route applies (delivery plan §9.5). For the protected account, enrolled WebAuthn credentials count as that route; for an ordinary member they do not. The count-and-retire decision is serialized on the stable platform-account row and re-reads the target under the lock, so concurrent unlinks of different rows cannot strand the account |
 | Deleting an identity row | No delete path exists; `RESTRICT` on the FK and the absence of a use case |
 | A break-glass session performing either | N-65; R-36/R-37 refuse `BG`, and by route contract §3.3 they refuse `AC` on the same cell |
 | Silent account merge | There is no merge operation anywhere in the inventory. Two accounts stay two accounts |

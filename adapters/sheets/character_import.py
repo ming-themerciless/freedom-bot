@@ -8,8 +8,8 @@ from application.imports import (
     SheetCharacterCandidate,
     SheetCharacterImportReport,
 )
+from adapters.sheets.columns import col_to_index
 from domain.names import DisplayName
-from helpers.utils import col_to_index
 
 #: The identity columns this importer reads, at the positions
 #: `docs/discovery/sheet-inventory.md` §3 records. The position is checked as

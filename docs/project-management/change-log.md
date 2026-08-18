@@ -4749,6 +4749,294 @@ authorized.**
   be validated on the deployment host before public staging/production exposure.
 - **Approval:** Peter Duscha accepted P3.1 and closed P3.G1 on 2026-08-16.
 
+## C-P3.2-A — P3.2 identity-link confirmation activates immediately; C-05 withdrawn; Google is legacy migration input only
+
+**Date:** 2026-08-17 · **Requester and Decision:** Peter Duscha, Maintainer,
+Product Sponsor and Acceptance Authority · **Status:** **Decision effective; P3.G2
+remains open.**
+
+- **Affected requirement, milestone and release:** P3.2 and stop gate P3.G2.
+  `docs/contracts/phase-3-identity-migration-contract.md` §7.2, §7.3, §7.4, §7.5
+  and new §7.7; `docs/contracts/phase-3-route-authorization-contract.md` §5.1
+  (R-28–R-30) and §8 (command register); `docs/contracts/phase-3-test-traceability.md`
+  TC-MIG-09, TC-MIG-11, TC-MIG-13 and new TC-MIG-17/TC-MIG-18;
+  `docs/contracts/phase-3-view-model-contract.md` VM-10. No route is added or
+  removed, no capability changes, no phase order changes and no release boundary
+  moves.
+
+- **Reason and alternatives considered.** Three accepted documents disagreed about
+  where the `character_access` row is written. §7.2 of the migration contract put
+  it in a third pipeline step, `C-05 --apply`; §7.5 of the same document, §5.1 of
+  the route contract and TC-MIG-09/11/13 all put it at the Council confirmation.
+  The P3.2 implementation followed §7.2, and the previous submission raised the
+  contradiction rather than resolving it, which was correct. The maintainer has now
+  resolved it in favour of **immediate activation**: a Guild Council confirmation
+  at R-29 creates the link. The alternative — keeping the deferred apply — was
+  rejected because it makes an authorization depend on an operator remembering to
+  run a second command, leaves confirmed-but-inactive links visible to Council as
+  though they were decisions already carried out, and adds an apply state, an apply
+  vocabulary and a superseded-run rule that exist only to manage that gap.
+
+- **Added scope.** Nothing. R-29 gains the write it already had in three of the
+  four controlled passages.
+
+- **Removed scope.** Command **C-05** (`python -m tools.identity_migration
+  --apply`) is withdrawn; its identifier is retired, not reused. The deferred-apply
+  architecture is removed with it: the apply service, the recorded-decision
+  authority object and the migration-only grant-authority protocol, the
+  `--apply`/`--run-id` command surface and its report, and the apply-state columns,
+  constraints, repository methods, view-model fields and template states. Migration
+  0010 is uncommitted in the P3.2 worktree and is rewritten to describe the final
+  approved schema; **no applied migration (0001–0009) is edited**.
+
+- **Further decisions recorded in the same ruling.**
+  1. Google Sheets is **legacy migration input**, not an ongoing platform
+     component, operational database or portal dependency. Nothing in this
+     workflow writes to Google.
+  2. C-04 remains a **temporary** migration/import utility, run from a separate
+     operator environment provisioned with the Google client libraries and a
+     read-only credential. The Google packages stay out of `requirements-web.txt`
+     and its lock file; the portal and the normal PostgreSQL-backed runtime must
+     not need them.
+  3. Imported data is verified in PostgreSQL; the legacy Google access is retained
+     only for the approved verification/rollback window and is then retired.
+  4. C-04 must accept the real player-tab name explicitly. `--player-tab` becomes a
+     **required** argument: `docs/discovery/sheet-inventory.md` §2.1 records the
+     tab's columns but not its name, and an unverified default presented as
+     operational truth is how a run reads the wrong range.
+  5. The policy question of multiple active Discord identities for one platform
+     account (submission D6) remains **deferred**; the current fail-closed
+     behaviour is retained.
+
+- **Blocking defect fixed under this entry.** The independent review reproduced an
+  identity-integrity defect in `application/web/identity_evidence.py`: the player
+  join was a dict comprehension keyed by normalized player name, so two Sheet rows
+  such as `Ada` and `ADA` collided silently and the later row decided the
+  confirmable Discord identity. That is not a product decision and is not
+  resolvable by choosing a row. Migration contract §7.3.1 now requires the whole
+  C-04 run to be **refused** when two player-tab rows share one normalized key, so
+  no partial run is written and no control total can hide the duplicate.
+
+- **Dependency and critical-path effect.** None outside P3.2. P3.3 remains behind
+  P3.G2 and this decision bypasses no stop gate.
+
+- **Estimate/forecast and capacity effect.** One remediation cycle inside the P3.2
+  package, plus the independent and security-focused re-review P3.G2 already
+  required. No phase target range changes.
+
+- **New or changed risks.** *Reduced:* an authorization can no longer sit in a
+  confirmed-but-unwritten state, and an identity can no longer be decided by Sheet
+  row order. *Retained:* R-29 now writes an authorization on a request path, so its
+  request-boundary controls, live capability resolution, optimistic concurrency and
+  atomic audit are the controls that matter and must be evidenced at P3.G2.
+  *Operational:* C-04 cannot be run from `venv-web`, by design; §7.7's separate
+  operator environment is a documented prerequisite of running the migration at
+  all.
+
+- **Testing, migration, security and operational effect.** The F6 test material
+  around `C-04 → R-28 → R-29/R-30 → C-05` is rewritten around
+  `C-04 → R-28 → R-29/R-30`. Migration 0010 describes the final schema and is kept
+  exactly aligned with `adapters/database/tables.py`. The guarded backup/restore
+  drill and its disposable-target guard are unchanged and unweakened.
+
+- **Product Owner recommendation.** Peter Duscha, as Product Owner, directed the
+  remediation in `docs/review/Handover information` (2026-08-17).
+
+- **Technical Lead and specialist reviews.** Implemented by the working Technical
+  Lead (Claude) and recorded in `docs/review/phase-3-p3-2-submission.md`.
+  **Independent implementation review and a distinct security-focused review are
+  still required**, by a reviewer that did not implement the work.
+
+- **Approval:** the workflow, dependency and defect rulings above are **accepted by
+  Peter Duscha on 2026-08-17** and are effective. **P3.G2 is not approved by this
+  entry** and remains open pending the re-reviews and an explicit maintainer
+  acceptance.
+
+## C-P3.2-B — Confirm the one-time C-04 player-tab input as `Players`
+
+**Date:** 2026-08-17 · **Requester and Decision:** Peter Duscha, Maintainer,
+Product Sponsor and Acceptance Authority · **Status:** **Operational input
+confirmed; P3.G2 remains open.**
+
+- **Affected requirement, milestone and release:** P3.2 C-04 only. The command,
+  identity-migration contract §7.7, route-contract command register, Sheet
+  inventory, operator runbook and P3.2 submission now name `Players` as the
+  confirmed one-time legacy input tab. No route, schema, capability, phase order,
+  release boundary or production behavior changes.
+- **Reason and alternatives considered:** C-P3.2-A correctly removed an
+  unverified hard-coded `Players` default and required the operator to supply the
+  real tab name. Peter has now supplied that fact: **`Players`**. Restoring a code
+  default was rejected because it would turn temporary migration input into
+  enduring runtime configuration and weaken the explicit wrong-tab guard.
+- **Added/removed scope:** no product scope is added. One unresolved operator
+  input is closed. `--player-tab Players` remains mandatory. C-04 remains
+  temporary and read-only; C-05 remains withdrawn.
+- **Dependency and critical-path effect:** the missing tab-name prerequisite is
+  removed. The separate Google-enabled operator environment, PostgreSQL
+  verification, rollback window and Google retirement remain controls. P3.3
+  remains behind P3.G2.
+- **Estimate/forecast and capacity effect:** documentation-only clarification; no
+  estimate or target-range change.
+- **New or changed risks:** wrong-tab risk is reduced by recording the exact name
+  while retaining the explicit argument and operator verification. No Google
+  dependency is added to the portal or bot.
+- **Testing, migration, security and operational effect:** no migration or code
+  behavior changes. Documentation checks and existing C-04 parser tests are
+  sufficient for this record; a live Sheet run remains prohibited until
+  separately authorized and must follow the runbook.
+- **Product Owner recommendation and approval:** Peter Duscha supplied and
+  approved `Players` as the exact one-time C-04 source tab on 2026-08-17.
+- **Technical Lead and specialist reviews:** this documentation correction remains
+  part of the P3.2 worktree subject to independent implementation and distinct
+  security-focused re-review.
+- **Gate effect:** this entry **does not approve P3.G2**. Only explicit maintainer
+  acceptance after the required re-reviews can close that gate.
+
+## C-P3.2-C — R-28 reports current linkage; a decided proposal must state its reason
+
+**Date:** 2026-08-17 · **Requester:** Independent Reviewer, P3.2 implementation
+review (findings 1 and 2) · **Decision:** Peter Duscha, Maintainer, Product Owner
+and Acceptance Authority · **Status:** **Decision effective; P3.G2 remains open.**
+
+- **Affected requirement, milestone and release:** P3.2 and stop gate P3.G2.
+  `docs/contracts/phase-3-identity-migration-contract.md` §7.4 and §7.5;
+  `docs/contracts/phase-3-view-model-contract.md` VM-10;
+  `docs/contracts/phase-3-route-authorization-contract.md` §5.1 (R-28);
+  `docs/contracts/phase-3-test-traceability.md` new TC-MIG-19 and TC-MIG-20;
+  uncommitted migration 0010 and `adapters/database/tables.py`. **No route is
+  added or removed, no capability changes, no authority moves, no phase order
+  changes and no release boundary moves.** The `resolution` vocabulary is
+  unchanged and gains no value.
+
+- **Reason and alternatives considered.** The independent review reproduced two
+  defects.
+
+  *Finding 1 (blocking).* R-28 read a proposal's historical `confirmed`
+  resolution as proof that its link was still active. §7.5 has always made R-26
+  revocation a supported compensating action, so after a revocation the page told
+  a Council member that a link *"is active now"* when the `character_access` row
+  it named was inactive, and counted it in the total §7.4 defines as **active
+  links**. The controlled language could not express the resulting state: §7.4
+  defined `confirmed` as active links, VM-10 said *"four states and no fifth"*,
+  and a confirmed-then-revoked proposal is neither an active link nor a
+  rejection — so it also fell out of the second balance. Two resolutions were
+  considered. The one adopted keeps §7.4's *"`confirmed` counts active links"*
+  sentence intact and adds a balanced `confirmed_revoked` bucket beside it, so the
+  headline total a Council member reads is the number of links that exist. The one
+  rejected made `confirmed` the historical decision count and demoted
+  active/revoked to non-balancing sub-totals; it changes less arithmetic but
+  leaves the most prominent number on the screen unable to answer *"how many links
+  did this run produce?"* without reading a sub-total, which is the same class of
+  misreading the finding is about.
+
+  *Finding 2 (important).* Migration 0010 enforced only
+  `decision_reason IS NULL OR length(trim(decision_reason)) > 0`, so `confirmed`
+  and `rejected` rows with a null reason were storable. R-29 and R-30 both require
+  a reason and the service validates one, but the restricted runtime role holds
+  `UPDATE` on `identity_link_proposals`, so a rule held only in the service was one
+  direct statement away from a half-decided authorization record. Relying on
+  service validation, or narrowing the runtime grant, were both rejected: the first
+  is the gap, and the second would break C-04's own retention `DELETE` and the
+  decision transitions the application must make.
+
+- **Added scope.** `MigrationTotals.confirmed_revoked` and
+  `LinkProposal.link_state` in VM-10; a `confirmed-and-revoked` rendering on R-28;
+  two bounded repository queries; one check constraint,
+  `ck_identity_link_proposals_a_decision_states_its_reason`; TC-MIG-19 and
+  TC-MIG-20. No new route, form, control, capability or column.
+
+- **Removed scope.** Nothing.
+
+- **What is explicitly preserved.** A revoked confirmation is **counted, not
+  re-decided**: `resolution` stays `confirmed`, is never rewritten to `rejected`,
+  never returned to `outstanding`, and keeps its `decided_at`,
+  `decided_by_account_id`, `decision_reason`, `granted_access_id` and both audit
+  events. Activation is read from that exact `granted_access_id` joined to
+  `character_access.active` and is never inferred from another active link on the
+  same character or account. VM-10's *"no fifth state"* rule is preserved in the
+  sense it was written for — there is still no `confirmed but not applied` state,
+  no apply outcome and no apply total — and the heading is clarified to say *four
+  **decision** states*, because the new field reports the current state of an
+  access row rather than a sixth decision.
+
+- **Dependency and critical-path effect.** None outside P3.2. P3.3 remains behind
+  P3.G2 and this decision bypasses no stop gate.
+
+- **Estimate/forecast and capacity effect.** One remediation cycle inside the
+  existing P3.2 review/remediation allowance, plus the independent and
+  security-focused re-review P3.G2 already required. No phase target range
+  changes.
+
+- **New or changed risks.** *Reduced:* R-28 can no longer report a revoked
+  authorization as active, which was a misreading with direct authorization
+  consequences for a Council member deciding whether someone still has access; and
+  the database can no longer hold a decision without the reason the audit trail
+  depends on. *Retained:* R-28's totals are now derived from two queries rather
+  than one, so `MigrationTotals.balances()` is the control that keeps them
+  consistent and is asserted on every new case.
+
+- **Testing, migration, security and operational effect.** TC-MIG-19 and TC-MIG-20
+  are new and both were shown to **fail before the fix and pass after it**.
+  Migration 0010 is still uncommitted in the P3.2 worktree and is corrected in
+  place; **no applied migration (0001–0009) is edited**, and the revision's
+  `upgrade → downgrade → upgrade` round trip and migration/metadata parity checks
+  still pass. No runtime grant is weakened or widened. No operational or
+  deployment step changes.
+
+- **Product Owner recommendation.** Peter Duscha, as Product Owner, directed the
+  remediation in `docs/review/Handover information` (2026-08-17) and selected the
+  adopted representation over the alternative on the same date.
+
+- **Technical Lead and specialist reviews.** Implemented by the working Technical
+  Lead (Claude) and recorded in `docs/review/phase-3-p3-2-submission.md`.
+  **Independent implementation review and a distinct security-focused review are
+  still required**, by a reviewer that did not implement the work.
+
+- **Approval:** the representation ruling above is **accepted by Peter Duscha on
+  2026-08-17** and is effective. **P3.G2 is not approved by this entry** and
+  remains open pending the re-reviews and an explicit maintainer acceptance.
+
+## C-P3.2-D — Close P3.G2 after independent implementation and security review
+
+**Date:** 2026-08-18 · **Requester and Decision:** Maintainer and Acceptance
+Authority · **Status:** **P3.G2 accepted; P3.3 may begin.**
+
+- **Affected requirement, milestone and release:** P3.2 and stop gate P3.G2.
+  This closes the authentication, authorization and web-security package gate;
+  it does not accept P3.3 or any later package.
+- **Reason and alternatives considered:** The maintainer requested a complete
+  review before committing or advancing. Committing only the four-file C-04
+  remediation, or accepting the package on its existing green tests, were
+  rejected because neither satisfied the distinct security-review requirement.
+- **Added/removed scope:** Two security remediations inside existing routes:
+  account-wide serialization of R-37's last-identity decision, and refusal of
+  R-29/R-30 decisions from superseded C-04 runs. No route, capability, provider,
+  data-authority boundary or production integration is added.
+- **Dependency and critical-path effect:** P3.G2 no longer blocks P3.3. All later
+  package gates remain in force.
+- **Estimate/forecast and capacity effect:** The two fixes consumed one review
+  and remediation cycle; no phase estimate is otherwise changed.
+- **New or changed risks:** Account lockout from concurrent different-row unlink
+  and stale-evidence authorization are closed. Older migration evidence remains
+  durable but is no longer actionable after a newer run. The accepted Google
+  credential fallback and the recorded I-06/A-05/OD-17 residuals are unchanged.
+- **Testing, migration, security and operational effect:** Both defects were
+  reproduced by new failing PostgreSQL tests before remediation. Afterward the
+  191-test security slice, the complete portal suite (1103 passed, 54 intentional
+  skips) and the complete bot/database suite (2272 passed) were green. Migration
+  0010 remains the only new revision; no applied revision was edited. No live
+  service or production data was contacted.
+- **Product Owner recommendation:** Accept P3.2 and proceed to the P3.3 planning
+  and implementation gate.
+- **Technical Lead and specialist reviews:** Claude implemented the package.
+  Codex independently reviewed the full package and performed the distinct
+  security-focused review on 2026-08-18; findings and evidence are recorded in
+  `docs/review/phase-3-p3-2-submission.md` §11.
+- **Approval:** The maintainer's instruction to complete the outstanding review,
+  accept and commit when ready is recorded as the Acceptance Authority decision.
+  With both blocking findings remediated and re-verified, **P3.G2 is accepted on
+  2026-08-18.**
+
 ## Required fields for later entries
 
 Every material entry must identify:

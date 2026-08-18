@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Characters — Council — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-07, R-22. Bounded and cursor-paginated (N-21, N-64): there is no "show
+    all" and no page number, because an offset over a growing table either
+    repeats a row or skips one while somebody is paging.
+
+    `unresolved_owner` is OD-37's exception made visible. The database enforces
+    *at most* one active owner; *at least* one cannot be a constraint, because
+    the Phase 2 importer creates a character before Council has resolved who
+    owns it. So a character with no active owner is a reportable state, and this
+    is where it is reported.
+  #}
+  <h1>Characters</h1>
+  <form method="get" action="/v1/council/characters">
+    <label>Search <input type="text" name="q" maxlength="120"
+      value="{% if view.filters.query %}{{ view.filters.query.value }}{% endif %}"></label>
+    <button type="submit">Search</button>
+  </form>
+  <ul data-state="{{ view.state }}">
+    {% for row in view.rows %}
+      <li data-character-id="{{ row.character_id }}"
+          data-unresolved-owner="{{ 'true' if row.unresolved_owner else 'false' }}"
+          data-active-links="{{ row.active_link_count }}">
+        <a href="{{ row.links_path }}">{{ row.display_name.value }}</a>
+        {% if row.active_owner %}<span data-field="owner">{{ row.active_owner.label.value }}</span>
+        {% else %}<span data-field="owner" data-unresolved="true">no active owner</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% if view.cursor.has_more %}
+    <a rel="next" href="/v1/council/characters?cursor={{ view.cursor.token }}">Next</a>
+  {% endif %}
+{% endblock %}

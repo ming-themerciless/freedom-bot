@@ -13,6 +13,18 @@ Amended 2026-08-14 by the OD-44 remediation, by **addition only**: TC-AUTH-13
 (the durable completion binding) and TC-AUTH-14 (the migration 0009 rehearsal)
 are new in §2, and §18's coverage map gains their rows.
 
+Amended 2026-08-17 by the P3.2 independent-review remediation, by **addition
+only**: TC-MIG-19 (R-28 never calls a revoked confirmation active) and TC-MIG-20
+(the database refuses a half-decided proposal under the restricted runtime role)
+are new in §6, with two coverage-map rows in §18. Nothing existing was rewritten;
+the case proving that a newly confirmed, non-revoked link renders as active is
+retained inside TC-MIG-19.
+
+Amended 2026-08-18 by the P3.G2 security review: TC-MIG-21 (superseded
+evidence cannot authorize) is new in §6, and TC-ID-07 now includes the
+concurrent different-row unlink that proves the last-identity invariant is
+atomic. No existing acceptance is weakened.
+
 Amended again 2026-08-14 by the OD-44 re-review remediation, also by **addition
 only**: TC-AUTH-15 (the completion's provider binding), TC-AUTH-16 (rotation-chain
 integrity) and TC-AUTH-17 (migration 0009's rotation objects and its second
@@ -257,7 +269,7 @@ route that drifts apart from the rule fails a test rather than passing a reading
 | TC-ID-04 | Retiring an identity keeps the row and keeps historical audit attribution readable | service | automated (database) |
 | TC-ID-05 | **Structural:** `external_identities` has no display-name, username or email column, and no code path links accounts by any name-like value | AST/schema introspection | automated |
 | TC-ID-06 | Name-collision parametrization: identical usernames, case variants, NFC/NFD variants, homoglyphs, and identical global names never merge or auto-link accounts | service | automated (database) |
-| TC-ID-07 | Unlinking the last usable identity is refused; for the protected account, enrolled credentials count as the recovery route and for an ordinary member they do not | service | automated (database) |
+| TC-ID-07 | Unlinking the last usable identity is refused; for the protected account, enrolled credentials count as the recovery route and for an ordinary member they do not; two concurrent unlinks of different identities serialize and leave one active | service + concurrency | automated (database) |
 | TC-ID-08 | A forged `platform_account_id` in a grant form is ignored: the target is resolved from the selected snowflake server-side | direct HTTP | automated (database) |
 
 ## 6. Migrations — P3.1/P3.2
@@ -272,14 +284,19 @@ route that drifts apart from the rule fails a test rather than passing a reading
 | TC-MIG-06 | Stage C's shadow trigger keeps `discord_user_id` current for rows written by the new path, and refuses a row whose account has no active Discord identity | real PostgreSQL | automated (database) |
 | TC-MIG-07 | Backup/restore rerun: dump, run the stage, restore, run again — same result | supervised, disposable database | supervised |
 | TC-MIG-08 | M-2 dry run produces balanced totals; an unbalanced report refuses to proceed | service | automated (database) |
-| TC-MIG-09 | M-2 writes **no** `character_access` row; only R-29 confirmation does | service | automated (database) |
+| TC-MIG-09 | M-2's C-04 run writes **no** `character_access` row and no authorization of any kind; only an R-29 confirmation does, and it does so in the same transaction as its decision | service | automated (database) |
 | TC-MIG-10 | Ambiguous and unresolved proposals are not confirmable, persist across runs, and grant no access even when the browser submits a confirmation | service + direct HTTP | automated (database) |
-| TC-MIG-11 | Every created link names the confirming Council member, a reason and a correlation ID in one atomic transaction with its audit event | service | automated (database) |
+| TC-MIG-11 | Every created link names the confirming Council member — resolved live, server-side, on the confirming request — a reason and a correlation ID, in one atomic transaction with the proposal transition and both audit events. Repeated and concurrent confirmations produce one durable effect | service + direct HTTP | automated (database) |
 | TC-MIG-12 | The Sheet is never written: the read-only boundary is exercised and a write attempt through the adapter raises | service | automated |
-| TC-MIG-13 | Injected audit-write failure during confirmation rolls back the grant | service | automated (database) |
+| TC-MIG-13 | Injected audit-write failure during confirmation rolls back the grant. So do an injected grant failure, an injected proposal-transition failure and an injected commit failure: none leaves a partial link, decision, version bump or audit success | service | automated (database) |
 | TC-MIG-14 | **The constraint swap round-trips.** `upgrade → downgrade → upgrade` of the revision that replaces `ck_audit_events_human_action_has_an_actor` leaves an identical schema and identical data; the downgrade restores the legacy constraint `NOT VALID`, and does so successfully **on a database that already contains account-attributed rows** — the case a validating restore would fail | real PostgreSQL | automated (database) |
 | TC-MIG-15 | **Constraint inventory.** After the revision, the check constraints on `audit_events`, `snapshot_imports` and `foundry_snapshots` equal the inventory documented in schema §6.2.1 exactly: the account-aware check present, the legacy Discord-only check absent, `foundry_snapshots` unchanged, nothing extra. Guards against a later migration quietly reintroducing a Discord-only attribution rule | schema introspection | automated (database) |
 | TC-MIG-16 | Control totals T7 and T8 hold; a deliberately corrupted fixture makes T8 fail and aborts the migration | real PostgreSQL | automated (database) |
+| TC-MIG-17 | **Duplicate player-name keys refuse the whole C-04 run** (migration contract §7.3.1). Exact and normalized duplicates carrying different Discord names produce no confirmable proposal; row order cannot change the outcome; the refusal writes no run, so no control total can hide the duplicate; and the operator-facing message names counts only — no player name and no Discord identity | service + command | automated (database) |
+| TC-MIG-18 | **C-04 needs no Google dependency in the platform runtime.** The portal's requirement and lock files name no Google package, the portal application imports none on any startup or request path, and C-04's Google import is lazy and refuses with a typed operator message when absent | import graph + dependency files | automated |
+| TC-MIG-19 | **R-28 never calls a revoked confirmation active** (VM-10; migration contract §7.4, §7.5). `C-04 → R-29 confirm → R-26 revoke → R-28`: the page does not label the proposal `confirmed-and-active`, does not state that it is active now, and excludes it from the active-confirmed total while counting it in `confirmed_revoked` so the second balance still closes. The historical confirmation, its decider, its reason, its `granted_access_id` and both audit events survive intact, and the proposal cannot be decided again. Another active link on the same character or account cannot make it read as active, and a newly confirmed, non-revoked link still renders active | service + direct HTTP | automated (database) |
+| TC-MIG-20 | **The database refuses a half-decided proposal, under the restricted runtime role.** A direct `UPDATE` to `confirmed` or to `rejected` with `decision_reason IS NULL` is refused by `ck_identity_link_proposals_a_decision_states_its_reason`; a blank or whitespace-only reason is refused by `ck_identity_link_proposals_decision_reason_not_blank`; an outstanding row carrying a reason is refused; and valid R-29 and R-30 transitions still succeed. Migration/metadata constraint names and expressions stay identical and the revision still round-trips | real PostgreSQL constraint | automated (database) |
+| TC-MIG-21 | **A superseded evidence run cannot authorize.** After a newer C-04 run commits, R-29/R-30 refuse proposals from every older run. The service gives the stale request a typed conflict and the conditional decision update independently requires the latest run, so a newer run committed during confirmation rolls the link, decision, version bump and audits back together | service + real PostgreSQL transaction | automated (database) |
 
 ## 7. Capability and role mappings — P3.1/P3.2
 
@@ -478,7 +495,11 @@ Every row of the accepted table, with its expanded tests. No row is dropped.
 | Revoked membership/role and privilege change | P3.1/P3.3 | TC-SESS-03, TC-SESS-06, TC-JOB-10 |
 | Multiple linked characters and object substitution | P3.2 | TC-OBJ-02, TC-OBJ-03 |
 | Character-link grant/revoke/default changes | P3.2 | TC-ACC-01…07 |
-| Legacy identity evidence fully accounted for, never auto-authorizing | P3.2 | TC-MIG-08…13 |
+| Legacy identity evidence fully accounted for, never auto-authorizing | P3.2 | TC-MIG-08…13, TC-MIG-17 |
+| Google is legacy migration input only, and no platform runtime depends on it | P3.2 | TC-MIG-18 |
+| R-28 reports current linkage, not a stale confirmation, and the totals stay balanced | P3.2 | TC-MIG-19 |
+| A decided proposal cannot lack its reason, whatever writes it | P3.2 | TC-MIG-20 |
+| Superseded identity evidence remains durable but cannot create authorization | P3.2 | TC-MIG-21 |
 | Only administrator manages role-capability mappings; protected mapping survives | P3.2 | TC-CAP-03…06 |
 | Ordinary member cannot see or call import | P3.3/P3.4 | TC-OBJ-01, TC-OBJ-06, TC-OBJ-05 |
 | Administrator folder change invalidates preview | P3.3 | TC-JOB-09 |

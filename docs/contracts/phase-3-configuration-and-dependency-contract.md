@@ -313,6 +313,18 @@ the portal's). The Discord bot's `requirements.txt` is not touched.
 library, no session library, no CSRF library, no rate-limit library, no Redis, no
 task queue, no ORM helper, no settings library.
 
+**No Google client library, deliberately** (change-log entry C-P3.2-A,
+2026-08-17; migration contract §7.7). `google-api-python-client` and
+`google-auth` were briefly added here for C-04 and are **reverted**: Google
+Sheets is legacy migration input, not a platform component, so the portal, the
+Discord bot and every PostgreSQL-backed runtime path start and run without them.
+`adapters/sheets/read_only.py` imports them lazily and refuses with a typed
+operator-facing message when they are absent, and C-04 runs from the separate,
+temporary operator environment described in
+[`../operations/identity-evidence-migration.md`](../operations/identity-evidence-migration.md).
+The consequence — C-04 cannot be run from `venv-web` — is the design rather than
+a gap. Adding them here later is a change-controlled decision, not a convenience.
+
 ### 1.3 Proposed test set — `requirements-web-dev.txt`
 
 | Package | Purpose | Pin |

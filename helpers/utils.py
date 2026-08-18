@@ -20,11 +20,11 @@ def safe_int(value, default=0):
     except (ValueError, TypeError):
         return default
 
-def col_to_index(col: str) -> int:
-    index = 0
-    for char in col.upper():
-        index = index * 26 + (ord(char) - ord('A') + 1)
-    return index - 1
+# Re-exported, not redefined. The definition moved to `adapters/sheets/columns.py`
+# so that code reading a Sheet layout does not have to import Pycord to learn what
+# column "AL" is; `models/actor.py` keeps importing it from here unchanged, and
+# there is still exactly one implementation of the rule.
+from adapters.sheets.columns import col_to_index  # noqa: E402,F401
 
 def to_currency(money: float) -> Tuple[int,int,int,str]:
     gold, silver, copper = Money.from_gold(money).gold_denominations()

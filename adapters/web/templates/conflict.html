@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}The page moved on — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-19. A conflict always carries the **current** state, so the next action
+    is informed rather than a blind retry: the caller sees what the record is
+    now, not what it was when their form was rendered.
+
+    Nothing was applied. The optimistic version guard is a conditional write
+    that matched zero rows, so this page is a report of a change that did not
+    happen rather than a warning about one that half did.
+  #}
+  <h1>Somebody changed this first</h1>
+  <p data-state="stale" data-conflict="{{ view.conflict }}">
+    Nothing was applied. Review the current state below and try again.
+  </p>
+  <p>Reference {{ view.correlation.id }}.</p>
+  {% if view.current is not none %}
+    <p data-current-state="{{ view.current.state }}">The current state is shown on the page you came from.</p>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Links — {{ view.character.display_name.value }} — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-08, R-23, and the three controls R-25/R-26/R-27 carry.
+
+    The invariants are stated **before** the Council member commits rather than
+    reported afterwards as a constraint violation. The database still enforces
+    every one of them; this page explains one, it does not replace one — and the
+    server refuses each mutation whether or not the control was rendered, which
+    is what TC-BG-05b and the denial tests prove by never fetching this page.
+
+    `character_version` is submitted back with every mutation and re-checked
+    server-side. A stale value is refused `409` and applied on top of nothing.
+  #}
+  <h1>{{ view.character.display_name.value }}</h1>
+  <p data-field="version">{{ view.character_version }}</p>
+  <p data-invariant="one-active-owner" data-value="{{ 'true' if view.invariants.one_active_owner else 'false' }}">
+    {% if view.invariants.revoking_last_owner_leaves_unresolved %}
+      Revoking the last active owner is permitted and leaves this character with
+      no owner until Council grants one.
+    {% else %}
+      This character currently has no active owner.
+    {% endif %}
+  </p>
+
+  <h2>Active links</h2>
+  <ul data-section="active-links">
+    {% for fact in view.active_links %}
+      <li data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}"
+          data-default="{{ 'true' if fact.is_default else 'false' }}">
+        {{ fact.account.label.value }}
+        {% if fact.discord_subject_display %}
+          <span data-evidence="discord-subject">{{ fact.discord_subject_display }}</span>
+        {% endif %}
+        <span data-field="reason">{{ fact.reason.value }}</span>
+        <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/revoke">
+          <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+          <input type="hidden" name="version" value="{{ view.character_version }}">
+          <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+          <button type="submit">Revoke</button>
+        </form>
+        <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/default">
+          <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+          <input type="hidden" name="version" value="{{ view.character_version }}">
+          <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+          <button type="submit">Make default</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Grant a link</h2>
+  {#
+    The target is a **snowflake**, chosen from the R-24 search. The browser never
+    supplies a platform account id: the form has no such field, and the service
+    has no parameter for one — the account is resolved server-side (TC-ID-08).
+  #}
+  <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links">
+    <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+    <input type="hidden" name="version" value="{{ view.character_version }}">
+    <label>Discord snowflake <input type="text" name="subject" required></label>
+    <label>Access kind
+      <select name="access_kind">
+        <option value="owner">owner</option>
+        <option value="co_owner">co_owner</option>
+        <option value="delegate">delegate</option>
+        <option value="viewer">viewer</option>
+      </select>
+    </label>
+    <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+    <button type="submit">Grant</button>
+  </form>
+
+  <h2>History</h2>
+  <ul data-section="historical-links">
+    {% for fact in view.historical_links %}
+      <li data-access-id="{{ fact.access_id }}">
+        {{ fact.account.label.value }} — revoked
+        {% if fact.revoked_at %}{{ fact.revoked_at.display }}{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% if view.cursor.has_more %}
+    <a rel="next" href="/v1/council/characters/{{ view.character.character_id }}/links?cursor={{ view.cursor.token }}">Older</a>
+  {% endif %}
+{% endblock %}

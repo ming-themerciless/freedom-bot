@@ -48,6 +48,35 @@ class RefusalCode(Enum):
     STALE_VERSION = "stale_version"
 
 
+class AmbiguousProviderIdentity(Exception):
+    """One platform account holds two active identities for one provider.
+
+    Defined here rather than beside the query that raises it, because the
+    dependency direction is inward: a repository may import an application type and
+    an application module may not import an adapter. `access_control.py` catches it
+    and answers `ServiceDegraded`, which is the same fail-closed answer a provider
+    the platform cannot reach gets — the platform cannot say whose roles this person
+    holds, and a capability decision it cannot make is one it must not guess.
+
+    Deliberately **not** a `WebRefusal`: it is a data-integrity condition rather
+    than a decision about a caller, and the boundary that translates it is the one
+    entitled to choose the status.
+
+    It is not resolved by ordering the identities and taking the first. Which
+    Discord account's roles decide a person's capability is exactly the question an
+    arbitrary tiebreak must not settle — the rule the identity resolver applies to
+    candidate people, applied to one person's provider identities.
+    """
+
+    def __init__(self, account_id: UUID, provider_key: str) -> None:
+        super().__init__(
+            f"account {account_id} holds more than one active {provider_key} "
+            "identity, so the membership projection to read cannot be determined"
+        )
+        self.account_id = account_id
+        self.provider_key = provider_key
+
+
 class WebRefusal(Exception):
     """A refusal the portal can render safely.
 
@@ -223,6 +252,7 @@ def record_authentication_failure(engine, failure: AuthenticationFailure) -> Non
 
 
 __all__ = [
+    "AmbiguousProviderIdentity",
     "AuthenticationFailure",
     "FailureAudit",
     "EmergencyScopeRefused",

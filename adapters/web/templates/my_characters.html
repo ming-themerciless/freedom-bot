@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}My Characters — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-05, R-20. There is **no mutation control on this page**, and there is no
+    route that would honour one: ordinary users are read-only (OD-31), and links
+    are managed by Guild Council. The empty state says so rather than offering a
+    self-service form.
+
+    `level` renders "not recorded" when it is `None`. Rendering it as `0` would
+    fabricate a game fact about a character whose import is still awaiting
+    Council reconciliation, and the view model forbids it by type (TC-VM-05).
+  #}
+  <h1>My Characters</h1>
+  {% if view.state == "empty" %}
+    <p data-state="empty">
+      You have no linked characters. Guild Council manages character links.
+    </p>
+  {% else %}
+    <ul data-state="{{ view.state }}">
+      {% for character in view.characters %}
+        <li data-character-id="{{ character.character_id }}"
+            data-access-kind="{{ character.access_kind }}"
+            data-default="{{ 'true' if character.is_default else 'false' }}">
+          <a href="{{ character.detail_path }}">{{ character.display_name.value }}</a>
+          <span data-field="level">{% if character.level is none %}not recorded{% else %}{{ character.level }}{% endif %}</span>
+          <span data-field="portrait" data-portrait-state="{{ character.portrait.state }}">{{ character.portrait.initials }}</span>
+          {% if character.last_snapshot %}
+            <span data-field="snapshot">{{ character.last_snapshot.checksum_short }}</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if view.truncated %}
+      <p data-truncated="true">Only the first entries are shown.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

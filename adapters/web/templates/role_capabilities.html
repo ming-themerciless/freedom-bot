@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Role capabilities — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-12, R-32, and the three controls R-33/R-34/R-38 carry.
+
+    **None of what this page renders is the control.** When the caller's
+    administrator scope is `emergency_continuity`, `available_capabilities`
+    holds exactly `platform_administrator`, `revocable` is false on every row
+    whose capability is something else and `ratifiable` is false everywhere —
+    but R-33, R-34 and R-38 refuse regardless of what was rendered, the check
+    constraint `created_under_scope = 'full' OR capability =
+    'platform_administrator'` refuses regardless of what the service decided,
+    and TC-BG-05b issues those requests **without ever fetching this page**.
+
+    The protected bootstrap row renders `revocable = false`; a database trigger
+    refuses any change to it independently, for every caller including an
+    ordinary administrator (OD-24). The flag is an explanation, not the control.
+
+    Role **snowflakes** are what every control submits. `role_label` is
+    presentation: a renamed role changes nothing about authorization.
+  #}
+  <h1>Role capabilities</h1>
+  <p data-scope="{{ view.administrator_scope }}"
+     data-unratified="{{ view.unratified_count }}"
+     data-notice="{{ view.lockout_guard_notice_code }}"
+     {% if view.scope_notice_code %}data-scope-notice="{{ view.scope_notice_code }}"{% endif %}>
+    Guild {{ view.guild_id }}.
+    {% if view.scope_notice_code %}
+      This session's administrator authority is emergency-derived, so it may
+      manage only the platform administrator capability until a full-scope
+      administrator ratifies.
+    {% endif %}
+  </p>
+
+  <ul data-state="{{ view.state }}">
+    {% for mapping in view.mappings %}
+      <li data-mapping-id="{{ mapping.mapping_id }}"
+          data-role="{{ mapping.role_snowflake }}"
+          data-capability="{{ mapping.capability.value }}"
+          data-protected="{{ 'true' if mapping.protected else 'false' }}"
+          data-provenance="{{ mapping.provenance }}"
+          data-revocable="{{ 'true' if mapping.revocable else 'false' }}"
+          data-ratifiable="{{ 'true' if mapping.ratifiable else 'false' }}">
+        {{ mapping.role_snowflake }} → {{ mapping.capability.value }}
+        {% if mapping.revocable %}
+          <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/revoke">
+            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+            <input type="hidden" name="version" value="{{ mapping.version }}">
+            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+            <button type="submit">Revoke</button>
+          </form>
+        {% endif %}
+        {% if mapping.ratifiable %}
+          <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/ratify">
+            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+            <input type="hidden" name="version" value="{{ mapping.version }}">
+            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+            <button type="submit">Ratify</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Map a role</h2>
+  <form method="post" action="/v1/admin/role-capabilities">
+    <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+    <label>Role snowflake <input type="text" name="role_id" required></label>
+    <label>Capability
+      <select name="capability">
+        {% for capability in view.available_capabilities %}
+          <option value="{{ capability.value }}">{{ capability.value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Reason <input type="text" name="reason" maxlength="500" required></label>
+    <button type="submit">Map</button>
+  </form>
+{% endblock %}

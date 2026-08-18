@@ -89,9 +89,12 @@ role IDs server-side per [ADR 0004](../adr/0004-discord-oauth2-authentication.md
 accounting (§2.1.2 p.4) and mission logs (§2.1 p.3) exist as rules but are confirmed
 out of scope.
 
-### 2.1 The player tab
+### 2.1 The `Players` tab
 
-Columns supplied by the maintainer, 2026-07-30. The bot has never read this tab.
+Columns supplied by the maintainer, 2026-07-30. The tab name **`Players`** was
+confirmed by Peter Duscha on 2026-08-17 for the one-time C-04 legacy migration
+(change-log entry `C-P3.2-B`). The bot has never read this tab, and this recorded
+name does not make Google Sheets an ongoing platform dependency.
 
 | Col | Header | Becomes | Notes |
 |---|---|---|---|

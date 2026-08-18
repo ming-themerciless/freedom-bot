@@ -3,7 +3,7 @@
 Status: Phase 0 deliverable. Sixteen of the 36 entries that existed then were
 closed by maintainer answers on 2026-07-29 and 2026-07-30, including every
 question that blocked Phase 1 or the architecture gate. Further entries have been
-raised since; the list now runs **OD-01 to OD-43**, and every identifier is
+raised since; the list now runs **OD-01 to OD-47**, and every identifier is
 unique. The remainder are marked with when they must be settled. The independent
 Codex re-review approved Phase 0 on 2026-07-30, the maintainer accepted the
 milestone, and the gate is closed.
@@ -1382,6 +1382,73 @@ evidence at P3.G2 against the real R-33, R-34 and R-38 routes.
 This changes evidence timing only. It is not a waiver, does not accept the HTTP
 boundary at P3.G1, and does not authorize test-only substitutes or early P3.2
 implementation.
+
+### OD-46 — Where the Sheet-era identity link is written · **CLOSED 2026-08-17**
+
+**Ruling by Peter Duscha, Maintainer, Product Sponsor and Acceptance Authority,
+2026-08-17**, recorded in full as change-log entry
+[`C-P3.2-A`](../project-management/change-log.md) and implemented in the corrected
+[`phase-3-identity-migration-contract.md`](../contracts/phase-3-identity-migration-contract.md)
+§7.2–§7.7.
+
+Three accepted passages placed the `character_access` write at the Council
+confirmation and one — §7.2 of the migration contract — placed it in a later
+`C-05 --apply` step. **Immediate activation is authoritative.** A Guild Council
+confirmation at R-29 creates the link:
+
+1. R-29 creates the real `character_access` row atomically with the proposal's
+   confirmed transition and both audit events, through the same
+   `CharacterAccessService.grant()` R-25 uses, attributed to the confirming
+   Council member's **live** server-side authorization resolution. Any failure in
+   that set rolls all of it back.
+2. **C-05 is withdrawn.** There is no later materialization step, no apply state
+   and no apply command; the identifier is retired rather than reused. An unused
+   apply phase is not retained merely because it was implemented.
+3. R-30 remains a rejection only and can never create a link.
+4. **C-04 remains a temporary migration/import utility** that reads the legacy
+   Google Sheet because some current character/player data still lives there. It
+   writes proposals and evidence only, never a `character_access` row, and never
+   writes to Google.
+5. **Google Sheets is legacy migration input**, not an ongoing platform component,
+   operational database or portal dependency. The Google client libraries stay out
+   of the web application environment; C-04 runs in a separate, temporary operator
+   environment holding those libraries and a read-only credential.
+6. Imported data is verified in PostgreSQL. The legacy access is retained only for
+   the approved verification/rollback window and is then retired.
+7. C-04 must be told the real player-tab name explicitly. An unverified tab name
+   is not operational truth, so `--player-tab` is required rather than defaulted.
+
+**Operational input confirmed later on 2026-08-17.** Peter Duscha confirmed that
+the one-time C-04 source tab is named **`Players`** (change-log entry
+`C-P3.2-B`). The command still requires `--player-tab Players`: keeping the input
+explicit prevents a temporary migration fact from becoming a permanent portal
+default or Google dependency. This confirmation closes the operational input
+question; it does not approve P3.G2.
+
+**Consequential defect ruling, same date.** Duplicate player names in the legacy
+player tab (`Ada` / `ADA`) must fail closed. Nothing may choose a row by Sheet
+order, and nothing may grant access from such evidence. Migration contract §7.3.1
+records the resolution: the whole C-04 run is refused, so no partial run is
+written and no control total can conceal the duplicate.
+
+P3.G2 is **not** approved by this ruling and remains open pending independent and
+security-focused re-review and explicit maintainer acceptance.
+
+### OD-47 — Two active Discord identities on one platform account · **DEFERRED 2026-08-17**
+
+**Ruling by Peter Duscha, 2026-08-17** (change-log entry `C-P3.2-A`). Whether one
+human may hold two simultaneously active Discord identities on one platform
+account remains an open product question, and it is deliberately deferred rather
+than settled to unblock P3.2.
+
+The current behaviour is **fail-closed and is retained**: when an account holds two
+active identities for one provider, the capability resolution refuses rather than
+picking one, because which Discord account's roles decide a person's capability is
+exactly the question an arbitrary tiebreak must not settle (the same rule OD-42
+applies to candidate people, applied to one person's provider identities). No
+uniqueness constraint is added and none is removed by this deferral.
+
+Revisit when a second ordinary provider or an account-merge flow is proposed.
 
 ## H. Product scope
 

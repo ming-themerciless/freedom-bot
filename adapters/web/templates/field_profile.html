@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Field profile — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-11, R-31. Read-only **by construction**: there is no write route, and the
+    profile is code under change control. Council and administrator are both
+    entitled to read it and neither can change it, which is why this page has no
+    form and no `POST` sibling.
+
+    `owning_package` appears exactly when a field is `legacy_authority_deferred`,
+    mirroring the invariant `domain/field_profile.py` enforces — so the page
+    cannot claim an authority the profile refuses to.
+  #}
+  <h1>Field profile {{ view.profile_version }}</h1>
+  <p data-policy="{{ view.unknown_path_policy_code }}">
+    A path the profile does not classify is reported and never written.
+  </p>
+  <h2>Fields</h2>
+  <ul data-section="fields">
+    {% for field in view.fields %}
+      <li data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}"
+          data-owning-package="{{ field.owning_package or '' }}">
+        {{ field.field_key }} — {{ field.authority }}
+        {% if field.owning_package %}(package {{ field.owning_package }}){% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  <h2>Snapshot paths</h2>
+  <ul data-section="paths">
+    {% for path in view.paths %}
+      <li data-path="{{ path.path }}" data-mode="{{ path.snapshot_mode }}">{{ path.path }}</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

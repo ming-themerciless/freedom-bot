@@ -439,26 +439,83 @@ MigrationRun(run_id: UUID, produced_at: Instant, source_snapshot: str,
 LinkProposal(
     proposal_id: UUID,
     character: CouncilCharacterRow,
+    character_version: int,               # the optimistic version the form submits
     sheet_player_name: SafeText,          # Characters C — evidence
     sheet_discord_name: SafeText | None,  # Players B — evidence
     active_dm_flag: bool,                 # Players D — evidence, never authorization
     proposed_subject: str | None,         # a snowflake, or None when unresolved
     resolution: Literal["proposed","ambiguous","unresolved","confirmed","rejected"],
     candidate_subjects: tuple[str, ...],  # max 10, populated when ambiguous
+    candidate_subjects_truncated: bool,   # this rendering is shorter than the record
+    candidate_count: int,                 # how many candidates the run persisted
+    resulting_access_kind: Literal["co_owner"],
     evidence_notice_code: Literal["names_are_not_identity"],
     confirmable: bool,
+    decided: bool,
+    link_state: Literal["active","revoked"] | None,  # this confirmation's own grant
 )
 MigrationTotals(
     source_characters: int, source_players: int,
     proposed: int, ambiguous: int, unresolved: int,
-    confirmed: int, rejected: int, already_linked: int,
+    confirmed: int, confirmed_revoked: int, rejected: int, already_linked: int,
+    outstanding: int,
 )
 ```
 
-`confirmable` is `false` for every `ambiguous` and `unresolved` row and the server
-refuses the confirmation regardless of what the browser submits. `MigrationTotals`
-is the source-to-target control total the migration contract requires, shown to
-the person doing the confirming rather than only in a report they may not read.
+`confirmable` is `false` for every `ambiguous` and `unresolved` row and for every
+row already decided, and the server refuses the confirmation regardless of what
+the browser submits. `MigrationTotals` is the source-to-target control total the
+migration contract requires, shown to the person doing the confirming rather than
+only in a report they may not read; `outstanding` is the left-hand side of §7.4's
+second balance and is present so the page can state that arithmetic rather than
+assert it.
+
+**Four decision states, and no fifth** (change-log entry C-P3.2-A, 2026-08-17,
+clarified by C-P3.2-C, 2026-08-17). A confirmation *is* the activation (migration
+contract §7.2), so this screen shows outstanding proposed evidence,
+ambiguous/unresolved evidence, confirmed proposals, and rejected proposals. There
+is no `confirmed but not applied` state, no apply outcome, no apply total and no
+run apply status, because there is nothing between a confirmation and the
+`character_access` row it creates. The `resolution` vocabulary is closed at those
+five values and gains none.
+
+**A confirmed row additionally reports whether its own link is active now**
+(C-P3.2-C). Council may revoke a link afterwards through R-26, and that is a
+supported compensating action on the `character_access` row (migration contract
+§7.5) — not a re-decision. The confirmation stays `confirmed` for ever, with its
+decider, its reason, its `granted_access_id` and both audit events intact, and
+`link_state` says what is true of the row it created **today**:
+
+| `resolution` | `link_state` | R-28 renders |
+|---|---|---|
+| `proposed` / `ambiguous` / `unresolved` | `None` | `data-status="outstanding"` |
+| `rejected` | `None` | `data-status="rejected"` — nothing was created |
+| `confirmed` | `"active"` | `data-status="confirmed-and-active"`, *"is active now"* |
+| `confirmed` | `"revoked"` | `data-status="confirmed-and-revoked"` — the decision stands, its link does not |
+
+`link_state` is `None` — absent, not `false` — on every row that created no link,
+so *"no link was ever created"* and *"the link was created and has since been
+revoked"* are never the same rendering. It is read from the **exact**
+`identity_link_proposals.granted_access_id` joined to `character_access.active`.
+Another active link on the same character or the same account is a different row
+and must not answer this question; R-28 must never say *"is active now"* unless
+that specific access row is active.
+
+`confirmed` counts confirmations whose link is active now — migration contract
+§7.4's sentence, unchanged — and `confirmed_revoked` counts the rest of them, so
+that correcting a link cannot make a proposal vanish from the arithmetic. §7.4's
+second balance is therefore
+`confirmed + confirmed_revoked + rejected + outstanding = proposed + ambiguous + unresolved`,
+and `MigrationTotals.balances()` states it.
+
+`character_version` and `resulting_access_kind` exist because the confirmation
+form has to show what it is about to do before it does it: the character, the
+proposed stable Discord identity (`proposed_subject`, a snowflake — the names
+beside it are evidence), the access kind the confirmation will create, and the
+required reason. `character_version` is the same optimistic version R-25's form
+carries, so a character that moved under the page is refused `409` with its
+current state rather than linked on top of somebody else's change. There is no
+bulk-confirm control on this screen.
 
 ### VM-11 `FieldProfileView` — R-31
 

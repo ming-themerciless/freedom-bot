@@ -168,8 +168,8 @@ Caller states: `U` (Unauthenticated), `N` (Non-member session), `M` (Guild Membe
 | **C-01** | CLI | `python -m tools.emergency_recovery issue` | Operator | Host shell | Host authority | N/A | N/A | N/A | Prints recovery token once; stores SHA-256 hash | Host permission denied if not host operator |
 | **C-02** | CLI | `python -m tools.emergency_recovery revoke` | Operator | Host shell | Host authority | N/A | N/A | N/A | Revokes outstanding recovery grants | Host permission denied |
 | **C-03** | CLI | `python -m tools.webauthn_enrollment` | Operator | Host shell | Host authority | N/A | N/A | N/A | Enrolls / retires break-glass passkey credential | Refuses if fewer than 2 credentials remain (`N-13`) |
-| **C-04** | CLI | `python -m tools.identity_migration --dry-run` | Operator | Host shell | Host authority | N/A | N/A | N/A | Produces linkage proposals; writes no access rows | Dry run report output |
-| **C-05** | CLI | `python -m tools.identity_migration --apply` | Operator | Host shell | Host authority | N/A | N/A | N/A | Materializes confirmed proposals only | Transaction commit + control totals |
+| **C-04** | CLI | `python -m tools.identity_migration --dry-run --player-tab Players` | Operator | Separate temporary migration environment | Host authority | N/A | N/A | N/A | Reads the confirmed one-time legacy tab through the read-only boundary and produces linkage proposals; writes no access rows and never writes Google | Proposal/control-total transaction; Council confirmation at R-29 activates one link immediately |
+| **C-05 (withdrawn)** | — | — | — | — | — | — | — | — | Retired by OD-46 / `C-P3.2-A`; there is no deferred materialization command | — |
 | **C-06** | CLI | `python -m tools.portal_kill_switch on\|off` | Operator | Host shell | Host authority | N/A | N/A | N/A | Toggles portal kill switch (`N-56`) | Host permission denied |
 | **C-07** | CLI | `python -m tools.session_revoke --account ...` | Operator | Host shell | Host authority | N/A | N/A | N/A | Revokes all active sessions for an account | Database update + audit event |
 

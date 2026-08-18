@@ -1143,3 +1143,219 @@ Index(
     role_capability_mapping_events.c.mapping_id,
     role_capability_mapping_events.c.occurred_at,
 )
+
+# ---------------------------------------------------------------------------
+# P3.2 — Sheet-era identity-evidence proposals (M-2)
+# ---------------------------------------------------------------------------
+#
+# Three tables where the accepted schema decision table (§11) names one. The
+# addition is deliberate and is recorded in the P3.2 submission rather than made
+# quietly, because §11 gave `identity_link_proposals` a one-line row — primary
+# key, character foreign key, `(run_id, character_id)` uniqueness, writer,
+# reader, retention — and left its columns to the owning package, while the
+# migration contract §7.4 and §7.6 require two things that one flat row cannot
+# hold without a prohibited container:
+#
+# 1. **Source-side control totals.** `source_characters` and `source_players`
+#    are facts about the *run*, and `source_players` cannot hang off a proposal
+#    at all: a player with no character produces no proposal row. They therefore
+#    live on a run, which is what `identity_migration_runs` is.
+# 2. **Every candidate of an ambiguous proposal, durably.** §7.6 requires the
+#    ambiguity to persist as an explicit record. Plan §7.3.1 prohibits delimited
+#    text, JSON/JSONB collections and PostgreSQL arrays for multi-valued facts
+#    and prescribes "typed foreign-keyed child rows" instead, and TC-STRUCT-03
+#    asserts that no third JSONB column appears in this schema. A child table is
+#    therefore the only compliant representation, not a preference.
+#
+# Nothing here is authorization-bearing by itself. A proposal is evidence; the
+# only row that ever confers reach over a character is a `character_access` row
+# written by the one service R-25 and R-29 share, and `granted_access_id` below
+# records which one a confirmation produced rather than producing it.
+
+identity_migration_runs = Table(
+    "identity_migration_runs",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("produced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    # Always `true`, and `CHECK`-ed rather than merely defaulted. Every row in
+    # this table is a **C-04 evidence run**: it read `Characters C` and
+    # `Players A/B/D` through the read-only boundary and wrote no
+    # `character_access` row. Stating it as a constraint makes "this table holds
+    # evidence runs" a fact about the table rather than about which code path
+    # inserted the row. VM-10 renders it.
+    Column("dry_run", Boolean, nullable=False, server_default="true"),
+    # A **label** for the source ranges, never the spreadsheet id and never a
+    # credential. "Characters!C + Players!A,B,D" is the whole of what a reader
+    # needs, and it is the whole of what is stored.
+    Column("source_label", String(120), nullable=False),
+    Column("profile_version", String(64), nullable=False),
+    # §7.4's source side. Counted at run time, never assumed.
+    Column("source_characters", Integer, nullable=False),
+    Column("source_players", Integer, nullable=False),
+    # The run's own bucket counts, immutable once written. They are the
+    # *right-hand* side of §7.4's second balance, and they have to be stored
+    # rather than counted from the proposal rows because a Council confirmation
+    # changes a row's `resolution` in place: counting live would make
+    # `confirmed + rejected + outstanding = proposed + ambiguous + unresolved`
+    # true by construction and therefore worth nothing.
+    #
+    # `already_linked` is a count and never a proposal row. The character already
+    # has an active access row for that account, so there is nothing to propose
+    # and VM-10's closed `resolution` vocabulary has no member for it (migration
+    # contract §7.3: "counted, not proposed").
+    Column("already_linked", Integer, nullable=False),
+    Column("proposed", Integer, nullable=False),
+    Column("ambiguous", Integer, nullable=False),
+    Column("unresolved", Integer, nullable=False),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    # **No apply state.** A Guild Council confirmation activates the link
+    # immediately (migration contract §7.2 as amended by change-log entry
+    # C-P3.2-A), so there is no gap between deciding and linking for a run-level
+    # `applied_at` to describe. The columns an earlier draft carried for the
+    # withdrawn C-05 command are removed rather than left nullable and unused.
+    CheckConstraint("dry_run", name="run_is_a_c04_evidence_run"),
+    CheckConstraint("length(trim(source_label)) > 0", name="source_label_not_blank"),
+    CheckConstraint("length(trim(profile_version)) > 0", name="profile_version_not_blank"),
+    CheckConstraint("source_characters >= 0", name="source_characters_non_negative"),
+    CheckConstraint("source_players >= 0", name="source_players_non_negative"),
+    CheckConstraint(
+        "already_linked >= 0 AND proposed >= 0 AND ambiguous >= 0 AND unresolved >= 0",
+        name="buckets_non_negative",
+    ),
+    # §7.4's first balance, as a constraint. "Every source row lands in exactly
+    # one bucket" is the plan's *"no identity discrepancy is silently accepted"*
+    # (§0.5), and an unbalanced run is refused by PostgreSQL rather than reported
+    # as a warning a reader may skip.
+    CheckConstraint(
+        "already_linked + proposed + ambiguous + unresolved = source_characters",
+        name="buckets_balance_against_source",
+    ),
+)
+
+identity_link_proposals = Table(
+    "identity_link_proposals",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "run_id",
+        UUID(as_uuid=True),
+        ForeignKey("identity_migration_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "character_id",
+        UUID(as_uuid=True),
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    # -- evidence, and nothing but evidence ---------------------------------
+    # `Characters C`, `Players B` and `Players D`. A username changes and one
+    # Discord name is recorded per player, so none of the three can be an
+    # identity (migration contract §7.1) and `active_dm` confers no capability
+    # whatever (OD-18). They are stored so a Council member can see what the
+    # proposal was derived from, and for no other purpose.
+    Column("sheet_player_name", Text, nullable=False),
+    Column("sheet_discord_name", Text),
+    Column("active_dm", Boolean, nullable=False, server_default="false"),
+    # The only identity in this table: a Discord snowflake as a canonical
+    # decimal string, resolved from the membership projection. Null whenever the
+    # evidence resolved to no single member.
+    Column("proposed_subject", String(255)),
+    Column("resolution", String(20), nullable=False),
+    # -- Council decision ----------------------------------------------------
+    Column("decided_at", DateTime(timezone=True)),
+    Column(
+        "decided_by_account_id",
+        UUID(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="RESTRICT"),
+    ),
+    Column("decision_reason", Text),
+    # The `character_access` row this confirmation created. Non-null exactly on a
+    # `confirmed` row, and written in the same statement as the decision, so a
+    # confirmation and its authorization cannot come apart. `RESTRICT` because
+    # the access row may not be removed out from under the decision that created
+    # it.
+    Column(
+        "granted_access_id",
+        UUID(as_uuid=True),
+        ForeignKey("character_access.id", ondelete="RESTRICT"),
+    ),
+    Column("audit_correlation_id", UUID(as_uuid=True), nullable=False),
+    UniqueConstraint("run_id", "character_id", name="uq_identity_link_proposals_run_character"),
+    # Exactly VM-10's closed vocabulary. `already_linked` is deliberately not a
+    # member: it is a run-level count, because there is no proposal to make.
+    CheckConstraint(
+        "resolution IN ('proposed', 'ambiguous', 'unresolved', 'confirmed', 'rejected')",
+        name="resolution",
+    ),
+    CheckConstraint("length(trim(sheet_player_name)) > 0", name="player_name_not_blank"),
+    # A resolved subject is exactly what `proposed` and `confirmed` mean, and a
+    # decision is exactly what `confirmed` and `rejected` mean. Both are stated
+    # as constraints so a service cannot write a half-decided row.
+    CheckConstraint(
+        "(resolution IN ('proposed', 'confirmed')) = (proposed_subject IS NOT NULL)",
+        name="resolved_subject_matches_resolution",
+    ),
+    CheckConstraint(
+        "(resolution IN ('confirmed', 'rejected')) = (decided_at IS NOT NULL)",
+        name="decision_state",
+    ),
+    CheckConstraint("(decided_at IS NULL) = (decided_by_account_id IS NULL)", name="decider"),
+    # §7.2's whole pipeline, as one constraint: a confirmation **is** a link and
+    # nothing else is. A `proposed`, `ambiguous`, `unresolved` or `rejected` row
+    # carrying a grant is refused, and so is a `confirmed` row naming none — so
+    # neither "C-04 authorized something" nor "a confirmation was recorded
+    # without its access row" is a state this table can hold. The database says
+    # it rather than the service remembering to.
+    CheckConstraint(
+        "(granted_access_id IS NOT NULL) = (resolution = 'confirmed')",
+        name="a_confirmation_is_a_link",
+    ),
+    CheckConstraint(
+        "decision_reason IS NULL OR length(trim(decision_reason)) > 0",
+        name="decision_reason_not_blank",
+    ),
+    # R-29 and R-30 both **require** a reason, and the restricted runtime role
+    # holds `UPDATE` on this table — so a rule the service checks is a rule the
+    # database has to state as well, or a half-decided row is one direct
+    # statement away. Paired with the constraint above, which bans a blank one
+    # everywhere: together they make `confirmed` and `rejected` carry a non-null,
+    # non-blank trimmed reason, and `proposed`, `ambiguous` and `unresolved`
+    # carry none at all. An outstanding row with a reason would be a decision
+    # nobody made.
+    CheckConstraint(
+        "(resolution IN ('confirmed', 'rejected')) = (decision_reason IS NOT NULL)",
+        name="a_decision_states_its_reason",
+    ),
+)
+Index(
+    "ix_identity_link_proposals_run",
+    identity_link_proposals.c.run_id,
+    identity_link_proposals.c.resolution,
+    identity_link_proposals.c.id,
+)
+Index(
+    "ix_identity_link_proposals_character",
+    identity_link_proposals.c.character_id,
+)
+
+identity_link_proposal_candidates = Table(
+    "identity_link_proposal_candidates",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "proposal_id",
+        UUID(as_uuid=True),
+        ForeignKey("identity_link_proposals.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    # One row per member whose username matched. Typed child rows rather than a
+    # delimited column or an array (plan §7.3.1), so "which candidates were
+    # there?" is a query rather than a parse.
+    Column("subject", String(255), nullable=False),
+    Column("observed_username", Text, nullable=False),
+    UniqueConstraint(
+        "proposal_id", "subject", name="uq_identity_link_proposal_candidates_subject"
+    ),
+    CheckConstraint("length(trim(subject)) > 0", name="subject_not_blank"),
+)

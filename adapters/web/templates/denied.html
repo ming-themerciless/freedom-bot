@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Not available — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    The safe denial view, and the reason it carries **nothing else**.
+
+    Route contract §2.3: a `404` for an object-level denial and a `404` for a
+    genuinely absent object are byte-identical, deliberately, so that neither
+    the status nor the body can be used to discover which characters exist
+    (TC-OBJ-07). That is why this page renders no correlation id, no identifier
+    and no object detail: a correlation id differs per request, so printing one
+    would make two denials distinguishable by exactly the amount it varies.
+
+    The category is a closed vocabulary (`DeniedReason`). A free-text denial
+    reason leaks, and one assembled from the object that was refused is an
+    enumeration oracle.
+  #}
+  <h1>Not available</h1>
+  <p data-state="denied" data-reason="{{ view.reason.category.value }}">
+    This is not available to you.
+  </p>
+  <p><a href="/v1/characters">Back to My Characters</a></p>
+{% endblock %}

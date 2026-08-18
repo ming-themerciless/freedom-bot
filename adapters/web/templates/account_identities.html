@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Your sign-in identities — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-13, R-35, and the controls R-36/R-37 carry.
+
+    No token appears here, in any state: `oauth_token_grants` is not read by
+    this view and there is no field for its contents. `subject_display` is the
+    caller's **own** identifier shown to themselves, and it appears in no view
+    another member can see.
+
+    Retired identities stay listed because historical audit attribution resolves
+    through them after a provider is retired. They carry no control, because
+    there is nothing left to do to them.
+  #}
+  <h1>Your sign-in identities</h1>
+  <ul data-state="{{ view.state }}"
+      data-additional-provider="{{ view.additional_provider if view.additional_provider is string else view.additional_provider.key }}"
+      {% if view.unlink_blocked_reason %}data-unlink-blocked="{{ view.unlink_blocked_reason }}"{% endif %}>
+    {% for identity in view.identities %}
+      <li data-identity-id="{{ identity.identity_id }}"
+          data-provider="{{ identity.provider_key }}"
+          data-identity-state="{{ identity.state }}"
+          data-current="{{ 'true' if identity.is_current_session_identity else 'false' }}">
+        {{ identity.provider_display_name }} — {{ identity.subject_display }}
+        (linked {{ identity.linked_at.display }})
+        {% if identity.state == "active" and not view.unlink_blocked_reason %}
+          <form method="post" action="/v1/account/identities/{{ identity.identity_id }}/unlink">
+            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+            <button type="submit">Unlink</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  {% if view.additional_provider is string %}
+    <p data-state="{{ view.additional_provider }}">
+      Phase 3 has one sign-in provider. Linking an additional identity requires a
+      separately approved provider package.
+    </p>
+  {% endif %}
+{% endblock %}

@@ -54,7 +54,7 @@ from types import MappingProxyType
 from typing import Iterable
 from uuid import UUID
 
-from application.audit import ActorCapability
+from application.audit import ActorCapability, AuditSource
 from application.web.errors import (
     EmergencyScopeRefused,
     InsufficientCapability,
@@ -317,6 +317,18 @@ class WebAuthorizationContext:
         if self.platform_administrator:
             return ActorCapability.PLATFORM_ADMINISTRATOR
         return ActorCapability.GUILD_MEMBER
+
+    @property
+    def audit_source(self) -> AuditSource:
+        """Where an act taken under this context happened: the portal.
+
+        `CharacterAccessService` reads it rather than hard-coding the literal, so
+        the origin of an audited act is a property of *who is acting* rather than
+        of that module's current caller list. Every caller of that service is a
+        request handler, so the answer is always `WEB` today; a context type for
+        some other origin would carry its own.
+        """
+        return AuditSource.WEB
 
     @property
     def privilege_fingerprint(self) -> bytes:

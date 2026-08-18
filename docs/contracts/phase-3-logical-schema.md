@@ -1365,8 +1365,8 @@ plan §9.4.
 | `auth_rate_limits` | P3.1 | `(bucket, window_start)` | — | PK | rate limiter | rate limiter | windows > 60 min | 60 min | address hashed | yes |
 | `role_capability_mappings` | P3.2 | UUID | accounts `RESTRICT` | `(guild, role, capability) WHERE active` | admin service | capability resolution | never (revoke instead) | indefinite | no | — |
 | `role_capability_mapping_events` | P3.2 | UUID | — | — | admin service | audit views | **append-only** | indefinite | actor account | — |
-| `character_access` (migrated) | P3.2 | UUID | account `RESTRICT`, character `CASCADE` | 3 partial indexes (§7) | Council service, C-05 | authz, member reads | never (revoke instead) | indefinite | no | — |
-| `identity_link_proposals` | P3.2 | UUID | character `CASCADE` | `(run_id, character_id)` | C-04 | R-28 | 90 days after run | 90 days | sheet names | — |
+| `character_access` (migrated) | P3.2 | UUID | account `RESTRICT`, character `CASCADE` | 3 partial indexes (§7) | Council service (R-25 and R-29 share it) | authz, member reads | never (revoke instead) | indefinite | no | — |
+| `identity_link_proposals` | P3.2 | UUID | character `CASCADE`, granted access `RESTRICT` | `(run_id, character_id)` | C-04 (evidence), R-29/R-30 (decision) | R-28 | 90 days after run | 90 days | sheet names | — |
 | `reconciliation_jobs` | P3.3 | UUID | snapshot `RESTRICT`, account `RESTRICT`, self `RESTRICT` | `request_key`; one live apply per input | job service, worker | Council views | 30 days after terminal (N-24) | 30 days | requester | — |
 | `reconciliation_job_results` | P3.3 | UUID | job `CASCADE` | — | worker | Council views | with the job | 30 days | Actor names in blocked entries | — |
 | `audit_events` (+column) | P3.1 | existing | +account `RESTRICT` | existing | every service | Council/admin | **append-only, never** | indefinite (OD-23) | actor | — |

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Check the form — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-21. Field-level codes from a closed vocabulary, never a bare `400`: the
+    person has to be able to correct it.
+
+    `not_found` and `not_permitted` are both reported as `not_found` on
+    object-scoped fields, matching the `404` rule so validation cannot become
+    the enumeration oracle the status code refuses to be.
+  #}
+  <h1>That could not be accepted</h1>
+  <ul data-state="invalid">
+    {% for error in view.errors %}
+      <li data-field="{{ error.field }}" data-code="{{ error.code }}">
+        {{ error.field }}: {{ error.code }}{% if error.limit %} ({{ error.limit }}){% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

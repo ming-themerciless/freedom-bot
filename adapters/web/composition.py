@@ -49,6 +49,9 @@ from sqlalchemy import Engine, create_engine
 
 from adapters.web.repositories import (
     AccountRepository,
+    CharacterAccessRepository,
+    IdentityCandidateRepository,
+    IdentityProposalRepository,
     MembershipProjectionRepository,
     OAuthTransactionRepository,
     RateLimitRepository,
@@ -59,7 +62,11 @@ from adapters.web.repositories import (
     WebAuditRepository,
     WebAuthnRepository,
 )
+from application.web.account_identities import AccountIdentityService
 from application.web.breakglass import BreakGlassService
+from application.web.character_access import CharacterAccessService
+from application.web.characters import CharacterQueryService
+from application.web.identity_evidence import IdentityMigrationService
 from application.web.config import (
     DatabasePoolSettings,
     DiscordProviderSettings,
@@ -74,6 +81,7 @@ from application.web.providers import IdentityProvider
 from application.web.rate_limit import RateLimiter
 from application.web.role_mappings import RoleMappingService
 from application.web.sessions import SessionService
+from domain.foundry_profile import PROFILE as FIELD_PROFILE
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import httpx
@@ -207,6 +215,20 @@ class RequestServices:
     oauth: OAuthLoginService
     break_glass: BreakGlassService
     role_mappings: RoleMappingService
+    # -- P3.2 -----------------------------------------------------------
+    character_access_repository: CharacterAccessRepository
+    identity_candidates: IdentityCandidateRepository
+    proposals: IdentityProposalRepository
+    characters: CharacterQueryService
+    #: The **one** writer of `character_access` anywhere: R-25, R-26, R-27 and
+    #: R-29. The identity-migration confirmation creates its link through this
+    #: exact object rather than through a second implementation, which is what
+    #: stops the migration path having its own version of the one-active-owner
+    #: invariant, the optimistic version and the audit event (migration contract
+    #: §7.2 as amended by change-log entry C-P3.2-A).
+    character_access: CharacterAccessService
+    identity_migration: IdentityMigrationService
+    account_identities: AccountIdentityService
 
 
 class WebComposition:
@@ -608,6 +630,15 @@ class WebComposition:
         mappings = RoleMappingRepository(connection)
         membership = MembershipProjectionRepository(connection)
         audit = WebAuditRepository(connection)
+        character_access_repository = CharacterAccessRepository(connection)
+        identity_candidates = IdentityCandidateRepository(connection)
+        proposals = IdentityProposalRepository(connection)
+        #: Built once here and shared by the three callers that write links, so
+        #: the Council screen and the identity-migration confirmation cannot
+        #: drift apart: they are not two services that agree, they are one.
+        character_access = CharacterAccessService(
+            access=character_access_repository, accounts=accounts, audit=audit
+        )
         rate_limiter = RateLimiter(
             RateLimitRepository(connection),
             settings.rate_limits,
@@ -648,6 +679,40 @@ class WebComposition:
                 settings=settings,
             ),
             role_mappings=RoleMappingService(role_mappings=mappings, audit=audit),
+            character_access_repository=character_access_repository,
+            identity_candidates=identity_candidates,
+            proposals=proposals,
+            characters=CharacterQueryService(
+                access=character_access_repository,
+                accounts=accounts,
+                candidates=identity_candidates,
+                # The versioned field profile is **code under change control**
+                # (route contract §5.1), so it is imported rather than
+                # configured: there is no write route, and a profile an operator
+                # could point at something else would be a profile nobody
+                # reviewed.
+                profile=FIELD_PROFILE,
+                cursor_key=settings.cursor_key,
+            ),
+            character_access=character_access,
+            # R-28, R-29 and R-30. `access_service` is the **same object** the
+            # line above hands to R-25, not a second construction of the same
+            # class: the Council screen's grant and the identity-migration
+            # confirmation are not two services that agree, they are one, so
+            # they cannot drift apart. R-29's link is written through it in the
+            # request's own transaction, which is what makes the confirmation
+            # and its authorization atomic.
+            identity_migration=IdentityMigrationService(
+                proposals=proposals,
+                access_service=character_access,
+                access=character_access_repository,
+                accounts=accounts,
+                audit=audit,
+                cursor_key=settings.cursor_key,
+            ),
+            account_identities=AccountIdentityService(
+                accounts=accounts, credentials=credentials, audit=audit
+            ),
         )
 
     async def aclose(self) -> None:

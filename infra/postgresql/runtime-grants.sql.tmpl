@@ -71,7 +71,10 @@ REVOKE ALL PRIVILEGES ON
     recovery_grants,
     auth_rate_limits,
     role_capability_mappings,
-    role_capability_mapping_events
+    role_capability_mapping_events,
+    identity_migration_runs,
+    identity_link_proposals,
+    identity_link_proposal_candidates
 FROM PUBLIC;
 
 -- Operational tables: the application creates, reads and maintains these.
@@ -181,6 +184,32 @@ REVOKE TRUNCATE ON
     oauth_token_grants,
     auth_rate_limits,
     webauthn_challenges
+FROM __APP_ROLE__;
+
+-- ## Phase 3 identity-evidence proposals (P3.2, migration 0010)
+--
+-- **DELETE, deliberately**, and it is schema §11.2's classification for
+-- `identity_link_proposals` rather than a new judgement: the row is *evidence*
+-- with a 90-day retention, not a record of anything that happened. The
+-- authorization a confirmation creates is a `character_access` row and its audit
+-- event, and both are outside this band — the access row cannot be deleted at
+-- all, and the audit event cannot be touched. So a purge that has run its course
+-- removes the working papers and leaves the decision.
+--
+-- The two tables schema §11.2 does not name inherit the same band for the same
+-- reason: a run is what proposals hang from and a candidate is what an ambiguous
+-- proposal is made of, so a retention sweep that could remove one and not the
+-- others would leave the evidence half-readable. The `ON DELETE CASCADE` from
+-- run to proposal to candidate is what makes one delete statement enough.
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    identity_migration_runs,
+    identity_link_proposals,
+    identity_link_proposal_candidates
+TO __APP_ROLE__;
+REVOKE TRUNCATE ON
+    identity_migration_runs,
+    identity_link_proposals,
+    identity_link_proposal_candidates
 FROM __APP_ROLE__;
 
 -- Sequences: none of the retained tables uses one. Identifiers are application

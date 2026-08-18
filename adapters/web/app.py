@@ -17,10 +17,17 @@ open across a network call to Discord**.
 
 ## What this file deliberately does not contain
 
-No member route, no Council route, no administration route, no import route and
-no audit route. Those are P3.2 and P3.3, behind stop gates P3.G1 and P3.G2. The
-absence is the control the delivery plan asked for: no protected production query
-package proceeds on a blocking finding.
+No import route and no audit route. Those are P3.3, behind stop gate P3.G2, and
+the absence is the control the delivery plan asked for: no Council import or
+audit package proceeds before its gate.
+
+The P3.2 member, Council, administration and account routes live in
+`adapters/web/portal_routes.py` — the nineteen handlers and the matrix that
+guards them, kept beside each other rather than appended here, because the
+matrix is the thing a reviewer reads and it should not sit nine hundred lines
+away from the routes it governs. Their identifiers are merged into
+`ROUTE_INVENTORY` below, so `TC-STRUCT-01` still asserts one registered set
+against the parsed contract rather than two that have to be kept in step.
 """
 from __future__ import annotations
 
@@ -36,6 +43,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
 from adapters.web.composition import TEMPLATE_ROOT, WebComposition
+from adapters.web.portal_routes import P3_2_ROUTE_INVENTORY
+from adapters.web.portal_routes import register as register_p3_2_routes
 from adapters.web.middleware import (
     BodyBound,
     ClientAddressPolicy,
@@ -90,13 +99,16 @@ ROUTE_INVENTORY: dict[str, tuple[str, str]] = {
     "R-08": ("POST", "/v1/auth/emergency/webauthn/verify"),
     "R-09": ("POST", "/v1/auth/emergency/recovery"),
     "R-10": ("GET", "/healthz"),
+    # P3.2's nineteen, defined beside their handlers in `portal_routes.py` and
+    # merged here so `TC-STRUCT-01` still asserts **one** registered set against
+    # the parsed contract document rather than two that have to agree.
+    **P3_2_ROUTE_INVENTORY,
 }
 
 #: Routes P3.2 and P3.3 own. Named so `TC-STRUCT-01` can assert they are *absent*
 #: from this build rather than merely unmentioned, and so a reader can tell "not
 #: yet" from "never".
 DEFERRED_ROUTES: dict[str, str] = {
-    **{f"R-{number}": "P3.2" for number in range(20, 39)},
     **{f"R-{number}": "P3.3" for number in range(40, 50)},
 }
 
@@ -471,6 +483,11 @@ def create_app(
     app.add_middleware(HostGuard, allowed_hosts=settings.allowed_hosts)
 
     _register_routes(app, composition, authority)
+    # P3.2's routes take the same two objects, closed over in the same way, for
+    # the same reason: `app.state` is a mutable namespace and a per-request read
+    # of it is one more path to a provider, engine, origin, key or cookie other
+    # than the ones this factory accepted.
+    register_p3_2_routes(app, composition, authority)
     _register_error_handlers(app, authority)
     return app
 

@@ -417,6 +417,39 @@ confirmed in bulk, and an ambiguous proposal cannot be confirmed at all — it m
 be resolved to one snowflake first. Audit: `identity_migration.confirmed` /
 `.rejected`.
 
+**R-29 activates immediately** (change-log entry C-P3.2-A, 2026-08-17; migration
+contract §7.2). The confirmation is not an instruction recorded for a later apply:
+in one database transaction it takes the character's optimistic version, writes the
+`character_access` row through `CharacterAccessService.grant()` — the one R-25
+uses, attributed to the **confirming** Council member's live server-side
+authorization resolution — records the proposal's `confirmed` transition with its
+reason and the access row it produced, and writes both the
+`character_access.granted` and the `identity_migration.confirmed` audit events.
+Any failure among them rolls back all of them. The confirmable subject is the one
+C-04 recorded and R-28 displayed; R-29 resolves no name and accepts no subject,
+account, actor, access kind or authority from the request body. The access kind a
+confirmed proposal creates is `co_owner`, fixed by the service and shown on the
+form before the Council member submits: `owner` is a decision taken explicitly
+through R-25 under OD-37's one-active-owner invariant, not one a spreadsheet
+column takes on Council's behalf. A proposal that is ambiguous, unresolved,
+missing, already decided, or whose character or existing links have moved under
+the form is refused with the current state and writes nothing.
+
+**R-30 remains a rejection only.** It records a decision and its audit event and
+can never create a link; nothing in its path reaches a grant.
+
+**R-28 reports each confirmation's link as it stands today** (change-log entry
+C-P3.2-C, 2026-08-17). A link created at R-29 may afterwards be revoked at R-26,
+so R-28 reads `character_access.active` for the **exact**
+`identity_link_proposals.granted_access_id` the confirmation recorded, and says
+*"is active now"* only when that row is active. It does not infer activation from
+another active link on the same character or account, and it does not re-decide
+the proposal: the confirmation stays `confirmed` with its decider, reason and
+audit events, rendered `confirmed-and-revoked` and counted in `confirmed_revoked`
+rather than in `confirmed` (VM-10; migration contract §7.4). The read stays
+bounded — one set-based query for the rendered page and one aggregate for the
+run's totals, no per-row lookup.
+
 **R-31 `council_field_profile`.** Read-only render of the versioned field profile
 (`domain/foundry_profile.py`): each path's snapshot mode, each field's authority, and
 for `legacy_authority_deferred` fields the owning package. Council and
@@ -476,7 +509,10 @@ state until a later approved provider package. R-37 unlinks, and **refuses** whe
 it would leave the account with no usable identity and no reviewed recovery route
 (§9.5 of the delivery plan). Unlink marks the identity `retired`; it never deletes
 the row, because historical audit attribution must stay readable (schema contract
-§6.3). Audit: `identity.link_refused`, `identity.unlinked`.
+§6.3). The last-identity decision is serialized on the stable platform-account
+row and identity state is re-read under that lock, so concurrent requests aimed at
+two different identities cannot both observe a count of two and retire both.
+Audit: `identity.link_refused`, `identity.unlinked`.
 
 ### 5.2 P3.2 matrix
 
@@ -735,13 +771,20 @@ None is exposed as an API — that is the §9.8 boundary of the delivery plan.
 | C-01 | `python -m tools.emergency_recovery issue` | Issue a hashed, single-use, purpose-bound 10-minute recovery grant (N-14, N-61). Prints the token **once** to the operator's terminal; stores only the hash | P3.1 |
 | C-02 | `python -m tools.emergency_recovery revoke` | Invalidate outstanding grants | P3.1 |
 | C-03 | `python -m tools.webauthn_enrollment` | Enroll or retire a break-glass credential for the protected account, host-local, with the operator named in the audit record | P3.1 |
-| C-04 | `python -m tools.identity_migration --dry-run` | Produce identity-evidence proposals and control totals; writes no `character_access` row | P3.2 |
-| C-05 | `python -m tools.identity_migration --apply` | Materialize confirmed proposals only; idempotent, transactional, reversible before cutover | P3.2 |
+| C-04 | `python -m tools.identity_migration --dry-run --player-tab Players` | Produce identity-evidence proposals and control totals from the legacy Sheet; writes no `character_access` row and never writes Google. Temporary migration utility, run from the separate operator environment of migration contract §7.7. Peter Duscha confirmed `Players` as the one-time source tab on 2026-08-17 (`C-P3.2-B`); the argument remains required so this migration input is explicit rather than a portal default | P3.2 |
 | C-06 | `python -m tools.portal_kill_switch on\|off` | Engage or release the operator kill switch (N-56) without stopping the Discord bot or Foundry | P3.1 |
 | C-07 | `python -m tools.session_revoke --account …` | Revoke every session for an account after a suspected compromise | P3.1 |
 
 Each command audits with capability `system` or `platform_administrator`, the
 named operator, a correlation ID, and never the secret it handled.
+
+**C-05 is withdrawn** (change-log entry C-P3.2-A, 2026-08-17). It named a
+`--apply` step that materialized confirmed identity proposals into
+`character_access`. Under the maintainer's immediate-activation decision the
+Council confirmation at R-29 creates the link itself, so there is nothing left for
+a later step to materialize. The identifier is retired rather than reused, so that
+a reference to C-05 in an older document reads as withdrawn rather than as some
+other command.
 
 ## 9. Traceability
 

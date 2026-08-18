@@ -1,0 +1,25 @@
+{#
+  VM-09, R-24 — an HTMX **fragment**, and authorized exactly like a page. No
+  fragment route relies on having been reached from its parent, so this file
+  extends nothing and the route refuses a non-Council caller before it is
+  rendered.
+
+  The operator picks a **snowflake**. `username` and `global_name` are labels
+  beside it: names are evidence and never identity (OD-42, ADR 0006), which is
+  what `evidence_notice_code` renders as a standing warning.
+#}
+<div data-state="{{ view.state }}" data-notice="{{ view.evidence_notice_code }}">
+  <p>Names are evidence, not identity. The link carries the snowflake.</p>
+  <ul>
+    {% for candidate in view.candidates %}
+      <li data-subject="{{ candidate.discord_subject }}"
+          data-already-linked="{{ 'true' if candidate.already_linked_to_account else 'false' }}"
+          data-linked-here="{{ 'true' if candidate.existing_link_here else 'false' }}">
+        {{ candidate.username.value }}
+        {% if candidate.global_name %}({{ candidate.global_name.value }}){% endif %}
+        <span data-field="subject">{{ candidate.discord_subject }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+  {% if view.truncated %}<p data-truncated="true">More matches exist. Narrow the search.</p>{% endif %}
+</div>

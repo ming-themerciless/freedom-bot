@@ -92,21 +92,55 @@ def test_every_route_the_contract_defines_is_either_implemented_or_owned_by_a_la
 @pytest.mark.parametrize(
     "path",
     [
-        "/v1/characters",
-        "/v1/characters/00000000-0000-4000-8000-000000000000",
-        "/v1/council/characters",
-        "/v1/admin/role-capabilities",
+        "/v1/council/snapshots",
+        "/v1/council/jobs/00000000-0000-4000-8000-000000000000",
         "/v1/audit",
+        "/v1/audit/results",
     ],
 )
 async def test_a_route_owned_by_a_later_package_is_absent_from_this_build(client, path):
-    """P3.G1 is a stop gate, and this is what makes it structural.
+    """P3.G2 is a stop gate, and this is what makes it structural.
 
-    No protected member, Council, administration or audit route exists yet. The
-    delivery plan's rule — *no member or Council production query package
-    proceeds on a blocking finding* — is enforced by the routes not being here.
+    **Updated by P3.2** (2026-08-16). This case previously named the member,
+    Council and administration paths, and asserted `404` for each because P3.1
+    had not built them. They exist now, so the same assertion made about the same
+    paths would be asserting that P3.2 was not delivered.
+
+    What the case is *for* is unchanged: the closed route set has a next package
+    behind a gate, and the gate is enforced by the routes not being here. The
+    paths are therefore moved on to P3.3's — snapshot import, durable jobs and
+    audit search — which is where "not yet" now lives. The P3.2 paths are covered
+    by the case below, which asserts they are present and refusing rather than
+    absent, because those are different facts.
     """
     assert (await client.get(path)).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/characters",
+        "/v1/characters/00000000-0000-4000-8000-000000000000",
+        "/v1/council/characters",
+        "/v1/council/identity-migration",
+        "/v1/council/field-profile",
+        "/v1/admin/role-capabilities",
+        "/v1/account/identities",
+    ],
+)
+async def test_a_p3_2_navigation_route_exists_and_refuses_an_unauthenticated_caller(
+    client, path
+):
+    """Present, and refusing — which is the pair `404` cannot express.
+
+    A `404` says the route does not exist; `303` to the login page says it
+    exists and this caller has no session (route contract §2.3). Asserting the
+    second is what distinguishes "P3.2 is built and guarded" from "P3.2 is built
+    and open", and a route accidentally left unguarded would answer `200` here.
+    """
+    response = await client.get(path)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/v1/login"
 
 
 # ---------------------------------------------------------------------------

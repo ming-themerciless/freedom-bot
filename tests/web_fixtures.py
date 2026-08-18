@@ -113,6 +113,12 @@ class FakeDiscordProvider:
     refuse_verify: bool = False
     authorization_calls: list[tuple[str, str]] = field(default_factory=list)
     exchange_calls: list[tuple[str, str]] = field(default_factory=list)
+    #: Every `verify()` call, faulted or not, recorded **before** the fault is
+    #: raised. Added by the P3.2 request-boundary remediation: the case that
+    #: matters is *"a mutation with an invalid CSRF token made no provider call at
+    #: all"*, and a list that only recorded successful calls could not tell the
+    #: difference between "never asked" and "asked and was refused".
+    verify_calls: list[ProviderTokens] = field(default_factory=list)
 
     def authorization_url(self, *, state: str, code_challenge: str) -> str:
         self.authorization_calls.append((state, code_challenge))
@@ -140,6 +146,8 @@ class FakeDiscordProvider:
         )
 
     async def verify(self, tokens: ProviderTokens) -> VerifiedIdentity:
+        # Recorded first, deliberately. See `verify_calls`.
+        self.verify_calls.append(tokens)
         if self.unavailable or self.unavailable_at_verify:
             raise ProviderUnavailable("faulted double")
         if self.refuse_verify:

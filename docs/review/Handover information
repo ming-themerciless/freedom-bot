@@ -1,78 +1,29 @@
-# Claude independent implementation re-review — P3.G1 composition lifecycle claim
+# P3.3 handover — snapshot jobs, import controls and audit search
 
-Date: 2026-08-16
+P3.G2 was accepted on 2026-08-18 through change-log entry C-P3.2-D after the
+complete independent implementation and security review recorded in
+`docs/review/phase-3-p3-2-submission.md` §11. P3.3 may now begin; no later Phase 3
+gate is accepted by that decision.
 
-Outcome: **no findings; the lifecycle-claim remediation is recommended for acceptance as implementation evidence.**
+Before implementing P3.3, read `.agents/AGENTS.md`, the complete Phase 3 section
+of `docs/implementation-plan.md`, and the accepted P3.0 contracts. Baseline P3.3
+as its own package with named ownership, estimates, environment readiness,
+review/remediation allowance and its stop-gate evidence.
 
-P3.G1 remains open pending the separately required security-focused review and the maintainer's gate decision. This review does not accept the package or close RAID I-09/I-10.
+P3.3 owns the durable background-job and snapshot-import control surfaces that
+P3.2 deliberately leaves absent: bounded upload/admission, immutable artifact
+identity, preview/apply job lifecycle, current-role rechecks at apply, stale
+preview invalidation, idempotency and concurrency, Council/Admin separation,
+audit search, raw-artifact authorization, runtime-role denials, restart/recovery,
+and the measured asynchronous preview constraint. Do not turn on game-state
+corrections or write an unmigrated legacy field.
 
-## Scope reviewed
+Preserve the P3.2 boundaries now accepted:
 
-- `adapters/web/composition.py`
-- `adapters/web/app.py`
-- `tests/web/test_request_authority_and_lifecycle.py`
-- `docs/review/phase-3-p3-g1-composition-lifecycle-claim-remediation-submission-2026-08-16.md`
-- the surrounding canonical-settings, provider/engine-authority, startup-check, and cleanup behavior needed to assess the correction in context
-
-The review targeted the prior important finding: a composition whose cleanup had begun or completed could previously be started again, allowing ASGI startup to succeed while the Discord provider was closed and the owned SQLAlchemy engine had been disposed.
-
-## Conclusion
-
-The correction closes the reported lifecycle gap.
-
-`WebComposition` now has an explicit one-way `NEW -> STARTED -> CLOSING -> CLOSED` lifecycle. `claim_for_startup()` accepts only `NEW`; every later state raises `CompositionLifecycleError`. The ASGI lifespan makes that claim before resource checks and before yielding request service. Consequently, a second application or a second entry into the same application's lifespan produces `lifespan.startup.failed` and never reaches request serving.
-
-The claim is deliberately outside the cleanup `try`. A refused competing startup therefore does not close the provider or dispose the engine beneath the application that already owns and may still be serving with the composition. This placement is correct and is covered by a regression that drives an OAuth route after the competing startup is refused.
-
-Cleanup semantics remain appropriate: `aclose()` is idempotent for repeated and overlapping asynchronous cleanup calls, marks cleanup before its first suspension point, disposes an owned engine even if provider closure fails, leaves borrowed engines alone, and permanently prevents later startup. Direct cleanup of an unstarted composition also spends its lifecycle and causes a later startup to fail.
-
-The former regression that mislabeled a second lifespan as repeated shutdown was corrected. The replacement coverage proves both two-application reuse and same-application re-entry fail, including ordering before resource checks, no cleanup of a live claimant, no duplicate cleanup after refusal, and absence of configured secrets from the failure channels.
-
-No blocking, important, or minor implementation finding was identified in the reviewed remediation.
-
-## Verification performed
-
-- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv-web/bin/python -m pytest -q -rs tests/web/test_request_authority_and_lifecycle.py tests/web/test_canonical_settings_graph.py`
-  - **100 passed**, 6 deprecation warnings, 0 skipped.
-- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv-web/bin/python -m pytest -q -rs tests/web`
-  - **707 passed**, 20 deprecation warnings, 0 skipped.
-- `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' ./venv/bin/python -m pytest -q -rs`
-  - **2260 passed**, 1 deprecation warning, 0 skipped.
-- `git diff --check`
-  - clean before this report was written.
-
-The warnings are existing dependency deprecations (`httpx` per-request cookies in the web suite and Python's `audioop` deprecation through Discord in the full suite); none indicates a failure of this remediation.
-
-No production file was changed by this review. Only this handover report was updated. Existing unstaged implementation and documentation changes were preserved.
-
-## Subsequent distinct security-focused review
-
-The separately required security pass was completed on 2026-08-16 and recorded in `docs/review/phase-3-p3-g1-security-review-2026-08-16.md`.
-
-Security outcome: **changes requested; P3.G1 remains open.** Two blocking gate findings remain:
-
-1. N-32's per-account WebAuthn assertion limiter is implemented but has no production caller.
-2. N-33's per-grant recovery-attempt increment is inside the failed authentication transaction and rolls back on every refused matched grant.
-
-The earlier “no findings” outcome above applies only to the composition-lifecycle implementation remediation. It does not supersede the security review. P3.2 is not authorized until both findings are remediated, independently re-reviewed, and accepted by the maintainer.
-
-Both findings were accepted and remediated on 2026-08-16, recorded in `docs/review/phase-3-p3-g1-security-review-remediation-submission-2026-08-16.md`. The per-account assertion budget is now consumed by R-08 in its own committed transaction after credential resolution and before verification, with an equivalent keyed per-credential budget so the limit is not an account-existence oracle; the per-grant recovery counter is spent by R-09 through a service method that returns its refusal instead of raising it, so the increment survives the refusal it counts. Evidence is TC-BG-16 and TC-BG-17, both direct HTTP against real PostgreSQL from several source addresses, with 712 portal and 2260 bot tests passing and four falsification mutations killed.
-
-**That remediation is submitted, not accepted.** The security review's outcome remains *changes requested* until an independent security re-review of it, and P3.G1, RAID I-09 and RAID I-10 remain open.
-
-## Final P3.G1 decision — 2026-08-16
-
-The complete independent implementation and distinct security-focused re-review
-was subsequently completed and is recorded in
-`docs/review/phase-3-p3-g1-independent-and-security-re-review-2026-08-16.md`.
-It found no remaining blocking or important implementation or security finding.
-
-Peter Duscha accepted P3.1 and closed P3.G1 on 2026-08-16. I-07, I-09 and I-10
-are closed; P3.2 is authorized. P3.3 remains behind P3.G2. I-06 and A-05 remain
-open and block staging/production exposure under the acceptance criteria recorded
-in the final review and RAID register.
-
-TC-BG-16's evidence wording is corrected: enrolled and invented credentials
-produce the same externally meaningful statuses and coarse error codes at the
-same attempts. Literal bodies differ because correlation identifiers are
-per-request, and literal `Retry-After` equality is not claimed.
+- R-20–R-38 and their authorization matrix remain authoritative;
+- C-04 remains temporary, Google-read-only and outside the portal runtime;
+- only the latest C-04 run may be decided;
+- R-37 serializes account-wide identity changes and cannot strand an account;
+- no Phase 3 route mutates character game state; and
+- P3.3 must pass independent implementation and distinct security-focused
+  review before its own gate may close.
