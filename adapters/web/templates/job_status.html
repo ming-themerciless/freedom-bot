@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Job {{ view.job_id }} — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-15, R-43. The navigable page; its body is the same fragment R-44 answers,
+    included rather than copied, so a caller with no JavaScript gets the full
+    page and a working — if manual — flow.
+  #}
+  <h1>Reconciliation job</h1>
+  {% include "job_status_fragment.html" %}
+  <p><a href="/v1/council/snapshots">Back to snapshots</a></p>
+{% endblock %}

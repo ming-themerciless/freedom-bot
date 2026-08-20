@@ -25,6 +25,79 @@ evidence cannot authorize) is new in §6, and TC-ID-07 now includes the
 concurrent different-row unlink that proves the last-identity invariant is
 atomic. No existing acceptance is weakened.
 
+Amended again 2026-08-18 by the P3.3 **effect-publication** remediation, by
+**addition and one correction**: TC-JOB-27…TC-JOB-37 and TC-MIG-23 are new in
+§21.4b — the cancellation of a committed effect, the recovery that replaces the
+reaper's two branches over one, its atomicity and idempotence, and the two check
+constraints falsified rather than assumed. TC-JOB-22's claim is **corrected rather
+than weakened**: it said the requeued retry produced the result as a duplicate,
+and under the recovery design the job is not requeued at all, no attempt is spent,
+and the result is published from the payload the commit fence made durable. No
+existing acceptance is weakened.
+
+Amended 2026-08-18 by the P3.3 **migration-rollback** remediation, by **addition
+and one scope correction**: TC-MIG-24…TC-MIG-30 are new in §21.4c — the rollback
+boundary of revision 0013 against a database that has processed a normal apply.
+**TC-MIG-23's scope is corrected rather than weakened**: it was being read as
+evidence that a populated database round-trips, and it is not — its module seeds
+only `audit_events`, so it is empty-schema evidence. The case itself is unchanged
+and still passes; what changed is what it is allowed to be cited for. No existing
+acceptance is weakened.
+
+Amended 2026-08-19 by the P3.3 **third migration-rollback correction**, by
+**addition and one scope correction**: TC-MIG-37 is new in §21.4c — the condition
+that a writer starting under the migration's *granted* `ACCESS EXCLUSIVE` lock
+cannot commit until that transaction ends. **TC-MIG-32's scope is corrected
+rather than weakened**: it was named and cited for that condition and proves
+PostgreSQL lock-queue fairness instead, because the migration's lock request is
+ungranted throughout it. The case itself is unchanged and still passes; its test
+function is renamed to what it proves. No existing acceptance is weakened.
+
+Amended 2026-08-19 by the P3.3 **fourth migration-rollback correction**, by
+**strengthening one case's evidence**: TC-MIG-37's lock observation is bound to
+the fence writer's own backend and transaction. As first written it accepted any
+ungranted `RowExclusiveLock` on `reconciliation_jobs` and asserted only that the
+request was not the migration's, so an unrelated queued session could satisfy it
+while the intended writer had not yet reached the fence. The requirement the row
+records is unchanged; what changed is that the committed assertions now enforce
+the identity the submission's transcript showed. Falsified deterministically and
+recorded in the P3.3 submission §17. No case is renamed, no case is weakened, and
+no existing acceptance is weakened.
+
+Amended 2026-08-19 by the P3.3 **fifth migration-rollback correction**, by
+**addition only**: TC-MIG-38…TC-MIG-41 in §21.4c hold TC-MIG-37's own
+**failure-path cleanup** to the mandatory requirement that cleanup stay bounded
+and release every connection, transaction, thread and process on every
+assertion-failure path. The case's `finally` block killed a surviving migration
+child and then collected it with an unbounded `communicate()`, so a stall could
+hang cleanup before the `alembic_version` row lock, the holder connection and the
+writer thread were released. TC-MIG-37's own requirement, assertions and result
+are unchanged — a passing case never exercised the defective path. Falsified
+deterministically and recorded in the P3.3 submission §18. No case is renamed and
+no existing acceptance is weakened.
+
+Amended 2026-08-19 by the P3.3 **sixth migration-rollback correction**, by
+**addition only**: TC-MIG-42…TC-MIG-44 in §21.4c cover the half of that same
+cleanup requirement the fifth correction did not establish. Its release also
+called `holding.rollback()` and `holder.close()` synchronously, with no
+enforceable timeout and neither counted by the ceiling it documented, so a
+blocked rollback prevented the close, the independent disposal and the writer
+join from being reached at all, and a blocked close prevented the writer join.
+TC-MIG-38…TC-MIG-41's requirements, assertions and results are unchanged and
+TC-MIG-37 keeps every assertion it has; what is added is the two non-returning
+database paths, driven by deterministic stand-ins, and the passing-path mirror.
+Falsified deterministically and recorded in the P3.3 submission §19. No case is
+renamed and no existing acceptance is weakened.
+
+Amended 2026-08-18 by the P3.3 implementation re-review remediation, by
+**addition only**: TC-JOB-17…TC-JOB-26 (the commit fence's races and the runtime bookkeeping) and
+TC-OPS-06…TC-OPS-17 (N-24's sweep against real PostgreSQL) are new in §21, with
+their coverage rows below. Two earlier claims are **corrected rather than
+weakened**: N-24's evidence row said "the sweep reads `expires_at`" for a command
+that could not run at all, and N-45's row credited the abandon path to TC-JOB-16
+without any case proving that an abandoned attempt commits nothing. Both now name
+the cases that prove them.
+
 Amended again 2026-08-14 by the OD-44 re-review remediation, also by **addition
 only**: TC-AUTH-15 (the completion's provider binding), TC-AUTH-16 (rotation-chain
 integrity) and TC-AUTH-17 (migration 0009's rotation objects and its second
@@ -395,6 +468,7 @@ route that drifts apart from the rule fails a test rather than passing a reading
 | TC-SEC-11 | No view-model field reaches a `<script>` context anywhere in the rendered corpus | structural | automated |
 | TC-SEC-12 | A raised internal exception produces VM-20 with a correlation id only; the response contains no path, SQL, exception text or stack frame, and the log line contains no token or player data | direct HTTP + log capture | automated |
 | TC-SEC-13 | No route serves a raw snapshot artifact; the plausible paths are `404`, and the artifact store has no listing | structural + HTTP | automated |
+| TC-SEC-14 | **Added 2026-08-19 (accepted D-03 correction, item D-03-1).** Every asset is same-origin. No template and no file in the M-01 static root contains `http://`, `https://`, `//cdn.`, a jsDelivr/unpkg/cdnjs host, `fonts.googleapis.com`, `fonts.gstatic.com` or an `@import url(...)`, and no template or asset name references `design-prototype/`. This is the backend half of what TC-UI-06 will assert over the production corpus; it does not claim to be TC-UI-06, which remains P3.4's to write | structural | automated |
 
 ## 13. Bounds and limits — P3.1/P3.3
 
@@ -420,7 +494,7 @@ route that drifts apart from the rule fails a test rather than passing a reading
 
 | ID | Test | Level | Evidence |
 |---|---|---|---|
-| TC-STRUCT-01 | **The application's registered route set equals the accepted inventory exactly** — no extra route, no missing route (route contract §1) | route introspection vs. parsed document | automated |
+| TC-STRUCT-01 | **The application's registered route set equals the accepted inventory exactly** — no extra route, no missing route (route contract §1). **Amended 2026-08-19 (accepted D-03 correction, item D-03-1), by addition:** the assertion built its compared set from `getattr(route, "methods", …)`, which is empty for a Starlette `Mount`, so a mount contributed nothing and `app.mount("/anything", …)` added a whole URL subtree without failing anything. A second half now asserts the registered `Mount` objects against `MOUNT_INVENTORY` and against route contract §1.2's mount table, in both directions, plus the count — so declaring a second mount in both places is still a visible edit to a test. Falsified against a deliberately reintroduced undeclared mount, with the route half shown to pass unchanged against the same mutation (which is the blindness being closed), and the tree restored and verified by digest | route **and mount** introspection vs. parsed document | automated |
 | TC-STRUCT-02 | The implemented view-model set equals the documented `vm-1` set, with matching field names and types | introspection vs. parsed document | automated |
 | TC-STRUCT-03 | JSONB appears only on the two columns justified under plan §7.3.1, and no new generic key/value character-state table exists (extends `tests/test_rejected_scope_absent.py`) | schema introspection | automated (database) |
 | TC-STRUCT-04 | **No character-game-state correction endpoint exists**: no route, no application service, and forged submissions to plausible paths mutate nothing | structural + direct HTTP | automated (database) |
@@ -436,6 +510,14 @@ route that drifts apart from the rule fails a test rather than passing a reading
 | TC-VM-03 | A `MigrationDeferred` entry cannot carry a value, and every legacy field renders with the package named in `data-migration-manifest.json` | unit + manifest cross-check | automated |
 | TC-VM-04 | Reconciliation warnings render as closed-vocabulary codes; no artifact-sourced free text reaches a response | unit | automated |
 | TC-VM-05 | `level = None` renders as "not recorded", never `0` | unit | automated |
+| TC-VM-06 | **Added 2026-08-19 (accepted D-03 correction, item D-03-6).** VM-22 `DeniedView` carries exactly `state` and `reason` — asserted as equality, not containment, because an **added** field is the defect — and `DenialCategory` remains the closed six-member vocabulary. Every generic denial on the portal and import surfaces is proved to construct `DeniedView` and never `NonMemberView`, read over the source of both `_denied` helpers; the non-member page is proved to keep VM-02 with its guild name, check time and correlation id, which is intentionally permitted recovery context. Falsified by reintroducing a `correlation` field, populating it and printing it in `denied.html`: twelve cases across three modules fail, including the pre-existing TC-OBJ-07 case, and the tree is restored and verified by digest | introspection + source + direct HTTP | automated (database for the response half) |
+| TC-STATIC-01 | **Added 2026-08-19 (accepted D-03 correction, item D-03-1).** M-01 serves `GET` and `HEAD` only. `HEAD` returns the same `Cache-Control` and `Content-Length` as `GET` with an empty body; `POST`, `PUT`, `PATCH` and `DELETE` are `405` **identically** for a path that exists and one that does not, so a mutation method cannot become a directory listing one request at a time | direct HTTP | automated |
+| TC-STATIC-02 | M-01 serves only the one approved root. A sibling of the static directory holding real files (`adapters/web/templates/`) is unreachable, and so is the package source above it | direct HTTP | automated |
+| TC-STATIC-03 | Traversal, encoded traversal, dotfiles, directories and missing files all answer a safe `404` carrying no directory listing, exception text, filesystem path or stack frame, and a grammar refusal is **byte-identical** to a missing file so the grammar is not enumerable. Six traversal encodings are used and five are verified by ASGI-scope inspection to arrive at the application as `/static/../…` rather than being normalised away by the client; the grammar is proved load-bearing rather than decorative by `.gitkeep`, which Starlette's own root check would happily serve and only the grammar refuses | direct HTTP + unit | automated |
+| TC-STATIC-04 | The host check applies to an asset exactly as to a page (`400` on an unknown `Host`, N-01), and the kill switch leaves `/static/` serving **while** every `/v1/*` route answers `503` — both halves in one case, because a test asserting only the exemption would pass against a kill switch that had stopped working. The exemption is proved to be a prefix and not a bypass: an untrusted host is still `400` on a static path while the switch is engaged | direct HTTP | automated |
+| TC-STATIC-05 | Fingerprinted assets (`<stem>.<16 lowercase hex>.<ext>`) receive `public, max-age=31536000, immutable`; everything else receives `public, max-age=0, must-revalidate`, including four near-misses (15 hex, 17 hex, uppercase hex, a non-hex letter) that must fall to the conservative branch. The header is proved independent of the caller: a request carrying a session cookie still receives the cacheable value rather than `no-store`, and the six §7.2 security headers still apply to every asset | unit table + direct HTTP | automated |
+| TC-STATIC-06 | A static response sets and refreshes **no** cookie — asserted with no cookie presented and with a session and login-transaction cookie presented, the second being the case that would catch an asset fetch extending an idle timeout (N-06) — and the surface requires no session, capability, CSRF token or `Origin` | direct HTTP | automated |
+| TC-STATIC-07 | Route contract §1.2's URL grammar, as a seventeen-row table over accepted and refused segments, plus the boundary assertion that the repository-owned static root ships **only** its empty `.gitkeep`: no production CSS, no vendored HTMX, no emblem and no visual asset of any kind is added by the D-03 correction | unit | automated |
 
 ## 16. Frontend, accessibility and responsive — P3.4
 
@@ -568,3 +650,280 @@ missing evidence above as passing. The following conditions remain explicit:
   Security Reviewer's break-glass-readiness confirmation.
 
 Neither condition is waived by P3.G1 acceptance or by an automated green suite.
+
+## 21. P3.3 evidence map — added 2026-08-18, by addition only
+
+Where each P3.3-owned row's evidence lives. **No accepted row is rewritten**; this
+records which module carries which obligation, so a reviewer can go from a
+requirement to the case that holds it without reading seven files to find out.
+
+Every module below runs against real PostgreSQL through the disposable-database
+guards, and several drive two real connections with explicit barriers. None
+contacts a live Discord, Google, Foundry or production service, and none uses
+real player, Actor or credential data: the artifacts are the synthetic Phase 2
+bundles and the accounts are the synthetic portal ones.
+
+### 21.1 Durable jobs — §10
+
+| Row | Module | Case |
+|---|---|---|
+| TC-JOB-01 | `tests/web/test_p3_3_jobs.py` | `…a_job_is_created_queued_and_no_work_happens_in_the_request` — and `snapshot_imports` and the result table are asserted empty, so "no work" is a fact about the database rather than about the handler |
+| TC-JOB-02 | `test_p3_3_jobs.py` | `…two_workers_cannot_claim_one_attempt` — two real connections with both transactions open, so `SKIP LOCKED` is the only thing that can decide |
+| TC-JOB-03 | `test_p3_3_jobs.py` | `…a_heartbeat_extends_the_lease_and_a_stranger_changes_nothing`, extended to **every** worker write (complete, fail, stale, cancel, abandon), plus `…the_fencing_token_stops_a_worker_publishing_after_it_reclaims` |
+| TC-JOB-04 | `tests/web/test_p3_3_worker.py` | `…a_worker_crash_after_the_effect_commits_leaves_one_effect_and_a_readable_job` — the commit lands, the publication does not, the reaper requeues, a worker finishes, and exactly one import exists |
+| TC-JOB-05 | `test_p3_3_jobs.py` | `…attempts_one_through_exhaustion_on_real_postgresql` — all three expiries, with `queued`/`failed`, `attempts`, `lease_owner`, `failure_code` and `finished_at` asserted at each, and no fourth claim |
+| TC-JOB-06 | `test_p3_3_jobs.py` | `…completed_is_impossible_without_a_committed_result` — a direct `UPDATE`, refused by `ck_reconciliation_jobs_completed_has_a_result` |
+| TC-JOB-07 | `test_p3_3_jobs.py` | `…a_double_click_yields_one_job_and_one_audit_event` and `…two_browsers_confirming_the_same_preview_resolve_to_one_apply` |
+| TC-JOB-08 | `test_p3_3_jobs.py` | `…two_concurrent_inserts_of_one_live_apply_leave_one` — two real connections; the partial unique index decides |
+| TC-JOB-09 | `test_p3_3_jobs.py` | `…a_folder_change_invalidates_every_outstanding_job_atomically`, `…a_confirmation_of_a_stale_preview_applies_nothing_and_says_why`, `…a_preview_past_n46_cannot_be_confirmed`, `…a_wrong_preview_token_is_refused`; and `test_p3_3_worker.py`'s `…a_moved_scope_is_detected_inside_the_attempt_and_applies_nothing` for the aggregate-version half |
+| TC-JOB-10 | `test_p3_3_jobs.py` (request boundary) and `test_p3_3_worker.py` (commit boundary) | `…council_revoked_between_preview_and_apply_is_refused` and `…council_revoked_after_the_confirmation_refuses_the_apply_at_the_commit`. **Two windows, not one**: a caller who lost Council before submitting, and authority lost after the job was enqueued when no request is involved at all |
+| TC-JOB-11 | `test_p3_3_jobs.py` | `…cancellation_of_a_running_job_is_a_request_not_a_state`, `…a_committed_apply_cannot_be_cancelled`, `…cancellation_racing_completion_leaves_exactly_one_outcome` |
+| TC-JOB-12 | `test_p3_3_jobs.py` | `…the_queue_bound_refuses_the_sixth_job_and_creates_no_row` |
+| TC-JOB-13 | `test_p3_3_jobs.py` | `…two_concurrent_reapers_transition_each_job_exactly_once` — two real connections at a barrier, over jobs at `attempts` 1, 2 and 3; one `RETURNING` row per job across both, `version` incremented by exactly one, `attempts` unchanged, and a sweep asserting nothing is left `running` with a dead lease |
+| TC-JOB-14 | `tests/web/test_p3_3_disclosure_and_bounds.py` | `…a_rendered_job_page_contains_no_artifact_bytes_or_location` — the store's own reference is asserted absent too, and `test_p3_3_worker.py` asserts the stored summary carries no Actor content |
+| TC-JOB-15 | `test_p3_3_jobs.py` | `…the_stranded_state_is_unrepresentable` — three attempts, three refusals, plus `…a_terminal_state_cannot_omit_its_reason` and `…running_and_holding_a_lease_are_the_same_fact_in_both_directions` |
+| TC-JOB-16 | `test_p3_3_jobs.py` | `…worker_self_abandon_races_the_reaper_in_both_orders`, parametrized over both orders, plus `…self_abandon_at_the_last_attempt_fails_the_job_directly` |
+
+### 21.2 Audit — §11
+
+| Row | Module | Case |
+|---|---|---|
+| TC-AUD-01 | `test_p3_3_matrix.py`, `test_p3_3_success_cells.py` | the `[MATRIX]` parametrization, and the four permitted states asserted per route |
+| TC-AUD-02 | `tests/web/test_p3_3_audit_search.py` | `…pagination_is_bounded_and_a_request_for_a_thousand_is_clamped`, plus `…no_count_star_is_issued_over_the_audit_table`, which captures **every statement** the request issues and asserts none counts audit rows |
+| TC-AUD-03 | `test_p3_3_audit_search.py` | `…a_tampered_or_unsigned_cursor_is_refused_never_reset` — three shapes, including a cursor minted for the **snapshot** listing, which is what the scope string exists for |
+| TC-AUD-04 | `test_p3_3_audit_search.py` | `…no_application_repository_offers_an_audit_update_or_delete` (over the AST, not by grep), `…the_audit_search_repository_declares_no_write_method`, `…the_schema_owner_cannot_rewrite_audit_history` (the trigger, including an update touching only the new column), and `…the_runtime_role_holds_exactly_the_accepted_p3_3_grants` |
+| TC-AUD-05 | `test_p3_3_audit_search.py` | `…a_historical_row_resolves_its_actor_through_a_retired_identity` |
+| TC-AUD-06 | `test_p3_3_audit_search.py` | `…a_rendered_audit_row_retains_the_facts_it_must_and_no_others` — the payload carries raw artifact text, a bearer token and a stack frame under undeclared keys, and every one is absent from the response |
+| TC-AUD-07 | `test_p3_3_audit_search.py` | `…an_unrecognized_payload_key_renders_as_a_redacted_key`, plus `…every_payload_key_this_repository_writes_is_classified`, which parses every `AuditEvent(payload={…})` literal in the repository |
+| TC-AUD-08 | `test_p3_3_audit_search.py`, `tests/web/test_structural_guards.py` | `…there_is_no_audit_export_mutation_or_deletion_route` and `…a_mutation_on_a_read_only_path_is_not_allowed` |
+
+### 21.3 The rows P3.3 shares with earlier packages
+
+| Row | Where P3.3's portion lives |
+|---|---|
+| TC-OBJ-01, TC-OBJ-06 | `test_p3_3_matrix.py` — the §6.2 matrix **parsed from the contract**, issued directly, never rendering the page that carries the control |
+| TC-OBJ-05 | `test_p3_3_matrix.py` `…a_member_learns_nothing_from_a_job_id` — a real job id and an absent one produce the same status **and the same body** |
+| TC-CAP-01/02/07 | `test_p3_3_matrix.py`, including `…an_administrator_alone_cannot_preview_or_apply` and `…council_alone_cannot_select_a_folder` |
+| TC-CAP-09 | `test_p3_3_matrix.py` `…a_continuity_scoped_administrator_matches_the_break_glass_column` — the whole inventory re-run as `AC`, which is a **guild member**, so any check that confined emergency scope by testing membership would let it through R-41 |
+| TC-SESS-03/06 | the `U` and `N` columns of the matrix, and the navigation/fragment split asserted in `test_structural_guards.py` |
+| TC-LIM-01/03/04/05 | `test_p3_3_disclosure_and_bounds.py` — the contract's **per-route** body bounds (tighter than N-19), the multipart refusal, malicious folder ids refused as input, and the N-22 floor in both `Retry-After` and the poll hint |
+| TC-SEC-09 | `test_p3_3_disclosure_and_bounds.py` — parametrized over the accepted hostile set on the two fields that can carry external text: a blocked Actor's name and an audit `reason` |
+| TC-SEC-13 | `test_p3_3_disclosure_and_bounds.py` `…no_p3_3_path_serves_an_artifact_even_to_council` — issued **as Council**, the caller most entitled |
+| TC-OUT-01…04 | `test_p3_3_disclosure_and_bounds.py`, each with a stored token grant so the request genuinely reaches the provider; a read uses the grace, every mutation is refused immediately and enqueues nothing, and a failed refresh writes no absence |
+| TC-VM-01…05 | `test_structural_guards.py`'s existing introspection, which now covers VM-14/15/17/18; TC-VM-04 additionally in `test_p3_3_disclosure_and_bounds.py` |
+| TC-STRUCT-01/02 | unchanged and now asserting the **complete** inventory: `DEFERRED_ROUTES` and `DEFERRED_VIEW_MODELS` are both empty |
+
+### 21.4 TC-LIM-06's named P3.3 obligation, discharged
+
+TC-LIM-06 recorded lease, heartbeat, attempt, timeout and queue consumer
+evidence as **a named P3.3 obligation** rather than manufacturing it in P3.1,
+and reported N-21 and N-22 as having no P3.1 consumer at all. All of it now has
+one:
+
+| Number | Consumer | Evidence |
+|---|---|---|
+| N-23 lease (exact 60) | the claim and heartbeat statements | `test_p3_3_worker.py` `…the_worker_consumes_the_validated_lease_and_attempt_bounds` — the interval PostgreSQL wrote is compared to the configured value, at claim and at renewal |
+| N-23 heartbeat (≤ 20) | `WorkerRuntime`'s loop period | same case; the runtime waits on the configured value |
+| N-43 attempts (3) | the claim predicate, the reaper and the self-abandon | `test_p3_3_jobs.py` TC-JOB-05 and TC-JOB-13 drive it to exhaustion |
+| N-45 attempt timeout (300) | the runtime's hard cap | `WorkerComposition` is asserted to hold the canonical 300; the abandon *statement* is TC-JOB-16, and that an abandoned attempt commits **nothing** is TC-JOB-18 (2026-08-18) |
+| N-42 queue depth (5) | `ReconciliationJobService.enqueue_preview` | `test_p3_3_jobs.py` TC-JOB-12 fills to the **configured** depth and asserts the next is refused |
+| N-41 concurrency (1) | one in-flight job per runtime | `test_p3_3_worker.py` `…two_workers_running_concurrently_execute_one_job_each`, and TC-JOB-24 for the thread the runtime could not stop (2026-08-18) |
+| N-21 pagination | R-49 | `test_p3_3_audit_search.py` — default and clamped maximum both read from the configured bounds |
+| N-22 poll floor | R-44 | `test_p3_3_disclosure_and_bounds.py` — `Retry-After` and the poll hint both carry it, and agree |
+| N-24 retention | `tools.job_retention` | **Corrected 2026-08-18.** The earlier claim described a command that could not run: its `UPDATE … SET result_id = NULL` violated `CHECK ((state = 'completed') = (result_id IS NOT NULL))` for every completed job. TC-OPS-06…17 now run the production transaction against real PostgreSQL — every eligibility shape, the parent/apply graph, report mode, audit rollback, idempotence and the `--limit` refusals. The **staging** rehearsal of a real sweep on real volume is still not claimed |
+| N-46 preview validity | `enqueue_apply` | `test_p3_3_jobs.py` `…a_preview_past_n46_cannot_be_confirmed` |
+| N-44 reaper interval | `WorkerRuntime.tick` | exercised by every reaper case; its *liveness* signal is the `expired_leases` health check |
+
+### 21.4a The commit fence and the retention sweep (added 2026-08-18)
+
+| Case | What it proves | Evidence |
+|---|---|---|
+| TC-JOB-17 | A cancellation landing after the executor's last cooperative check and before the import commit leaves **no** import, character, mapping or success-audit row, and the job ends `cancelled` | `test_p3_3_effect_fence.py` `…cancellation_after_the_last_python_check…` |
+| TC-JOB-18 | A timeout self-abandon in the same window leaves no effect from the abandoned attempt; the job requeues | same file, `…self_abandon_in_the_commit_window…[timeout-requeues]` |
+| TC-JOB-19 | A kill-switch self-abandon at the last attempt leaves no effect; the job fails with `attempts_exhausted` | same file, `…[kill-switch-at-the-last-attempt-fails]` |
+| TC-JOB-20 | Lease expiry, a reaper requeue and a **new claim by another worker** while the original thread continues: the old token mutates nothing and the successor owns the job | same file, `…reaped_lease_and_a_new_claim…` |
+| TC-JOB-21 | The apply committing immediately before a cancellation: one import, a `completed` durable outcome, and the cancellation **refused** | same file, `…apply_that_commits_first_refuses_the_cancellation…` |
+| TC-JOB-22 | A crash after the effect commits and before the result is published: the job is **not** reaped, no attempt is spent, and the recovery pass publishes one `completed` result over one import. **Corrected 2026-08-18** by the effect-publication remediation, which changed the intermediate state: it used to be `queued`, and the result used to come from re-executing the attempt and finding a duplicate | same file, `…crash_between_the_effect_and_the_result…` |
+| TC-JOB-23 | The **same worker instance** reclaiming with a new token cannot make its old attempt valid again | same file, `…same_instance_reclaiming…` |
+| TC-JOB-24 | A worker holding an execution thread it could not stop claims nothing else and reports it | same file, the two outstanding-attempt cases |
+| TC-JOB-25 | R-41's invalidation landing in the commit window leaves no effect; the job ends `stale` | same file, `…invalidation_in_the_commit_window_leaves_no_effect` |
+| TC-JOB-26 | Neither R-41 nor R-46 can make an apply whose effect committed `stale`, while an ordinary live job in the same statement still is | same file, `…apply_whose_effect_committed_can_no_longer_be_made_stale` |
+| TC-MIG-22 | Migration 0012 round-trips (upgrade → downgrade → upgrade) with an identical catalogue and untouched append-only history, compared on `xmin` | `test_migration_0012_round_trip.py` |
+| TC-OPS-06 | An expired completed preview and its result are removed | `test_p3_3_job_retention.py` |
+| TC-OPS-07 | An expired completed apply goes while its `snapshot_imports` receipt survives | same file |
+| TC-OPS-08 | A `stale` preview whose result is linked only from the result side is removed | same file |
+| TC-OPS-09 | `failed`/`cancelled` jobs with and without result rows follow the documented terminal-age policy | same file (four parameterisations) |
+| TC-OPS-10 | An old job whose result has **not** expired is retained | same file |
+| TC-OPS-11 | A `queued` or `running` job is never removed | same file |
+| TC-OPS-12 | An expired preview with an unexpired apply child retains the whole graph | same file |
+| TC-OPS-13 | A wholly eligible preview/apply graph is removed with no FK or check failure | same file |
+| TC-OPS-14 | Mixed eligible and ineligible graphs under one `--limit`: only the removable ones go, and the counts say so | same file |
+| TC-OPS-15 | Report mode writes nothing and audits nothing | same file (both the sweep object and the command) |
+| TC-OPS-16 | An injected audit failure — a real `BEFORE INSERT` trigger — rolls back every deletion | same file |
+| TC-OPS-17 | Immutable rows are unchanged but for the sweep's own bounded event; a repeated sweep removes zero; zero, negative and excessive `--limit` values are refused **before** a connection is opened | same file |
+
+### 21.4b Effect-publication recovery (added 2026-08-18)
+
+Every case is in `tests/web/test_p3_3_effect_recovery.py` unless stated, runs
+against real PostgreSQL, and asserts the durable rows — `snapshot_imports`,
+`characters`, `external_actor_mappings`, the `snapshot_import.applied` audit
+event, the result row and the completion event — rather than a return value.
+
+| Case | What it proves | Evidence |
+|---|---|---|
+| TC-JOB-27 | The finding's own interleaving, through the HTTP route: effect commits, process dies, lease expires, the production reaper declines the row, **R-45 is refused `409` with `already_applied`**, `cancel_requested_at` is never written, no audit event claims a cancellation was requested, and the next recovery completes the job with no second effect | `…r45_refuses_to_cancel_an_effect_awaiting_recovery` |
+| TC-JOB-28 | The `queued` branch of `request_cancel` refuses a committed effect, and the control: an ordinary `queued` job is still cancelled outright | `…queued_branch_of_r45_refuses_a_committed_effect`, `…ordinary_queued_job_is_still_cancelled_outright` |
+| TC-JOB-29 | R-45, R-41's `mark_stale`, R-46's `invalidate_for_snapshot` and the worker's self-abandon are **all** refused over a committed effect, **both before and after lease expiry**, and the job stays recoverable through all of it | `…cancellation_and_invalidation_cannot_win_before_or_after_lease_expiry` |
+| TC-JOB-30 | The effect commits on **attempt three**, the process dies, the lease expires: the job ends `completed` rather than `failed`, `attempts` is still 3, and no fourth attempt is granted | `…effect_committed_on_the_last_attempt_is_completed_not_failed` |
+| TC-JOB-31 | Neither reaper branch fires over a committed effect at **any** attempt count, and the control: ordinary expired leases are still requeued and still exhausted, in the same pass | `…reaper_leaves_a_committed_effect_for_publication_at_every_attempt_count` (3 parameterisations), `…expired_lease_with_no_committed_effect_is_still_reaped` |
+| TC-JOB-32 | The recovered result names the original immutable import, carries its committed counts, reports `duplicate: false` and `recovered: true`, reproduces the fence's stored summary key for key, and the completion event says the same from the same summary and names the lease that stopped answering | `…recovered_result_names_the_original_import_and_says_it_was_recovered` |
+| TC-JOB-33 | Repeated recovery and reaper passes produce **exactly one** result row and **one** completion audit event | `…repeated_recovery_passes_publish_once` |
+| TC-JOB-34 | Concurrent recovery serializes to one publication: a second connection holding the production row lock makes a concurrent pass write nothing, and two real runtimes racing produce one result | `…two_recovery_passes_serialize_to_one_publication`, `…concurrent_recovery_threads_publish_exactly_one_result` |
+| TC-JOB-35 | An injected audit failure — a real committed `BEFORE INSERT` trigger — rolls the result row and the state transition back together, and the pass is safely retryable afterwards with nothing cleaned up | `…audit_failure_during_recovery_rolls_the_publication_back` |
+| TC-JOB-36 | A **live** lease is left to the worker that holds it; recovery acts only once the lease has lapsed. A stalled worker still recovers, because `tick` reaps and publishes before it consults its own state | `…live_lease_is_left_to_the_worker_that_holds_it`, `…tick_recovers_even_while_the_worker_is_stalled` |
+| TC-JOB-37 | Direct SQL cannot write `failed`, `cancelled` or `stale` over a committed effect (`committed_effect_is_never_denied`), and cannot record a committed effect without its publication payload (`effect_result_accompanies_the_fence`) — with the control that an ordinary job still reaches every terminal state | `…direct_sql_cannot_write_a_state_that_denies_a_committed_effect` (3 parameterisations), `…committed_effect_cannot_be_recorded_without_its_publication`, `…ordinary_job_still_reaches_every_terminal_state` |
+| TC-MIG-23 | **On an empty/unused schema** (this module seeds only `audit_events`), migration 0013 round-trips (upgrade → downgrade → upgrade) with an identical catalogue and untouched append-only history compared on `xmin`; the downgrade leaves 0012's column and constraint alone; `upgrade()` refuses a database holding a pre-0013 committed effect **before** it adds anything, naming the remedy; and the logical-schema document records the column and both constraints. **Not evidence for a data-bearing rollback** — that is §21.4c | `test_migration_0013_round_trip.py` |
+
+Every case above was first run against the pre-remediation implementation and
+failed there; the reproduction is recorded in the P3.3 submission.
+
+### 21.4c Migration 0013's rollback boundary (added 2026-08-18)
+
+Every case is in `tests/web/test_migration_0013_rollback_boundary.py`, drives the
+**production** Alembic revisions through the suite's guarded subprocess helper,
+and runs against real PostgreSQL. The committed effects are produced by the
+production apply path — a real preview, a real apply, a real commit fence and a
+real `snapshot_imports` receipt — not by seeding a row into a shape the platform
+never writes. Nothing is stubbed and no schema is hand-approximated.
+
+| Case | What it proves | Evidence |
+|---|---|---|
+| TC-MIG-24 | A database holding a **truthfully completed apply** — its receipt, its durable result, its fence columns — is refused a downgrade of 0013. The refusal names both counts and the operator's action, and happens **before** either constraint or the column is dropped | `…refuses_a_published_committed_effect` |
+| TC-MIG-25 | A database holding a **committed but unpublished** effect is refused the same way, **and the ability to publish it survives**: `WorkerRuntime.recover()` afterwards publishes exactly the result the fence made durable, key for key, with the `recovered` marker | `…refuses_a_committed_but_unpublished_effect` |
+| TC-MIG-26 | The two populations are counted **separately** in the refusal, because they cost differently, and the message carries counts rather than a row dump | `…names_both_populations_separately` |
+| TC-MIG-27 | The refused database is **unchanged and usable**: the job, result, immutable receipt and append-only audit rows all compare equal on `xmin`, the catalogue fingerprint is identical, `alembic_version` is still `0013`, and the effect it holds can still be published | `…leaves_history_untouched_and_the_database_usable` |
+| TC-MIG-28 | **Below** the boundary the downgrade is genuinely supported with realistic rows — a completed preview and its result, a failed apply, a refused import receipt, append-only audit history — and `upgrade → downgrade → upgrade` restores the identical catalogue with every durable row unchanged on `xmin` | `…succeeds_below_the_boundary_with_realistic_rows` |
+| TC-MIG-29 | A migration that fails part-way leaves the **complete** pre-migration schema and data, never a partial state, in **both** directions: a downgrade interrupted after its first `DROP CONSTRAINT` succeeds leaves 0013 whole with `alembic_version` unmoved; a refused upgrade from 0012 adds no column, creates no constraint and leaves every row untouched | `…an_interrupted_downgrade_leaves_the_complete_pre_migration_schema`, `…an_interrupted_upgrade_leaves_the_complete_pre_migration_schema_and_rows` |
+| TC-MIG-30 | The offline (`--sql`) downgrade script carries the **same guard as executable SQL**, emitted before the first `DROP`, rather than a comment; and `docs/operations/web-portal.md` records the boundary the migration enforces | `…the_offline_downgrade_script_carries_the_same_guard`, `…the_operations_document_records_the_rollback_boundary` |
+| TC-MIG-31 | **The guard decides under a lock.** With a real worker/effect transaction held open immediately before its commit, the real `alembic downgrade 0012` is observed waiting at `LOCK TABLE reconciliation_jobs IN ACCESS EXCLUSIVE MODE` — proved from `pg_stat_activity.query`, not from a sleep — then sees the fence the worker commits, refuses before any drop, and leaves revision, schema, payload, receipt and the ability to publish intact | `…a_downgrade_started_during_an_in_flight_effect_refuses_after_it_commits` |
+| TC-MIG-32 | **Lock-queue fairness, and only that** (re-scoped 2026-08-19). While the migration's `ACCESS EXCLUSIVE` request is still **ungranted** — queued behind an ordinary reader — a fence writer arriving afterwards cannot overtake it: the writer's `ROW EXCLUSIVE` request is observed ungranted behind the migration's pending request, and the refusal counts only the pre-existing effect. It makes **no** claim about a lock the migration was granted; that is TC-MIG-37. Previously named `…arriving_after_the_lock_cannot_commit_until_it_finishes` and cited for TC-MIG-37's condition, which it never proved | `…a_fence_writer_arriving_behind_a_pending_lock_request_cannot_overtake_it` |
+| TC-MIG-33 | **Offline atomicity, positionally.** One `BEGIN;` and one `COMMIT;`; lock → guard → count → refusal → drops in that order; and no transaction control between the lock and the last drop, so the lock is never released mid-guard | `…the_offline_script_locks_inside_its_own_transaction_before_it_decides` |
+| TC-MIG-34 | The **generated script**, applied with `psql` as an operator would, waits at its own lock and refuses an effect that commits while it waits | `…the_generated_script_refuses_an_effect_that_commits_while_it_waits` |
+| TC-MIG-35 | **Approved N-24 retention reopens the boundary truthfully.** A real completed apply, the production retention transaction with its normal audit behaviour, then `0013 → 0012 → 0013` with exact catalogue parity and every surviving immutable row unchanged on `xmin` | `…approved_retention_reopens_the_boundary_and_the_round_trip_is_exact` |
+| TC-MIG-37 | **A writer starting under the migration's *granted* lock cannot commit until that transaction ends** (added 2026-08-19). Every step is read from `pg_locks`/`pg_stat_activity`, never from a sleep: the production `alembic downgrade 0012` transaction holds a **granted** `AccessExclusiveLock` on `reconciliation_jobs`; the same backend pid, `virtualtransaction` and `xact_start` still hold it when the writer has queued, so no `COMMIT` or other boundary intervened; only then does the production `hold_for_effect` fence begin, for an apply job it has really claimed; its `ROW EXCLUSIVE` request is observed **ungranted** — and, since the 2026-08-19 fourth correction, that request is bound to the writer itself: the writer announces its backend pid from inside its own transaction over a bounded queue, the poll matches **only** that pid, `pg_stat_activity` for that pid must be the production `hold_for_effect` statement rather than `seed_import`, connection setup or an unrelated session, and the transaction identity observed while it is queued (`pid`, `virtualtransaction`, `backend_xid`, `xact_start`) must be **identical** to the one re-observed holding the granted lock, idle, with the fence run and not committed; the migration transaction then ends by rollback; and only afterwards is that same transaction released and commits, leaving one committed effect the migration provably never saw, with the three rolled-back objects restored and the catalogue fingerprint unchanged. The migration is held after the grant by locking Alembic's own `alembic_version` row **from the test** — no production module, no revision statement and no emitted SQL is changed, and no production pause hook exists. **Scope stated exactly:** this does not bind the granted lock to the guard's own `LOCK TABLE` (the three `ALTER TABLE` statements each require that mode anyway, so it passes against a guard with the statement removed); the lock's placement *before the count* is TC-MIG-31, which fails against that mutation | `…a_fence_writer_starting_under_the_held_lock_cannot_commit_until_it_ends` |
+| TC-MIG-38 | **TC-MIG-37's failure-path cleanup is bounded and total** (added 2026-08-19). The same scenario — the `alembic_version` row held from outside Alembic, the production `alembic downgrade 0012` holding a **granted** `AccessExclusiveLock` while blocked on that row, and the production `hold_for_effect` fence issued behind it from a writer that announced its own backend pid — is driven to a **controlled** assertion failure at two named points: while the writer is queued behind the migration's lock (the migration child **alive**), and after the fence has executed and is parked before its `COMMIT` (the migration transaction already ended). Measured from the moment of failure, the release returns inside an explicit ceiling; the migration child is **reaped** rather than merely signalled; the writer thread, its transaction and the holder's transaction and connection are released; `pg_locks`/`pg_stat_activity` show no `ACCESS EXCLUSIVE`/`ROW EXCLUSIVE` lock on `reconciliation_jobs`, no open transaction for the writer's backend and no surviving migration backend; the killed migration's drops are rolled back and the catalogue fingerprint is unchanged; and the **original** assertion is what surfaces, with nothing attached to it. The child is wrapped in `_RecordingChild`, which delegates every call to the real `subprocess.Popen` and adds only a record of the `timeout` each collection carried — so the case asserts that the collection was **bounded at the call**, which is the only way a real child can falsify the defect: `SIGKILL` collects a real Alembic process immediately, so an unbounded `communicate()` returns at once and no timing, reaping or residue assertion can see it | `…the_held_lock_cleanup_is_bounded_and_total_when_the_case_fails` (2 parameters) |
+| TC-MIG-39 | **Cleanup is bounded even when the migration child will not die**, which no real child can be made to do on demand. Against an injected fake process, cleanup collects the child **with a timeout, twice, and never once without one** — the pre-fix defect asserted directly on what the child was asked — returns well inside its ceiling, **reports** the stuck child rather than swallowing it, and still completes every other step: the writer is released and joined, the row lock rolled back and the holder closed. The real PostgreSQL concurrency evidence is TC-MIG-38 and TC-MIG-37, which falsify the defect in their own right; this case exists only for the branch where the child genuinely never dies | `…the_held_lock_cleanup_is_bounded_when_the_migration_child_will_not_die` |
+| TC-MIG-40 | **The earliest failure paths are bounded too**: a failure before the migration child exists and before `writer.start()` — the same shape as a failure before the pid announcement — still releases the commit event, rolls back the row lock and closes the holder, does **not** join an unstarted thread, and reports no problem it does not have | `…the_held_lock_cleanup_is_bounded_before_the_migration_or_the_writer_starts` |
+| TC-MIG-41 | **A cleanup problem is reported without replacing the failure under diagnosis.** When cleanup cannot release something, the original assertion is re-raised unchanged and the cleanup's problems are attached to it as notes; on the **passing** path an unreported cleanup problem becomes the failure instead, because bounded, total cleanup is part of what these cases claim | `…a_cleanup_problem_is_reported_without_replacing_the_failure_under_diagnosis` |
+| TC-MIG-42 | **Cleanup is bounded when the holder's `rollback()` never returns** (added 2026-08-19, sixth correction). The path the fifth correction's ceiling did not count: `release()` called `self._holding.rollback()` on the calling thread, and nothing bounds that call — catching its exception describes an operation that ended, it does not bound one that never does. Against a deterministic stand-in that blocks exactly where the real call would, the release returns inside its **complete** documented ceiling and well inside the stand-in's period; the blocked step is **reported**, naming the call and its bound; **every later step is still attempted** and the six-step order is asserted from a recorded list rather than read off the source; the writer's commit event is set and its bounded join really joins the parked writer; the connection is **not** closed out from under the thread still inside it and the independent backend disposal is attempted in its place; the thread left owning the call is a daemon, is recorded on the cleanup, and owns a connection detached from its pool before anything blocked; and the assertion under diagnosis surfaces with the cleanup problems as notes. Asserted **at the call** — that the rollback was not made on the calling thread — so the pre-fix shape is caught even on a run where it happened to return quickly | `…the_held_lock_cleanup_is_bounded_when_the_row_lock_rollback_never_returns` |
+| TC-MIG-43 | **Cleanup is bounded when `holder.close()` never returns**, the mirror path, with the same properties asserted and one more specific to it: the rollback provably **completed** before the close blocked, so what blocked is the close and not something inherited from the step before it | `…the_held_lock_cleanup_is_bounded_when_closing_the_holder_never_returns` |
+| TC-MIG-44 | **A blocked database cleanup call fails a case that otherwise passed**, for both calls. `_released()` has no failure to preserve on the passing path, so an unreported cleanup problem has to become the failure — otherwise a case could pass while leaving a live backend holding the `alembic_version` row lock in the **shared** disposable database | `…a_blocked_database_cleanup_call_fails_the_case_that_otherwise_passed` (2 parameters) |
+| TC-MIG-36 | **An unpublished effect blocks at any age**, because retention removes only terminal jobs — asserted with a sweep ten years in the future — and **fixture portability**: the realistic module runs green with pytest's base temporary directory below a deliberately untrusted parent, while the production-default control still refuses that parent | `…an_unpublished_effect_blocks_the_downgrade_at_any_age`, `…the_realistic_rollback_cases_run_below_an_untrusted_parent`, `…the_production_ancestor_rule_still_refuses_an_untrusted_parent` |
+
+TC-MIG-24 … TC-MIG-30 were first run against the pre-remediation migration and
+failed there — **8 failed, 1 passed** — for the intended reason: the downgrade
+succeeded on a database holding a truthfully completed apply, and the re-upgrade
+then refused. The transcript is in the P3.3 submission §14.7.1.
+
+TC-MIG-31 and TC-MIG-32 have their **own, separate** pre-fix evidence, taken
+against the guard with only its `LOCK TABLE` statement removed: the migration was observed waiting
+at `ALTER TABLE reconciliation_jobs DROP CONSTRAINT
+ck_reconciliation_jobs_committed_effect_is_never_denied` — the count had already
+run under its own MVCC snapshot and seen zero, and only the DDL was queued behind
+the worker, which is the unsafe interleaving itself. The fixture-portability
+defect (TC-MIG-36) has its own separate before/after evidence and is **not** the
+red phase of the concurrency regression; the two are different defects.
+
+TC-MIG-37 is new in the 2026-08-19 correction and is **not** offered as a
+regression for the guard's lock placement — it passes against the
+`LOCK TABLE`-removed guard, which was verified rather than assumed, and the
+verification is recorded in the P3.3 submission §16.2. What it is a regression
+for is the exclusion property itself: if a writer beginning under the granted
+lock could commit before the migration transaction ended, step 4 would observe a
+granted `ROW EXCLUSIVE` request or a completed fence and the case would fail.
+Since the 2026-08-19 fourth correction it is additionally a regression for the
+**identity** of that exclusion: with the writer deterministically held before its
+fence and only an unrelated session queued for the same mode on the same
+relation, the old broad predicate is satisfied and the corrected one cannot be
+(P3.3 submission §17.3).
+
+TC-MIG-38…TC-MIG-41 are new in the 2026-08-19 **fifth** correction and are about
+TC-MIG-37's **cleanup**, not its property. They are cited for exactly one claim —
+that a failing TC-MIG-37 releases every connection, transaction, thread and
+process within an explicit bound, and that a cleanup problem is reported rather
+than substituted for the assertion under diagnosis. They are **not** additional
+evidence for the exclusion property, for the guard's lock placement or for the
+rollback boundary, and TC-MIG-37's own scope statement above is unchanged.
+TC-MIG-39…TC-MIG-41 use an injected fake process and stand-in holder objects for
+branches a real Alembic child cannot be made to take on demand; the real
+PostgreSQL concurrency case is TC-MIG-38, which drives the production revision and
+the production fence statement. Falsification: against the pre-fix
+`kill(); communicate()` shape, **both TC-MIG-38 parameters** fail — the surviving
+child collected with `timeout=None`, and the already-exited child not collected at
+all — as do TC-MIG-39 and TC-MIG-41 (P3.3 submission §18.4). TC-MIG-40 correctly
+still passes: it has no migration child for the mutation to reach.
+
+TC-MIG-42…TC-MIG-44 are new in the 2026-08-19 **sixth** correction and have the
+same scope as TC-MIG-38…TC-MIG-41 and no wider: they are about TC-MIG-37's
+cleanup, and are **not** evidence for the exclusion property, the guard's lock
+placement or the rollback boundary. They use deterministic stand-ins for the two
+non-returning database calls because neither branch can be produced on demand
+from healthy PostgreSQL — which is precisely why the fifth correction's real
+database regression and its instant fake transaction and connection falsified
+neither. The real PostgreSQL cleanup evidence remains TC-MIG-38. Falsification:
+restoring an unbounded direct `self._holding.rollback()` fails TC-MIG-42 and
+TC-MIG-44's `rollback` parameter; restoring an unbounded direct
+`self._holder.close()` fails TC-MIG-43 and TC-MIG-44's `close` parameter; both
+fail deterministically and neither hangs. The fifth correction's `communicate()`
+falsification is retained and reruns unchanged (P3.3 submission §19.4).
+
+Metadata parity at head is unchanged and remains
+`tests/test_database_postgresql.py::test_migration_matches_table_metadata`
+(`alembic check`); this remediation adds no metadata.
+
+### 21.5 What P3.3 does **not** claim
+
+Unchanged from §20, and one of them is worse than it looks:
+
+- **TC-PERF-02 has never been measured, at all.** Rehearsal B previewed a real
+  32-Actor folder in 9.566 s and **applied nothing**; the 500-Actor benchmark's
+  1.31 s apply used synthetic Actors ~233× smaller than real ones (RA-5). P3.3
+  delivers the durable job model that measurement needs and **does not simulate
+  the measurement**. No number in this package is a real-folder apply.
+- **TC-PERF-01** — worker peak resident memory against N-47's 1 GiB guard — is
+  unmeasured. The guard is a guard, not a measurement.
+- **TC-PERF-03**, **TC-LIM-02**, **TC-SEC-07's browser half** and **TC-OPS-01…05**
+  remain unrun because staging does not exist (I-06).
+
+A gate recommendation that treated any of these as passing on the automated
+evidence above would be misreporting.
+
+## 22. D-03 correction evidence map — added 2026-08-19, by addition only
+
+Nothing in §§1–21 is rewritten. This section maps the six accepted decisions of
+change-log `C-P3.4-A` to the tests that hold them, so a reviewer can go from a
+decision to its evidence without reading the whole table.
+
+| Item | Accepted decision | Rows | Module |
+|---|---|---|---|
+| D-03-1 | Application-served `/static/` surface, mounts inside the closed inventory | TC-STATIC-01…07, TC-SEC-14, TC-STRUCT-01 (mount half) | `tests/web/test_static_asset_surface.py`, `tests/web/test_structural_guards.py`, `tests/web/test_security_controls.py` |
+| D-03-2 | `ConfirmScope` defined in `vm-1` | contract-vs-implementation field and order equality; the presence rule; the re-read rule | `tests/web/test_d03_contract_correction.py` |
+| D-03-3 | `CharacterFilters` defined in `vm-1` | contract-vs-implementation field and order equality; the search-fact rule | `tests/web/test_d03_contract_correction.py` |
+| D-03-4 | VM-13's `csrf_token` recorded; provenance claim corrected | field present and documented; the retracted claim absent from the source **and** still absent from the accepted P3.2 submission; R-37 still refuses a missing, forged and borrowed token | `tests/web/test_d03_contract_correction.py` |
+| D-03-5 | R-36 recorded as `200` HTML · VM-13 (`denied`) | `200` with no `Location`; the corrected contract row parsed and asserted; `additional_provider` still single-member | `tests/web/test_d03_contract_correction.py` |
+| D-03-6 | Dedicated `DeniedView` (VM-22) | TC-VM-06; byte-identity re-asserted under the new carrier on both route surfaces; authorization-before-lookup; VM-02's non-member page preserved | `tests/web/test_d03_contract_correction.py`, `tests/web/test_structural_guards.py` |
+
+### 22.1 What this correction does **not** claim
+
+- **TC-UI-06 is not delivered.** TC-SEC-14 asserts the same-origin and
+  `design-prototype/` rules over the *current* template corpus and the new static
+  root. The delivery-plan row belongs to P3.4 and to the production corpus that
+  does not exist yet.
+- **No browser, real-device, screen-reader, staging or production evidence** is
+  produced or claimed. Every row above is a source, unit or in-process ASGI
+  response check. TC-UI-07, TC-UI-08 and TC-UI-09 are untouched.
+- **No performance claim.** TC-PERF-01…03 remain unmeasured, as §21.5 records.
+  Serving assets from `freedom-web` is an accepted design trade recorded in
+  operational contract §4.4, not a measured one.
+- **The static root is empty.** No production asset exists to test, so no test
+  claims one does.

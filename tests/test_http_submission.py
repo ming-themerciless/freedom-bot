@@ -1,4 +1,4 @@
-"""The HTTP boundary: credentials, limits, safe errors and the preview gate.
+"""The HTTP boundary: credentials, limits, safe errors, and one route only.
 
 The WSGI application is called directly rather than through a socket. A socket
 would add a server's behaviour to every assertion without testing anything this
@@ -31,10 +31,7 @@ from adapters.http.credentials import (
     secret_digest,
 )
 from adapters.http.wsgi import SUBMISSION_PATH, SnapshotSubmissionApplication
-from application.authorization import AuthorizationContext
 from application.errors import PersistenceError
-from application.foundry.import_service import SnapshotImportService
-from application.foundry.preview_service import SnapshotPreviewService
 from application.foundry.submission import SnapshotSubmissionService
 from domain.foundry import OBSERVED_DEPLOYMENT
 from domain.foundry_profile import PROFILE
@@ -1052,9 +1049,16 @@ def test_vary_on_a_preflight_names_the_request_headers_too(browser_application):
     }
 
 
-def test_the_preview_route_gets_no_preflight(browser_application):
-    """One CORS surface, for one route. A second is a new decision."""
-    status, headers, payload = call(
+def test_the_retired_preview_path_gets_no_preflight(browser_application):
+    """One CORS surface, for one route. A second is a new decision.
+
+    **Updated by P3.3.** The path used to answer `405` because it existed and
+    accepted `GET` only; it now answers `404` because route contract §1.1 retires
+    it. Either way no `Access-Control-Allow-*` header appears, which is the
+    property this case is for: the browser gets no permission to read anything
+    from a path that is not the submission route.
+    """
+    status, headers, _payload = call(
         browser_application,
         method="OPTIONS",
         path=f"/api/v1/foundry/snapshots/{'a' * 64}/preview",
@@ -1066,7 +1070,7 @@ def test_the_preview_route_gets_no_preflight(browser_application):
         content_length="",
     )
 
-    assert status == 405
+    assert status == 404
     assert "Access-Control-Allow-Origin" not in headers
 
 
@@ -1208,134 +1212,103 @@ def test_loopback_http_is_permitted_for_a_same_host_rehearsal():
     assert not policy.allows("http://localhost:30003")
 
 
-# -- preview ------------------------------------------------------------------
+# -- the retired preview route (route contract §1.1) ---------------------------
+#
+# `GET /api/v1/foundry/snapshots/{checksum}/preview` was built inert in Phase 2,
+# pending a Phase 3 authentication composition: with no preview service composed
+# it answered `503 authentication_unavailable` and reached no application service.
+#
+# P3.3 supersedes it with R-42 to R-46 — a durable `preview` job, a polled status
+# and a separate confirmation — on the `/v1/*` browser boundary, with cookie
+# sessions, CSRF and object authorization this route never had. The route is
+# therefore **removed**, and the cases below assert the removal rather than the
+# old behaviour, in the way `tests/test_rejected_scope_absent.py` asserts an
+# absence: a retirement nobody checks is a retirement that comes back.
+#
+# The Council-authorization cases these replace (`an ordinary member cannot
+# preview`, `a revoked Council member cannot preview`, `the service credential
+# cannot be used to preview`) are not lost. They are the same properties, on the
+# route that now owns the operation, in `tests/web/test_p3_3_matrix.py` — where
+# they are asserted against a real session, a real capability resolution and the
+# accepted matrix rather than against a test resolver.
 
 
-def test_the_preview_route_fails_closed_without_a_phase_3_composition(application):
-    status, _, payload = call(
+@pytest.mark.parametrize(
+    "method", ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+)
+def test_the_preview_route_is_retired_for_every_method(application, method):
+    """`404`, whichever verb asks.
+
+    Not `405` and not `503`: both of those say the path exists. A route that
+    still resolves and still answers a code with the word "preview" in it is a
+    second path to an operation P3.3 now owns, which is precisely what the
+    retirement requirement forbids.
+    """
+    status, _headers, payload = call(
+        application,
+        method=method,
+        path=f"/api/v1/foundry/snapshots/{'a' * 64}/preview",
+        content_type=None,
+        content_length="",
+    )
+
+    assert status == 404
+    assert payload["error"]["code"] == "not_found"
+
+
+def test_a_retired_preview_request_reaches_no_application_service(application, store):
+    """It is refused at routing, so nothing is read and nothing is stored."""
+    call(
         application,
         method="GET",
         path=f"/api/v1/foundry/snapshots/{'a' * 64}/preview",
         content_type=None,
         content_length="",
     )
-    assert status == 503
-    assert payload["error"]["code"] == "authentication_unavailable"
+
+    assert store.snapshots == {}
+    assert store.characters == {}
+    assert store.snapshot_imports == []
 
 
-def _with_preview(store, artifacts, *, council: int = COUNCIL_USER, caller: int):
-    """A composition using a **test** authorization adapter, never a production one."""
+def test_the_application_admits_no_preview_service(store, artifacts):
+    """The constructor parameters are gone, not merely defaulted to `None`.
+
+    A constructor argument nothing reads is an invitation to supply one, and a
+    later composition that supplied it would revive the route's dependencies
+    without reviving the route. Asserted at the interpreter rather than by
+    reading the signature.
+    """
     submissions = SnapshotSubmissionService(
         unit_of_work_factory(store),
         deployment=OBSERVED_DEPLOYMENT,
         artifacts=artifacts,
     )
-    authorization = FakeAuthorization.with_council(council)
-    authorization.grant(
-        AuthorizationContext(discord_user_id=ORDINARY_USER, guild_member=True)
-    )
-    imports = SnapshotImportService(
-        unit_of_work_factory(store),
-        deployment=OBSERVED_DEPLOYMENT,
-        profile=PROFILE,
-        authorization=authorization,
-    )
-    preview = SnapshotPreviewService(
-        imports, artifacts=artifacts, authorization=authorization
-    )
-    application = SnapshotSubmissionApplication(
-        submissions,
-        ServicePrincipalRegistry.from_mapping(environment()),
-        preview=preview,
-        preview_user_resolver=lambda environ: caller,
-    )
-    return application, authorization
+    credentials = ServicePrincipalRegistry.from_mapping(environment())
+
+    with pytest.raises(TypeError):
+        SnapshotSubmissionApplication(submissions, credentials, preview=object())
+    with pytest.raises(TypeError):
+        SnapshotSubmissionApplication(
+            submissions, credentials, preview_user_resolver=lambda environ: 1
+        )
 
 
-def test_an_authorized_council_preview_is_read_only(store, artifacts):
-    application, _ = _with_preview(store, artifacts, caller=COUNCIL_USER)
-    body = fx.encode(fx.bundle())
-    _, _, receipt = submit(application, body)
+def test_no_module_in_the_http_adapter_imports_the_preview_service():
+    """The retired route's collaborator is unreachable from the machine boundary.
 
-    status, _, payload = call(
-        application,
-        method="GET",
-        path=f"/api/v1/foundry/snapshots/{receipt['checksum']}/preview",
-        content_type=None,
-        content_length="",
-    )
+    `application/foundry/preview_service.py` itself stays: it is Phase 2 code the
+    operator rehearsal path and its own tests still exercise. What must not
+    survive is a path from the HTTP adapter to it, because that is what a revived
+    route would need.
+    """
+    import ast
 
-    assert status == 200
-    assert payload["checksum"] == receipt["checksum"]
-    assert payload["folder_id"] == fx.ACTIVE_FOLDER_ID
-    assert payload["would_create"] == 1
-    # Read-only: no character, mapping or import row exists.
-    assert store.characters == {}
-    assert store.external_actor_mappings == []
-    assert store.snapshot_imports == []
-
-
-def test_an_ordinary_member_cannot_preview(store, artifacts):
-    application, _ = _with_preview(store, artifacts, caller=ORDINARY_USER)
-    _, _, receipt = submit(application, fx.encode(fx.bundle()))
-
-    status, _, payload = call(
-        application,
-        method="GET",
-        path=f"/api/v1/foundry/snapshots/{receipt['checksum']}/preview",
-        content_type=None,
-        content_length="",
-    )
-
-    assert status == 403
-    assert payload["error"]["code"] == "not_guild_council"
-
-
-def test_a_revoked_council_member_cannot_preview(store, artifacts):
-    application, authorization = _with_preview(store, artifacts, caller=COUNCIL_USER)
-    _, _, receipt = submit(application, fx.encode(fx.bundle()))
-    authorization.revoke(COUNCIL_USER)
-
-    status, _, payload = call(
-        application,
-        method="GET",
-        path=f"/api/v1/foundry/snapshots/{receipt['checksum']}/preview",
-        content_type=None,
-        content_length="",
-    )
-
-    assert status == 403
-
-
-def test_a_checksum_that_is_not_held_is_404(store, artifacts):
-    application, _ = _with_preview(store, artifacts, caller=COUNCIL_USER)
-
-    status, _, payload = call(
-        application,
-        method="GET",
-        path=f"/api/v1/foundry/snapshots/{'b' * 64}/preview",
-        content_type=None,
-        content_length="",
-    )
-
-    assert status == 404
-    assert payload["error"]["code"] == "snapshot_not_held"
-
-
-def test_the_service_credential_cannot_be_used_to_preview(store, artifacts):
-    """The submit-only principal has no route to Council data."""
-    application, _ = _with_preview(store, artifacts, caller=ORDINARY_USER)
-    _, _, receipt = submit(application, fx.encode(fx.bundle()))
-
-    status, _, _ = call(
-        application,
-        method="GET",
-        path=f"/api/v1/foundry/snapshots/{receipt['checksum']}/preview",
-        headers={"Authorization": f"Bearer {CREDENTIAL}"},
-        content_type=None,
-        content_length="",
-    )
-
-    # The bearer credential is not even consulted on this route: the resolver
-    # decides, and it resolved an ordinary member.
-    assert status == 403
+    for module in ("adapters/http/wsgi.py", "adapters/http/composition.py"):
+        tree = ast.parse((Path(__file__).resolve().parents[1] / module).read_text())
+        imported = {
+            node.module
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module
+        }
+        assert "application.foundry.preview_service" not in imported, module

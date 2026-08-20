@@ -88,6 +88,16 @@ class Requirement(Enum):
     #: full-scope. The one door between emergency and ordinary authority, and
     #: therefore the one that must not open from the emergency side.
     FULL_ADMINISTRATOR = "full_administrator"
+    #: R-48 and R-49. Council, administrator **or** break-glass.
+    #:
+    #: It is not `COUNCIL_OR_ADMINISTRATOR` with `continuity_allowed`, and the
+    #: difference is the guild-membership test. A break-glass session holds
+    #: exactly `platform_administrator` and **no membership projection at all**
+    #: (route contract §7.3), so `require_guild_member()` would refuse it — and
+    #: the accepted matrix gives `BG` a `✓` on both audit routes. Reading history
+    #: is how an administrator restoring continuity finds out what happened, and
+    #: reading changes nothing, which is why N-65's surface includes it.
+    AUDIT_READ = "audit_read"
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +122,14 @@ class RouteGuard:
     #: administration surface, which is what confines a break-glass session and,
     #: identically, a continuity-scoped ordinary session (route contract §3.3).
     continuity_allowed: bool = False
+    #: The route's own body bound, in bytes, from the contract's `Body` column.
+    #:
+    #: `None` means "the general N-19 bound and nothing tighter", which is every
+    #: P3.1/P3.2 mutation. The P3.3 forms carry 4 KiB and R-46 carries 8 KiB, and
+    #: those are **tighter** than N-19 rather than looser — a per-route bound can
+    #: only narrow the middleware's, never widen it, which is what stops a guard
+    #: table from becoming a way to raise a limit.
+    body_bytes: int | None = None
 
 
 class SessionAbsent(Exception):
@@ -320,7 +338,27 @@ def authorize(context: WebAuthorizationContext, guard: RouteGuard) -> None:
     if requirement is Requirement.FULL_ADMINISTRATOR:
         context.require_full_administrator_scope()
         return
+    if requirement is Requirement.AUDIT_READ:
+        _audit_read(context)
+        return
     raise InsufficientCapability()
+
+
+def _audit_read(context: WebAuthorizationContext) -> None:
+    """R-48/R-49: `C`, `A`, `CA` and `BG` — and `AC`, by the `BG` rule.
+
+    The break-glass branch is taken first and does **not** consult membership,
+    because a break-glass session has no projection to consult. Everyone else is
+    held to guild membership as usual, so a session whose membership was revoked
+    (`N`) is refused here exactly as it is everywhere else.
+    """
+    if context.is_continuity_scoped:
+        if context.platform_administrator:
+            return
+        raise InsufficientCapability()
+    context.require_guild_member()
+    if not (context.guild_council or context.platform_administrator):
+        raise InsufficientCapability()
 
 
 def _member_read(context: WebAuthorizationContext) -> None:

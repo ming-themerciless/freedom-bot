@@ -5037,6 +5037,1102 @@ Authority · **Status:** **P3.G2 accepted; P3.3 may begin.**
   With both blocking findings remediated and re-verified, **P3.G2 is accepted on
   2026-08-18.**
 
+## C-P3.3-A — Represent the snapshot folder selection, and make S-11 symmetric
+
+**Date:** 2026-08-18 · **Requester:** Technical Lead (P3.3 implementation) ·
+**Status:** **Proposed; not accepted.** P3.3 is submitted for independent
+implementation and distinct security-focused review, and P3.G3 is open.
+
+- **Affected requirement, milestone and release:** P3.3 and stop gate P3.G3.
+  Three implementation findings that could not be resolved inside the accepted
+  contracts without either a silent choice or a contradiction, recorded here so a
+  reviewer meets them as decisions rather than discovering them as diffs.
+- **Reason and alternatives considered:**
+  1. **A table for the folder selection (RAID I-11).** R-41 sets a *changeable*
+     Actor folder per snapshot and R-40 renders it, but `foundry_snapshots` is
+     append-only — schema §11.2 grants the runtime role `SELECT, INSERT`, and
+     migration 0002's trigger refuses `UPDATE`/`DELETE` for the schema owner too.
+     Schema §10 defines only the two job tables and §11 names no table for the
+     selection. Alternatives rejected: storing it on `foundry_snapshots` (the
+     trigger refuses, and weakening the trigger would weaken append-only
+     history); deriving the current selection by folding the append-only
+     `snapshot.folder_selected` audit events (operational state read out of an
+     audit log, which the plan's own separation forbids in spirit). Chosen:
+     `snapshot_folder_selections`, one live row per snapshot, mutable and
+     versioned, whose *history* remains the append-only audit event the route
+     contract already requires. This follows the precedent P3.2 set and the gate
+     accepted when migration 0010 added two tables §11 does not name.
+  2. **S-11 in both directions (RAID I-12).** `WebSettings.from_environment`
+     refused `WORKER_ENABLED=true` unconditionally, which was correct while there
+     was one process and made the worker unable to read its own configuration the
+     moment there were two. Alternatives rejected: a second environment reader
+     for the worker (two readers, two chances to drift); reading `WORKER_*`
+     directly in the worker (a second settings authority, which the canonical
+     graph exists to prevent). Chosen: `from_environment(..., process=...)`,
+     defaulting to `WEB`, with the worker refused under the same `S-11` when the
+     value is false.
+  3. **Account attribution on an applied import (RAID I-13).** Schema §11 and ADR
+     0010 D1 require new rows to carry the stable platform account, and the
+     Phase 2 apply service set only `actor_discord_user_id`. Alternative
+     rejected: resolving the account from the snowflake at render time in R-47 (a
+     second resolution path, and a receipt whose attribution is computed rather
+     than recorded). Chosen: a keyword-only `actor_account_id` on
+     `SnapshotImportService.apply`, defaulting to `None`.
+- **Added/removed scope:** one table beyond the accepted schema decision table,
+  one optional parameter on an accepted application service, one optional
+  parameter on the accepted settings reader, and one additive optional field on
+  the accepted `FolderChoice` view model (`path_observed`, permitted by
+  view-model contract §1 rule 5). **Removed:** the inert Phase 2 preview
+  endpoint, as route contract §1.1 requires.
+- **Dependency and critical-path effect:** none. No later package's inputs move.
+- **Estimate/forecast and capacity effect:** absorbed within the P3.3
+  implementation; no phase estimate changes.
+- **New or changed risks:** none introduced. The folder-selection table is not
+  authorization-bearing, holds no personal data beyond the administrator's
+  account id, and is covered by the runtime-grant band schema §11.2 gives every
+  table whose row is changed in place. The `actor_account_id` parameter is
+  *recorded* and never *trusted*: authority is still re-resolved through the
+  `AuthorizationPort` at the moment of the commit.
+- **Testing, migration, security and operational effect:** migration `0011` is
+  reversible and round-trip tested against real PostgreSQL, including that
+  append-only history seeded before it is unchanged by both directions (compared
+  by `xmin`, not merely by value). Runtime grants extend the accepted bands and
+  are asserted as *effective* privileges. Operational documentation gains the
+  worker runbook, the retention procedure and the two health signals P3.1 left
+  as placeholders.
+- **Product Owner recommendation:** accept the three decisions with P3.3, or
+  direct a different representation for the folder selection before P3.G3.
+- **Technical Lead and specialist reviews:** Claude implemented the package.
+  Independent implementation review and a distinct security-focused review are
+  **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-B — Fence the import effect, and rebuild the N-24 retention sweep
+
+**Date:** 2026-08-18 · **Requester:** Technical Lead (P3.3 remediation) ·
+**Status:** **Proposed; not accepted.** P3.G3 is open and both re-reviews are
+outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, SM-05
+  and schema §10.1. Raised by the independent implementation review of the P3.3
+  submission, which found two blocking defects. Both are corrected here.
+- **Reason and alternatives considered:**
+  1. **The import effect was fenced by nothing (blocking).** SM-05's
+     forbidden-transition table said a committed apply cannot be cancelled and
+     named its mechanism as *"the apply's commit sets `state='completed'`; the
+     cancel statement filters `state IN ('queued','running')"*. That mechanism did
+     not exist. `SnapshotImportService.apply` committed the effect in one
+     transaction and `WorkerRuntime` published the job's terminal state in a
+     second; in the window between them the job was still `running`, so a
+     cancellation matched and cancelled a job whose import had already committed.
+     The same window let a timeout self-abandon, a kill-switch self-abandon and a
+     reaper requeue leave a job saying `queued`, `stale`, `failed` or `cancelled`
+     while its abandoned execution thread committed afterwards.
+
+     Alternatives rejected, each because it leaves the window open:
+     **uniqueness alone** (`uq_snapshot_imports_applied_input`, the request key)
+     prevents a *second* effect and not the *first* effect from a cancelled
+     attempt; **a Python cancellation event** cannot be checked at a commit
+     boundary inside another module's transaction; **joining the worker thread
+     with a timeout** proves nothing about a thread that is still running when
+     the timeout elapses; **a check after `apply` returns** is a third
+     transaction and a third window; **disabling cancellation** or weakening
+     N-45 removes a control rather than fixing one. Chosen: one nullable
+     `TIMESTAMPTZ` column, `reconciliation_jobs.effect_committed_at`, written by
+     the transaction that commits the effect and by nothing else, with
+     `AND effect_committed_at IS NULL` added to the cancellation request, to the
+     worker's self-abandon, and to R-41's and R-46's invalidation statements —
+     the fourth writer in the same window, found while building the race suite
+     and not named in the review's finding. PostgreSQL's row lock is the serialization; the
+     reaper needs no predicate because its `FOR UPDATE SKIP LOCKED` already
+     skips a locked row.
+  2. **The N-24 retention command could not run (blocking).** It executed
+     `UPDATE reconciliation_jobs SET result_id = NULL` before deleting, which
+     `CHECK ((state = 'completed') = (result_id IS NOT NULL))` refuses for every
+     completed job; and it selected expired previews without regard to the
+     `parent_job_id … ON DELETE RESTRICT` graph, so a sweep could abort where the
+     correct answer was "that graph is not eligible yet". It also joined results
+     inner, so `failed` and `cancelled` jobs that never produced one were
+     invisible to every sweep and accumulated indefinitely.
+
+     Alternatives rejected: **deferring or dropping the check constraint** (the
+     constraint is delivery plan §8.7 expressed as a constraint); **catching the
+     integrity error and reporting success**; **a widening `CASCADE`** that would
+     delete ineligible children. Chosen: no schema change at all — the pointer
+     never needs nulling, because deleting the job cascades to its result and the
+     `RESTRICT` on `result_id` is satisfied by the job's own deletion — plus a
+     candidate set locked with `FOR UPDATE … SKIP LOCKED` and a recursive
+     fixed-point rule that removes a candidate only when every job naming it as a
+     parent is being removed with it.
+- **Added/removed scope:** one nullable column and one check constraint on
+  `reconciliation_jobs` (migration `0012`, a **successor** to `0011` rather than
+  an edit of it, because `0011` has been applied); one keyword-only
+  `commit_fence` parameter on `SnapshotImportService.apply`, defaulting to
+  `None` so the Phase 2 operator path and the supervised bootstrap are
+  unchanged; one repository on the unit of work; `tools/job_retention.py`
+  rewritten around a `RetentionSweep` object. **Removed:** nothing.
+- **Dependency and critical-path effect:** none. No later package's inputs move.
+- **Estimate/forecast and capacity effect:** absorbed within the P3.3
+  remediation; no phase estimate changes.
+- **New or changed risks:** two, both recorded rather than argued away.
+  **RR-16** — a job whose effect committed and whose *third* lease then expires
+  is failed by the reaper with `attempts_exhausted` while a valid import exists;
+  the receipt and its audit event stand and only the presentation record is
+  wrong, and closing it would need a fourth claim, which N-43 forbids.
+  **RR-17** — the fence holds the job row's write lock for the duration of the
+  import's `COMMIT`, so the worker's own heartbeat and a concurrent cancellation
+  block for that interval. It is the last statement before the commit, so the
+  interval is the commit and not the apply.
+- **Two new derived constants, neither an accepted register number**, both
+  listed for ratification rather than introduced as policy:
+  `EFFECT_PUBLICATION_GRACE_HEARTBEATS = 3` (how long the runtime keeps a job
+  alive waiting for a thread whose effect has already committed — bounded, and on
+  expiry the job is left for the reaper) and `MAX_LIMIT = 10 000` on
+  `--limit` (so one sweep cannot become one long transaction).
+- **Testing, migration, security and operational effect:** migration `0012` is
+  reversible and round-trip tested against real PostgreSQL with append-only
+  history compared by `xmin`. Forty-four new real-PostgreSQL regression cases
+  (TC-JOB-17…26, TC-MIG-22, TC-OPS-06…17 and their parameterisations), every one of which was first run
+  against the pre-remediation implementation and failed there. No grant changes:
+  the runtime role already holds `UPDATE` on `reconciliation_jobs` and still
+  holds no `DELETE`. Operational documentation gains the corrected retention
+  behaviour and three new troubleshooting rows.
+- **Contract amendment sought:** SM-05's "cancelling a committed apply"
+  mechanism cell is corrected to name the fence, and two forbidden-transition
+  rows are added. No state, transition or accepted numeric value changes. This is
+  a *mechanism* correction of the kind SM-05 has recorded four times before,
+  and it is proposed here rather than self-approved.
+- **Product Owner recommendation:** accept the two remediations and the SM-05
+  mechanism correction with P3.3, and rule separately on the two decisions the
+  remediation deliberately left open — **RAID I-11**
+  (`snapshot_folder_selections`) and the **R-41 versus SM-05** controlled
+  amendment for the completed-unconfirmed-preview → `stale` exception.
+- **Technical Lead and specialist reviews:** Claude implemented the
+  remediation. An independent implementation re-review and a distinct
+  security-focused re-review are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-C — Publish the effect, never deny it
+
+**Date:** 2026-08-18 · **Requester:** Technical Lead (P3.3 effect-publication
+remediation) · **Status:** **Proposed; not accepted.** P3.G3 is open and both
+re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, SM-05,
+  schema §10.1 and R-45. Raised by the independent implementation and security
+  re-review of `C-P3.3-B`, which found two blocking defects in that remediation.
+  Both are corrected here, and **RR-16 is withdrawn rather than carried**: the
+  reviewer refused it as a residual risk, correctly.
+- **Reason and alternatives considered:**
+  1. **A committed effect could be cancelled after reaping (blocking).** The
+     `queued` branch of `request_cancel` matched `id = :job_id AND state =
+     'queued'` and nothing else, while the reaper deliberately requeued a job
+     whose effect had committed but whose result had not been published. So this
+     interleaving existed: the apply commits its import, characters, mapping,
+     applied audit event and `effect_committed_at`; the process dies before
+     publishing; the lease expires and the reaper writes `queued`; R-45 cancels a
+     job over a durable import. Fixed **at the write boundary**, not with a
+     preceding Python read: both branches carry `AND effect_committed_at IS NULL`,
+     and so now do `fail`, `cancel_under_lease` and `mark_stale_under_lease`.
+     Migration `0013` adds `CHECK (effect_committed_at IS NULL OR state NOT IN
+     ('failed','cancelled','stale'))`, so the row is refused whatever statement
+     writes it — including direct runtime-role SQL. The route answers the
+     truthful `409` with VM-19's `already_applied`, taken from a typed
+     `Cancellation` rather than guessed from a state that reads `running`, and it
+     **writes no audit event claiming a cancellation was requested**.
+  2. **A committed effect could become `failed` on attempt three (blocking).**
+     The reaper chose its branch from `attempts` alone. Neither branch can
+     describe a committed effect — one retries an attempt that already succeeded,
+     the other declares it exhausted — so the reaper now takes only expiries with
+     `effect_committed_at IS NULL`, and an explicit **effect-publication
+     recovery** takes the rest.
+
+     *Alternatives considered and rejected:* a fourth claim (N-43 forbids it, and
+     the accepted cap is not this remediation's to widen); relaxing
+     `queued_can_be_claimed` so a committed effect could be requeued at the cap (a
+     job that could never be claimed, counted against N-42's queue bound
+     forever); clearing `effect_committed_at` (erases the only durable record
+     that the effect exists); a seventh state `recovering` (the publication is one
+     transaction under the row lock, so no distinguishable state is observable,
+     and N-27's six states are an accepted register value an internal convenience
+     must not spend); and reconstructing the summary by re-previewing at recovery
+     time (it would describe the database *after* the effect, which is exactly the
+     mistake Phase 2 finding B-1R corrected).
+- **Added scope:** migration `0013` — one column, `reconciliation_jobs.effect_result`,
+  and two check constraints. `application/worker/recovery.py`. Two repository
+  statements, `lock_unpublished_effect` and `complete_recovered_effect`.
+  `WorkerRuntime.recover()` and `Tick.recovered`. `PendingEffectResult`, which the
+  commit fence writes **in the same statement as `effect_committed_at`**, so the
+  bounded result a run produced becomes durable if and only if its effect does.
+  Typed `Cancellation` and `CancellationRefused`. **Removed:** nothing.
+- **Dependency and critical-path effect:** none. No later package's inputs move.
+- **Estimate/forecast and capacity effect:** absorbed within the P3.3
+  remediation; no phase estimate changes.
+- **New or changed risks:** **RR-16 is closed** (as RAID I-17). **RR-17 is
+  unchanged** — the fence still holds the row's write lock across the import's
+  `COMMIT`, and now writes one bounded JSONB value in the same statement, which
+  adds no round trip and no additional lock. **One new residual, RR-18:** a
+  recovery publication that cannot succeed leaves the job `running` with a lapsed
+  lease rather than writing `failed`, so `expired_lease_age_seconds` climbs until
+  an operator intervenes. That is the design — a durable import is never denied —
+  and both causes are rows migration 0013's constraints make unrepresentable. The
+  runbook names the symptom and the response.
+- **One new derived constant, not an accepted register number**, listed for
+  ratification: `EFFECT_RECOVERY_LIMIT = 20` (how many committed effects one pass
+  publishes, matching the reaper's own `limit`, so a backlog cannot turn one tick
+  into an unbounded series of transactions).
+- **Testing, migration, security and operational effect:** migration `0013` is
+  reversible and round-trip tested against real PostgreSQL with append-only
+  history compared by `xmin`, and its `upgrade()` refuses — before it adds
+  anything — a database holding a pre-0013 committed effect, naming the count and
+  the remedy. Twenty-one new real-PostgreSQL regression cases in
+  `tests/web/test_p3_3_effect_recovery.py` plus four migration cases, every one of
+  which was first run against the pre-remediation statements and failed there. No
+  grant changes: the runtime role already holds `SELECT`, `INSERT` and `UPDATE`
+  on the two job tables and still holds no `DELETE`. Operational documentation
+  gains the recovered-publication row, the never-denied guarantee and the stalled-
+  recovery symptom.
+- **Contract amendment sought:** SM-05 gains **one transition** — `running →
+  completed`, performed by the recovery pass when the lease has expired and the
+  effect has committed — three forbidden transitions, and the column and
+  constraints above. **No state is added and no accepted numeric value changes.**
+  This is larger than `C-P3.3-B`'s mechanism correction and is proposed here
+  rather than self-approved.
+- **Product Owner recommendation:** accept this remediation and the SM-05
+  amendment with P3.3; note that RR-16, recorded for acceptance in `C-P3.3-B`,
+  should be **withdrawn** rather than accepted. The two decisions `C-P3.3-B` left
+  open are untouched and still Peter's: **RAID I-11**
+  (`snapshot_folder_selections`) and the **R-41 versus SM-05** controlled
+  amendment.
+- **Technical Lead and specialist reviews:** Claude implemented the remediation.
+  An independent implementation re-review and a distinct security-focused
+  re-review are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-D — The rollback boundary of migration 0013
+
+**Date:** 2026-08-18 · **Requester:** Technical Lead (P3.3 migration-rollback
+remediation) · **Status:** **Proposed; not accepted.** P3.G3 is open and both
+re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, schema
+  §10.1, and the deployment/rollback contract in `docs/operations/web-portal.md`.
+  Raised by the independent implementation review of `C-P3.3-C`, which found one
+  blocking defect in that remediation's migration.
+- **Reason and alternatives considered:** `C-P3.3-C` claimed migration `0013` had
+  a general data-bearing round trip, on evidence that only ever exercised an
+  **empty** schema. It does not. The commit fence writes `effect_result` inside
+  the transaction that commits the import effect;
+  `ck_…_effect_result_accompanies_the_fence` makes the pair inseparable;
+  `downgrade 0012` drops `effect_result` and correctly keeps `effect_committed_at`
+  (it is 0012's column); and `upgrade 0013` then refuses on **every truthfully
+  completed apply**, because the payload its constraint requires was destroyed.
+  The database is stranded one revision below head, and every remedy that would
+  clear the refusal — deleting committed job or import history, clearing the
+  fence, manufacturing a result — is forbidden. The submission also understated
+  the loss: `snapshot_imports` is the import's receipt and does not hold the run's
+  blocked create-candidate list, `{code, severity, count}` issue counts,
+  `would_create`/`would_update` or `selected_folder_path`.
+
+  *Alternatives considered and rejected:* weakening
+  `effect_result_accompanies_the_fence` so a `completed` job need not carry a
+  payload (it is the constraint that makes an unpublishable effect
+  unrepresentable, and the effect-publication invariant is not this remediation's
+  to change); narrowing the upgrade guard (same reason, and it would leave rows
+  violating the constraint it guards); reconstructing `effect_result` on
+  re-upgrade from `reconciliation_job_results` (available only for the completed
+  population; the result row is a superset written by the publication rather than
+  the fence's own write, so the migration would be recording a durable fact it did
+  not witness, answering for the instant it ran rather than the instant the effect
+  committed — Phase 2 finding B-1R's mistake); and a **sidecar table or stash**
+  carrying the payload across the downgrade, which is the one design that would
+  make a data-bearing downgrade genuinely reversible and is a **material new
+  schema object with new ownership and retention rules** — presented for approval
+  in submission §14.2 and deliberately **not built**.
+- **Added scope:** one guard function in migration `0013`
+  (`_refuse_a_downgrade_that_cannot_be_undone`), called by `downgrade()` before
+  its first `DROP`; an executable `DO … RAISE EXCEPTION` guard for offline
+  (`--sql`) downgrade scripts, because `DROP CONSTRAINT`/`DROP COLUMN` succeed
+  against any data and a comment would be no protection; a corrected upgrade-guard
+  message distinguishing a database that never reached `0013` from one taken below
+  it; and a disposable-database reset in the test session fixture, because the
+  refusal is deliberately unconditional and `downgrade base` is a downgrade.
+  **Removed:** nothing. **No schema object, constraint, grant, application
+  statement, worker statement or contract value changed.**
+- **Dependency and critical-path effect:** none. No later package's inputs move.
+- **Estimate/forecast and capacity effect:** absorbed within the P3.3
+  remediation; no phase estimate changes.
+- **New or changed risks:** **RR-19 new** — while any reconciliation job
+  retaining a committed effect exists there
+  is no supported schema rollback and no supported application version below the
+  remediated one, so a defect found after the first production apply must be
+  fixed by roll-forward. The mitigation is that revision `0013` is small (one
+  nullable column, two check constraints) and that `0013` + pre-0013 code fails
+  *safe* rather than corrupting: the old fence writes no payload, so the
+  constraint aborts the import transaction and nothing commits. RR-16 remains
+  withdrawn; RR-17 and RR-18 are unchanged.
+- **Testing, migration, security and operational effect:** seven new
+  real-PostgreSQL cases (TC-MIG-24…TC-MIG-30) in
+  `tests/web/test_migration_0013_rollback_boundary.py`, every committed effect
+  produced by the production apply path rather than seeded. All were first run
+  against the pre-remediation migration and failed there — **8 failed, 1 passed**
+  — for the intended reason. `tests/web/test_migration_0013_round_trip.py` is
+  retained unchanged and **relabelled** as empty-schema evidence. No grant
+  changed; `alembic check` still reports no metadata difference. Security effect
+  is a strengthening: a destructive `DDL` path that previously ran silently now
+  refuses, and the refusal reports counts rather than rows.
+- **Contract amendment sought:** the **operational rollback contract**. While any
+  **retained** reconciliation job records a committed apply effect, rolling P3.3
+  back is application rollback or roll-forward rather than schema downgrade; the
+  boundary reopens once no such job survives (`docs/operations/web-portal.md`
+  §3.6). *(Predicate corrected 2026-08-19 by `C-P3.3-F`. As originally written
+  this bullet read "past the first committed apply effect", which describes a
+  historical event the guard does not record and this schema does not hold. See
+  `C-P3.3-E` and `C-P3.3-F`; retention is not a rollback technique.)* The refusal itself is implemented
+  because it is correct under either policy — it declines to destroy a payload
+  nothing may truthfully reconstruct — but the **consequence** for the operational
+  contract is proposed here and **not self-approved**. Tracked as RAID **D-09**.
+- **Product Owner recommendation:** ratify the rollback boundary as stated, and
+  keep the sidecar design closed unless a concrete need for data-bearing rollback
+  after go-live is identified — it would add a second writer for a value whose
+  single-writer property is what makes effect-publication recovery trustworthy.
+- **Technical Lead and specialist reviews:** Claude implemented the remediation.
+  An independent implementation re-review and a distinct security-focused
+  re-review are **outstanding**.
+
+## C-P3.3-E — Migration 0013's downgrade guard is atomic, and its boundary is retention-aware
+
+**Date:** 2026-08-18 · **Requester:** Technical Lead (second P3.3
+migration-rollback remediation) · **Status:** **Proposed; not accepted.** P3.G3
+is open and both re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, schema
+  §10.1, N-24 retention, and `docs/operations/web-portal.md` §3.6. Raised by the
+  second independent re-review of `C-P3.3-D`, which found one blocking
+  concurrency defect and two major contract/evidence defects.
+- **Reason and alternatives considered:** (F1) the downgrade precondition counted
+  under an ordinary MVCC snapshot and only then let the first `ALTER TABLE` queue
+  for its DDL lock, so a worker committing its fence in that window was counted by
+  nobody and had `effect_result` dropped — the exact state the guard exists to
+  prevent. The guard now takes `LOCK TABLE reconciliation_jobs IN ACCESS
+  EXCLUSIVE MODE` before the count and holds it to the end of the migration
+  transaction, online and in the generated `--sql` script. `ACCESS EXCLUSIVE` was
+  chosen over a narrower mode because it conflicts with every mode, and because
+  the three `ALTER TABLE` statements need it anyway — so there is one lock, taken
+  once, and no lock upgrade to deadlock on. Advisory locks were rejected: workers
+  take none. (F2) the documented boundary said downgrade was refused *forever*
+  after the first committed apply; the guard counts **retained** jobs, and N-24
+  retention legitimately removes a completed committed-effect job and its result
+  while preserving the immutable receipt and audit history. The alternative —
+  adding a permanent marker, sidecar or tombstone to make the old wording true —
+  was **not** taken: it is a material schema/ownership/retention decision
+  requiring maintainer approval. (F3) the P3.3 artifact-store fixtures used the
+  production unbounded ancestor walk, so seven realistic cases failed during
+  setup on the review host; they now use the existing `TrustedAncestors(ceiling=…)`
+  constructor seam bounded at pytest's temporary root.
+- **Scope, schedule and cost effect:** none beyond the remediation slice. No
+  schema object is added, changed or removed by this change; the migration's DDL
+  is byte-for-byte what it was.
+- **Dependency and critical-path effect:** none.
+- **New or changed risks:** **RR-19 restated** — the supported-rollback window is
+  the retention-aware predicate above, not "before the first apply, forever".
+  **RR-24 new** — the downgrade now takes `ACCESS EXCLUSIVE` on
+  `reconciliation_jobs` and waits for a draining worker rather than failing fast;
+  the mitigation is the unchanged operational requirement to stop workers first,
+  and that a migration blocked on a lock is visible in `pg_locks` and
+  `pg_stat_activity`.
+- **Product Owner recommendation:** ratify the retention-aware predicate as the
+  operational rollback boundary (D-09), and keep the marker/sidecar design closed.
+- **Technical Lead and specialist reviews:** Claude implemented the remediation.
+  An independent implementation re-review and a distinct security-focused
+  re-review are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-F — The retention-aware rollback predicate is stated consistently, and the held-lock exclusion is proved
+
+**Date:** 2026-08-19 · **Requester:** Technical Lead (third P3.3
+migration-rollback correction) · **Status:** **Proposed; not accepted.** P3.G3 is
+open and both re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3,
+  `docs/operations/web-portal.md` §3.6, the logical-schema and state-machine
+  contracts, the test-traceability register, RAID `I-18`/`RR-19`/`D-09` and the
+  status record. Raised by the independent review of `C-P3.3-E`, which found
+  three major defects and no new blocking concurrency defect.
+- **Reason and alternatives considered:**
+  - **(F1) The controlled documents still stated the superseded boundary.**
+    `C-P3.3-E` corrected the predicate in the migration and the runbook headline
+    but left "the first committed apply closes rollback" standing in the
+    submission's answers, the logical-schema constraint note, the state-machine
+    subsection, the status record, RAID `I-18` and `RR-19`, the `C-P3.3-D`
+    amendment bullet and the rollback-boundary test module. A superseded block in
+    one section does not cure contradictory present-tense prose elsewhere, and a
+    reader must not have to infer that a later section silently overrides an
+    earlier one. Every normative and present-tense claim now states the
+    retained-row predicate and distinguishes the four database states; the
+    historical wording survives only where it is labelled superseded and paired
+    with the corrected rule in the same place. *The alternative* — deleting the
+    historical wording — was not taken: the register is append-only and a reader
+    meeting the old phrasing elsewhere needs to be told it is dead.
+  - **(F2) The mandatory concurrency regression proved the wrong condition.**
+    `…a_fence_writer_arriving_after_the_lock_cannot_commit_until_it_finishes`
+    held the migration's `ACCESS EXCLUSIVE` request **ungranted** behind an
+    ordinary reader, so what it established was PostgreSQL lock-queue fairness —
+    a later writer cannot overtake a pending conflicting request — and not the
+    named condition, that a writer starting after the lock is *granted* cannot
+    commit until the migration transaction ends. It is renamed
+    `…arriving_behind_a_pending_lock_request_cannot_overtake_it`, kept as
+    coverage of the property it does prove, and a new case proves the held-lock
+    condition from a granted lock. *Alternatives rejected:* a production pause
+    hook in the revision (forbidden, and a revision carrying one is not the
+    program a deployment runs); a `pg_sleep` or timing window (asserts about the
+    scheduler); an event trigger (`CREATE EVENT TRIGGER` requires superuser,
+    which the test role deliberately is not).
+  - **(F3) The completion report contained impossible counts.** §15.4 reported
+    17 passed for the rollback module alone and 15 passed for that module plus
+    `test_migration_0013_round_trip.py`. Both cannot describe one tree. Historical
+    results had been combined with later additions and presented as current
+    evidence. Every required command is rerun against the final tree and reported
+    with its literal invocation and exact count; pre-fix results are kept and
+    labelled historical rather than rewritten.
+- **Added/removed scope:** none. **No production code, schema object, constraint,
+  grant, application statement or worker statement changed.** The migration's DDL
+  and emitted SQL are byte-for-byte what `C-P3.3-E` left. The diff is one new
+  test case, one renamed and re-scoped test case, two test-cleanup corrections,
+  and controlled-document wording.
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **New or changed risks:** none new. **RR-19 restated** to the retained-row
+  predicate. `RR-24` is unchanged.
+- **Testing, migration, security and operational effect:** the held-lock
+  regression drives the production Alembic revision and the production
+  `hold_for_effect` fence against disposable PostgreSQL and reads every step from
+  `pg_locks`/`pg_stat_activity`. The migration is held after its lock is granted
+  by locking Alembic's own `alembic_version` row **from the test**, which changes
+  no production module and no emitted statement. No marker, sidecar, tombstone,
+  retention-policy change, production pause hook or hidden schema object was
+  added. Security, integrity, availability, runtime-role and deployment-order
+  effects are unchanged from `C-P3.3-E`.
+- **Product Owner recommendation:** ratify the retention-aware predicate as the
+  operational rollback boundary (D-09), unchanged from `C-P3.3-E`.
+- **Technical Lead and specialist reviews:** Claude implemented the correction. An
+  independent implementation re-review and a distinct security-focused re-review
+  are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-G — The held-lock regression identifies its own fence writer
+
+**Date:** 2026-08-19 · **Requester:** Technical Lead (fourth P3.3
+migration-rollback correction) · **Status:** **Proposed; not accepted.** P3.G3 is
+open and both re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, the
+  test-traceability register (TC-MIG-37) and RAID `I-19`. Raised by the
+  independent review of `C-P3.3-F`, which confirmed the controlled-document
+  correction and the exact rollback-module count and found one major defect.
+- **Reason and alternatives considered:** TC-MIG-37 called
+  `_ungranted(engine, "RowExclusiveLock")`, which returns **every** ungranted
+  request of that mode on `reconciliation_jobs`, accepted the first non-empty
+  result, and asserted only that the migration lock-holder's pid was absent. It
+  never proved that any returned row belonged to the writer thread's connection
+  or transaction, so an unrelated queued session satisfied the poll while the
+  intended writer might still be awaiting scheduling, opening its connection,
+  inside `seed_import()`, or anywhere before the production fence statement. The
+  surviving `writer.is_alive()` and `fence == {}` assertions are all true of a
+  thread that has not reached the fence. **Recorded as a defective assertion, not
+  a timing flake**: it passed because the disposable database is quiet enough
+  that the intended writer normally wins the race, which is why a passing run was
+  not closing evidence, and it contradicted the mandatory requirement that
+  `pg_locks` / `pg_stat_activity` polling be scoped to the relation **and** to the
+  process/transaction. §16.3's instrumented transcript showed the intended
+  identity; the committed regression did not enforce it. *Alternatives rejected:*
+  adding a PID filter to the shared `_ungranted()` (it is used by the
+  queue-fairness case, whose property is ordering rather than identity and whose
+  deliberately broader observation must not be narrowed — a narrowly named helper
+  was added instead); inferring identity from thread liveness (the defect itself);
+  a fixed sleep or an unbounded wait (asserts about the scheduler, or hangs the
+  suite); and a production pause hook or any change to the revision or its emitted
+  SQL (forbidden, and a revision carrying one is not the program a deployment
+  runs).
+- **Added/removed scope:** none. **No production code, schema object, constraint,
+  grant, retention rule, application statement or worker statement changed.** The
+  migration's DDL and emitted SQL are byte-for-byte what `C-P3.3-F` left, and
+  `alembic check` reports no metadata difference. `0011`, `0012` and `0013` were
+  not edited. The diff is one test case's identity assertions and helpers, plus
+  controlled-document wording.
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **New or changed risks:** none new. `RR-19` and `RR-24` are unchanged, and
+  §16.8's stated limitation of TC-MIG-37 — that it does not bind the granted lock
+  to the guard's own `LOCK TABLE` — is unchanged and is not narrowed here.
+- **Testing, migration, security and operational effect:** the writer announces
+  its PostgreSQL backend pid over a bounded `queue.Queue`, from inside its own
+  transaction and before any production statement. The poll is scoped
+  `AND l.pid = :pid` and additionally requires `pg_stat_activity.query` for that
+  pid to be the production `hold_for_effect` fence — matched by a stable statement
+  shape rather than by driver placeholder spelling — so `seed_import`, connection
+  setup and any unrelated statement are excluded. The transaction identity
+  observed while the request is queued (`pid`, `virtualtransaction`,
+  `backend_xid`, `xact_start`) is re-observed, still open and uncommitted, on the
+  transaction that then commits the fence, so the queued request and the
+  committing transaction are proved to be one. The migration holder and the fence
+  writer are named separately throughout, in the docstring and in every assertion
+  message. Both new waits are bounded events in this test module's own thread, not
+  production hooks. Falsified deterministically: with the writer held before its
+  fence and only an unrelated session queued for the same mode on the same
+  relation, the old predicate is satisfied — and its one identity assertion still
+  holds — while the corrected predicate cannot be and the case fails; the mutation
+  was restored by checksum and is not in the final tree. Cleanup releases every
+  connection, transaction, thread and process on every assertion-failure path. **No
+  marker, sidecar, tombstone, retention-policy change, production pause hook or
+  hidden schema object was added.** Security, integrity, availability,
+  runtime-role and deployment-order effects are unchanged from `C-P3.3-F`.
+- **Product Owner recommendation:** ratify the retention-aware predicate as the
+  operational rollback boundary (D-09), unchanged from `C-P3.3-E` and `C-P3.3-F`.
+- **Technical Lead and specialist reviews:** Claude implemented the correction. An
+  independent implementation re-review and a distinct security-focused re-review
+  are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-H — The held-lock regression's failure cleanup is bounded
+
+**Date:** 2026-08-19 · **Requester:** Technical Lead (fifth P3.3
+migration-rollback correction) · **Status:** **Proposed; not accepted.** P3.G3 is
+open and both re-reviews are outstanding.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, the
+  test-traceability register (TC-MIG-38…TC-MIG-41, and TC-MIG-37 unchanged) and
+  RAID `I-20`. Raised by the independent review of `C-P3.3-G`, which accepted the
+  writer-identity remediation as sound and reran the module against disposable
+  PostgreSQL, and found one major defect in the same case's cleanup.
+- **Reason and alternatives considered:** TC-MIG-37's `finally` block killed a
+  surviving migration subprocess and then called `migration.communicate()` **with
+  no timeout**. If process termination or pipe collection stalled, cleanup could
+  hang indefinitely before it rolled back the externally held `alembic_version`
+  row lock, closed the holder connection, or joined the fence writer — leaving a
+  live migration child, a writer blocked behind the migration lock and an open
+  writer transaction behind it. That contradicts the mandatory requirement that
+  cleanup remain bounded and release every connection, transaction, thread and
+  process on **every** assertion-failure path, and contradicts the case's own
+  claim that its waits are bounded. **Recorded as an unbounded failure-path
+  cleanup defect, not a flake**: the passing case never executes the defective
+  path, which is exactly why the reviewer's passing runs did not close it.
+  *Alternatives rejected:* reusing `_reap()` unchanged (its own post-kill
+  collection was an unbounded `communicate()`, so it moved the defect rather than
+  removing it — it is bounded here too); a fixed sleep before collecting (asserts
+  about the scheduler); a second unbounded wait; letting the cleanup helper raise
+  out of `finally` (it would substitute a report about the cleanup for the
+  assertion under diagnosis); a production pause hook, a production-code change or
+  a migration change (forbidden, and none is implicated — this is a test defect);
+  and a regression that hangs for the full 60-second production-test ceiling
+  (a bounded fake process proves the timeout branch deterministically instead).
+- **Added/removed scope:** none. **No production code, schema object, constraint,
+  grant, retention rule, application statement or worker statement changed.** The
+  migration's DDL and emitted SQL are byte-for-byte what `C-P3.3-G` left, and
+  `alembic check` reports no metadata difference. `0011`, `0012`, `0013` and
+  `migrations/env.py` were not edited. The diff is one test module's cleanup
+  helpers and four new deterministic cases, plus controlled-document wording.
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **New or changed risks:** none new. `RR-19` and `RR-24` are unchanged, and
+  §16.8's stated limitation of TC-MIG-37 — that it does not bind the granted lock
+  to the guard's own `LOCK TABLE` — is unchanged and is not narrowed here.
+- **Testing, migration, security and operational effect:** every resource
+  TC-MIG-37 holds is now owned by one test-local object whose single `release()`
+  runs on every exit path, in a fixed order: release the writer's commit event
+  first; end and boundedly reap a surviving migration child **before** the
+  `alembic_version` row lock is released, so a migration that is *released* rather
+  than *ended* cannot commit its drops and a writer queued behind its table lock
+  is freed; roll back the row lock; close the holder; then join the writer,
+  bounded, and only if it was started and is still alive. The reap kills and then
+  collects with an explicit timeout, twice, and never waits without one; a child
+  that survives both is **reported and stepped over**, so one stuck process cannot
+  strand the connection, transaction and thread that are still releasable.
+  `release()` never raises: it returns problem descriptions, which are attached to
+  the failing assertion with `add_note()` rather than replacing it, so the primary
+  failure stays diagnosable while cleanup failures are still reported. The same
+  bounded reap replaces the identical unbounded shape in the three sibling
+  concurrency cases in the module. Four new cases (TC-MIG-38…TC-MIG-41) prove the
+  release is bounded and total from a **controlled** assertion failure driven
+  against real PostgreSQL with the production revision and the production fence
+  statement live, and prove the timeout, pre-start and error-preservation branches
+  deterministically. Falsified deterministically: against the pre-fix
+  `kill(); communicate()` shape four of the five fail — **both** real-PostgreSQL
+  parameters, on the surviving child collected with `timeout=None` and on the
+  already-exited child not collected at all, plus the fake-process case on the
+  same recorded absence of a timeout, the elapsed bound and the problem that was
+  not reported, and the error-preservation case on the note that was never
+  attached. The bound is asserted at the *call* rather than through elapsed time,
+  because `SIGKILL` collects a real Alembic child immediately. The mutation was
+  restored by checksum and is not in the final tree. **No marker,
+  sidecar, tombstone, retention-policy change, production pause hook or hidden
+  schema object was added.** Security, integrity, availability, runtime-role and
+  deployment-order effects are unchanged from `C-P3.3-G`.
+- **Product Owner recommendation:** ratify the retention-aware predicate as the
+  operational rollback boundary (D-09), unchanged from `C-P3.3-E`, `C-P3.3-F` and
+  `C-P3.3-G`.
+- **Technical Lead and specialist reviews:** Claude implemented the correction. The
+  maintainer reviewed and **concurred on 2026-08-19** with one evidence-technique
+  decision inside the slice — asserting the bounded collection at the call
+  (`_RecordingChild`, submission §18.3), which is what lets the real PostgreSQL
+  case falsify the defect at all. That is a design concurrence on one technique
+  and is **not** an approval of this entry. Whether to formalise it — as a
+  numbered RAID decision or its own change-log decision entry — is **deliberately
+  deferred until after the reviews**, which are asked to say whether they consider
+  it precedent-setting for how P3.3's concurrency and cleanup evidence is written.
+  An independent implementation re-review and a distinct security-focused
+  re-review are **outstanding**.
+- **Approval:** **none yet.** Nothing in this entry is accepted, and P3.3 is not
+  accepted by recording it.
+
+## C-P3.3-I — The held-lock regression's database cleanup is bounded too
+
+**Date:** 2026-08-19 · **Requester:** Technical Lead (sixth P3.3
+migration-rollback correction) · **Status:** **Accepted 2026-08-19 by
+Peter/Acceptance Authority after distinct implementation and security-focused
+re-reviews.** P3.G3 remains open for its explicit gate decision.
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3, the
+  test-traceability register (TC-MIG-42…TC-MIG-44; TC-MIG-37…TC-MIG-41 unchanged)
+  and RAID `I-21`. Raised by the independent review of `C-P3.3-H`, which **did not
+  accept** that entry.
+- **Reason and alternatives considered:** `C-P3.3-H` bounded the subprocess reap
+  and the writer join and then claimed `_HeldLockCleanup.release()` was bounded on
+  **every** path. It was not. `release()` also called `holding.rollback()` and
+  `holder.close()` synchronously, and neither SQLAlchemy nor psycopg offers an
+  enforceable timeout for either; `seconds_ceiling` counted neither, so the
+  documented 25 seconds described a release that could not be shown to end. A
+  blocked rollback prevented the close, and a blocked close prevented the writer
+  join. The resource at stake is the externally taken `alembic_version` row lock
+  in the **shared** disposable `freedom_test` database, so a stuck cleanup could
+  contaminate every later case's evidence. **Recorded as an unbounded
+  failure-path cleanup defect, not a flake**: neither branch is reachable from
+  healthy PostgreSQL, which is why the fifth correction's real-database case and
+  its instant fake transaction and connection falsified neither.
+  *Alternatives rejected:* another elapsed-time assertion around healthy
+  PostgreSQL (it cannot see a call that is unbounded but fast); a socket or
+  statement timeout (not active for `rollback()` or `close()`, so presenting one
+  as a bound would be a disguised failure); running the synchronous cleanup in a
+  thread and declaring success while the thread and its database resources may
+  still be live (the failure the handover names explicitly — hence the orphan
+  accounting below); closing the connection from the release while another thread
+  may still be inside it (an ownership violation, and on a pooled connection worse
+  than the leak); a production timeout policy, pause hook, schema object, marker,
+  sidecar, tombstone, retention change or runtime grant (forbidden, and none is
+  implicated — this is a test defect); and a regression that blocks for real
+  (it would hang the suite instead of reporting).
+- **Added/removed scope:** none. **No production code, schema object, constraint,
+  grant, retention rule, application statement or worker statement changed.**
+  `0011`, `0012`, `0013` and `migrations/env.py` are byte-for-byte what
+  `C-P3.3-H` left, verified by SHA-256, and `alembic check` reports no metadata
+  difference. `docs/operations/web-portal.md` is unchanged. The diff is one test
+  module's cleanup helpers and four new deterministic cases, plus
+  controlled-document wording.
+- **Dependency and critical-path effect:** none.
+- **Estimate/forecast and capacity effect:** none.
+- **New or changed risks:** none new. `RR-19` and `RR-24` are unchanged, and
+  §16.8's stated limitation of TC-MIG-37 is unchanged and is not narrowed here.
+  The one new mechanism with a security surface — a test-scoped
+  `pg_terminate_backend()` on the test's **own** backend, matched on pid *and*
+  `backend_start` — is put to the security reviewer explicitly rather than
+  assumed acceptable.
+- **Testing, migration, security and operational effect:** each database cleanup
+  call is now made by a daemon thread of its own and it is the **wait** that is
+  bounded, because that is the only part a test can control. The consequence is
+  stated rather than hidden: a call that never returns leaves that thread alive,
+  so the thread is recorded on the cleanup, reported as a problem, and never
+  followed by anything that touches what it owns; and the holder connection is
+  **detached from its pool at construction**, while only the calling thread can be
+  inside it, so no orphaned thread can ever leave a usable pooled connection for a
+  later case. Because a stuck connection object is off limits, the close step
+  alone cannot satisfy "a blocked rollback must not prevent an independent
+  close/disposal attempt", so a new step disposes of the **backend** from a
+  different connection — releasing the `alembic_version` row lock into the shared
+  database and letting the stuck call return. `release()` now runs six steps,
+  records each in `attempted` before entering it, and runs every later one
+  regardless of what an earlier one did; `seconds_ceiling` counts **all six
+  waits** — `2 × 5 + 2 × 5 + 5 + 15 = 40 s`, against the 60-second
+  production-test ceiling — and the calculation, the documentation and the tests
+  agree. Three new cases (TC-MIG-42…TC-MIG-44) drive the rollback-blocked and
+  close-blocked paths with deterministic stand-ins that block exactly where the
+  real calls would and record the thread they were called on, and prove the
+  release returns inside its complete ceiling, reports the blocked step, attempts
+  every later step, releases and joins the writer, preserves the assertion under
+  diagnosis, and fails a passing case that leaves a cleanup problem. Falsified
+  deterministically by three mutation runs: an unbounded direct `rollback()` fails
+  exactly the two rollback cases; an unbounded direct `close()` fails exactly the
+  two close cases; and `C-P3.3-H`'s own `communicate()` falsification is retained
+  and reproduces the same four failures. None hung. The mutations were restored by
+  checksum and are not in the final tree. **No marker, sidecar, tombstone,
+  retention-policy change, production pause hook or hidden schema object was
+  added.** Availability, runtime-role and deployment-order effects are unchanged
+  from `C-P3.3-H`.
+- **Product Owner recommendation:** ratify the retention-aware predicate as the
+  operational rollback boundary (D-09), unchanged from `C-P3.3-E` … `C-P3.3-H`.
+- **Technical Lead and specialist reviews:** Claude implemented the correction.
+  **Peter's direction on `_RecordingChild` is recorded and applied**: it remains an
+  **informal technical concurrence**, is **not** given a numbered RAID decision or
+  its own change-log decision entry, and its existing localized documentation is
+  sufficient. The question `C-P3.3-H` left open for the reviewers on whether to
+  formalise it is therefore closed as a concurrence; reviewers remain free to
+  disagree on its merits. An independent implementation re-review and a distinct
+  security-focused re-review are **outstanding**, and the resource-ownership model
+  and the new test-scoped `pg_terminate_backend()` path are offered to them for
+  judgement rather than presented as settled.
+- **Approval:** **Accepted by Peter/Acceptance Authority on 2026-08-19.** The
+  independent implementation review found no blocking or major defect. The
+  distinct security-focused review found no blocking or major security finding
+  and recorded 120 passing rollback, structural and rejected-scope tests in
+  `docs/review/phase-3-p3-3-sixth-correction-security-review.md`. This accepts
+  `C-P3.3-I`, not defective `C-P3.3-H`; P3.G3 still requires its explicit gate
+  decision.
+
+## C-P3.3-J — Acceptance Authority ratification of outstanding P3.3 decisions
+
+**Date:** 2026-08-19 · **Requester:** Peter / Acceptance Authority ·
+**Status:** **Accepted.** This is a contract and operational decision; it is not
+acceptance of `C-P3.3-I` and does not close P3.G3.
+
+- **Affected requirement, milestone and release:** P3.3 and stop gate P3.G3;
+  RAID D-09 and I-11; R-41; SM-05; and submission §13.
+- **Decision:** accept D-09's retention-aware rollback boundary; accept
+  `snapshot_folder_selections`; accept the narrow completed-unconfirmed-preview
+  → `stale` exception; and accept effect-publication recovery.
+- **Accepted derived limits:** `EFFECT_RECOVERY_LIMIT = 20`,
+  `EFFECT_PUBLICATION_GRACE_HEARTBEATS = 3`, and retention `MAX_LIMIT = 10 000`.
+- **Added/removed scope:** none; no production code, migration, grant, route,
+  retention rule, deployment, or live-service action is authorized.
+- **Dependency and critical-path effect:** the named maintainer decisions are
+  resolved. P3.G3 remains blocked on the distinct security-focused review.
+- **Estimate/forecast and capacity effect:** none beyond the accepted bounds.
+- **New or changed risks:** RR-17, RR-18, RR-19 and RR-24 remain recorded.
+- **Testing, migration, security and operational effect:** existing evidence and
+  the migration refusal are unchanged; the separate security review remains.
+- **Product Owner recommendation:** accepted as proposed.
+- **Technical Lead and specialist reviews:** the implementation review found no
+  blocking or major defect; the distinct security-focused review is outstanding.
+- **Acceptance Authority decision:** **Accepted by Peter on 2026-08-19.**
+
+## C-P3.3-K — P3.G3 gate acceptance and P3.4 authorization
+
+**Date:** 2026-08-19 · **Requester:** Peter / Acceptance Authority ·
+**Status:** **Accepted; P3.G3 closed; P3.4 authorized.**
+
+- **Affected requirement, milestone and release:** P3.3, stop gate P3.G3 and
+  authorization to begin P3.4.
+- **Reason and decision:** the outstanding P3.3 contract decisions were accepted
+  in `C-P3.3-J`; the sixth cleanup correction passed independent implementation
+  and distinct security-focused reviews; and `C-P3.3-I` was accepted. Peter
+  therefore accepts P3.3, closes P3.G3 and authorizes P3.4.
+- **Added/removed scope:** P3.4 development may begin under the approved roadmap.
+  No deployment, public exposure, live-service contact or live-data use is
+  authorized by this decision.
+- **Dependency and critical-path effect:** the P3.G3 stop gate is removed. Later
+  package gates and D-03 remain in force.
+- **Estimate/forecast and capacity effect:** P3.4 may now enter planning and
+  implementation; no estimate is changed by this administrative decision.
+- **New or changed risks:** none. RR-17, RR-18, RR-19 and RR-24 remain recorded.
+- **Testing, migration, security and operational effect:** no code, schema,
+  migration, grant or runtime behavior changes. I-06 staging evidence and A-05
+  protected-administrator/WebAuthn readiness remain required before public
+  staging or production exposure.
+- **Product Owner recommendation:** proceed to P3.4 within the accepted scope.
+- **Technical Lead and specialist reviews:** independent implementation and
+  distinct security-focused P3.3 reviews completed with no blocking or major
+  finding in the accepted sixth correction.
+- **Acceptance Authority decision:** **Peter closed P3.G3 and authorized P3.4 on
+  2026-08-19.**
+
+## C-P3.3-L — Post-P3.G3 development and exposure sequence
+
+**Date:** 2026-08-19 · **Requester:** Peter / Acceptance Authority ·
+**Status:** **Accepted.**
+
+- **Affected requirement, milestone and release:** P3.4 authorization; I-06;
+  A-05; D-03; and the later deployment/exposure decision.
+- **Reason and decision:** accept the recommended sequence: begin P3.4
+  development, keep deployment and public exposure disabled, establish isolated
+  staging for I-06, complete A-05's protected administrator and two independent
+  WebAuthn credentials, and close D-03 before Gemini production integration.
+- **Added/removed scope:** no feature or deployment scope is added. P3.4 may
+  proceed only within the approved implementation plan.
+- **Dependency and critical-path effect:** I-06 and A-05 continue to block public
+  exposure; D-03 continues to block Gemini production integration.
+- **Estimate/forecast and capacity effect:** staging provisioning and operational
+  WebAuthn enrollment must be scheduled separately; no estimate is accepted here.
+- **New or changed risks:** none. Environment separation and credential-loss
+  risks remain governed by the existing controls.
+- **Testing, migration, security and operational effect:** staging evidence must
+  be real and isolated; local simulations do not close I-06. No production or
+  live-service action is authorized.
+- **Product Owner recommendation:** proceed in the recorded order.
+- **Technical Lead and specialist reviews:** no additional review is required to
+  record the sequence; each later package and exposure gate retains its own
+  required reviews.
+- **Acceptance Authority decision:** **Accepted by Peter on 2026-08-19.** See
+  `docs/review/phase-3-p3-4-authorisation-and-conditions.md`.
+
+## C-P3.4-A — D-03 backend route/view-model approval: evidence and decision request
+
+**Date:** 2026-08-19 · **Requester:** Claude / backend contract owner and working
+Technical Lead · **Status:** **Accepted by Peter / Acceptance Authority on
+2026-08-19 as the bounded D-03 correction authorization.** This decision does
+not itself close D-03 or P3.G4 and does not release Gemini's implementation
+prompt. D-03 closes only after the authorized corrections pass an independent
+Codex implementation review and a distinct security-focused review and Peter
+accepts the corrected contract.
+
+- **Affected requirement, milestone and release:** RAID `D-03` (backend
+  route/view-model approval half); package P3.4 and stop gate P3.G4; the accepted
+  route-authorization and view-model contracts; `C-P3.3-K` and `C-P3.3-L`.
+
+- **Reason and alternatives considered:** `C-P3.3-L` requires D-03 to close
+  before Gemini production integration. The preparation task asked whether the
+  closed P3.G2 and P3.G3 records already supply that approval. Two answers were
+  considered.
+
+  *Treat D-03 as closed by inference from P3.G2/P3.G3* — rejected. Both
+  `C-P3.3-K` and `C-P3.3-L` were decided on 2026-08-19, after P3.G2 closed on
+  2026-08-18 and alongside the P3.G3 closure, and both restate D-03 as in force.
+  Reading the same gates as having silently closed it would overturn a dated
+  decision by inference.
+
+  *Present the evidence and the remaining items for an explicit decision* —
+  recommended, and taken here. The contract freeze is in excellent condition:
+  the accepted implementation matches the accepted contracts on everything a
+  static comparison can decide. Six specific items nevertheless remain, and two
+  of them would stop a faithful P3.4 implementation on its first file.
+
+- **Evidence of no drift** (read-only comparisons, current tree, 2026-08-19;
+  literal output in
+  `docs/review/phase-3-p3-4-gemini-readiness-report.md` §A9):
+
+  | Check | Result |
+  |---|---|
+  | Registered route inventory vs. the parsed route contract | 39 = 39; no extra, no missing, no method or path difference |
+  | `DEFERRED_ROUTES` | `{}` — the accepted inventory is complete |
+  | Implemented view models vs. the documented `vm-1` set | 21 = 21; `DEFERRED_VIEW_MODELS == {}` |
+  | `VIEW_MODEL_VERSION` | `vm-1` |
+  | Field-level comparison, all 21 view models | no field missing, renamed or removed; one additive implementation-only field and one ordering difference |
+  | Absence controls | no character-game-state route or form; `MigrationDeferred` cannot carry a value; `SafeErrorView` carries a correlation id and one code |
+  | Template corpus (24 files) | zero `\|safe`, zero `hx-on:`, zero `<script>`, zero `design-prototype/` references, zero remote origins |
+
+- **The six items requiring the decision** (detail in readiness report §A6):
+
+  | # | Item | Blocking? |
+  |---|---|---|
+  | D-03-1 | **No accepted static-asset surface.** N-26 requires same-origin CSS, HTMX and images; the route contract's set is closed and defines no static path; the operational contract's Caddy table defines no static handler; and `TC-STRUCT-01` cannot see a Starlette `Mount`, so the machine check protecting the closed set is blind here | **Yes** |
+  | D-03-2 | **`ConfirmScope` is referenced by VM-15 and never defined in `vm-1`.** *Council confirmation exact scope* is a mandatory delivery-plan §11 row owned jointly by P3.3 and P3.4 | **Yes** |
+  | D-03-3 | **`CharacterFilters` is referenced by VM-07 and never defined in `vm-1`** | No — additive definition |
+  | D-03-4 | **VM-13 carries an implemented `csrf_token` absent from the frozen block.** Permitted as additive by view-model contract §1 rule 5 and genuinely required by N-17 for R-37, but its docstring's claim to have been *"Recorded in the P3.2 submission"* cannot be located there | No — record correction |
+  | D-03-5 | **R-36's route-contract table cell (`303` to provider) contradicts the same contract's §5.1 prose and the accepted implementation** (`200` HTML · VM-13 `denied`) | No — record correction |
+  | D-03-6 | **The safe denial body has no view model of its own.** `denied.html` renders a VM-02-shaped object with three deliberately inert placeholder fields, and printing any of them would break route contract §2.3's byte-identical `404` requirement | No — record correction, and a constraint on P3.4 |
+
+- **Accepted correction scope:** the backend contract owner is authorized to
+  implement only D-03-1 through D-03-6 as follows:
+
+  1. application-served static assets under `/static/`, supporting `GET` and
+     `HEAD`, requiring no authentication, remaining subject to trusted-host
+     controls, remaining available during the portal kill switch, and using
+     fingerprint-aware cache headers; structural tests must inventory mounts as
+     well as routes;
+  2. define `ConfirmScope` with `preview_token`, `checksum_full`, `folder`,
+     `profile_version`, `expires_at`, `would_create`, `would_update` and
+     `blocked`;
+  3. define `CharacterFilters` with `query` and `include_inactive`;
+  4. record VM-13's additive `csrf_token` and correct its inaccurate P3.2
+     provenance statement;
+  5. record R-36 as `200` HTML rendering VM-13 in the denied state, not a `303`
+     redirect; and
+  6. introduce a dedicated typed `DeniedView` containing only `state` and a
+     closed-vocabulary `reason`, while preserving the existing byte-identical
+     object-denial and absent-object `404` behaviour.
+
+  No capability, authentication, persistence, migration, grant, dependency,
+  character-state mutation, prototype or production-frontend scope is added.
+
+- **Dependency and critical-path effect:** D-03 continues to block Gemini's
+  production frontend integration. P3.4 development authorization under
+  `C-P3.3-K` is unaffected; the prepared implementation prompt
+  `docs/review/phase-3-p3-4-gemini-implementation-prompt.md` is written and held,
+  and is released only by an explicit decision. I-06 and A-05 are untouched and
+  continue to block public exposure.
+
+- **Estimate/forecast and capacity effect:** none accepted here. D-03-2 through
+  D-03-6 are additive definitions and record corrections; D-03-1 needs a route
+  and operational decision, an inventory update and an extension of
+  `TC-STRUCT-01` to assert over mounts. All six return through Claude/backend
+  with independent Codex review before P3.4 consumes them.
+
+- **New or changed risks:** the delivery plan's recorded *frontend contract
+  drift* risk is the one this entry addresses. Leaving D-03-1 undecided would
+  invite exactly that: a static surface invented inside a frontend package,
+  outside the closed inventory, and invisible to the structural guard. RR-17,
+  RR-18, RR-19 and RR-24 are unchanged.
+
+- **Testing, migration, security and operational effect:** none. No test,
+  migration, grant, header, policy or service behaviour changes. The visual
+  freeze verified 14/14 before and after; `git diff --check` is clean. No
+  migration, live service, network call, browser, package installation or
+  production/real-player data was used, and no `.env`, credential or secret file
+  was read.
+
+- **Product Owner disposition:** accepted as specified above. The implementation
+  prompt remains held until the correction package passes both required reviews,
+  Peter accepts the corrected contract and Peter explicitly releases the prompt.
+
+- **Technical Lead and specialist reviews:** prepared by Claude as backend
+  contract owner. **No independent review has been performed on this entry.**
+  Codex's independent implementation pass and distinct security-focused pass are
+  required on any contract change the decision authorizes.
+
+- **Acceptance Authority decision:** **Accepted as written by Peter on
+  2026-08-19.** D-03 remains **partly closed** — visual half accepted 2026-08-13,
+  bounded backend correction authorized 2026-08-19, correction implementation
+  and both reviews still pending. Gemini may not change a production frontend
+  file until Peter accepts the reviewed corrected contract and explicitly
+  releases the implementation prompt. This decision does not authorize staging
+  exposure, deployment, production use, live-service contact or real-player
+  data.
+
+## C-P3.4-B — D-03 backend-contract correction: implementation submitted for review
+
+**Date:** 2026-08-19 · **Requester:** Claude / backend contract owner and working
+Technical Lead · **Status:** **Submitted for review. Not accepted.** This entry
+records that the correction `C-P3.4-A` authorized has been implemented and handed
+off. It closes nothing.
+
+- **Affected requirement, milestone and release:** RAID `D-03` (backend
+  route/view-model approval half); the accepted route-authorization, view-model,
+  operational, threat-model and test-traceability contracts; package P3.4's
+  readiness. P3.G4, I-06 and A-05 are untouched.
+
+- **Reason and alternatives considered:** `C-P3.4-A` was accepted as written on
+  2026-08-19 and authorized exactly six corrections, D-03-1 through D-03-6. This
+  entry records their implementation. No alternative disposition was open: the
+  decisions were accepted as specified, and the only judgement left inside the
+  package was *where* the static surface is served from. Two options were
+  considered. *A Caddy `file_server`* — rejected, because operational contract
+  §4.1 gives Caddy exactly two jobs and assigns every other header to the
+  application so each header has one authority; a proxy-served asset would take
+  the CSP and `nosniff` off the application for exactly the responses N-26 cares
+  about most, and would sit outside any inventory a test can assert.
+  *Application-served from `freedom-web`* — taken, and its cost recorded honestly
+  in the new operational contract §4.4.
+
+- **Added/removed scope:** one URL surface (`/static/`, mount identifier M-01) and
+  one view model (VM-22 `DeniedView`). Nothing removed. No capability,
+  authentication, persistence, migration, runtime grant, dependency,
+  character-state, prototype or production-frontend scope is added, and no
+  production visual template, CSS, HTMX file, image or asset was created or
+  modified. `adapters/web/templates/denied.html` is byte-identical before and
+  after.
+
+- **Dependency and critical-path effect:** none changed. D-03 **remains open** and
+  continues to block Gemini's production frontend integration.
+  `docs/review/phase-3-p3-4-gemini-implementation-prompt.md` **remains held** and
+  is not marked released. I-06 and A-05 continue to block public exposure.
+
+- **Estimate/forecast and capacity effect:** none accepted here. The package
+  awaits an independent Codex implementation review and a distinct Codex
+  security-focused review, then Peter's decision.
+
+- **New or changed risks:** two threats added to the model by addition — **T-54**
+  (path traversal or directory disclosure through the static surface) and **T-55**
+  (session or authorization state leaking through a cached asset) — each with its
+  controls and residual stated. Eight residual risks are recorded in the
+  submission, of which the two worth naming here are that the static root is
+  **empty**, so every asset-shaped rule is exercised against probe files rather
+  than production assets, and that serving assets from `freedom-web` is an
+  accepted design trade recorded as a judgement, not as a measurement. RR-17,
+  RR-18, RR-19 and RR-24 are unchanged.
+
+- **Testing, migration, security and operational effect:** 82 new automated cases
+  (TC-STATIC-01…07, TC-SEC-14, TC-VM-06, TC-STRUCT-01's mount half, and the
+  D-03-2…D-03-6 record cases). The complete portal suite is **1524 passed, 80
+  skipped** and the complete bot suite **2294 passed**, both exit 0, run serially
+  against the approved disposable `freedom_test` database. `compileall` and
+  `git diff --check` are clean. The prototype freeze verified **14/14** before and
+  after. Falsification evidence is recorded for the mount inventory guard and the
+  denial leakage guard, with the tree restored and verified by SHA-256. **No
+  migration was added, edited or run outside the disposable test database**; no
+  dependency was added; no browser, network call, live service or real-player data
+  was used; no `.env`, credential or secret file was read; the pre-existing stash
+  was not inspected or touched. Operationally: `/static/*` needs no Caddy handler,
+  no configuration, no backup and no monitoring signal, and joins `/healthz` as
+  the second prefix the kill switch leaves serving.
+
+- **Version effect:** **`VIEW_MODEL_VERSION` remains `vm-1`.** Every view-model
+  change is additive under contract §1 rule 5 — a view model added, none removed,
+  renamed or narrowed, and no enum narrowed. No conflict with the accepted
+  versioning rules arose, so nothing was returned to Peter on that ground.
+
+- **Product Owner recommendation:** proceed to the two required reviews.
+
+- **Technical Lead and specialist reviews:** **none performed.** Prepared by
+  Claude, who is the author and cannot review it. An independent Codex
+  implementation review and a distinct Codex security-focused review are
+  **requested** and are recorded as pending in
+  `docs/review/phase-3-d-03-backend-contract-correction-submission.md` §12.
+
+- **Acceptance Authority decision:** **none.** D-03 stays **partly closed**. After
+  both reviews pass, the decision Peter must make is: *accept the corrected D-03
+  backend route/view-model contract, and explicitly release
+  `docs/review/phase-3-p3-4-gemini-implementation-prompt.md`.* That decision would
+  not close P3.G4 and would authorize no staging exposure, deployment, production
+  use, live-service contact or real-player-data use.
+
+## C-P3.4-C — D-03 corrected contract accepted; Gemini prompt released
+
+**Date:** 2026-08-20 · **Requester:** Peter / Acceptance Authority · **Status:**
+**Accepted.**
+
+- **Affected requirement, milestone and release:** closes RAID D-03's backend
+  route/view-model approval half and releases the bounded P3.4 production
+  frontend integration prompt. P3.G4 remains open; I-06 and A-05 remain open.
+- **Reason and alternatives considered:** the correction authorized by
+  `C-P3.4-A` and submitted as `C-P3.4-B` passed the independent Codex
+  implementation review and the distinct security-focused review with no
+  blocking findings. Continuing to hold the prompt was rejected because the
+  explicit gate conditions are now met. Widening the decision into P3.G4 or a
+  deployment authorization was rejected because neither has its required
+  evidence.
+- **Added/removed scope:** no implementation scope is added beyond the already
+  prepared P3.4 prompt. D-03 is closed and the prompt is released. No route,
+  view model, capability, persistence, migration, dependency or backend behavior
+  changes through this decision.
+- **Dependency and critical-path effect:** Gemini may begin the bounded P3.4
+  production frontend integration. P3.G4 still blocks acceptance of that work;
+  I-06 and A-05 and a separate exposure/deployment decision remain mandatory.
+- **Estimate/forecast and capacity effect:** none recorded.
+- **New or changed risks:** none. The D-03 submission's residual risks remain
+  visible to P3.4 and must be re-evaluated against the real asset corpus. R-22
+  and R-23 continue to be controlled by the frontend contract and P3.G4 review.
+- **Testing, migration, security and operational effect:** no new runtime or
+  migration effect. Reviewer checks were `git diff --check` exit 0, visual freeze
+  14/14, and a focused D-03/structural/security selection of 76 passed / 110
+  skipped because `TEST_DATABASE_URL` was not exposed. The author submission's
+  approved-disposable-database evidence remains 1524 passed / 80 skipped for the
+  portal and 2294 passed for the bot. No secret, live service, network endpoint,
+  staging system or real-player data was accessed in the review.
+- **Product Owner recommendation:** accept the corrected contract and release
+  the prepared prompt.
+- **Technical Lead and specialist reviews:** independent Codex implementation
+  review **PASS**; distinct Codex security-focused review **PASS**; no blocking
+  findings. Full record:
+  `docs/review/phase-3-d-03-codex-reviews-and-acceptance.md`.
+- **Acceptance Authority decision:** **Accepted by Peter on 2026-08-20.** The
+  corrected D-03 backend route/view-model contract is accepted, D-03 is closed,
+  and `docs/review/phase-3-p3-4-gemini-implementation-prompt.md` is explicitly
+  released. This does not close P3.G4 and does not authorize staging exposure,
+  deployment, production use, live-service contact or real-player-data use.
+
 ## Required fields for later entries
 
 Every material entry must identify:

@@ -55,6 +55,7 @@ from application.web.errors import AmbiguousProviderIdentity
 from application.web.crypto import Sealed
 from application.web.sessions import SessionPolicy
 from adapters.database.tables import (
+    audit_events,
     auth_rate_limits,
     character_access,
     characters,
@@ -71,10 +72,14 @@ from adapters.database.tables import (
     oauth_transactions,
     platform_accounts,
     recovery_grants,
+    reconciliation_job_results,
+    reconciliation_jobs,
     role_capability_mapping_events,
     role_capability_mappings,
     sessions,
     sheet_row_mappings,
+    snapshot_folder_selections,
+    snapshot_imports,
     webauthn_challenges,
     webauthn_credentials,
 )
@@ -2988,3 +2993,1376 @@ class IdentityProposalRepository:
             )
         )
         return result.rowcount or 0
+
+
+# ---------------------------------------------------------------------------
+# P3.3 — snapshots, folder selection, durable jobs and audit search
+# ---------------------------------------------------------------------------
+
+
+class SnapshotReadRepository:
+    """`foundry_snapshots`, its folder selection, and what has been applied.
+
+    Read-mostly. The one thing it writes is the folder selection, and that write
+    is an upsert rather than a delete-and-insert so the row's identity — and the
+    foreign key an audit trail could one day hang off — survives a change of
+    mind.
+
+    **Nothing here touches `foundry_snapshots`.** That table is append-only, and
+    the reason the selection lives in its own table at all is that it has to be
+    changeable (migration 0011's docstring).
+    """
+
+    __slots__ = ("_connection", "_profile_version")
+
+    def __init__(self, connection: Connection, *, profile_version: str) -> None:
+        self._connection = connection
+        self._profile_version = profile_version
+
+    def profile_version(self) -> str:
+        """The versioned field profile the platform is running.
+
+        Read from the profile object the composition injected, never from
+        configuration: there is no write route for it, and a profile an operator
+        could point at something else would be a profile nobody reviewed.
+        """
+        return self._profile_version
+
+    def snapshot(self, snapshot_id: UUID):
+        return (
+            self._connection.execute(
+                select(foundry_snapshots).where(foundry_snapshots.c.id == snapshot_id)
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def snapshot_by_checksum(self, checksum: str):
+        return (
+            self._connection.execute(
+                select(foundry_snapshots).where(
+                    foundry_snapshots.c.checksum == checksum
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def unapplied_page(self, *, position, size: int):
+        """R-40's page: snapshots with no applied import, newest first.
+
+        `NOT EXISTS` rather than a left join with a null test, because the
+        question is existential and the planner can stop at the first matching
+        import row. Over-reads by one so `Page.of` can observe `has_more`
+        instead of asking `COUNT(*)` for it.
+
+        The cursor is `(received_at, id)` descending — total, because the
+        trailing primary key breaks every tie.
+        """
+        applied = (
+            select(snapshot_imports.c.id)
+            .where(
+                snapshot_imports.c.snapshot_id == foundry_snapshots.c.id,
+                snapshot_imports.c.status == "applied",
+            )
+            .exists()
+        )
+        statement = select(foundry_snapshots).where(~applied)
+        if position is not None:
+            received_at, identifier = position
+            statement = statement.where(
+                or_(
+                    foundry_snapshots.c.received_at < datetime.fromisoformat(received_at),
+                    and_(
+                        foundry_snapshots.c.received_at
+                        == datetime.fromisoformat(received_at),
+                        foundry_snapshots.c.id < UUID(identifier),
+                    ),
+                )
+            )
+        return list(
+            self._connection.execute(
+                statement.order_by(
+                    foundry_snapshots.c.received_at.desc(),
+                    foundry_snapshots.c.id.desc(),
+                ).limit(size + 1)
+            )
+            .mappings()
+            .all()
+        )
+
+    def applied_snapshot_ids(self, snapshot_ids) -> set:
+        wanted = [identifier for identifier in snapshot_ids if identifier is not None]
+        if not wanted:
+            return set()
+        rows = self._connection.execute(
+            select(snapshot_imports.c.snapshot_id).where(
+                snapshot_imports.c.snapshot_id.in_(wanted),
+                snapshot_imports.c.status == "applied",
+            )
+        ).all()
+        return {row[0] for row in rows}
+
+    def import_record(self, import_id: UUID):
+        """R-47's receipt: one row of the append-only `snapshot_imports` table.
+
+        There is no update and no delete anywhere in this class for this table,
+        and there is no route that offers one. A correction is a compensating
+        import, which is the plan's rule for the whole platform.
+        """
+        return (
+            self._connection.execute(
+                select(snapshot_imports).where(snapshot_imports.c.id == import_id)
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def import_by_request_key(self, request_key: str):
+        return (
+            self._connection.execute(
+                select(snapshot_imports).where(
+                    snapshot_imports.c.request_key == request_key
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def folder_selection(self, snapshot_id: UUID):
+        return (
+            self._connection.execute(
+                select(snapshot_folder_selections).where(
+                    snapshot_folder_selections.c.snapshot_id == snapshot_id
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def folder_selections(self, snapshot_ids) -> dict:
+        """A bounded set of selections in one query, keyed by snapshot.
+
+        One statement rather than one per row: an N+1 in a web endpoint is
+        forbidden, and this one would grow with the page size the caller chooses.
+        """
+        wanted = [identifier for identifier in snapshot_ids if identifier is not None]
+        if not wanted:
+            return {}
+        rows = (
+            self._connection.execute(
+                select(snapshot_folder_selections).where(
+                    snapshot_folder_selections.c.snapshot_id.in_(wanted)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return {row["snapshot_id"]: row for row in rows}
+
+    def observed_folder_paths(self, snapshot_ids) -> dict:
+        """`{snapshot_id: {folder_id: folder_path}}`, from completed previews.
+
+        The **only** place a folder's displayed path can come from without
+        parsing the artifact: a completed preview stored the path it reconciled
+        against, in its bounded summary. A snapshot nothing has previewed yet has
+        no entry here, and `FolderChoice.path_observed` says so rather than a
+        path being invented (view-model contract, `FolderChoice`).
+        """
+        wanted = [identifier for identifier in snapshot_ids if identifier is not None]
+        if not wanted:
+            return {}
+        rows = self._connection.execute(
+            select(
+                reconciliation_jobs.c.snapshot_id,
+                reconciliation_jobs.c.folder_id,
+                reconciliation_job_results.c.summary,
+            )
+            .select_from(
+                reconciliation_jobs.join(
+                    reconciliation_job_results,
+                    reconciliation_jobs.c.result_id == reconciliation_job_results.c.id,
+                )
+            )
+            .where(
+                reconciliation_jobs.c.snapshot_id.in_(wanted),
+                reconciliation_jobs.c.state == "completed",
+            )
+            .order_by(reconciliation_jobs.c.queued_at.asc())
+        ).all()
+        observed: dict = {}
+        for snapshot_id, folder_id, summary in rows:
+            path = (summary or {}).get("folder_path")
+            if path:
+                # Later rows win: the newest completed preview of a folder is the
+                # most recent observation of its path, and a folder that was
+                # renamed in Foundry should read as its current name.
+                observed.setdefault(snapshot_id, {})[folder_id] = path
+        return observed
+
+    def set_folder_selection(
+        self,
+        *,
+        snapshot_id: UUID,
+        folder_id: str,
+        folder_path: str,
+        account_id: UUID,
+        correlation_id: UUID,
+        now: datetime,
+    ) -> UUID:
+        """Upsert, in one statement, on the snapshot's unique constraint.
+
+        One statement rather than read-then-write: two administrators selecting
+        different folders at the same moment must produce one selection, not a
+        lost update or a uniqueness violation the caller has to interpret. The
+        `version` increment is what makes which one won observable.
+        """
+        statement = (
+            pg_insert(snapshot_folder_selections)
+            .values(
+                id=uuid4(),
+                snapshot_id=snapshot_id,
+                folder_id=folder_id,
+                folder_path=folder_path,
+                selected_by_account_id=account_id,
+                selected_at=now,
+                correlation_id=correlation_id,
+                version=1,
+            )
+            .on_conflict_do_update(
+                constraint="uq_snapshot_folder_selections_snapshot",
+                set_={
+                    "folder_id": folder_id,
+                    "folder_path": folder_path,
+                    "selected_by_account_id": account_id,
+                    "selected_at": now,
+                    "correlation_id": correlation_id,
+                    "version": snapshot_folder_selections.c.version + 1,
+                },
+            )
+            .returning(snapshot_folder_selections.c.id)
+        )
+        return self._connection.execute(statement).scalar_one()
+
+
+class ReconciliationJobRepository:
+    """The queue, as statements. SM-05 lives here and nowhere else.
+
+    Every write below carries the predicate that makes it safe against a
+    concurrent one, and the predicates are the design:
+
+    - the **claim** matches `state = 'queued' AND cancel_requested_at IS NULL AND
+      attempts < 3` under `FOR UPDATE SKIP LOCKED`, so two workers cannot claim
+      one attempt;
+    - every worker write carries `AND lease_owner = :owner`, so a worker that has
+      lost its lease matches zero rows and exits quietly rather than stamping a
+      verdict on a job somebody else now owns;
+    - the **reaper** is one statement with two branches, so an expired lease is
+      requeued or exhausted with no gap between deciding and doing — and it takes
+      only expiries with `effect_committed_at IS NULL`, because an expired lease
+      over a committed effect is a **publication** rather than an expiry;
+    - **`lock_unpublished_effect`** takes those, under `FOR UPDATE SKIP LOCKED`,
+      and **`complete_recovered_effect`** publishes them in the same transaction;
+    - **both** branches of the **cancel** filter `effect_committed_at IS NULL`, so
+      an apply whose effect has committed — including one committing *right now*,
+      because the predicate blocks on the commit fence's row lock — matches zero
+      rows;
+    - the **self-abandon** carries the same `effect_committed_at IS NULL`, so a
+      worker cannot requeue or fail a job whose import already committed;
+    - so do **`fail`**, **`mark_stale_under_lease`** and **`cancel_under_lease`**,
+      the three statements that write a terminal verdict under a live lease;
+    - and so do **`mark_stale`** and **`invalidate_for_snapshot`**, so R-41's
+      folder change and R-46's N-46 expiry cannot rewrite an apply whose effect
+      is durable into a state that means "nothing was applied".
+
+    None of them is a rule the caller has to remember. A caller that forgot one
+    would be issuing a different statement, which is visible in the diff — and
+    migration 0013's `committed_effect_is_never_denied` refuses the row anyway, so
+    a forgotten predicate is a loud abort rather than a quiet lie.
+    """
+
+    __slots__ = ("_connection", "_lease_seconds", "_max_attempts")
+
+    def __init__(
+        self, connection: Connection, *, lease_seconds: int, max_attempts: int
+    ) -> None:
+        self._connection = connection
+        # Both from the validated `WorkerSettings` graph — N-23's exact 60 and
+        # N-43's 3 — rather than literals here. A repository holding its own copy
+        # of an accepted number is a second place for it to be wrong.
+        self._lease_seconds = lease_seconds
+        self._max_attempts = max_attempts
+
+    # -- reads -------------------------------------------------------------
+    def job(self, job_id: UUID):
+        return (
+            self._connection.execute(
+                select(reconciliation_jobs).where(reconciliation_jobs.c.id == job_id)
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def by_request_key(self, key: str):
+        return (
+            self._connection.execute(
+                select(reconciliation_jobs).where(
+                    reconciliation_jobs.c.request_key == key
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def result(self, result_id: UUID):
+        if result_id is None:
+            return None
+        return (
+            self._connection.execute(
+                select(reconciliation_job_results).where(
+                    reconciliation_job_results.c.id == result_id
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def result_for_job(self, job_id: UUID):
+        """The result a job produced, found from the **result** side.
+
+        `reconciliation_jobs.result_id` is not the only link: the result row
+        names its job, and `CHECK ((state = 'completed') = (result_id IS NOT
+        NULL))` means the job's own pointer exists exactly while the job is
+        `completed`.
+
+        A preview that goes `stale` therefore stops naming its result, because
+        the constraint requires it to — and the result itself is untouched.
+        Reading from this side is what lets a Council member still see the
+        bounded summary of the preview that just became unconfirmable, which is
+        the difference between "this is stale, and here is what it said" and a
+        blank screen with a code on it.
+        """
+        return (
+            self._connection.execute(
+                select(reconciliation_job_results)
+                .where(reconciliation_job_results.c.job_id == job_id)
+                .order_by(reconciliation_job_results.c.produced_at.desc())
+                .limit(1)
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def queued_count(self) -> int:
+        """N-42's admission bound: how many jobs are `queued` platform-wide.
+
+        Counted over the partial index's predicate, so the count is a scan of the
+        at-most-five rows the bound permits rather than of the table.
+        """
+        return int(
+            self._connection.execute(
+                select(func.count())
+                .select_from(reconciliation_jobs)
+                .where(reconciliation_jobs.c.state == "queued")
+            ).scalar_one()
+        )
+
+    def live_apply_exists(
+        self, *, snapshot_id: UUID, folder_id: str, profile_version: str
+    ) -> bool:
+        return (
+            self._connection.execute(
+                select(reconciliation_jobs.c.id).where(
+                    reconciliation_jobs.c.kind == "apply",
+                    reconciliation_jobs.c.state.in_(("queued", "running")),
+                    reconciliation_jobs.c.snapshot_id == snapshot_id,
+                    reconciliation_jobs.c.folder_id == folder_id,
+                    reconciliation_jobs.c.profile_version == profile_version,
+                )
+            ).first()
+            is not None
+        )
+
+    def latest_stamps(self, snapshot_ids) -> dict:
+        """The newest job per snapshot, in one statement (`DISTINCT ON`).
+
+        PostgreSQL-specific and deliberately so: the alternative is a window
+        function or a correlated subquery per row, and the second is the N+1 this
+        method exists to avoid.
+        """
+        wanted = [identifier for identifier in snapshot_ids if identifier is not None]
+        if not wanted:
+            return {}
+        rows = (
+            self._connection.execute(
+                select(
+                    reconciliation_jobs.c.id,
+                    reconciliation_jobs.c.snapshot_id,
+                    reconciliation_jobs.c.kind,
+                    reconciliation_jobs.c.state,
+                    func.coalesce(
+                        reconciliation_jobs.c.finished_at,
+                        reconciliation_jobs.c.heartbeat_at,
+                        reconciliation_jobs.c.queued_at,
+                    ).label("updated_at"),
+                )
+                .distinct(reconciliation_jobs.c.snapshot_id)
+                .where(reconciliation_jobs.c.snapshot_id.in_(wanted))
+                .order_by(
+                    reconciliation_jobs.c.snapshot_id,
+                    reconciliation_jobs.c.queued_at.desc(),
+                    reconciliation_jobs.c.id.desc(),
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return {row["snapshot_id"]: row for row in rows}
+
+    def expired_lease_age_seconds(self) -> float | None:
+        """The reaper's liveness signal (VM-16, operational contract §5).
+
+        `max(now() - lease_expires_at)` over running jobs whose lease has
+        expired. It should never exceed `N-23 + N-44`; a value that does means
+        the reaper is not running, which is the one way a job can sit
+        unterminated under the corrected N-43.
+        """
+        value = self._connection.execute(
+            text(
+                "SELECT EXTRACT(EPOCH FROM max(now() - lease_expires_at)) "
+                "FROM reconciliation_jobs "
+                "WHERE state = 'running' AND lease_expires_at < now()"
+            )
+        ).scalar_one_or_none()
+        return None if value is None else float(value)
+
+    # -- enqueue -----------------------------------------------------------
+    def insert(
+        self,
+        *,
+        kind,
+        snapshot_id: UUID,
+        folder_id: str,
+        profile_version: str,
+        fingerprint: bytes,
+        requested_by_account_id: UUID,
+        requested_capability: ActorCapability,
+        request_key: str,
+        parent_job_id: UUID | None,
+        correlation_id: UUID,
+        now: datetime,
+    ) -> UUID:
+        return self._connection.execute(
+            insert(reconciliation_jobs)
+            .values(
+                id=uuid4(),
+                kind=kind.value,
+                state="queued",
+                snapshot_id=snapshot_id,
+                folder_id=folder_id,
+                profile_version=profile_version,
+                scope_fingerprint=fingerprint,
+                requested_by_account_id=requested_by_account_id,
+                requested_capability=requested_capability.value,
+                request_key=request_key,
+                parent_job_id=parent_job_id,
+                attempts=0,
+                queued_at=now,
+                correlation_id=correlation_id,
+                version=1,
+            )
+            .returning(reconciliation_jobs.c.id)
+        ).scalar_one()
+
+    # -- claim, heartbeat, complete ---------------------------------------
+    def claim(self, *, owner: str, now: datetime):
+        """Schema §10.1's claim statement, verbatim in shape.
+
+        `FOR UPDATE SKIP LOCKED` is what makes two workers unable to claim one
+        attempt. The platform runs one worker (N-41); the statement is correct
+        for more, which is the point of using the database as the queue.
+
+        `attempts < :max` in the predicate is deliberately redundant with
+        `CHECK (state <> 'queued' OR attempts < 3)`. The constraint makes an
+        exhausted queued job impossible; the predicate makes the claim **refuse**
+        rather than **violate** if the constraint is ever dropped or a future
+        revision widens N-43 — a claim that fails a check constraint aborts the
+        worker's transaction, and a claim that matches no row simply moves on.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'running',
+                        lease_owner = :owner,
+                        attempts = attempts + 1,
+                        started_at = COALESCE(started_at, :now),
+                        lease_expires_at = :now + make_interval(secs => :lease),
+                        heartbeat_at = :now,
+                        version = version + 1
+                    WHERE id = (
+                        SELECT id FROM reconciliation_jobs
+                        WHERE state = 'queued'
+                          AND cancel_requested_at IS NULL
+                          AND attempts < :max_attempts
+                        ORDER BY queued_at
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                    )
+                    RETURNING *
+                    """
+                ),
+                {
+                    "owner": owner,
+                    "now": now,
+                    "lease": self._lease_seconds,
+                    "max_attempts": self._max_attempts,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def heartbeat(self, *, job_id: UUID, owner: str, now: datetime):
+        """Extend the lease, and report whether cancellation was requested.
+
+        Returns `None` when this worker no longer owns the job — the reaper acted
+        while it was working — which is the signal to abandon rather than to keep
+        going and publish a result nobody is waiting for.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        heartbeat_at = :now,
+                        lease_expires_at = :now + make_interval(secs => :lease),
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner AND state = 'running'
+                    RETURNING id, cancel_requested_at, attempts
+                    """
+                ),
+                {
+                    "job_id": job_id,
+                    "owner": owner,
+                    "now": now,
+                    "lease": self._lease_seconds,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def store_result(
+        self,
+        *,
+        job_id: UUID,
+        summary: dict,
+        blocked_entries: list,
+        now: datetime,
+        expires_at: datetime,
+    ) -> UUID:
+        return self._connection.execute(
+            insert(reconciliation_job_results)
+            .values(
+                id=uuid4(),
+                job_id=job_id,
+                summary=summary,
+                blocked_entries=blocked_entries,
+                produced_at=now,
+                expires_at=expires_at,
+            )
+            .returning(reconciliation_job_results.c.id)
+        ).scalar_one()
+
+    def complete(
+        self,
+        *,
+        job_id: UUID,
+        owner: str,
+        result_id: UUID,
+        fingerprint: bytes | None,
+        now: datetime,
+    ) -> bool:
+        """`running -> completed`, under the lease, with the result already committed.
+
+        The result row is inserted first and named here, in the **same
+        transaction**, which is what `CHECK ((state = 'completed') = (result_id IS
+        NOT NULL))` turns from an ordering convention into a fact.
+
+        `fingerprint` is the preview's completed scope — the aggregate versions
+        the run actually read, folded in. It is written here rather than at
+        enqueue because it is not knowable until the artifact has been parsed,
+        and it is written in this statement rather than a second one so a
+        `completed` preview can never carry the `unobserved` scope.
+        """
+        values = {
+            "job_id": job_id,
+            "owner": owner,
+            "result_id": result_id,
+            "now": now,
+        }
+        fingerprint_clause = ""
+        if fingerprint is not None:
+            fingerprint_clause = "scope_fingerprint = :fingerprint,"
+            values["fingerprint"] = fingerprint
+        return (
+            self._connection.execute(
+                text(
+                    f"""
+                    UPDATE reconciliation_jobs SET
+                        state = 'completed',
+                        {fingerprint_clause}
+                        result_id = :result_id,
+                        finished_at = :now,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner AND state = 'running'
+                    """
+                ),
+                values,
+            ).rowcount
+            == 1
+        )
+
+    def fail(
+        self, *, job_id: UUID, owner: str, code, now: datetime
+    ) -> bool:
+        """`running -> failed`, under the lease, with a closed-vocabulary code.
+
+        Used for a **deterministic** refusal — one that would recur on every
+        attempt — which is failed immediately whatever `attempts` says. An
+        exhausted-attempts failure is not written here: that one belongs to the
+        reaper, which is the hand that observes the expiry.
+
+        `AND effect_committed_at IS NULL` (2026-08-18 effect-publication
+        remediation) because `failed` asserts that nothing was applied. Migration
+        0013's `committed_effect_is_never_denied` makes the row impossible either
+        way; the predicate is what makes this statement **refuse** rather than
+        **violate**, which is the difference between a worker exiting quietly and
+        a worker whose transaction aborts.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'failed',
+                        failure_code = :code,
+                        finished_at = :now,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner AND state = 'running'
+                      AND effect_committed_at IS NULL
+                    """
+                ),
+                {"job_id": job_id, "owner": owner, "code": code.value, "now": now},
+            ).rowcount
+            == 1
+        )
+
+    def mark_stale_under_lease(
+        self, *, job_id: UUID, owner: str, reason, now: datetime
+    ) -> bool:
+        """`running -> stale`, under the lease, when the scope moved.
+
+        `AND effect_committed_at IS NULL` for the same reason `fail` carries it
+        (2026-08-18 effect-publication remediation): `stale` asserts that nothing
+        was applied, and an apply whose import is durable applied something. The
+        constraint forbids the row; the predicate makes the statement refuse
+        rather than abort the transaction that issued it.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'stale',
+                        stale_reason = :reason,
+                        finished_at = :now,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner AND state = 'running'
+                      AND effect_committed_at IS NULL
+                    """
+                ),
+                {"job_id": job_id, "owner": owner, "reason": reason.value, "now": now},
+            ).rowcount
+            == 1
+        )
+
+    def cancel_under_lease(self, *, job_id: UUID, owner: str, now: datetime) -> bool:
+        """A `running` job observing its cancellation at the next heartbeat.
+
+        `AND effect_committed_at IS NULL` completes the set (2026-08-18
+        effect-publication remediation). Observing a recorded cancellation is
+        already proof that no effect committed — `request_cancel` cannot record
+        one over a committed effect — so this predicate is the belt to that
+        braces: the statement that *writes* `cancelled` carries the same refusal
+        as the statement that requests it, and neither depends on the other having
+        been correct.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'cancelled',
+                        finished_at = :now,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner AND state = 'running'
+                      AND effect_committed_at IS NULL
+                    """
+                ),
+                {"job_id": job_id, "owner": owner, "now": now},
+            ).rowcount
+            == 1
+        )
+
+    def abandon(self, *, job_id: UUID, owner: str, now: datetime):
+        """Worker self-abandon at N-45's hard cap or on the kill switch.
+
+        The **same** two-branch logic the reaper uses, under this worker's own
+        lease. `AND lease_owner = :owner` is the whole safety argument: if the
+        reaper has already acted — because this worker was slow enough to lose
+        its lease — the statement matches zero rows and the worker exits quietly
+        rather than stamping a stale verdict on a job somebody else now owns.
+
+        `AND effect_committed_at IS NULL` is the second half of that argument,
+        added by the 2026-08-18 remediation. Abandoning a job whose import
+        already committed would requeue or fail a job the database has already
+        changed — a `queued` or `failed` job over a real import. The predicate
+        also blocks on the fence's row lock while the effect is committing, so
+        the abandon and the commit cannot both win.
+
+        Returns an `Abandonment`, which distinguishes "the reaper got there
+        first" from "the effect committed" — two outcomes that were both `None`
+        before and need opposite responses from the worker.
+        """
+        from application.web.jobs import Abandonment
+
+        row = (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = CASE WHEN attempts < :max_attempts
+                                     THEN 'queued' ELSE 'failed' END,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        failure_code = CASE WHEN attempts >= :max_attempts
+                                            THEN 'attempts_exhausted' END,
+                        finished_at = CASE WHEN attempts >= :max_attempts
+                                           THEN :now END,
+                        version = version + 1
+                    WHERE id = :job_id AND lease_owner = :owner
+                      AND state = 'running'
+                      AND effect_committed_at IS NULL
+                    RETURNING state, attempts
+                    """
+                ),
+                {
+                    "job_id": job_id,
+                    "owner": owner,
+                    "now": now,
+                    "max_attempts": self._max_attempts,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is not None:
+            return Abandonment(state=row["state"], effect_committed=False)
+        # Zero rows. Which of the two reasons it was is a fact about the row, so
+        # it is read from the row rather than inferred — in this same
+        # transaction, immediately after the statement that lost.
+        probe = (
+            self._connection.execute(
+                text(
+                    """
+                    SELECT lease_owner, state, effect_committed_at
+                    FROM reconciliation_jobs WHERE id = :job_id
+                    """
+                ),
+                {"job_id": job_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        committed = (
+            probe is not None
+            and probe["effect_committed_at"] is not None
+            and probe["lease_owner"] == owner
+            and probe["state"] == "running"
+        )
+        return Abandonment(state=None, effect_committed=committed)
+
+    def reap(self, *, limit: int = 20):
+        """Schema §10.1's reaper: one statement, two outcomes, no gap between them.
+
+        **Ordinary expiries only.** `AND effect_committed_at IS NULL` in the
+        locking sub-select is the 2026-08-18 effect-publication remediation: an
+        expired lease over a job whose import already committed is not an attempt
+        to retry or exhaust, it is a **publication the platform owes**, and it is
+        taken by `lock_unpublished_effect` instead. Before that predicate the
+        reaper chose from `attempts` alone, so an apply whose effect committed on
+        attempt three and whose process died before publishing became `failed`
+        with `attempts_exhausted` over a durable import — the second of the two
+        blocking findings this remediation exists for.
+
+        - `attempts < 3` — the lease is recoverable, exactly as N-23 requires.
+          The job returns to `queued` with a remaining attempt, satisfying
+          `CHECK (state <> 'queued' OR attempts < 3)` by construction.
+        - `attempts = 3` — the budget is spent. The job goes **directly** to
+          `failed` with `attempts_exhausted`. It does not wait for a fourth
+          claim, which the cap forbids; it does not sit in `queued` waiting for a
+          claim that would be refused; it does not sit in `running` with nobody
+          running it.
+
+        The `CASE` expressions with no `ELSE` yield `NULL` on the requeue branch,
+        which is what `failure_code` and `finished_at` **must** be for a
+        non-terminal job — so both terminal-state check constraints hold on both
+        branches of the same statement. That is not a coincidence to be preserved
+        by care: if a future edit breaks it, the constraint rejects the statement.
+
+        `FOR UPDATE SKIP LOCKED` in the sub-select is what makes two concurrent
+        reapers safe: each row is transitioned by exactly one of them, and the
+        other skips it rather than blocking or double-counting. `LIMIT` bounds a
+        single pass so a backlog cannot turn one tick into a long transaction.
+        """
+        # One statement, in three CTEs, and the shape is forced by one fact:
+        # `RETURNING` yields the row **after** the update, so the lease this pass
+        # cleared is `NULL` by the time it could be returned. The audit event the
+        # terminal branch owes has to name the worker that stopped answering — it
+        # is the only thing an operator has to find the process with — so the
+        # owner is captured in the locking select and joined back.
+        #
+        # `FOR UPDATE SKIP LOCKED` still lives in `expired`, which is what makes
+        # two concurrent reapers safe: each row is transitioned by exactly one of
+        # them, and the other skips it rather than blocking or double-counting.
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    WITH expired AS (
+                        SELECT id, lease_owner AS previous_owner
+                        FROM reconciliation_jobs
+                        WHERE state = 'running' AND lease_expires_at < now()
+                          -- An expired lease over a committed effect is a
+                          -- publication this statement must not turn into a
+                          -- retry or an exhaustion. `lock_unpublished_effect`
+                          -- takes those.
+                          AND effect_committed_at IS NULL
+                        ORDER BY lease_expires_at
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT :limit
+                    ), reaped AS (
+                        UPDATE reconciliation_jobs SET
+                            state = CASE WHEN attempts < :max_attempts
+                                         THEN 'queued' ELSE 'failed' END,
+                            lease_owner = NULL,
+                            lease_expires_at = NULL,
+                            heartbeat_at = NULL,
+                            failure_code = CASE WHEN attempts >= :max_attempts
+                                                THEN 'attempts_exhausted' END,
+                            finished_at = CASE WHEN attempts >= :max_attempts
+                                               THEN now() END,
+                            version = version + 1
+                        FROM expired
+                        WHERE reconciliation_jobs.id = expired.id
+                        RETURNING reconciliation_jobs.id, reconciliation_jobs.state,
+                                  reconciliation_jobs.attempts,
+                                  reconciliation_jobs.correlation_id,
+                                  reconciliation_jobs.kind,
+                                  reconciliation_jobs.requested_by_account_id
+                    )
+                    SELECT reaped.id, reaped.state, reaped.attempts,
+                           reaped.correlation_id, reaped.kind,
+                           reaped.requested_by_account_id,
+                           expired.previous_owner AS lease_owner
+                    FROM reaped JOIN expired ON expired.id = reaped.id
+                    """
+                ),
+                {"limit": limit, "max_attempts": self._max_attempts},
+            )
+            .mappings()
+            .all()
+        )
+
+    # -- publishing an effect whose process died ---------------------------
+    def lock_unpublished_effect(self):
+        """One expired job whose effect committed and whose result never did.
+
+        The counterpart of `reap`'s locking sub-select, and deliberately a
+        separate statement rather than a third branch of it: reaping is one
+        `UPDATE` over up to twenty rows, and publishing a result is a read of two
+        durable rows followed by an insert, an update and an audit event. Folding
+        the second into the first would make one bad publication roll back
+        nineteen good reaps.
+
+        **`FOR UPDATE` without a following `UPDATE` here is the point.** The row
+        lock is taken now and held for the rest of the caller's transaction, which
+        is the transaction that inserts the result, completes the job and records
+        the completion event. That is what makes two concurrent recoveries
+        serialize: the second `SKIP LOCKED`s the row, sees nothing to do, and
+        writes nothing — rather than blocking and then inserting a second result.
+
+        `lease_expires_at < now()` is what keeps this out of the live worker's
+        way. While the lease is alive the process that ran the attempt may still
+        publish — that is what `EFFECT_PUBLICATION_GRACE_HEARTBEATS` is for — and
+        the platform only publishes on its behalf once the lease it was holding
+        has lapsed. Both writers carry predicates the other invalidates, so
+        whichever reaches the row first, the second matches nothing.
+
+        Returns `None` when there is nothing to publish, which is the ordinary
+        case on every pass.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    SELECT * FROM reconciliation_jobs
+                    WHERE state = 'running'
+                      AND effect_committed_at IS NOT NULL
+                      AND lease_expires_at < now()
+                    ORDER BY effect_committed_at
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                    """
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    def complete_recovered_effect(
+        self, *, job_id: UUID, result_id: UUID, now: datetime
+    ) -> bool:
+        """`running -> completed` for an effect the platform published itself.
+
+        Deliberately **not** `complete`: that statement carries `AND lease_owner =
+        :owner`, and the whole premise here is that the owner of that lease is
+        gone. What replaces the lease as the entitlement is
+        `effect_committed_at IS NOT NULL` — the durable fact that this job's
+        import committed — plus the row lock `lock_unpublished_effect` is still
+        holding in this same transaction.
+
+        `attempts` is untouched, no lease is minted and nothing is claimed, so
+        N-43's cap is neither spent nor disguised: this is a publication, not a
+        fourth execution.
+
+        Returns `False` if the row moved underneath the caller, which under the
+        held lock cannot happen and is therefore treated as a fault rather than as
+        a race: the caller raises and the whole transaction — result row included
+        — rolls back.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'completed',
+                        result_id = :result_id,
+                        finished_at = :now,
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        version = version + 1
+                    WHERE id = :job_id
+                      AND state = 'running'
+                      AND effect_committed_at IS NOT NULL
+                    """
+                ),
+                {"job_id": job_id, "result_id": result_id, "now": now},
+            ).rowcount
+            == 1
+        )
+
+    # -- cancellation and invalidation, from a request --------------------
+    def request_cancel(self, *, job_id: UUID, now: datetime):
+        """R-45. A `queued` job cancels immediately; a `running` one is asked.
+
+        Two statements, and the first one's `RETURNING` decides whether the
+        second runs — rather than a read followed by a write, which would let the
+        job change state in between and be cancelled from `completed`.
+
+        `AND effect_committed_at IS NULL` on the `running` statement is what
+        makes SM-05's "a committed apply can never be cancelled" true **during**
+        the commit rather than only after it (2026-08-18 remediation). Before it,
+        the apply's effect and the job's `completed` state were two transactions,
+        and a cancellation arriving between them matched a still-`running` job
+        and cancelled a job whose import had already committed.
+
+        The predicate is enforced by PostgreSQL's row lock, not by ordering: the
+        commit fence takes this row's write lock as the last statement before the
+        effect commits, so this statement blocks and then re-evaluates under
+        `READ COMMITTED`. If the effect won, this matches zero rows and the
+        caller answers `409` with the receipt. If this won, the fence matches
+        zero rows and the effect is rolled back entirely.
+
+        ## Both branches carry it, from 2026-08-18
+
+        The first remediation put the predicate on the `running` branch only,
+        because the `queued` branch was believed unreachable for a committed
+        effect. It was not. The reaper deliberately requeued a job whose effect
+        had committed but whose result had not been published, so this ordering
+        existed and produced a `cancelled` job over a durable import:
+
+        ```text
+            apply commits import + effect_committed_at        COMMIT
+            the process dies before publishing its result
+            the lease expires; the reaper writes state = 'queued'
+            R-45 arrives and matches `state = 'queued'`        → cancelled
+        ```
+
+        The reaper no longer requeues a committed effect — it publishes it — so
+        the ordering above is gone at its source as well. The predicate is here
+        anyway, on both branches, because *"every cancellation statement capable of
+        touching a live job refuses a committed effect"* is a property a reader can
+        check in one place, and *"no other statement can put such a job in that
+        state"* is a property they would have to reconstruct from four.
+        """
+        from application.web.jobs import Cancellation, JobState
+
+        cancelled = self._connection.execute(
+            text(
+                """
+                UPDATE reconciliation_jobs SET
+                    state = 'cancelled',
+                    cancel_requested_at = COALESCE(cancel_requested_at, :now),
+                    finished_at = :now,
+                    version = version + 1
+                WHERE id = :job_id AND state = 'queued'
+                  AND effect_committed_at IS NULL
+                RETURNING id
+                """
+            ),
+            {"job_id": job_id, "now": now},
+        ).first()
+        if cancelled is not None:
+            return Cancellation(
+                state=JobState.CANCELLED,
+                effect_committed=False,
+                observed_state=JobState.CANCELLED,
+            )
+        # `running`: record the request and let the worker observe it at its next
+        # heartbeat. A committed apply matches neither statement.
+        requested = self._connection.execute(
+            text(
+                """
+                UPDATE reconciliation_jobs SET
+                    cancel_requested_at = COALESCE(cancel_requested_at, :now),
+                    version = version + 1
+                WHERE id = :job_id AND state = 'running'
+                  AND effect_committed_at IS NULL
+                RETURNING id
+                """
+            ),
+            {"job_id": job_id, "now": now},
+        ).first()
+        if requested is not None:
+            return Cancellation(
+                state=JobState.RUNNING,
+                effect_committed=False,
+                observed_state=JobState.RUNNING,
+            )
+        # Refused. **Which** refusal it was is a fact about the row, so it is read
+        # from the row — in this same transaction, immediately after the two
+        # statements that matched nothing, exactly as `abandon` does. This read
+        # decides the word in the response; it decides nothing about the
+        # invariant, which both statements above already enforced at the write
+        # boundary.
+        probe = (
+            self._connection.execute(
+                text(
+                    """
+                    SELECT state, effect_committed_at
+                    FROM reconciliation_jobs WHERE id = :job_id
+                    """
+                ),
+                {"job_id": job_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return Cancellation(
+            state=None,
+            effect_committed=probe is not None
+            and probe["effect_committed_at"] is not None,
+            observed_state=None if probe is None else JobState(probe["state"]),
+        )
+
+    def mark_stale(self, *, job_id: UUID, reason, now: datetime) -> bool:
+        """One job to `stale`, from a request.
+
+        ## Why `completed` is in the predicate, and why that is not a
+        ## terminal-state rewrite
+
+        SM-05's forbidden-transition table says *any terminal state to any other
+        state*, and names its mechanism as "the application's single-statement
+        guards on `state IN ('queued','running')`". Route contract §6.1 requires
+        the opposite for one case, in as many words: R-41 must transition **every
+        completed-but-unconfirmed preview** to `stale`.
+
+        Both cannot be read literally, and the specific requirement is the one
+        that governs — with the boundary drawn exactly where the two agree:
+
+        - a **`completed` preview that no apply names** is not a record of
+          anything that happened. It is an offer to confirm, and `stale` is what
+          withdrawing that offer is called. Nothing durable is rewritten,
+          because a preview writes only its own result row;
+        - a **`completed` apply**, and a preview an apply already names, are
+          never touched. An apply that completed has committed an import, and
+          rewriting its state would be rewriting the record of something that
+          did happen.
+
+        The `parent_job_id` clause is what expresses "unconfirmed". It is the
+        same predicate `invalidate_for_snapshot` uses, and it is one
+        implementation rather than two that agree: R-41's folder change and
+        R-46's N-46 expiry withdraw the same kind of offer for different reasons.
+        """
+        return (
+            self._connection.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        state = 'stale',
+                        stale_reason = :reason,
+                        finished_at = COALESCE(finished_at, :now),
+                        lease_owner = NULL,
+                        lease_expires_at = NULL,
+                        heartbeat_at = NULL,
+                        -- Required by `CHECK ((state = 'completed') = (result_id
+                        -- IS NOT NULL))`: only a `completed` job names a result.
+                        -- The result row itself is **not** deleted — it is still
+                        -- reachable from its own `job_id`, which is how a stale
+                        -- preview still shows what it said.
+                        result_id = NULL,
+                        version = version + 1
+                    WHERE id = :job_id
+                      -- Added 2026-08-18 with the commit fence. An apply whose
+                      -- import has committed is a record of something that
+                      -- happened, and `stale` means "nothing was applied" — so
+                      -- the same argument that excludes a `completed` apply
+                      -- excludes a `running` or requeued one whose effect is
+                      -- already durable. A preview can never carry this column
+                      -- (migration 0012's check constraint), so this narrows
+                      -- nothing R-41 or R-46 was for.
+                      AND effect_committed_at IS NULL
+                      AND (
+                            state IN ('queued', 'running')
+                            OR (
+                                state = 'completed'
+                                AND kind = 'preview'
+                                AND NOT EXISTS (
+                                    SELECT 1 FROM reconciliation_jobs child
+                                    WHERE child.parent_job_id = reconciliation_jobs.id
+                                )
+                            )
+                          )
+                    """
+                ),
+                {"job_id": job_id, "reason": reason.value, "now": now},
+            ).rowcount
+            == 1
+        )
+
+    def invalidate_for_snapshot(
+        self, *, snapshot_id: UUID, reason, now: datetime
+    ) -> tuple:
+        """R-41's atomic invalidation: **every** non-terminal job **and** every
+        completed-but-unconfirmed preview for this snapshot.
+
+        One statement, so there is no instant at which the folder has changed and
+        an outstanding preview is still confirmable.
+
+        A `completed` preview is included and a `completed` **apply** is not: an
+        apply that completed has already committed its import, and rewriting its
+        state would be rewriting the record of something that happened. The
+        `parent_job_id` clause is what expresses "unconfirmed" — a preview an
+        apply already names has been confirmed, and its outcome is that apply's.
+        """
+        rows = self._connection.execute(
+            text(
+                """
+                UPDATE reconciliation_jobs SET
+                    state = 'stale',
+                    stale_reason = :reason,
+                    finished_at = COALESCE(finished_at, :now),
+                    lease_owner = NULL,
+                    lease_expires_at = NULL,
+                    heartbeat_at = NULL,
+                    -- See `mark_stale`: the constraint reserves `result_id` for
+                    -- `completed`, and the result row survives regardless.
+                    result_id = NULL,
+                    version = version + 1
+                WHERE snapshot_id = :snapshot_id
+                  -- See `mark_stale`: an apply whose effect has committed is
+                  -- never rewritten to `stale`, because `stale` means nothing
+                  -- was applied and something was.
+                  AND effect_committed_at IS NULL
+                  AND (
+                        state IN ('queued', 'running')
+                        OR (
+                            state = 'completed'
+                            AND kind = 'preview'
+                            AND NOT EXISTS (
+                                SELECT 1 FROM reconciliation_jobs child
+                                WHERE child.parent_job_id = reconciliation_jobs.id
+                            )
+                        )
+                      )
+                RETURNING id
+                """
+            ),
+            {"snapshot_id": snapshot_id, "reason": reason.value, "now": now},
+        ).all()
+        return tuple(row[0] for row in rows)
+
+    # -- N-24 retention ----------------------------------------------------
+    def expired_results(self, *, now: datetime, limit: int = 200) -> tuple:
+        """Result rows past N-24, for the operator's retention sweep.
+
+        Read here and deleted by the operator command, not by the web process:
+        the runtime role holds no `DELETE` on `reconciliation_jobs` (grants
+        template), so the sweep runs as the schema owner and this method exists
+        so it can be *reported* before it is run.
+        """
+        rows = self._connection.execute(
+            select(reconciliation_job_results.c.id, reconciliation_job_results.c.job_id)
+            .where(reconciliation_job_results.c.expires_at < now)
+            .limit(limit)
+        ).all()
+        return tuple((row[0], row[1]) for row in rows)
+
+
+class AuditSearchRepository:
+    """R-48/R-49's bounded read over `audit_events`. **There is no write here.**
+
+    Not "no write is called": no method exists. The append-only guarantee is the
+    runtime role's grant and migration 0002's trigger; this class is the
+    application-level half of the same statement, and TC-AUD-04 asserts it by
+    introspection rather than by reading the file.
+    """
+
+    __slots__ = ("_connection",)
+
+    def __init__(self, connection: Connection) -> None:
+        self._connection = connection
+
+    def search(self, *, filters, position, size: int):
+        """`(occurred_at DESC, id DESC)`, cursor-positioned, over-read by one.
+
+        Every filter is an equality, a prefix or a range — all index-usable, and
+        none of them a scan of the payload. There is deliberately no free-text
+        payload search: an append-only table that grows forever cannot serve one
+        within N-21's bound, and offering it would be offering a query that gets
+        slower every day until it stops working.
+        """
+        statement = select(audit_events)
+        if filters.action_prefix is not None:
+            # A prefix, not a substring: `reconciliation.` is an index range and
+            # `%council%` is a scan of every row ever written.
+            statement = statement.where(
+                audit_events.c.action.startswith(
+                    filters.action_prefix.value, autoescape=True
+                )
+            )
+        if filters.entity_type is not None:
+            statement = statement.where(
+                audit_events.c.entity_type == filters.entity_type
+            )
+        if filters.entity_id is not None:
+            statement = statement.where(
+                audit_events.c.entity_id == filters.entity_id.value
+            )
+        if filters.capability is not None:
+            statement = statement.where(
+                audit_events.c.actor_capability == filters.capability.value
+            )
+        if filters.source is not None:
+            statement = statement.where(audit_events.c.source == filters.source)
+        if filters.correlation_id is not None:
+            statement = statement.where(
+                audit_events.c.correlation_id == filters.correlation_id
+            )
+        if filters.occurred_from is not None:
+            statement = statement.where(
+                audit_events.c.occurred_at
+                >= datetime.fromisoformat(filters.occurred_from.iso_utc)
+            )
+        if filters.occurred_to is not None:
+            statement = statement.where(
+                audit_events.c.occurred_at
+                <= datetime.fromisoformat(filters.occurred_to.iso_utc)
+            )
+        if position is not None:
+            occurred_at, identifier = position
+            statement = statement.where(
+                or_(
+                    audit_events.c.occurred_at < datetime.fromisoformat(occurred_at),
+                    and_(
+                        audit_events.c.occurred_at
+                        == datetime.fromisoformat(occurred_at),
+                        audit_events.c.id < UUID(identifier),
+                    ),
+                )
+            )
+        return list(
+            self._connection.execute(
+                statement.order_by(
+                    audit_events.c.occurred_at.desc(), audit_events.c.id.desc()
+                ).limit(size + 1)
+            )
+            .mappings()
+            .all()
+        )
+
+    def labels_for_discord_actors(self, discord_user_ids) -> dict:
+        """Historical attribution, resolved through `external_identities`.
+
+        Rows written before migration 0006 carry only a Discord user id and are
+        never rewritten (ADR 0010 D5). This resolves one to the account it now
+        belongs to — **including when that identity has been retired**, which is
+        the reason an identity is retired rather than deleted.
+        """
+        wanted = {
+            identifier for identifier in discord_user_ids if identifier is not None
+        }
+        if not wanted:
+            return {}
+        rows = self._connection.execute(
+            select(
+                external_identities.c.subject,
+                external_identities.c.platform_account_id,
+                platform_accounts.c.display_label,
+            )
+            .select_from(
+                external_identities.join(
+                    platform_accounts,
+                    external_identities.c.platform_account_id
+                    == platform_accounts.c.id,
+                )
+            )
+            .where(
+                external_identities.c.provider_key == DISCORD_PROVIDER_KEY,
+                external_identities.c.subject.in_(
+                    [str(identifier) for identifier in wanted]
+                ),
+            )
+        ).all()
+        return {
+            int(subject): {"account_id": account_id, "label": label or f"Account {str(account_id)[:8]}"}
+            for subject, account_id, label in rows
+        }

@@ -901,7 +901,16 @@ class AccountIdentitiesView:
     #: rendered server-side into its form — and the accepted VM-13 block, alone
     #: among the view models carrying a mutation control, does not list one.
     #: Reading the token from a cookie by script instead is the double-submit
-    #: scheme the delivery plan rejected. Recorded in the P3.2 submission.
+    #: scheme the delivery plan rejected.
+    #:
+    #: **Provenance corrected 2026-08-19** (accepted D-03 correction `C-P3.4-A`,
+    #: item D-03-4). This comment previously read "Recorded in the P3.2
+    #: submission", and it was not: `docs/review/phase-3-p3-2-submission.md`
+    #: contains no occurrence of `csrf_token`. The accepted P3.2 submission is a
+    #: historical record and has not been edited to manufacture the provenance
+    #: after the fact. The field is now recorded where a frozen shape belongs —
+    #: in the VM-13 block of `docs/contracts/phase-3-view-model-contract.md` — and
+    #: that record, not this docstring, is the contract statement.
     csrf_token: str = ""
 
 
@@ -1010,6 +1019,409 @@ class ValidationView:
     errors: tuple[FieldError, ...]
 
 
+# ---------------------------------------------------------------------------
+# VM-22 `DeniedView` — the safe denial body, every closed category
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class DeniedView:
+    """Two fields, and the second one is a closed vocabulary. That is the point.
+
+    **Added 2026-08-19 by the accepted D-03 correction (`C-P3.4-A`, item D-03-6).**
+    Until then every generic denial — `401`, `403` and `404` alike — was rendered
+    from a `NonMemberView` (VM-02) whose `guild_display_name` was `""`, whose
+    `checked_at` was `Instant("", "")` and whose `correlation` was the nil UUID.
+    The placeholders were deliberate and the rendered bytes were correct, because
+    route contract §2.3 requires the `404` for an unreachable object and the `404`
+    for an absent one to be **byte-identical** and a correlation id differs per
+    request. But correctness rested on `denied.html` never printing three fields
+    it was handed, and P3.4 writes that template. A production template that
+    rendered `view.correlation.id` on a denial page would print
+    `00000000-0000-0000-0000-000000000000` on every denial and break TC-OBJ-07 by
+    exactly the amount a real correlation id varies.
+
+    The correction is the type, not another rule for a template author to
+    remember: there is nothing here to print. No correlation id, no guild name,
+    no timestamp, no object identifier, no exception text and no free-form
+    reason — the fields do not exist, so a template cannot render one by
+    accident and a service cannot supply one by mistake. This is the same
+    technique `MigrationDeferred` uses for deferred field values.
+
+    **VM-02 keeps its own page.** `non_member.html` is a different response with
+    a different purpose: the person authenticated successfully and is not in the
+    guild, and the guild name, the check time and the correlation id are what
+    they need in order to recover. That page is *intentionally* distinguishable
+    and stays on VM-02 (view-model contract §4, VM-02).
+
+    Additive under §1 rule 5: a view model is added, none is removed, renamed or
+    narrowed, and `VIEW_MODEL_VERSION` stays `vm-1`.
+    """
+
+    state: PageState
+    reason: DeniedReason
+
+
+# ---------------------------------------------------------------------------
+# VM-14 / VM-15 / VM-17 / VM-18 — import, job and audit views (P3.3)
+# ---------------------------------------------------------------------------
+
+#: VM-14: at most 50 snapshots, newest first, and at most 50 selectable folders
+#: on each. Both are bounds on a page a co-located host has to render (R-24).
+SNAPSHOT_ROW_BOUND = 50
+FOLDER_CHOICE_BOUND = 50
+#: VM-15. `issue_counts` is one entry per `ISSUE_CODES` member, and 30 is the
+#: headroom over the nine that exist; `blocked_entries` is the one place an Actor
+#: name crosses the boundary and it is Council-only.
+ISSUE_COUNT_BOUND = 30
+BLOCKED_ENTRY_BOUND = 50
+CANDIDATE_CHARACTER_BOUND = 10
+#: VM-18. §3.2: 40 values per record, 200 characters per value.
+AUDIT_FACT_BOUND = 40
+AUDIT_VALUE_BOUND = 200
+
+#: N-27's six states, as the one vocabulary the schema, the state machine and the
+#: view share. There is no seventh, and cancellation is a request rather than a
+#: state.
+JobState = Literal["queued", "running", "completed", "stale", "failed", "cancelled"]
+JobKind = Literal["preview", "apply"]
+
+
+@dataclass(frozen=True, slots=True)
+class FolderChoice:
+    """A folder's identity: the stable id **and** the displayed path (ADR 0006).
+
+    Both, because a folder renamed or moved between preview and apply is a
+    different confirmation from the one a Council member read, and an id alone
+    cannot express that.
+
+    ## `path_observed`, and the honest gap it names
+
+    **Additive to the documented `vm-1` shape**, and permitted by §1 rule 5.
+
+    `foundry_snapshots` records which folder **ids** a snapshot exports
+    (`selected_folder_ids`) and nothing about their paths or per-folder Actor
+    counts — those live only inside the artifact, and reading them costs the
+    ~9.6 seconds of `json.loads` that R-40 must not spend in a page load.
+
+    So a folder's path is known only once something has parsed the artifact: a
+    completed preview stores the reconciled folder's path in its bounded summary.
+    Before that, `folder_path` repeats the id and `actor_count` is the snapshot's
+    own total when it exports exactly one folder — which is then exactly right,
+    and is the same case `SnapshotImportService._default_folder()` already treats
+    as unambiguous — and `0` otherwise.
+
+    `path_observed` is what stops that from being a quiet lie. A template renders
+    an unobserved folder as an identifier awaiting its first preview rather than
+    as a path, and `is_default` is decided on an observed path or on the
+    exactly-one-folder rule, never on a guess. Recorded in the P3.3 submission.
+    """
+
+    folder_id: str
+    folder_path: SafeText
+    actor_count: int
+    is_default: bool
+    path_observed: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class JobStamp:
+    """The latest job against a snapshot, as R-40's row needs to show it."""
+
+    job_id: UUID
+    kind: JobKind
+    state: JobState
+    updated_at: Instant
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotRow:
+    """One submitted snapshot. `checksum_full` is shown; the **artifact** is not.
+
+    No route in the accepted inventory serves an artifact-derived byte, so this
+    row identifies a document a Council member cannot download — deliberately
+    (route contract §6.1, *audit visibility does not by itself grant permission
+    to download the raw artifact*).
+    """
+
+    snapshot_id: UUID
+    checksum_short: str
+    checksum_full: str
+    world_id: str
+    world_title: SafeText
+    core_version: str
+    system_id: str
+    system_version: str
+    actor_count: int
+    size_bytes: int
+    exported_at: Instant
+    received_at: Instant
+    received_via: Literal["operator", "foundry_module"]
+    selected_folder: FolderChoice | None
+    selectable_folders: tuple[FolderChoice, ...]
+    applied: bool
+    latest_job: JobStamp | None
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotListView:
+    """VM-14 — R-40.
+
+    `can_select_folder` and `can_preview` are **rendering hints computed from the
+    same resolution the server will perform again**. They exist so the page is
+    honest, not so it is safe: R-41 and R-42 refuse regardless of what was
+    rendered, and the matrix tests prove it by never fetching this page.
+    """
+
+    state: PageState
+    snapshots: tuple[SnapshotRow, ...]
+    cursor: Cursor
+    can_select_folder: bool
+    can_preview: bool
+    csrf_token: str
+
+
+@dataclass(frozen=True, slots=True)
+class JobProgress:
+    """`percent` is `None` unless the worker can report a real fraction.
+
+    A fabricated progress bar is worse than an indeterminate one: it tells a
+    Council member watching a ten-second parse something the platform does not
+    know.
+    """
+
+    step: Literal["queued", "reading", "parsing", "reconciling", "committing"]
+    percent: int | None
+    updated_at: Instant
+
+
+@dataclass(frozen=True, slots=True)
+class StaleReason:
+    """Why an outstanding preview stopped being confirmable. A closed vocabulary."""
+
+    code: Literal[
+        "snapshot_changed",
+        "folder_changed",
+        "profile_version_changed",
+        "aggregate_version_changed",
+        "preview_expired",
+        "authorization_changed",
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class JobFailure:
+    code: Literal[
+        "parse_refused",
+        "artifact_unavailable",
+        "attempts_exhausted",
+        "timeout",
+        "internal",
+    ]
+    correlation: Correlation
+
+
+@dataclass(frozen=True, slots=True)
+class IssueCount:
+    """A closed-vocabulary code and a count. **Never** the issue's message.
+
+    `application/foundry/reconciliation.py` already keeps `ISSUE_CODES` closed
+    because the codes go into an append-only audit payload. The web layer
+    inherits the discipline: a reconciliation warning reaches the browser as a
+    code plus a count, and the human sentence is a template-side lookup table
+    owned by the platform. Text from the artifact is never forwarded, which
+    closes the escaping question at the design level rather than at the filter.
+    """
+
+    code: str
+    severity: Literal["error", "warning"]
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class BlockedEntry:
+    """The one place an Actor name crosses the boundary.
+
+    It is the minimum a Council member needs to resolve a blocked
+    create-candidate, it is Council-only, it is bounded at 50 entries, the name
+    is a `SafeText` under §3.2's 120-character bound, and it carries no other
+    Actor field. Everything else about the artifact stays server-side.
+    """
+
+    external_actor_id: str
+    display_name: SafeText
+    issue_code: str
+    candidate_character_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationSummary:
+    actor_count: int
+    mapped: int
+    unmapped: int
+    blocked: int
+    absent: int
+    would_create: int
+    would_update: int
+    issue_counts: tuple[IssueCount, ...]
+    blocked_entries: tuple[BlockedEntry, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmScope:
+    """Exactly what an apply would commit, and the token that names *this* preview.
+
+    `preview_token` is the Phase 2 `PreviewBinding.token()` digest, reused
+    unchanged. Presenting it back is what lets R-46 refer to the preview a
+    Council member actually read rather than to whatever the database looks like
+    when the button is pressed — and R-46 re-resolves authority, re-checks the
+    checksum, folder, profile version and aggregate versions, and re-computes the
+    scope fingerprint anyway, so the token is one control among four rather than
+    the only one.
+    """
+
+    preview_token: str
+    checksum_full: str
+    folder: FolderChoice
+    profile_version: str
+    expires_at: Instant
+    would_create: int
+    would_update: int
+    blocked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class JobStatusView:
+    """VM-15 — R-43 and R-44.
+
+    `attempts` is the **number of claims made against the job**, the single
+    meaning N-43 fixes, and it is at most 3. It is shown rather than hidden
+    because a Council member watching a job retry twice is watching something
+    worth knowing about, and `failure.code = "attempts_exhausted"` is what the
+    third expiry produces.
+
+    The response carries the bounded summary only — counts, issue codes, folder
+    identity, checksum, profile version. Never Actor names outside
+    `blocked_entries`, never warning text drawn from the artifact, never raw
+    bytes.
+    """
+
+    state: PageState
+    job_id: UUID
+    kind: JobKind
+    job_state: JobState
+    progress: JobProgress | None
+    requested_by: Actor
+    requested_at: Instant
+    attempts: int
+    poll_after_seconds: int
+    result: ReconciliationSummary | None
+    stale_reason: StaleReason | None
+    failure: JobFailure | None
+    cancel_available: bool
+    confirm: ConfirmScope | None
+    csrf_token: str
+    correlation: Correlation
+
+
+@dataclass(frozen=True, slots=True)
+class ImportResultView:
+    """VM-17 — R-47. Mirrors the append-only `snapshot_imports` row.
+
+    `duplicate_of` is how a retry presents itself: the second request returns the
+    original receipt, and the view **says so** rather than implying a second
+    import happened.
+    """
+
+    state: PageState
+    import_id: UUID
+    status: Literal["applied", "refused"]
+    mode: Literal["bootstrap", "council"]
+    actor: Actor
+    capability: ActorCapability
+    snapshot: SnapshotStamp
+    checksum_full: str
+    folder: FolderChoice
+    profile_version: str
+    created_count: int
+    updated_count: int
+    warning_count: int
+    issue_counts: tuple[IssueCount, ...]
+    occurred_at: Instant
+    correlation: Correlation
+    duplicate_of: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class AuditFilters:
+    """The accepted bounded filters (N-63), and nothing else is queryable.
+
+    There is no free-text payload search and no action *substring*: an action
+    filter is a **prefix**, which an index can serve and which cannot be turned
+    into a scan of every row's JSON.
+    """
+
+    action_prefix: SafeText | None = None
+    entity_type: str | None = None
+    entity_id: SafeText | None = None
+    capability: ActorCapability | None = None
+    source: Literal["discord", "web", "foundry", "import", "system"] | None = None
+    occurred_from: Instant | None = None
+    occurred_to: Instant | None = None
+    correlation_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class AuditFact:
+    """One flattened before/after pair. **Not** the payload.
+
+    A payload key the projection does not recognize is rendered as a key with a
+    redacted marker rather than as its value, so a future writer cannot widen the
+    response by writing a new key.
+    """
+
+    key: str
+    before: SafeText | None
+    after: SafeText | None
+    redacted: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class AuditRow:
+    event_id: UUID
+    occurred_at: Instant
+    #: `None` for system and service-principal actions, which have no person.
+    actor: Actor | None
+    actor_capability: ActorCapability
+    action: str
+    entity_type: str
+    entity_id: SafeText
+    source: str
+    correlation: Correlation
+    facts: tuple[AuditFact, ...]
+    payload_truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AuditSearchView:
+    """VM-18 — R-48 and R-49.
+
+    `total_is_unbounded` is `true` permanently: there is no `COUNT(*)` over
+    `audit_events`, because that is the unbounded scan N-21 forbids. The
+    immutability notice is a code rather than a sentence for the same reason
+    every other vocabulary here is closed.
+    """
+
+    state: PageState
+    filters: AuditFilters
+    rows: tuple[AuditRow, ...]
+    cursor: Cursor
+    total_is_unbounded: bool = True
+    immutability_notice_code: Literal["append_only_no_correction_here"] = (
+        "append_only_no_correction_here"
+    )
+
+
 #: The view models this package implements, by contract identifier. Asserted
 #: against the parsed contract document by the structural tests, so a name that
 #: drifts fails a test rather than a review.
@@ -1027,18 +1439,23 @@ IMPLEMENTED_VIEW_MODELS: dict[str, type] = {
     "VM-11": FieldProfileView,
     "VM-12": RoleCapabilityView,
     "VM-13": AccountIdentitiesView,
+    "VM-14": SnapshotListView,
+    "VM-15": JobStatusView,
     "VM-16": HealthView,
+    "VM-17": ImportResultView,
+    "VM-18": AuditSearchView,
     "VM-19": ConflictView,
     "VM-20": SafeErrorView,
     "VM-21": ValidationView,
+    "VM-22": DeniedView,
 }
 
 #: Documented in `vm-1` and owned by a later package. Named rather than merely
 #: absent, so "not implemented yet" is a recorded fact with an owner instead of
 #: something a reader has to infer from a gap.
-DEFERRED_VIEW_MODELS: dict[str, str] = {
-    "VM-14": "P3.3",
-    "VM-15": "P3.3",
-    "VM-17": "P3.3",
-    "VM-18": "P3.3",
-}
+#:
+#: **Empty from P3.3 onward.** The four import, job and audit view models this
+#: mapping named are implemented above, so `vm-1` is now complete and the
+#: structural guard asserts equality with the documented set rather than
+#: equality-minus-a-deferral.
+DEFERRED_VIEW_MODELS: dict[str, str] = {}

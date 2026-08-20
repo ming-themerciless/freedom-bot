@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import bindparam, func, insert, select, text, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from application.admissions import (
@@ -316,6 +318,7 @@ class SqlAlchemySnapshotImportRepository:
                 status=record.status.value,
                 mode=record.mode.value,
                 actor_discord_user_id=record.actor_discord_user_id,
+                actor_account_id=record.actor_account_id,
                 actor_capability=record.actor_capability.value,
                 supervisor=record.supervisor,
                 created_count=record.created_count,
@@ -584,4 +587,99 @@ class SqlAlchemyAuditRepository:
                 # the persistence boundary rather than stored mutable.
                 payload=event.json_payload(),
             )
+        )
+
+
+class SqlAlchemyReconciliationJobLeaseRepository:
+    """The one write P3.3's fence needs, and it lives on the *import's* session.
+
+    ## Why it is here rather than beside the other job statements
+
+    Every other `reconciliation_jobs` statement belongs to
+    `adapters/web/repositories.py`, because every other one runs in a transaction
+    of its own — a claim, a heartbeat, a publication. This one is different in
+    exactly the way that matters: it must run in the **same PostgreSQL
+    transaction that commits the import effect**, which is the unit of work
+    `SnapshotImportService` opens. So it joins that unit of work, and putting it
+    anywhere else would mean it could not.
+
+    ## What the statement proves
+
+    That, at the commit boundary of the effect, the job still
+
+    1. is `running`;
+    2. carries this exact per-claim fencing token;
+    3. has no cancellation request;
+    4. has not been abandoned or reaped (both clear `lease_owner`, so (2) covers
+       them); and
+    5. has not been superseded by another claim (a new claim mints a **new**
+       token, so (2) covers that too).
+
+    A `SELECT` proving the same thing would not be a fence. This is an `UPDATE`
+    because the row's write lock is the serialization: it is taken here, held
+    until the import commits, and every writer that would invalidate the attempt
+    carries `AND effect_committed_at IS NULL` and therefore blocks on it and
+    re-evaluates its own predicate afterwards under `READ COMMITTED`. Exactly one
+    side wins, and the loser writes nothing.
+
+    `effect_committed_at IS NULL` in the predicate is what makes the fence
+    single-use: a second effect for one job is not merely prevented downstream by
+    `uq_snapshot_imports_applied_input`, it cannot take the fence.
+
+    ## What else the statement writes, and why here
+
+    Added by the 2026-08-18 effect-publication remediation. The same statement
+    stores `effect_result`: the bounded summary and blocked-entry list this run
+    produced. Before it, the result the worker owed lived only as an in-memory
+    `Executed` value on the execution thread, so a process that died between the
+    effect and the publication took the publication with it — and the only recovery
+    left was to requeue the job and spend one of N-43's three attempts re-running
+    work whose effect was already durable. At `attempts = 3` there was none to
+    spend and the reaper wrote `failed` over a real import.
+
+    Writing it **here** rather than in a second statement is the whole point: this
+    transaction is the one that commits the effect, so the publication payload
+    becomes durable if and only if the effect does. Migration 0013's
+    `CHECK ((effect_committed_at IS NULL) = (effect_result IS NULL))` is the
+    database saying the same thing.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def hold_for_effect(
+        self, *, job_id: UUID, owner: str, now: datetime, result: dict
+    ) -> bool:
+        """Take the job row's write lock, record the effect and what it owes, or refuse.
+
+        Returns `False` when the attempt is no longer entitled to commit, which
+        the caller turns into a rolled-back transaction and no effect at all.
+
+        `result` is required, not defaulted. A fence able to stamp
+        `effect_committed_at` without it would be a fence able to make an effect
+        durable that no later process can publish from durable data — which is the
+        second of the two defects this remediation exists for.
+        """
+        return (
+            self._session.execute(
+                text(
+                    """
+                    UPDATE reconciliation_jobs SET
+                        effect_committed_at = :now,
+                        effect_result = :result,
+                        version = version + 1
+                    WHERE id = :job_id
+                      AND lease_owner = :owner
+                      AND state = 'running'
+                      AND cancel_requested_at IS NULL
+                      AND effect_committed_at IS NULL
+                    """
+                    # `bindparams` rather than a `::jsonb` cast in the text: the
+                    # type belongs to the parameter, so a caller cannot pass a
+                    # string that happens to parse and a reader does not have to
+                    # check whether the cast is still there.
+                ).bindparams(bindparam("result", type_=JSONB)),
+                {"job_id": job_id, "owner": owner, "now": now, "result": result},
+            ).rowcount
+            == 1
         )

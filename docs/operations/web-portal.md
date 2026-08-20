@@ -1,8 +1,10 @@
-# Operating the Freedom Blades web portal (Phase 3 P3.1)
+# Operating the Freedom Blades web portal (Phase 3 P3.1–P3.3)
 
-Status: P3.1 implementation document. **Nothing here has been deployed.** The
-portal has no systemd unit, no Caddy site block and no staging environment yet;
-those belong to P3.5 and the separate deployment gate. What this document
+Status: P3.1–P3.3 implementation document, extended by P3.3 with the
+reconciliation worker (§7). **Nothing here has been deployed.** The portal has no
+Caddy site block and no staging environment yet; those belong to P3.5 and the
+separate deployment gate. `infra/systemd/freedom-worker.service.tmpl` is a
+template, not an installed unit. What this document
 records is how to configure, migrate, start and recover the portal on a host
 where an operator already has authority — which is exactly the audience the
 emergency commands are written for.
@@ -272,6 +274,221 @@ The sequence is rehearsed end to end, both refusals included, by
 creates no new table. `infra/postgresql/runtime-grants.sql.tmpl` needs no edit
 and none was made.
 
+### 3.6 Migration 0013 rollback boundary
+
+Added 2026-08-18 by the migration-rollback remediation, and **the part of this
+document to read before planning any rollback of P3.3**.
+
+> **Downgrade below revision 0013 is refused while any retained
+> reconciliation job records a committed import effect. It becomes
+> available only when no such job exists; in normal operation that means
+> either no apply has committed, or every completed committed-effect job
+> and its result has been removed by the approved N-24 retention process
+> and no committed-but-unpublished job remains.**
+
+**Corrected 2026-08-18 by the second migration-rollback remediation.** The
+earlier wording — "available until the first apply commits an import effect, and
+refused afterwards" — claimed a permanent historical fact the guard does not
+record. The guard counts **retained** rows, and N-24 retention removes a
+completed terminal job and its result once the retention conditions are met,
+while preserving the immutable `snapshot_imports` receipt and the append-only
+audit history. Once no committed-effect job survives there is nothing a
+downgrade could destroy and nothing the re-upgrade's
+`effect_result_accompanies_the_fence` could refuse, so the boundary truthfully
+reopens.
+
+Four states an operator must distinguish:
+
+| The database holds | Downgrade below 0013 |
+|---|---|
+| a **retained completed** committed-effect job | **Refused.** Its `effect_result` is still there to destroy, and the re-upgrade would refuse on the row |
+| a **retained committed-but-unpublished** job | **Refused**, and this is the population a downgrade would hurt worst: `effect_result` is the only record of what the publication owes. Retention can never remove it — it is `running`, not terminal, so no age makes it eligible |
+| approved retention has removed **all** completed job/result presentation records, import and audit history preserved | **Available**, and genuinely reversible: proved by `…approved_retention_reopens_the_boundary_and_the_round_trip_is_exact` |
+| an unused database that never committed an effect | **Available**, as it always was |
+
+**Retention is not a rollback bypass and must not be used as one.** Deleting job
+history by hand, shortening the retention period, or running the sweep early to
+clear a refusal are all outside the supported procedure; eligibility, the
+operator command, its audit event and the 30-day period are unchanged. The
+normal operator response to a refusal remains publication of recoverable
+outstanding effects and roll-forward recovery.
+
+**The decision is taken under a lock.** `downgrade()` acquires `LOCK TABLE
+reconciliation_jobs IN ACCESS EXCLUSIVE MODE` before it counts and holds it until
+the migration transaction ends, so a worker transaction already applying an
+import must finish before the count sees the database, and one starting later
+waits until the migration is done. Both directions are regression-tested against
+real PostgreSQL by observing the lock itself:
+`…a_downgrade_started_during_an_in_flight_effect_refuses_after_it_commits` proves
+the lock is taken **before** the count;
+`…a_fence_writer_starting_under_the_held_lock_cannot_commit_until_it_ends` proves
+that a writer beginning after the lock is **granted** cannot commit until the
+migration transaction ends; and
+`…a_fence_writer_arriving_behind_a_pending_lock_request_cannot_overtake_it`
+covers the separate queue-fairness property. The generated offline (`--sql`)
+script takes
+the same lock inside the same `BEGIN … COMMIT` frame, before the guard and
+through the drops. Stopping the workers first is still required (below); the lock
+is the backstop for the operator who misses that step or whose process is still
+draining.
+
+**Status: this boundary is a proposal awaiting Peter/Acceptance Authority
+ratification.** What is already implemented is the refusal — 0013 will not
+destroy a payload nothing can truthfully reconstruct — because that is the safe
+behaviour under any policy. What needs ratification is the operational
+consequence: that while a committed effect is retained, rolling P3.3 back is
+*application* rollback or roll-forward, not schema downgrade. See the submission
+§14 and change-log `C-P3.3-D`.
+
+#### Why the boundary exists
+
+The commit fence writes `reconciliation_jobs.effect_result` — the run's bounded
+summary and its blocked create-candidate list — **inside the transaction that
+commits the import effect**, alongside `effect_committed_at`. `0013`'s check
+constraint `effect_result_accompanies_the_fence` makes the pair inseparable.
+
+`downgrade 0012` drops `effect_result` and deliberately keeps
+`effect_committed_at`, which belongs to 0012. Two things then follow, and the
+second is the one that closes the door:
+
+1. a committed effect whose result was never published **can never be
+   published**: `snapshot_imports` holds the import's immutable receipt, but not
+   the blocked-entry list, the `{code, severity, count}` issue counts (the
+   receipt keeps bare `issue_codes`), `would_create`, `would_update` or
+   `selected_folder_path`, and no truthful value can be invented for them; and
+2. **the database can never return to head.** Every truthfully completed apply is
+   now a row with a committed effect and no payload, which is exactly what
+   `upgrade 0013` refuses on. The remedies that would clear it — deleting
+   committed job history, clearing the fence, or manufacturing a result — are all
+   forbidden by `.agents/AGENTS.md` and by the P3.3 contract.
+
+So `downgrade()` counts both populations **before it changes anything** and
+refuses:
+
+```text
+Refusing to downgrade revision 0013: 3 retained reconciliation job(s) record a
+committed import effect (2 completed, 1 committed but unpublished). … NOTHING HAS
+BEEN CHANGED: the database is still at 0013, complete and usable. Schema rollback
+below 0013 is refused while any retained job records a committed effect - roll
+forward at 0013 instead. It becomes available again only when no such job
+survives, which in normal operation means the approved N-24 retention process has
+removed every completed committed-effect job and its result and no
+committed-but-unpublished job remains; deleting job history by hand, or
+shortening retention to clear this refusal, is not a supported rollback route.
+```
+
+The two counts are reported separately because they cost differently. A
+`completed` job loses only the ability to return to head. A committed-but-
+unpublished one loses that **and** its publication.
+
+`alembic downgrade base` is a downgrade too, and is refused on the same terms.
+
+#### Preflight
+
+Run as the schema owner, before scheduling any downgrade:
+
+```sql
+SELECT count(*) FILTER (WHERE state = 'completed')  AS completed_effects,
+       count(*) FILTER (WHERE state <> 'completed') AS unpublished_effects
+  FROM reconciliation_jobs
+ WHERE effect_committed_at IS NOT NULL;
+```
+
+Both zero: `downgrade 0012` is available and is genuinely reversible — proved
+with realistic rows by
+`tests/web/test_migration_0013_rollback_boundary.py::…succeeds_below_the_boundary…`.
+Either non-zero: the downgrade will refuse, and the procedure below applies
+instead.
+
+Offline (`--sql`) generation carries the same guard as an executable `DO` block
+rather than a comment, and it is emitted before the first `DROP`. A generated
+downgrade script applied top to bottom therefore stops on the server that runs
+it, exactly as an online downgrade would. Do not edit that block out.
+
+#### Worker shutdown and version order
+
+`WORKER_ENABLED` selects the worker process (§7). The compatibility of each
+application version with each schema revision is:
+
+| Schema | Application/worker version | Supported? |
+|---|---|---|
+| `0013` | P3.3 remediated (current head) | **Yes.** The only supported production pair |
+| `0012` | P3.3 remediated | **No.** The fence writes `effect_result`; every apply aborts with an undefined-column error and commits nothing. Previews are unaffected, but do not run it |
+| `0013` | pre-0013 (0012-era) | **No, but safe-failing.** The old fence writes `effect_committed_at` without a payload, so `effect_result_accompanies_the_fence` aborts the import transaction — no effect commits and no partial state exists. The old reaper and cancellation statements abort on `committed_effect_is_never_denied` the same way. Read paths are unaffected. Acceptable only as the brief interval of a roll-forward deployment |
+| `0012` | pre-0013 (0012-era) | The pre-remediation baseline. Supported only as the state a database is in before it has ever reached 0013 |
+
+Consequences for ordering:
+
+- **Roll forward** (`0012 -> 0013`): migrate first, then deploy the new code. The
+  old worker cannot corrupt anything at `0013` — it can only fail to commit —
+  which is why this order is safe and is the one to use.
+- **Roll back** (`0013 -> 0012`), only while the preflight above returns two
+  zeros: **stop every worker first** (`systemctl stop freedom-worker`), confirm
+  no lease is live, then `alembic downgrade 0012`, then deploy the 0012-era
+  code. A remediated worker left running against `0012` would fail every apply.
+- Never run a downgrade with a worker running. The refusal is a backstop, not a
+  substitute for stopping the process: a worker that commits an effect between
+  the preflight and the downgrade turns a supported rollback into a refused one.
+
+#### Recovery procedure when the downgrade is refused
+
+1. **Do not force it.** There is no override flag, and adding one would be adding
+   a way to strand the database. `DROP`ping the column by hand has the same
+   consequence and no record.
+2. **Publish what is outstanding.** If the refusal names any
+   *committed but unpublished* effects, start (or leave running) a worker at
+   `0013`: `WorkerRuntime.recover()` publishes each one from the two durable rows
+   on the reaper's interval (§7.3), consuming no attempt and re-running nothing.
+   This does **not** make the downgrade available: the job becomes `completed`
+   and is still retained, and a retained completed committed-effect job refuses
+   the downgrade exactly as an unpublished one does. What it does is clear the
+   population that would have been unrecoverable, move those jobs into the only
+   population approved N-24 retention can ever remove, and it is what an operator
+   wants done regardless. The boundary reopens when — and only when — retention
+   has removed those jobs and their results on its normal schedule. **Do not
+   shorten the retention period, run the sweep early, or delete rows by hand to
+   reach that point**; none of those is a supported rollback technique.
+3. **Roll forward.** Fix at `0013` with a new revision. `docs/implementation-plan.md`
+   §14.3 is explicit: applied migrations are never edited; roll forward or write a
+   documented recovery migration.
+4. **Application rollback, if the problem is the code rather than the schema.**
+   Revision `0013` adds one nullable column and two check constraints; nothing
+   else in P3.3's read paths depends on it. There is no supported code version
+   that runs against `0013` (see the table above), so an application rollback
+   past this point requires a recovery migration that gives the older code a
+   schema it can write — which is a change requiring maintainer approval, not an
+   operator action at 03:00.
+5. **Restore, only as a decision that is taken and recorded.** Restoring the
+   pre-migration `pg_dump` discards every import applied since it was taken. That
+   is a data-loss decision for the Acceptance Authority, not a rollback step.
+
+#### If a *re-upgrade* is refused
+
+`upgrade 0013` refuses on a `0012` database holding a job that records a
+committed effect. The message distinguishes the two ways to hold one:
+
+- **the database never reached 0013** — the payload was never written because the
+  column did not exist. In a disposable development database, `TRUNCATE` the
+  reconciliation tables and re-run. In any database whose history matters, stop
+  and ask a maintainer;
+- **the database was at 0013 and was taken below it by something other than
+  `downgrade()`** — the payload existed and was destroyed. Nothing may
+  reconstruct it, and neither clearing `effect_committed_at` nor deleting the
+  jobs is permitted. Restore the pre-downgrade backup and roll forward.
+
+#### Retry and crash behaviour
+
+Both directions run inside a single transaction (`migrations/env.py` wraps
+`run_migrations()` in `context.begin_transaction()`, and PostgreSQL's DDL is
+transactional). A refusal, a crash, a lost connection or a cancelled command
+therefore leaves either the **complete** pre-migration schema and data or the
+**complete** post-migration schema and data, never half of either — including
+`alembic_version`, which moves only on commit. Both commands are safe to re-run
+after any failure; a refusal in particular writes nothing, so retrying it costs
+nothing and changes nothing until the preflight condition changes.
+`tests/web/test_migration_0013_rollback_boundary.py` asserts this in both
+directions by injecting a failure part-way through each.
+
 ## 4. Emergency access
 
 Everything in this section is **host-local**. There is no HTTP route that issues
@@ -473,12 +690,22 @@ running**:
 ./venv-web/bin/python -m tools.portal_kill_switch off --operator "…" --reason "…"
 ```
 
-Layer 1 is the file above: every route except `/healthz` answers `503` with a
-static maintenance body, effective within one second, because the file is
-`stat`-ed at most once per second per process.
+Layer 1 is the file above: every route except `/healthz` and `/static/*` answers
+`503` with a static maintenance body, effective within one second, because the
+file is `stat`-ed at most once per second per process.
 
 Health stays up deliberately. It is on the loopback bind, is not published by
 Caddy, and is what an operator watches while recovering.
+
+`/static/*` stays up deliberately too, **added 2026-08-19** by the accepted D-03
+correction. The maintenance body, the login page and the safe error page are the
+pages a person sees while the portal is disabled, and serving them unstyled makes
+the incident look worse than it is. It is a narrow exemption: the static mount is
+unauthenticated, reads no database, opens no transaction and reaches no
+application service, so nothing the switch exists to stop is reachable through it.
+Every `/v1/*` route is refused exactly as before, and the host check still applies
+to an asset — a request under an unknown `Host` is `400` whether the switch is on
+or off. See §9.
 
 Layer 2 is `systemctl stop freedom-web`; layer 3 is removing the Caddy site
 block. Neither exists yet — the deployment work is after the Phase 3 gate.
@@ -500,14 +727,136 @@ identity, no queue contents.
 `environment` is included on purpose: the single most useful thing a monitor can
 tell you is that production is running production configuration.
 
-`worker_heartbeat` and `expired_leases` are reported as `true` in P3.1 with
-nothing behind them: the worker and its lease reaper are P3.3's, and reporting
-them as failing would be a false alarm about something that does not exist while
-reporting them as passing would be a claim nothing supports. The names are in
-the accepted VM-16 vocabulary so P3.3 can make them real without a contract
-change.
+`worker_heartbeat` and `expired_leases` were reported as `true` with nothing
+behind them in P3.1, because the worker did not exist. **P3.3 makes them real**,
+and what each one actually observes is worth knowing before it wakes somebody:
 
-## 7. Running the tests
+| Check | Observes | Fails when |
+|---|---|---|
+| `worker_heartbeat` | the age of the oldest `queued` job | something has been waiting longer than one lease plus one reaper interval (60 + 15 s), i.e. **nothing is draining the queue** |
+| `expired_leases` | the age of the oldest expired lease still `running` | the same bound is exceeded, i.e. **the reaper is not running** |
+
+Two limits, stated rather than implied:
+
+- **An empty queue reports `ok`.** A worker with nothing to do writes nothing, so
+  this check cannot tell an idle worker from an absent one when there is no work.
+  A monitor that needs that distinction watches `systemctl is-active
+  freedom-worker`, which is the thing that actually knows.
+- **The tolerance is generous on purpose.** These answer "nothing is draining the
+  queue" and "the reaper is not running" — not "the worker is healthy". A job
+  legitimately takes ten seconds; a job waiting seventy-five has nobody.
+
+Both are numbers only. No job id, no requester, no checksum, no queue contents:
+a health endpoint that named the work in flight would disclose who is importing
+what to anything that can reach the loopback port.
+
+## 7. The reconciliation worker
+
+`freedom-worker` claims and executes durable preview and apply jobs. It is a
+**separate process** — not a thread in the portal — for three measured reasons
+recorded in the operational contract §3: the work holds the GIL for its whole
+~9.6 seconds, its peak memory is per-job and unmeasured, and a web deploy should
+be quick while a worker holding a 60-second lease should drain.
+
+```bash
+./venv-web/bin/python -m tools.freedom_worker            # the service
+./venv-web/bin/python -m tools.freedom_worker --once     # one tick, then exit
+./venv-web/bin/python -m tools.freedom_worker --reap-only  # reap and publish committed effects, claim nothing
+```
+
+It runs the **same code from the same virtualenv** as `freedom-web` and reads the
+same variables. The two differ by `WORKER_ENABLED`, and each process refuses the
+other's value (S-11, both directions). In practice: two environment files
+identical but for that line, or one file plus `Environment=WORKER_ENABLED=true`
+on the worker unit. `infra/systemd/freedom-worker.service.tmpl` is the unit, and
+the three numbers in it each have a reason written beside them.
+
+The worker exposes **no listener at all**. It is reached by nothing; it reaches
+PostgreSQL over the loopback socket and the restricted artifact store on disk,
+and nothing else. It makes no Discord call and no Google call.
+
+### 7.1 Starting and stopping
+
+`SIGTERM` asks the loop to stop. The current attempt finishes or is abandoned at
+its next heartbeat, and **an abandoned attempt is recoverable rather than
+failed**: the job returns to `queued` while an attempt remains. `TimeoutStopSec`
+is 30 seconds — deliberately below the 60-second lease, so a restarting process
+never holds a claim it can no longer heartbeat.
+
+Stopping the worker is safe at any moment. Nothing is lost: a claimed job's lease
+expires, the reaper requeues it, and the durable effect of an apply is fenced by
+`uq_snapshot_imports_applied_input` and `snapshot_imports.request_key` rather
+than by the job's state. An apply that had already committed when the process
+died is found by the retry and returned as a duplicate.
+
+### 7.2 The kill switch reaches the worker too
+
+Layer 1 (§5) engages the worker as well as the portal: it **claims no new work**
+and abandons the current attempt at its next heartbeat. One operator action
+closes both processes, and neither the Discord bot nor Foundry is affected.
+
+### 7.3 When a job is stuck
+
+| Symptom | What it means | What to do |
+|---|---|---|
+| `expired_leases` failing | the reaper is not running | check `systemctl is-active freedom-worker`; `--reap-only` runs one reaper pass **and one effect-publication pass** without claiming work |
+| `worker_heartbeat` failing, queue non-empty | nothing is claiming | as above |
+| A job `failed` with `attempts_exhausted` | three claims expired without completing | the job's audit event names the last `lease_owner`; that is the process that stopped answering |
+| A job `failed` with `parse_refused` | the artifact is malformed **for this deployment** | deterministic — it will not succeed on a retry; the snapshot needs re-exporting |
+| A job `failed` with `artifact_unavailable` | the store cannot read the checksum | check `WORKER_ARTIFACT_ROOT` and `/healthz`'s `artifact_store` |
+| A preview `stale` with `folder_changed` | an administrator selected a different folder | produce a new preview; this is the control working |
+| A cancellation answered `409` with `already_applied` on a `running` apply | the apply's effect committed before the cancellation reached the row | the import is durable and the job completes; read the receipt. `reconciliation_jobs.effect_committed_at` is when it committed. **No cancellation was recorded**: the refusal writes no audit event and does not set `cancel_requested_at` |
+| `/healthz` reporting a worker with an **outstanding attempt** | a job's execution thread did not stop when the worker stopped watching it, so the worker is claiming nothing (N-41) | nothing is at risk — the commit fence makes that thread unable to commit — but the worker is idle. Restart `freedom-worker`; the job is recovered within `N-23 + N-44`, and a stalled worker still reaps and still publishes committed effects, because `tick` does both before it consults its own state |
+| A job `completed` whose audit event carries `recovered: true` | the effect committed and the process that ran it died before publishing the result; the platform published it from the payload the commit fence made durable (**RR-16, closed 2026-08-18**) | nothing to do. The receipt is the receipt, the counts are the import's own, and the event names the `lease_owner` that stopped answering — that is the process to look at in the journal. A job `failed` with `attempts_exhausted` over a committed effect is no longer representable: migration 0013's `committed_effect_is_never_denied` refuses the row |
+| A job `running` with an expired lease that neither reaps nor completes | its effect committed and the recovery publication is failing; `expired_lease_age_seconds` climbs past `N-23 + N-44` and keeps climbing | the import is durable and is **never** written `failed` — that is the design, not a stall to force through. Read the worker journal for the exception; it names the job and which durable half could not be read. Do not move the job by hand: read `snapshot_imports` for the receipt and escalate |
+
+There is no "unstick" command and there is deliberately no way to move a job
+between states by hand: `reconciliation_jobs` holds check constraints that make
+the invalid states unrepresentable, and a statement that tried would be refused
+by PostgreSQL rather than quietly succeed.
+
+### 7.4 Retention (N-24)
+
+Job and result **presentation records** are removed 30 days after the job reaches
+a terminal state. `snapshot_imports`, `audit_events` and `foundry_snapshots` are
+append-only and are **never** touched: a sweep that has run its course removes
+the working papers and leaves the decision.
+
+```bash
+./venv-web/bin/python -m tools.job_retention --report
+./venv-web/bin/python -m tools.job_retention --apply --operator "…"
+```
+
+It runs **as the schema owner**, not as the runtime role, and that is a control:
+the runtime role holds no `DELETE` on `reconciliation_jobs`, because a web
+process or a worker that could delete a job could delete the record of a refused
+apply. `--report` is the default; `--apply` requires a named operator and is
+recorded as an audited act carrying a count and that name — never a job id, a
+checksum or a requester.
+
+`--limit` bounds one pass (default 500, maximum 10 000) and is refused before a
+connection is opened if it is zero, negative or above that maximum. A backlog is
+several bounded sweeps, never one long transaction; a sweep that has caught up
+removes zero and is safe to repeat.
+
+**What a sweep removes and what it retains** (corrected 2026-08-18):
+
+- a terminal job more than 30 days past its `finished_at`, together with its
+  result row if it has one — and *only* if that result has also passed its own
+  `expires_at`;
+- a `failed` or `cancelled` job that never produced a result, on its terminal
+  age alone. Before the correction these were invisible to every sweep and
+  accumulated indefinitely;
+- **nothing** that a retained job still needs: an apply names the preview it was
+  confirmed from with `ON DELETE RESTRICT`, so a preview whose apply is younger
+  than the retention age stays, and the whole graph above it stays with it.
+
+The output distinguishes the two numbers. `N terminal job(s) past their N-24
+retention` is what was *considered*; `Removed M job(s)` is what actually went;
+and a `Retained` line names the difference, which is the answer to "why did it
+not remove everything it just counted".
+
+## 8. Running the tests
 
 Two commands, because the portal's dependencies live in the portal's virtualenv
 and the bot's virtualenv is a live production environment this package does not
@@ -526,3 +875,34 @@ dependency is a skipped directory rather than a collection error.
 Both use the same disposable-database guards as every other database test, and
 `TEST_DATABASE_URL` must name the local `freedom_test` socket. A URL that is not
 the disposable test database **fails** the run rather than skipping it.
+
+## 9. Static assets (M-01)
+
+**Added 2026-08-19** by the accepted D-03 backend-contract correction
+(change-log `C-P3.4-A`, item D-03-1). The contract is route contract §1.2 and
+operational contract §4.4; what an operator needs is short.
+
+`freedom-web` serves `/static/*` itself, out of `adapters/web/static/` inside the
+deployed package. There is **no** configuration for it: no environment variable
+for the root, none for the cache policy. Both are properties of the code, so
+there is no operator-supplied path for a mistake to point somewhere else.
+
+| Question | Answer |
+|---|---|
+| Does Caddy need a `file_server` or a `root` directive? | **No.** `/static/*` is proxied like every other path. Adding one would move the CSP and `nosniff` off the application, which owns every header but HSTS |
+| Do assets deploy separately? | **No.** They ship with the application, in the same unit of deployment. No bucket, no sync step, no CDN — the accepted CSP (N-26) permits no remote origin |
+| Do they need backup? | **No.** The root holds no state and no operator data. It is restored by redeploying |
+| Do asset requests appear in the audit log? | **No.** They are unauthenticated reads of public files |
+| Are they available during maintenance? | **Yes**, deliberately — see §5 |
+| Is the surface authenticated? | **No.** `GET` and `HEAD` only, no session, no capability, no CSRF token. The host check (N-01) still applies |
+
+**The root is currently empty**, holding one zero-byte `.gitkeep`. That file
+exists because the framework refuses to start against a missing static directory
+— which is the behaviour worth keeping, since the alternative is a mis-deployed
+portal that starts normally and answers `404` to every asset. Production CSS,
+vendored HTMX and the emblem are **P3.4's** work and are not in the tree.
+
+If a deployment ever answers `404` for an asset that is present on disk, check
+the name against the accepted grammar before anything else: a leading dot, a
+space, a semicolon or a non-ASCII character in any path segment is refused by
+design, and the refusal is deliberately indistinguishable from a missing file.

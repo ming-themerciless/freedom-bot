@@ -9,6 +9,30 @@ role-capability screen can show which mappings arrived through the emergency
 path; VM-16 gains an `expired_leases` health check, which is the reaper's
 liveness signal under the corrected N-43.
 
+**Corrected 2026-08-19 under the accepted D-03 correction (change-log
+`C-P3.4-A`), and dated rather than folded into the text above.** Four items land
+in this document, all additive under §1 rule 5. `VIEW_MODEL_VERSION` stays
+`vm-1`: nothing is removed, nothing is renamed, and no enum is narrowed.
+
+- **D-03-2** — `ConfirmScope` was referenced by VM-15 and defined nowhere. Its
+  eight fields are now stated in §7, from the accepted implementation. *Council
+  confirmation exact scope* is a mandatory delivery-plan §11 evidence row owned
+  jointly by P3.3 and P3.4, and a frontend cannot render an exact scope whose
+  shape the contract never gave.
+- **D-03-3** — `CharacterFilters` was referenced by VM-07 and defined nowhere. Its
+  two fields are now stated in §5.
+- **D-03-4** — VM-13's implemented `csrf_token` is now listed in its block. It is
+  genuinely additive and genuinely required: R-37 is a cookie-authenticated
+  mutation, so N-17 obliges a server-rendered synchronizer token, and VM-13 was
+  the only view model carrying a mutation control without one. The
+  implementation's docstring claimed the field had been *"Recorded in the P3.2
+  submission"*; it had not, and the claim is corrected in the code rather than the
+  accepted P3.2 submission being edited to manufacture the provenance.
+- **D-03-6** — VM-22 `DeniedView` is new in §8: the safe denial body gains a view
+  model of its own carrying `state` and a closed-vocabulary `reason` and nothing
+  else. It replaces VM-02 as the generic denial carrier at every portal and import
+  route boundary; VM-02 keeps its own non-member page unchanged.
+
 Package: P3.0 · Owner: Claude · Implemented by P3.1–P3.3 · **Frozen for Gemini's
 P3.4 integration at stop gates P3.G2 and P3.G3.**
 
@@ -233,6 +257,7 @@ AccountIdentitiesView(
     identities: tuple[LinkedIdentity, ...],       # max 10
     additional_provider: Literal["no_additional_provider"] | ProviderOption,
     unlink_blocked_reason: Literal["last_usable_identity","emergency_session"] | None,
+    csrf_token: str = "",                         # additive; see below
 )
 LinkedIdentity(
     identity_id: UUID,
@@ -250,6 +275,31 @@ LinkedIdentity(
 their own identifier — and is never rendered in any view another member can see.
 `retired` identities remain listed because historical audit attribution depends on
 them (schema contract §6.3); they carry no re-authentication control.
+
+**`csrf_token`, recorded 2026-08-19** (accepted D-03 correction, item D-03-4). It
+was implemented from P3.2 and missing from this block. R-37 is a
+cookie-authenticated mutation, so N-17 requires a **synchronizer** token rendered
+server-side into its form, and VM-13 is the only view model in `vm-1` carrying a
+mutation control. The design is not negotiable and is restated here because this
+is the block a P3.4 template author reads: the token is rendered into a hidden
+input from this field, it is bound to the session, it is verified in constant
+time, and it is **never** read from a cookie by script. Cookie-readable CSRF and
+double-submit CSRF are both rejected designs (§9 rule 5, delivery plan §7).
+
+Additive under §1 rule 5, so `vm-1` is unchanged. The correction is a record, not
+a behaviour change: the field, the token and R-37's verification are exactly as
+P3.2 delivered and P3.G2 accepted them.
+
+**A provenance claim is retracted with it.** The field's implementation docstring
+said it had been *"Recorded in the P3.2 submission"*, and
+`docs/review/phase-3-p3-2-submission.md` contains no occurrence of `csrf_token`.
+The docstring is corrected to say where the record actually is — this block. The
+accepted P3.2 submission is a historical record and has **not** been edited to
+make the claim true after the fact.
+
+**R-36 renders this same view model in its `denied` state**, with
+`additional_provider = "no_additional_provider"`, and answers `200` — not a
+redirect. See route contract §5.1 and item D-03-5.
 
 ## 5. Member read view models
 
@@ -349,12 +399,37 @@ CouncilCharacterRow(
     active_owner: Actor | None, active_link_count: int,
     unresolved_owner: bool, links_path: str,
 )
+CharacterFilters(
+    query: SafeText | None = None,        # bounded and escaped; echoed back
+    include_inactive: bool = False,
+)
 ```
 
 `unresolved_owner` is the OD-37 exception made visible: the database enforces *at
 most* one active owner and the application invariant *at least one* cannot be a
 constraint, so a character with no active owner is a reportable state, not an
 error.
+
+**`CharacterFilters`, defined 2026-08-19** (accepted D-03 correction, item
+D-03-3). VM-07 referenced the name from the first revision of this contract and
+never stated its shape, which left the Council character index's filter bar — a
+P3.4 surface — with no contract to render against.
+
+| Field | Type | Bounds and rules |
+|---|---|---|
+| `query` | `SafeText \| None` | The display-name search the caller typed, echoed back so the filter bar survives a page change. `None` means no filter was applied, which is not the same as the empty string. Bounded and escaped by `SafeText` under §3.2's Actor-name bound; the untruncated value is never sent |
+| `include_inactive` | `bool` | Whether inactive characters are in `rows`. Defaults to `False`. A rendering fact about the page the caller is looking at |
+
+**A display-name search is a search fact and never an identity or authorization
+fact.** `query` filters which of the rows a Council member is *already* entitled
+to see are shown; it selects nothing, grants nothing and proves nothing about who
+anyone is. Council reach is role-derived (OD-37) and resolved server-side on every
+request, so an absent, forged or altered `query` changes the page and cannot
+change the answer. `.agents/AGENTS.md` states the same rule generally: display
+names are mutable and are not identities.
+
+Both fields are server-produced echoes of validated input, never browser
+authority (route contract §2.4). Additive under §1 rule 5.
 
 ## 6. Council administration view models
 
@@ -661,7 +736,49 @@ ReconciliationSummary(
 IssueCount(code: str, severity: Literal["error","warning"], count: int)
 BlockedEntry(external_actor_id: str, display_name: SafeText,
     issue_code: str, candidate_character_ids: tuple[UUID, ...])   # max 10
+ConfirmScope(
+    preview_token: str,
+    checksum_full: str,
+    folder: FolderChoice,
+    profile_version: str,
+    expires_at: Instant,
+    would_create: int,
+    would_update: int,
+    blocked: bool,
+)
 ```
+
+**`ConfirmScope`, defined 2026-08-19** (accepted D-03 correction, item D-03-2).
+VM-15 referenced the name from the first revision of this contract and never
+stated its shape. *Council confirmation exact scope* is a mandatory delivery-plan
+§11 evidence row owned jointly by P3.3 and **P3.4**, so a frontend that cannot
+see the shape cannot produce the evidence. The eight fields below are the accepted
+implementation, unchanged: none is renamed, removed or invented here.
+
+| Field | Type | Bounds, safety and provenance |
+|---|---|---|
+| `preview_token` | `str` | The Phase 2 `PreviewBinding.token()` digest, reused unchanged. A digest, not a secret: it names *which* preview, confers nothing, and is worthless without the session and capability the apply re-resolves anyway |
+| `checksum_full` | `str` | The snapshot's full content checksum, **server-read** at render. Displayed so a Council member can see which artifact they are committing |
+| `folder` | `FolderChoice` | The folder the apply would commit, by stable id **and** displayed path (ADR 0006) — a folder renamed or moved between preview and apply is a different confirmation, and an id alone cannot express that |
+| `profile_version` | `str` | The field-profile version the preview reconciled under, server-read |
+| `expires_at` | `Instant` | When this preview stops being confirmable (UTC, ISO-8601 in the machine field). Past it, an apply is `409 stale_preview` |
+| `would_create` | `int` | Count of rows the apply would create. Server-computed; `>= 0` |
+| `would_update` | `int` | Count of rows the apply would update. Server-computed; `>= 0` |
+| `blocked` | `bool` | Whether any blocked entry remains. `True` is a fact the Council member must resolve, not a control the browser may clear |
+
+**Present when, and not otherwise.** `JobStatusView.confirm` is `None` unless the
+job is a **completed preview** that is still confirmable by this caller. A
+queued, running, failed, cancelled or stale job carries no `ConfirmScope`, and
+neither does an apply job — there is nothing left to confirm. A template must
+therefore treat `confirm is None` as the ordinary case rather than the exception.
+
+**None of it is browser authority.** R-46 submits exactly `csrf_token`,
+`preview_token` and `nonce`. The checksum, the folder, the profile version and
+the aggregate versions in this block are **re-read server-side** at apply and
+re-compared, and the scope fingerprint is recomputed; the token is one control
+among four, not the decision. Rendering a value here does not make it an input —
+route contract §2.4 governs, and a browser that returned a different checksum
+would be ignored, not believed.
 
 `attempts` is the **number of claims made against the job**, the single meaning
 N-43 now fixes, and it is at most 3. It is shown rather than hidden because a
@@ -812,6 +929,55 @@ Error codes are closed. `not_found` and `not_permitted` are both returned as
 (§2.3) so validation cannot become the enumeration oracle the status code refuses
 to be.
 
+### VM-22 `DeniedView` — the safe denial body, every closed category
+
+```text
+DeniedView(
+    state: PageState,               # denied
+    reason: DeniedReason,           # the closed §2 vocabulary
+)
+```
+
+**Added 2026-08-19** (accepted D-03 correction, item D-03-6). Two fields, and the
+second is a closed vocabulary. There is deliberately **no** correlation id, no
+guild name, no timestamp, no object identifier, no exception text and no
+free-form reason — not "must not be rendered", but *not present*.
+
+**Why the type and not a rule.** Until this correction, `denied.html` was rendered
+from a `NonMemberView` (VM-02) whose `guild_display_name` was `""`, whose
+`checked_at` was `Instant("", "")` and whose `correlation` was the nil UUID, for
+every denial category. The rendered bytes were correct, because route contract
+§2.3 requires the `404` for an unreachable object and the `404` for an absent one
+to be **byte-identical** (TC-OBJ-07) and the template printed none of the three.
+But that correctness rested on a template continuing to ignore what it was handed,
+and P3.4 rewrites that template. A production page that rendered
+`view.correlation.id` would have printed
+`00000000-0000-0000-0000-000000000000` on every denial and broken byte-identity by
+exactly the amount a real correlation id varies. The type removes the possibility
+instead of documenting the hazard — the same technique `MigrationDeferred` uses
+for deferred field values.
+
+**Where it is rendered.** Every generic denial at a portal or import route
+boundary: `401`, `403` and `404`, every category in `DeniedReason`. It changes no
+status code and no denial category.
+
+**Where it is not.** `non_member.html` keeps **VM-02**. That page is *meant* to be
+distinguishable from "not signed in" — the person authenticated successfully and
+is not in the guild, and the guild name, the check time and the correlation id are
+what they need in order to recover. Its membership-recovery context is
+intentionally permitted and is unchanged. `degraded.html` keeps VM-03,
+`conflict.html` VM-19, `error.html` VM-20 and `validation.html` VM-21.
+
+**A P3.4 constraint, stated where a template author will meet it.** A denial page
+may render `view.state` and `view.reason.category`. Adding any other value to this
+view model — a correlation id, a guild name, a timestamp, an object identifier, a
+free-text reason — is a **security change** to the byte-identity requirement, not a
+presentation improvement, and returns through Claude, Codex review and Peter's
+decision. It is the same rule §8's VM-20 states about a `detail` field.
+
+Additive under §1 rule 5: a view model is added, none is removed, renamed or
+narrowed, and `VIEW_MODEL_VERSION` stays `vm-1`.
+
 ## 9. HTMX and Jinja compatibility constraints
 
 These are contract terms for P3.4, not suggestions:
@@ -839,6 +1005,7 @@ These are contract terms for P3.4, not suggestions:
 |---|---|---|---|
 | VM-01, VM-04 | `login.html` | R-02, R-06 | P3.1 |
 | VM-02, VM-03, VM-19, VM-20, VM-21 | `components.html` state inventory | all | P3.1 |
+| VM-22 | `components.html` denied state | all (every generic denial) | P3.1; carrier corrected 2026-08-19 under D-03-6 |
 | VM-05 | `my-characters.html` | R-20 | P3.2 |
 | VM-06 | `character-detail.html` | R-21 | P3.2 |
 | VM-07, VM-08, VM-09 | `council-approval.html` (link/diff patterns) | R-22–R-27 | P3.2 |

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -168,6 +169,31 @@ class PlatformInitializationRepository(Protocol):
         ...
 
 
+class ReconciliationJobLeaseRepository(Protocol):
+    """The fence a durable effect is committed behind (P3.3, migration 0012).
+
+    It lives on the unit of work rather than beside the other job statements
+    because its whole meaning is *which transaction it runs in*: the one that
+    commits the effect, so that "this attempt is still entitled to commit" and
+    "the effect committed" are one atomic fact rather than two hopeful ones.
+    """
+
+    def hold_for_effect(
+        self, *, job_id: UUID, owner: str, now: datetime, result: dict
+    ) -> bool:
+        """Record the effect and what it owes, under this fencing token, or refuse.
+
+        `False` means the attempt lost the race — cancelled, abandoned, reaped or
+        superseded — and the caller must commit nothing at all.
+
+        `result` is the bounded publication payload the run produced (migration
+        0013). It is written in this same statement so that an effect which
+        becomes durable always leaves behind the result a later process can
+        publish from it, without re-running the attempt.
+        """
+        ...
+
+
 class UnitOfWork(Protocol):
     characters: CharacterRepository
     discord_users: DiscordUserRepository
@@ -179,6 +205,7 @@ class UnitOfWork(Protocol):
     idempotency: IdempotencyRepository
     submission_admissions: SubmissionAdmissionRepository
     initialization: PlatformInitializationRepository
+    job_leases: ReconciliationJobLeaseRepository
 
     def __enter__(self) -> UnitOfWork: ...
 

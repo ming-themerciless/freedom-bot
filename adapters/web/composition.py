@@ -49,24 +49,30 @@ from sqlalchemy import Engine, create_engine
 
 from adapters.web.repositories import (
     AccountRepository,
+    AuditSearchRepository,
     CharacterAccessRepository,
     IdentityCandidateRepository,
     IdentityProposalRepository,
     MembershipProjectionRepository,
     OAuthTransactionRepository,
     RateLimitRepository,
+    ReconciliationJobRepository,
     RecoveryGrantRepository,
     RoleMappingRepository,
     SessionRepository,
+    SnapshotReadRepository,
     TokenGrantRepository,
     WebAuditRepository,
     WebAuthnRepository,
 )
 from application.web.account_identities import AccountIdentityService
+from application.web.audit_search import AuditSearchService
 from application.web.breakglass import BreakGlassService
 from application.web.character_access import CharacterAccessService
 from application.web.characters import CharacterQueryService
 from application.web.identity_evidence import IdentityMigrationService
+from application.web.jobs import ReconciliationJobService
+from application.web.snapshot_admin import ImportReceiptService, SnapshotAdminService
 from application.web.config import (
     DatabasePoolSettings,
     DiscordProviderSettings,
@@ -87,6 +93,22 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     import httpx
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent / "templates"
+
+#: The **one** directory the application serves static assets from (M-01, route
+#: contract §1.2). Repository-owned and inside this package, deliberately: the
+#: static root is not configurable, so there is no environment variable an
+#: operator can point at `/etc` or at an artifact directory, and "outside the
+#: approved root" is a question with one answer rather than one per deployment.
+#:
+#: It exists in the tree because `StaticFiles(check_dir=True)` refuses to
+#: construct against a missing directory, and refusing loudly at construction is
+#: the behaviour worth keeping — the alternative, `check_dir=False`, turns a
+#: mis-deployed application into one that answers `404` to every asset and starts
+#: normally. Git does not track an empty directory, so the directory holds one
+#: empty `.gitkeep` and nothing else. That file is the smallest non-visual
+#: placeholder that makes the root real; it is not an asset, and P3.4 owns
+#: everything that will actually live here.
+STATIC_ROOT = Path(__file__).resolve().parent / "static"
 
 
 def build_engine(settings: WebSettings) -> Engine:
@@ -229,6 +251,21 @@ class RequestServices:
     character_access: CharacterAccessService
     identity_migration: IdentityMigrationService
     account_identities: AccountIdentityService
+    # -- P3.3 -----------------------------------------------------------
+    snapshots_repository: SnapshotReadRepository
+    jobs_repository: ReconciliationJobRepository
+    audit_search_repository: AuditSearchRepository
+    #: R-42, R-45, R-46 and the read half of R-43/R-44. It never executes a
+    #: preview or an apply: the request enqueues durable work and the worker
+    #: process claims it (N-40).
+    jobs: ReconciliationJobService
+    #: R-40 and R-41. `select_folder` writes the selection **and** invalidates
+    #: every outstanding job for the snapshot in one transaction, through the
+    #: same `jobs` object above rather than a second implementation of the
+    #: staleness rule.
+    snapshot_admin: SnapshotAdminService
+    import_receipts: ImportReceiptService
+    audit_search: AuditSearchService
 
 
 class WebComposition:
@@ -644,6 +681,29 @@ class WebComposition:
             settings.rate_limits,
             settings.client_digest_key,
         )
+        # -- P3.3 -------------------------------------------------------
+        snapshots_repository = SnapshotReadRepository(
+            connection, profile_version=FIELD_PROFILE.version
+        )
+        jobs_repository = ReconciliationJobRepository(
+            connection,
+            # N-23's exact lease and N-43's attempt cap, from the validated
+            # worker graph. The web process never claims a job (S-11), but it
+            # does read and cancel them, and the statements it issues carry the
+            # same numbers the worker's do — one source, not two.
+            lease_seconds=settings.worker.lease_seconds,
+            max_attempts=settings.worker.max_attempts,
+        )
+        audit_search_repository = AuditSearchRepository(connection)
+        job_service = ReconciliationJobService(
+            jobs=jobs_repository,
+            snapshots=snapshots_repository,
+            accounts=accounts,
+            audit=audit,
+            bounds=settings.bounds,
+            # N-42's queue admission bound, read from the same validated graph.
+            worker=settings.worker,
+        )
         session_service = SessionService(
             sessions=session_repository, token_grants=tokens, audit=audit
         )
@@ -712,6 +772,31 @@ class WebComposition:
             ),
             account_identities=AccountIdentityService(
                 accounts=accounts, credentials=credentials, audit=audit
+            ),
+            # -- P3.3 ----------------------------------------------------
+            snapshots_repository=snapshots_repository,
+            jobs_repository=jobs_repository,
+            audit_search_repository=audit_search_repository,
+            jobs=job_service,
+            snapshot_admin=SnapshotAdminService(
+                snapshots=snapshots_repository,
+                jobs=jobs_repository,
+                audit=audit,
+                # The **same** job service R-42 and R-46 use, not a second
+                # construction of the class: R-41's invalidation and a
+                # confirmation's staleness check are one implementation of the
+                # rule rather than two that agree today.
+                job_service=job_service,
+                cursor_key=settings.cursor_key,
+            ),
+            import_receipts=ImportReceiptService(
+                snapshots=snapshots_repository, accounts=accounts, jobs=jobs_repository
+            ),
+            audit_search=AuditSearchService(
+                audit=audit_search_repository,
+                accounts=accounts,
+                bounds=settings.bounds,
+                cursor_key=settings.cursor_key,
             ),
         )
 
@@ -808,6 +893,7 @@ __all__ = [
     "CompositionLifecycleError",
     "EngineHandle",
     "RequestServices",
+    "STATIC_ROOT",
     "TEMPLATE_ROOT",
     "WebComposition",
     "build_engine",

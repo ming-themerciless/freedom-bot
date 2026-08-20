@@ -6,6 +6,12 @@ an implementation detail. `ROUTE_INVENTORY` below is the machine-checkable
 statement of that: `TC-STRUCT-01` parses the contract document and asserts set
 equality against what this factory registers.
 
+**And so is the mount set.** From 2026-08-19 the factory registers exactly one
+Starlette `Mount` — M-01, the `/static/` asset surface of route contract §1.2 —
+declared in `MOUNT_INVENTORY` and asserted by the same test. It is called out
+separately because a `Mount` carries no `methods`, so before the accepted D-03
+correction it was invisible to the guard that keeps the URL surface closed.
+
 ## Where the sync/async seam is, and why
 
 Provider I/O is `async` over `httpx`; PostgreSQL work is synchronous SQLAlchemy.
@@ -42,7 +48,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
-from adapters.web.composition import TEMPLATE_ROOT, WebComposition
+from adapters.web.composition import STATIC_ROOT, TEMPLATE_ROOT, WebComposition
+from adapters.web.import_routes import P3_3_ROUTE_INVENTORY
+from adapters.web.import_routes import register as register_p3_3_routes
 from adapters.web.portal_routes import P3_2_ROUTE_INVENTORY
 from adapters.web.portal_routes import register as register_p3_2_routes
 from adapters.web.middleware import (
@@ -53,6 +61,7 @@ from adapters.web.middleware import (
     SecurityHeaders,
     json_refusal,
 )
+from adapters.web.static_assets import STATIC_URL_PREFIX, StaticAssets
 from application.web import WEB_APPLICATION_VERSION
 from application.web.capabilities import AuthMethod, resolve_capabilities
 from application.web.config import (
@@ -103,13 +112,38 @@ ROUTE_INVENTORY: dict[str, tuple[str, str]] = {
     # merged here so `TC-STRUCT-01` still asserts **one** registered set against
     # the parsed contract document rather than two that have to agree.
     **P3_2_ROUTE_INVENTORY,
+    # P3.3's ten, in `import_routes.py`, for the same reason.
+    **P3_3_ROUTE_INVENTORY,
 }
 
-#: Routes P3.2 and P3.3 own. Named so `TC-STRUCT-01` can assert they are *absent*
-#: from this build rather than merely unmentioned, and so a reader can tell "not
+#: Routes a later package owns. Named rather than merely absent so `TC-STRUCT-01`
+#: can assert they are *absent from this build*, and so a reader can tell "not
 #: yet" from "never".
-DEFERRED_ROUTES: dict[str, str] = {
-    **{f"R-{number}": "P3.3" for number in range(40, 50)},
+#:
+#: **Empty from P3.3 onward.** It held R-40 to R-49 while the import, job and
+#: audit package was behind stop gate P3.G2; those ten are registered above, and
+#: the accepted inventory is now complete. A later phase that adds a route adds
+#: it to the contract first and to this mapping second.
+DEFERRED_ROUTES: dict[str, str] = {}
+
+#: The closed **mount** inventory, by contract identifier (route contract §1.2).
+#:
+#: **Added 2026-08-19 by the accepted D-03 correction (`C-P3.4-A`, item D-03-1).**
+#: `ROUTE_INVENTORY` above is a set of `(method, path)` pairs and `TC-STRUCT-01`
+#: asserted it by reading `getattr(route, "methods", ...)` off every registered
+#: route. A Starlette `Mount` has no `methods` attribute, so it contributed
+#: nothing to that set and the one machine check protecting the closed inventory
+#: was **blind to mounts**: `app.mount("/anything", SomeApp())` would have added a
+#: whole URL subtree and passed the guard. A separate identifier space is used
+#: rather than another `R-nn` because a mount is a different kind of thing — it
+#: claims a prefix rather than one method on one path, and numbering it as a route
+#: would have made the contract's `(method, path)` grammar lie about it.
+#:
+#: `TC-STRUCT-01` now asserts this mapping against the registered `Mount` objects
+#: and against the contract's own §1.2 table, so an undeclared mount fails a test
+#: exactly as an undeclared route does.
+MOUNT_INVENTORY: dict[str, str] = {
+    "M-01": STATIC_URL_PREFIX,
 }
 
 
@@ -482,12 +516,26 @@ def create_app(
     app.add_middleware(KillSwitch, settings=settings)
     app.add_middleware(HostGuard, allowed_hosts=settings.allowed_hosts)
 
+    # M-01, the one mount (route contract §1.2, operational contract §4.4).
+    # Registered before the routes so a reader meets the whole URL surface in one
+    # place, and named so `url_for("static", path=…)` works for P3.4's templates
+    # without a hard-coded prefix in twenty-four files. It is inside every
+    # middleware registered above — the host check refuses an unknown `Host` on an
+    # asset exactly as on a page (D-03-1), the security headers apply, and the
+    # kill switch deliberately lets this prefix through.
+    app.mount(
+        STATIC_URL_PREFIX, StaticAssets(directory=STATIC_ROOT), name="static"
+    )
     _register_routes(app, composition, authority)
     # P3.2's routes take the same two objects, closed over in the same way, for
     # the same reason: `app.state` is a mutable namespace and a per-request read
     # of it is one more path to a provider, engine, origin, key or cookie other
     # than the ones this factory accepted.
     register_p3_2_routes(app, composition, authority)
+    # P3.3's ten, likewise. Registered after P3.2's so the inventory reads in
+    # contract order; the framework matches on path and method, so the order
+    # carries no behaviour of its own.
+    register_p3_3_routes(app, composition, authority)
     _register_error_handlers(app, authority)
     return app
 
@@ -1282,6 +1330,7 @@ def _register_error_handlers(app: FastAPI, authority: RequestAuthority) -> None:
 
 __all__ = [
     "DEFERRED_ROUTES",
+    "MOUNT_INVENTORY",
     "ROUTE_INVENTORY",
     "RequestAuthority",
     "create_app",

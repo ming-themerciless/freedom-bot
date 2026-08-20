@@ -1,29 +1,313 @@
-# P3.3 handover — snapshot jobs, import controls and audit search
+# D-03 backend-contract correction — instructions for Claude
 
-P3.G2 was accepted on 2026-08-18 through change-log entry C-P3.2-D after the
-complete independent implementation and security review recorded in
-`docs/review/phase-3-p3-2-submission.md` §11. P3.3 may now begin; no later Phase 3
-gate is accepted by that decision.
+Date: 2026-08-19
 
-Before implementing P3.3, read `.agents/AGENTS.md`, the complete Phase 3 section
-of `docs/implementation-plan.md`, and the accepted P3.0 contracts. Baseline P3.3
-as its own package with named ownership, estimates, environment readiness,
-review/remediation allowance and its stop-gate evidence.
+Peter/Acceptance Authority accepted change-log `C-P3.4-A` as written on
+2026-08-19. This authorizes a bounded backend-contract correction for D-03-1
+through D-03-6. It does not close D-03, release Gemini, authorize production
+frontend implementation, close P3.G4, or authorize staging exposure,
+deployment, live-service contact or real-player data.
 
-P3.3 owns the durable background-job and snapshot-import control surfaces that
-P3.2 deliberately leaves absent: bounded upload/admission, immutable artifact
-identity, preview/apply job lifecycle, current-role rechecks at apply, stale
-preview invalidation, idempotency and concurrency, Council/Admin separation,
-audit search, raw-artifact authorization, runtime-role denials, restart/recovery,
-and the measured asynchronous preview constraint. Do not turn on game-state
-corrections or write an unmigrated legacy field.
+Claude remains the backend contract owner and working Technical Lead for this
+correction. Gemini remains the designated P3.4 production frontend implementer.
+Do not implement Gemini's production templates, CSS, assets or visual design.
 
-Preserve the P3.2 boundaries now accepted:
+## Objective
 
-- R-20–R-38 and their authorization matrix remain authoritative;
-- C-04 remains temporary, Google-read-only and outside the portal runtime;
-- only the latest C-04 run may be decided;
-- R-37 serializes account-wide identity changes and cannot strand an account;
-- no Phase 3 route mutates character game state; and
-- P3.3 must pass independent implementation and distinct security-focused
-  review before its own gate may close.
+Implement and document the six accepted D-03 corrections so the frozen backend
+route and view-model contracts are complete, mechanically enforced and safe for
+Gemini to consume. Preserve all accepted P3.1–P3.3 behavior, especially
+authorization, denial non-enumeration, byte-identical `404` responses, CSRF,
+trusted-host handling, the portal kill switch and the closed route inventory.
+
+When complete, prepare the package for:
+
+1. an independent Codex implementation review;
+2. a distinct Codex security-focused review; and
+3. Peter's acceptance of the corrected contract and explicit release of the
+   Gemini implementation prompt.
+
+Stop after the correction handoff. Do not begin P3.4 frontend implementation.
+
+## Read completely before planning or editing
+
+1. `.agents/AGENTS.md` and `docs/implementation-plan.md`;
+2. `docs/review/phase-3-delivery-plan.md`, especially P3.4, P3.G4, traceability
+   and the frontend/backend responsibility boundary;
+3. `docs/review/phase-3-p3-4-authorisation-and-conditions.md`;
+4. change-log `C-P3.3-K`, `C-P3.3-L` and accepted `C-P3.4-A`, plus current
+   `status.md` and RAID D-03;
+5. `docs/contracts/README.md` and every Phase 3 contract in its prescribed
+   order, especially route authorization, view models, operations, threat model
+   and test traceability;
+6. `docs/review/phase-3-p3-4-gemini-readiness-report.md` §§A1–A10;
+7. `docs/review/phase-3-p3-4-gemini-implementation-prompt.md`, which remains
+   held and must not be marked released;
+8. the accepted P3.2 and P3.3 submissions and gate records;
+9. the complete current implementations of application construction,
+   middleware ordering, portal/import routes, view models, template rendering
+   and structural guards; and
+10. the complete current diff and Git status.
+
+Read files completely. Historical records must remain historical; add dated
+corrections instead of rewriting old gate states.
+
+## Preserve the current tree
+
+All current changes are user changes. Preserve them. Do not inspect, apply,
+drop or modify `stash@{0}: On main: temp before rebase`. Do not commit, push,
+deploy, run live services or contact Discord, Google, Foundry or production
+PostgreSQL. Do not read `.env`, `yt-cookies.txt`, credentials, secret files or
+real Actor/player/guild data.
+
+Before editing:
+
+- record `git status --short`;
+- record SHA-256 for every file you will edit;
+- identify all existing changes that overlap this package; and
+- preserve a before copy or another auditable digest source for every edited
+  file so the final handoff can report exact before/after SHA-256 values.
+
+## Accepted decisions — implement exactly
+
+### D-03-1 — application-served static surface
+
+Add an application-owned static asset surface under `/static/` with this
+contract:
+
+- methods: `GET` and `HEAD` only;
+- caller: public; no authentication, capability, session or CSRF requirement;
+- trusted-host validation still applies;
+- the surface remains available while the portal kill switch is active, so
+  maintenance, login and safe error pages can retain their presentation;
+- assets are same-origin and remain compatible with N-26; no CDN, remote font,
+  remote script or remote image origin is permitted;
+- path traversal, directory listing and serving files outside the one approved
+  static root must be impossible;
+- missing assets return a safe `404` without exception text or filesystem paths;
+- fingerprinted assets receive immutable public caching; non-fingerprinted
+  assets receive a conservative short-lived or no-cache policy documented in
+  the operational contract;
+- static responses must not set or refresh session, login-transaction or CSRF
+  cookies; and
+- the closed structural inventory must explicitly account for Starlette mounts
+  as well as ordinary method routes. A mount may not remain invisible to
+  TC-STRUCT-01.
+
+Record the exact URL grammar, static filesystem root, cache policy, host and
+kill-switch behavior in the route and operational contracts. Keep static-file
+plumbing in the backend package; do not add production CSS, HTMX, images or
+visual assets. If framework construction requires the static directory to
+exist, add only the smallest non-visual repository-owned placeholder necessary
+and explain it.
+
+### D-03-2 — define `ConfirmScope`
+
+Define `ConfirmScope` in the frozen `vm-1` contract using the accepted
+implementation shape, without renaming, removing or inventing fields:
+
+- `preview_token`
+- `checksum_full`
+- `folder`
+- `profile_version`
+- `expires_at`
+- `would_create`
+- `would_update`
+- `blocked`
+
+Document exact types, bounds, safety/provenance rules and when the value is
+present. Preserve the rule that R-46 submits `preview_token` and `nonce`; the
+checksum, folder, profile and aggregate versions are re-read server-side and
+must not become browser authority.
+
+### D-03-3 — define `CharacterFilters`
+
+Define `CharacterFilters` in `vm-1` exactly as implemented:
+
+- `query: SafeText | None`
+- `include_inactive: bool`
+
+Document its bounds and that display-name search is a search fact, never an
+identity or authorization fact.
+
+### D-03-4 — record VM-13 CSRF accurately
+
+Add VM-13's implemented `csrf_token` to the view-model contract. Preserve the
+synchronizer-token design required by N-17. Do not introduce cookie-readable
+CSRF, double-submit CSRF or client-side token authority.
+
+Correct or remove the implementation docstring claim that this addition was
+recorded in the P3.2 submission; no supporting occurrence exists there. Do not
+rewrite the accepted historical P3.2 submission to manufacture provenance.
+
+### D-03-5 — correct R-36
+
+Make the route contract internally consistent:
+
+- R-36 returns `200` HTML;
+- it renders VM-13 with `state="denied"` and
+  `additional_provider="no_additional_provider"`;
+- it is not a `303` redirect; and
+- Phase 3 still has exactly one ordinary identity provider.
+
+This is a contract-record correction matching accepted runtime behavior. Do not
+add another provider or linking flow.
+
+### D-03-6 — dedicated safe denial view
+
+Introduce a dedicated typed `DeniedView` containing only:
+
+- `state`; and
+- a closed-vocabulary `reason`.
+
+Replace the use of VM-02/`NonMemberView` as the generic denial carrier at every
+portal and import route boundary. Do not add correlation IDs, guild names,
+timestamps, object identifiers, exception text or free-form reasons to
+`DeniedView`.
+
+Preserve these invariants exactly:
+
+- an object the caller cannot reach and an absent object produce byte-identical
+  `404` response bodies and equivalent relevant headers;
+- denial categories remain closed vocabulary;
+- authorization happens before object lookup where the accepted contract
+  requires it;
+- the distinct non-member page may continue using VM-02 with its intentionally
+  permitted membership-recovery context; and
+- the dedicated denial view does not weaken existing `401`, `403` or `404`
+  status behavior.
+
+Assign and document the new view-model identifier consistently. Treat it as an
+additive `vm-1` extension unless the accepted versioning rules demonstrably
+require otherwise; if they do, stop and return the conflict to Peter instead of
+silently changing the version.
+
+## Scope boundaries
+
+Permitted changes are limited to files genuinely necessary for the six items:
+
+- Phase 3 route, view-model, operational, threat-model and traceability
+  contracts;
+- backend application/static composition and middleware ordering;
+- typed view models and denial construction at existing route boundaries;
+- structural, response, authorization and security regression tests;
+- narrowly necessary operations documentation;
+- the D-03 correction submission and controlled project records; and
+- the smallest non-visual static-root placeholder if technically required.
+
+Do not change:
+
+- production visual templates except for a strictly necessary type-compatible
+  denial reference that cannot be made solely in backend construction;
+- production CSS, HTMX, images or other frontend assets;
+- `design-prototype/` or its freeze manifest;
+- authentication, capability meanings, persistence, migrations, runtime grants,
+  application use cases or dependencies;
+- existing route paths or methods other than recording and adding the accepted
+  `/static/` surface;
+- character-game-state behavior; or
+- P3.5 or later-phase scope.
+
+If any accepted decision cannot be implemented without crossing these
+boundaries, stop, document the exact conflict and return it to Peter. Do not
+hide a backend problem in a template.
+
+## Required tests and falsification
+
+Add focused tests that prove at least:
+
+1. the registered route-and-mount surface equals the corrected contract, and a
+   new undeclared `Route` or `Mount` fails the guard;
+2. `/static/` permits `GET` and `HEAD`, refuses mutation methods appropriately,
+   and serves only the approved root;
+3. traversal attempts, encoded traversal, missing files and directory requests
+   cannot expose content, directory listings, exception text or filesystem
+   paths;
+4. untrusted hosts remain refused on static requests;
+5. static assets remain reachable during the portal kill switch while protected
+   application routes retain their accepted kill-switch behavior;
+6. static responses set the accepted cache policy and do not set or refresh
+   authentication/session/CSRF cookies;
+7. `ConfirmScope` and `CharacterFilters` match the corrected contract exactly;
+8. VM-13 carries server-rendered CSRF and R-37 still rejects missing or invalid
+   tokens;
+9. R-36 returns the accepted `200` denied VM-13 response and never redirects;
+10. every generic denial uses `DeniedView`, while the non-member page retains
+    its separate VM-02 behavior;
+11. denied-object and absent-object `404` bodies remain byte-identical, with no
+    correlation, UUID, guild name, timestamp or object detail;
+12. direct unauthorized calls remain denied before object lookup where required;
+13. template/static structural guards still prove zero unsafe Jinja `|safe`,
+    `hx-on:`, inline executable script, CDN, remote-font and
+    `design-prototype/` production references; and
+14. the complete existing portal and bot suites remain green.
+
+Include falsification evidence for the mount inventory guard and denial leakage
+guard: demonstrate that each test fails when its protected defect is
+deliberately reintroduced, restore the files, and verify restoration by digest.
+Do not leave mutations in the tree.
+
+Do not install a browser, package or dependency without Peter's explicit
+authorization. Do not claim browser, real-device, screen-reader, staging or
+production evidence from source tests.
+
+## Required verification
+
+Run, where supported by the existing environment:
+
+```bash
+sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
+./venv-web/bin/python -m pytest tests/web -q
+./venv/bin/python -m pytest -q
+./venv-web/bin/python -m compileall application adapters tests/web
+git diff --check
+git status --short
+```
+
+Use the repository's actual configured environments if those exact virtual
+environment paths differ. Report every command literally, including exit code,
+pass/fail/skip counts and anything not run. Do not run migrations, external
+network calls or live services for this package. If the existing complete suite
+necessarily runs migrations only against its already-approved disposable test
+database, report that fact accurately; never point it at production.
+
+## Controlled records
+
+Create a focused D-03 correction submission under `docs/review/` containing:
+
+- the six accepted decisions and their implementation mapping;
+- exact files and edited regions;
+- before/after SHA-256 for every edited or created file (`absent` for a new
+  file);
+- contract/version effects;
+- tests and literal results;
+- falsification and restoration evidence;
+- security analysis of static serving and denial non-enumeration;
+- checks not run and why;
+- confirmation that the prototype freeze remains 14/14;
+- residual risks;
+- an explicit request for an independent Codex implementation review and a
+  distinct security-focused review; and
+- an explicit statement that D-03 remains open and Gemini remains blocked.
+
+Update `status.md`, RAID D-03 and the change log only as necessary to record the
+correction submission. Do not mark either review complete, do not accept your
+own work, do not close D-03 and do not mark the Gemini prompt released.
+
+## Handoff and stop condition
+
+Deliver:
+
+1. corrected backend contracts and bounded implementation;
+2. focused regression and structural tests;
+3. the D-03 correction submission;
+4. exact before/after SHA-256 and edited-region accounting;
+5. literal verification results and honest evidence classes;
+6. independent implementation-review request;
+7. distinct security-review request; and
+8. the exact decision Peter must make after both reviews pass: accept the
+   corrected D-03 backend contract and explicitly release
+   `docs/review/phase-3-p3-4-gemini-implementation-prompt.md`.
+
+Then stop. Do not implement the production frontend, do not release Gemini, do
+not close D-03 or P3.G4, and do not begin P3.5.

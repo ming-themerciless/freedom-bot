@@ -74,7 +74,10 @@ REVOKE ALL PRIVILEGES ON
     role_capability_mapping_events,
     identity_migration_runs,
     identity_link_proposals,
-    identity_link_proposal_candidates
+    identity_link_proposal_candidates,
+    snapshot_folder_selections,
+    reconciliation_jobs,
+    reconciliation_job_results
 FROM PUBLIC;
 
 -- Operational tables: the application creates, reads and maintains these.
@@ -210,6 +213,42 @@ REVOKE TRUNCATE ON
     identity_migration_runs,
     identity_link_proposals,
     identity_link_proposal_candidates
+FROM __APP_ROLE__;
+
+-- ## Phase 3 durable reconciliation jobs (P3.3, migration 0011)
+--
+-- Schema §11.2 classifies the two job tables directly:
+-- `reconciliation_jobs` is `SELECT, INSERT, UPDATE` and
+-- `reconciliation_job_results` is `SELECT, INSERT, UPDATE, DELETE`.
+--
+-- **No DELETE on `reconciliation_jobs`, deliberately.** N-24 retains a terminal
+-- job for 30 days and then removes it, and that sweep is an operator action run
+-- as the schema owner (`python -m tools.job_retention`), not something the web
+-- process or the worker may do to its own queue. A runtime role that could
+-- delete a job could delete the record of a refused apply. The `ON DELETE
+-- CASCADE` from job to result is what makes the operator's one statement remove
+-- the result with it; the result table's own DELETE is the worker replacing a
+-- superseded result, which is why it has one and the job does not.
+--
+-- **`snapshot_folder_selections` is `SELECT, INSERT, UPDATE`**, matching the band
+-- schema §11.2 gives every table whose row is changed in place rather than
+-- appended to: R-41 replaces the selection, and the append-only history of who
+-- selected what is the `snapshot.folder_selected` audit event, which is in the
+-- band above and cannot be touched at all.
+GRANT SELECT, INSERT, UPDATE ON
+    snapshot_folder_selections,
+    reconciliation_jobs
+TO __APP_ROLE__;
+REVOKE DELETE, TRUNCATE ON
+    snapshot_folder_selections,
+    reconciliation_jobs
+FROM __APP_ROLE__;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON
+    reconciliation_job_results
+TO __APP_ROLE__;
+REVOKE TRUNCATE ON
+    reconciliation_job_results
 FROM __APP_ROLE__;
 
 -- Sequences: none of the retained tables uses one. Identifiers are application

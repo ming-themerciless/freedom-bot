@@ -14,7 +14,14 @@ from pathlib import Path
 
 import pytest
 
-from adapters.web.app import DEFERRED_ROUTES, ROUTE_INVENTORY, create_app
+from starlette.routing import Mount
+
+from adapters.web.app import (
+    DEFERRED_ROUTES,
+    MOUNT_INVENTORY,
+    ROUTE_INVENTORY,
+    create_app,
+)
 from application.web import view_models
 from application.web.config import ConfigurationError, WebSettings
 from tests.web_fixtures import web_environment
@@ -27,6 +34,17 @@ VIEW_MODEL_CONTRACT = ROOT / "docs" / "contracts" / "phase-3-view-model-contract
 _ROUTE_ROW = re.compile(
     r"^\|\s*(?P<id>R-\d+)\s*\|\s*`(?P<name>[^`]+)`\s*\|\s*(?P<method>[A-Z]+)\s*\|"
     r"\s*`(?P<path>[^`]+)`\s*\|",
+    re.MULTILINE,
+)
+
+#: `| M-01 | `static` | `/static` | …` — route contract §1.2's mount table.
+#:
+#: A **second** grammar rather than a widened first one, because a mount is not a
+#: `(method, path)` pair: it claims a prefix, for every method its sub-application
+#: answers. Parsing it as a route would have required inventing a method column
+#: the contract does not have.
+_MOUNT_ROW = re.compile(
+    r"^\|\s*(?P<id>M-\d+)\s*\|\s*`(?P<name>[^`]+)`\s*\|\s*`(?P<prefix>[^`]+)`\s*\|",
     re.MULTILINE,
 )
 
@@ -44,6 +62,15 @@ def parsed_contract_routes() -> dict[str, tuple[str, str]]:
     }
 
 
+def parsed_contract_mounts() -> dict[str, str]:
+    """Every mount §1.2 defines, by identifier. Parsed, for the same reason."""
+    body = ROUTE_CONTRACT.read_text()
+    return {
+        match.group("id"): match.group("prefix")
+        for match in _MOUNT_ROW.finditer(body)
+    }
+
+
 # ---------------------------------------------------------------------------
 # TC-STRUCT-01
 # ---------------------------------------------------------------------------
@@ -55,6 +82,11 @@ def test_the_registered_route_set_equals_the_contract_exactly(app):
     This is the structural control behind *"no Phase 3 route or form mutates
     character game state"*: the set is closed, so a mutation endpoint cannot be
     added without failing here.
+
+    **This half sees only ordinary method routes.** `getattr(route, "methods", …)`
+    is empty for a Starlette `Mount`, so mounts are asserted separately, by
+    `test_the_registered_mount_set_equals_the_contract_exactly` below. The two
+    together are TC-STRUCT-01.
     """
     contract = parsed_contract_routes()
     assert contract, "the route contract could not be parsed"
@@ -75,6 +107,54 @@ def test_the_registered_route_set_equals_the_contract_exactly(app):
         assert contract[identifier] == pair, identifier
 
 
+def test_the_registered_mount_set_equals_the_contract_exactly(app):
+    """TC-STRUCT-01, mount half. **Added 2026-08-19 (accepted D-03 correction).**
+
+    The case above compares `(method, path)` pairs built from
+    `getattr(route, "methods", …)`. A Starlette `Mount` has **no** `methods`
+    attribute, so it contributed nothing to that set: `app.mount("/anything",
+    SomeApp())` added an entire URL subtree — every method, every path beneath it
+    — and the one machine check protecting the closed inventory did not notice.
+    That was D-03-1's second half, and this is the assertion that closes it.
+
+    Both directions, like the route halves: every registered mount is declared,
+    and every declared mount is registered, and the identifiers agree with the
+    contract's own §1.2 table. Falsification evidence — this test failing against
+    a deliberately reintroduced undeclared mount, and the tree restored by digest
+    afterwards — is recorded in the D-03 correction submission.
+    """
+    contract = parsed_contract_mounts()
+    assert contract, "the mount table in route contract §1.2 could not be parsed"
+
+    registered = {route.path for route in app.routes if isinstance(route, Mount)}
+    assert registered == set(MOUNT_INVENTORY.values()), (
+        "the registered mount set is not the declared one; an undeclared Mount "
+        "claims a whole URL subtree and is a contract violation, not a detail"
+    )
+
+    for identifier, prefix in MOUNT_INVENTORY.items():
+        assert identifier in contract, f"{identifier} is not in the contract"
+        assert contract[identifier] == prefix, identifier
+
+    unaccounted = set(contract) - set(MOUNT_INVENTORY)
+    assert unaccounted == set(), f"mounts with no owner: {sorted(unaccounted)}"
+
+
+def test_the_only_mount_is_the_static_surface(app):
+    """One mount, and it is M-01. Stated as its own fact, not inferred.
+
+    The case above proves *agreement* between the contract and the build. This
+    one states the number, so that a future change adding a second mount — and
+    declaring it in both places, which would keep the case above green — is still
+    a visible, deliberate edit to a test rather than a silent widening of the
+    application's URL surface.
+    """
+    mounts = [route for route in app.routes if isinstance(route, Mount)]
+    assert len(mounts) == 1
+    assert mounts[0].path == "/static"
+    assert mounts[0].name == "static"
+
+
 def test_every_route_the_contract_defines_is_either_implemented_or_owned_by_a_later_package(
     app,
 ):
@@ -90,30 +170,117 @@ def test_every_route_the_contract_defines_is_either_implemented_or_owned_by_a_la
 
 
 @pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        # Every plausible shape of the routes the accepted inventory does **not**
+        # contain: an artifact download, an audit export, an audit mutation, a
+        # correction, a bulk confirmation and a synchronous preview or apply.
+        ("GET", "/v1/council/snapshots/00000000-0000-4000-8000-000000000000/artifact"),
+        ("GET", "/v1/council/snapshots/00000000-0000-4000-8000-000000000000/download"),
+        ("GET", "/v1/audit/export"),
+        ("GET", "/v1/audit.csv"),
+        ("POST", "/v1/audit/00000000-0000-4000-8000-000000000000/correct"),
+        ("DELETE", "/v1/audit/00000000-0000-4000-8000-000000000000"),
+        ("POST", "/v1/council/snapshots/00000000-0000-4000-8000-000000000000/preview"),
+        ("POST", "/v1/council/snapshots/00000000-0000-4000-8000-000000000000/apply"),
+    ],
+)
+async def test_a_route_outside_the_accepted_inventory_does_not_exist(
+    client, method, path
+):
+    """The closed set, from the other direction. **Updated by P3.3** (2026-08-18).
+
+    This case used to name the four P3.3 navigation paths and assert `404`,
+    because the package was behind stop gate P3.G2 and the gate was enforced by
+    the routes not being there. They exist now, so the same assertion about the
+    same paths would be asserting that P3.3 was not delivered — and there is no
+    later package in the accepted inventory to move it on to, because R-49 is the
+    last route the contract defines.
+
+    What the case is *for* is unchanged and is now stated directly: the set is
+    closed, and the routes the contract deliberately **excludes** answer `404`.
+    Each path below is one the route contract names as absent — no artifact
+    download, no audit export, no audit mutation or deletion, no correction, and
+    no synchronous preview or apply — so a future handler that reintroduced one
+    fails here as well as at `TC-STRUCT-01`.
+
+    `404` and not `405`: a path that does not exist is not a method that is not
+    allowed, and answering the second would confirm the path.
+    """
+    response = await client.request(method, path)
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        # A mutation on a path the inventory registers as a **read**. There is no
+        # audit write use case anywhere in the application, and no handler here.
+        ("POST", "/v1/audit"),
+        ("PUT", "/v1/audit"),
+        ("DELETE", "/v1/audit"),
+        ("POST", "/v1/audit/results"),
+        ("POST", "/v1/council/snapshots"),
+        ("POST", "/v1/council/imports/00000000-0000-4000-8000-000000000000"),
+        # `apply` where a job id belongs: the path pattern matches, the method
+        # does not exist on it. There is no bulk confirmation route.
+        ("POST", "/v1/council/jobs/apply"),
+    ],
+)
+async def test_a_mutation_on_a_read_only_path_is_not_allowed(client, method, path):
+    """`405`, and the distinction from `404` is the point.
+
+    These paths **do** exist — as reads. `405` is the honest answer and confirms
+    what the inventory says: the route is registered for `GET` and for no other
+    method, so there is no audit export, no audit mutation, no audit deletion and
+    no bulk confirmation however the request is shaped.
+
+    Asserted rather than assumed, because "no handler is registered" and "a
+    handler exists and refuses" are different facts, and only the first of them
+    is what the closed inventory claims here.
+    """
+    response = await client.request(method, path)
+    assert response.status_code == 405
+
+
+@pytest.mark.parametrize(
     "path",
     [
         "/v1/council/snapshots",
         "/v1/council/jobs/00000000-0000-4000-8000-000000000000",
+        "/v1/council/imports/00000000-0000-4000-8000-000000000000",
         "/v1/audit",
+    ],
+)
+async def test_a_p3_3_navigation_route_exists_and_refuses_an_unauthenticated_caller(
+    client, path
+):
+    """Present, and refusing — the pair `404` cannot express.
+
+    The counterpart of the P3.2 case below, for the import, job and audit
+    surface. A route accidentally left unguarded would answer `200` here.
+    """
+    response = await client.get(path)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/v1/login"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/council/jobs/00000000-0000-4000-8000-000000000000/status",
         "/v1/audit/results",
     ],
 )
-async def test_a_route_owned_by_a_later_package_is_absent_from_this_build(client, path):
-    """P3.G2 is a stop gate, and this is what makes it structural.
+async def test_a_p3_3_fragment_refuses_an_unauthenticated_caller_with_401(
+    client, path
+):
+    """A fragment answers `401`, not `303` (route contract §2.3).
 
-    **Updated by P3.2** (2026-08-16). This case previously named the member,
-    Council and administration paths, and asserted `404` for each because P3.1
-    had not built them. They exist now, so the same assertion made about the same
-    paths would be asserting that P3.2 was not delivered.
-
-    What the case is *for* is unchanged: the closed route set has a next package
-    behind a gate, and the gate is enforced by the routes not being here. The
-    paths are therefore moved on to P3.3's — snapshot import, durable jobs and
-    audit search — which is where "not yet" now lives. The P3.2 paths are covered
-    by the case below, which asserts they are present and refusing rather than
-    absent, because those are different facts.
+    A redirect swapped into a fragment target would render the login page inside
+    the job screen, which looks like a broken page rather than a signed-out one.
     """
-    assert (await client.get(path)).status_code == 404
+    assert (await client.get(path)).status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -417,3 +584,46 @@ def test_a_deferred_field_cannot_carry_a_value():
     """
     names = {field.name for field in fields(view_models.MigrationDeferred)}
     assert names == {"field_key", "owning_package"}
+
+
+def test_the_denial_view_cannot_carry_anything_that_would_break_byte_identity():
+    """TC-VM-06. **Added 2026-08-19 (accepted D-03 correction, item D-03-6).**
+
+    The same technique as the case above, applied to the denial body. Route
+    contract §2.3 requires the `404` for an unreachable object and the `404` for
+    an absent one to be byte-identical, and `denied.html` used to be handed a
+    `NonMemberView` with three deliberately inert fields — an empty guild name, an
+    empty `Instant` and the nil UUID. That was correct only while the template
+    declined to print them, and P3.4 rewrites the template.
+
+    `DeniedView` has exactly two fields, so there is nothing to print. The
+    assertion is equality, not a subset: a field **added** here is what would
+    reintroduce the hazard, and the failure message says so because the next
+    person to hit it will be adding one for a good-looking reason.
+    """
+    names = {field.name for field in fields(view_models.DeniedView)}
+    assert names == {"state", "reason"}, (
+        "DeniedView must carry `state` and a closed-vocabulary `reason` and "
+        "nothing else. A correlation id, guild name, timestamp, object "
+        "identifier or free-text reason on this view model breaks the "
+        "byte-identical 404 of route contract §2.3 (TC-OBJ-07) and is a "
+        "security change, not a presentation improvement."
+    )
+
+
+def test_the_denied_reason_vocabulary_stays_closed():
+    """The other half of the same control: `reason` is not a free-text field.
+
+    A closed `DeniedView` carrying an open reason would leak exactly what the two
+    fields were narrowed to prevent, so the vocabulary is asserted here rather
+    than left to the type annotation.
+    """
+    categories = {member.value for member in view_models.DenialCategory}
+    assert categories == {
+        "not_authenticated",
+        "not_a_member",
+        "insufficient_capability",
+        "not_available",
+        "emergency_session_restricted",
+        "service_degraded",
+    }

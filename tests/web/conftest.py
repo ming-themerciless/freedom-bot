@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import httpx
 import pytest
 from sqlalchemy import delete, insert, text
 
+from adapters.artifacts.filesystem import TrustedAncestors
 from adapters.database.tables import (
     audit_events,
     auth_rate_limits,
@@ -75,6 +77,40 @@ _APPEND_ONLY_TABLES = ("audit_events", "role_capability_mapping_events")
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+@pytest.fixture(scope="session")
+def bounded_ancestors(tmp_path_factory) -> TrustedAncestors:
+    """The ancestor-walk seam every ordinary portal test builds a store with.
+
+    Added by the 2026-08-18 second migration-rollback remediation, for the
+    independent re-review finding that the P3.3 suites constructed
+    `FilesystemArtifactStore(root)` with the **production** unbounded walk. That
+    walk asks whether `/`, `/tmp`, `/opt`, and every other directory above
+    pytest's temporary root is owned by `root` or this account and is not
+    group-writable without the sticky bit — a question about the host, not about
+    the code under test. On the independent-review host it answered
+    `root_ancestor_untrusted`, and seven realistic data-bearing rollback cases
+    failed **during fixture setup** rather than running.
+
+    `FilesystemArtifactStore`'s own contract (see `TrustedAncestors`) is that
+    ordinary automated tests bound the walk at pytest's temporary root through
+    this constructor seam, and that dedicated ancestor-security tests — which
+    live in `tests/test_artifact_store.py` — keep the production unbounded rule.
+    So the bound is here, once, session-scoped because `getbasetemp()` is, and
+    every P3.3 store is built from it by `tests.web.p3_3_fixtures.open_artifact_store`,
+    which additionally refuses a ceiling that is not really an ancestor of the
+    root it is bounding.
+
+    **This is not configuration and it does not change production defaults.**
+    There is no environment variable for it, `build_application` and
+    `WorkerComposition` expose it only as a keyword, and
+    `FilesystemArtifactStore(...).ancestors.ceiling` is still `None` unless a
+    caller supplies one — asserted by
+    `tests/test_artifact_store.py::…production_default…` and again by this
+    suite's own portability control.
+    """
+    return TrustedAncestors(ceiling=Path(tmp_path_factory.getbasetemp()).resolve())
 
 
 @pytest.fixture()

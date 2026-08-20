@@ -46,6 +46,25 @@ class RefusalCode(Enum):
     UNKNOWN_CAPABILITY = "unknown_capability"
     MAPPING_LIMIT = "mapping_limit"
     STALE_VERSION = "stale_version"
+    # -- P3.3. Each is the route contract's own word for the condition (§6.1),
+    # so a response body and an audit payload say what an operator will find in
+    # the contract rather than a paraphrase of it.
+    QUEUE_FULL = "queue_full"
+    SNAPSHOT_ABSENT = "snapshot_absent"
+    FOLDER_UNSELECTED = "folder_unselected"
+    BLOCKED_BY_RUNNING_APPLY = "blocked_by_running_apply"
+    #: The preview named by a confirmation is not `completed`, is past N-46, or
+    #: its stored token does not match the one submitted. **One code for all
+    #: three**: distinguishing them would tell a caller which half of a
+    #: confirmation they guessed right.
+    PREVIEW_NOT_CONFIRMABLE = "preview_not_confirmable"
+    #: A cancellation that arrived after the job reached a terminal state,
+    #: including an apply that has already committed. Answered `409` with the
+    #: current state, never `404`: the job exists and the caller may see it.
+    ALREADY_TERMINAL = "already_terminal"
+    #: The audit filter set exceeded N-63's bounds — more than five filters, a
+    #: value over 120 characters, or a range over 366 days.
+    FILTER_BOUNDS = "filter_bounds"
 
 
 class AmbiguousProviderIdentity(Exception):

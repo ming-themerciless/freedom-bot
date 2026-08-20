@@ -158,6 +158,14 @@ class SnapshotImportRecord:
     summary: Mapping[str, Any]
     correlation_id: UUID
     actor_discord_user_id: int | None = None
+    #: The stable platform account that applied this import (ADR 0010 D1, schema
+    #: §11). Added by P3.3, and **optional by design**: the supervised bootstrap
+    #: has no interactive user at all, and the Phase 2 operator path predates
+    #: accounts entirely, so a row that required one would be false of
+    #: legitimate rows. New rows from the portal carry it, history keeps only its
+    #: Discord column and is never rewritten, and
+    #: `ck_snapshot_imports_import_has_an_attribution` is satisfied by either.
+    actor_account_id: UUID | None = None
     supervisor: str | None = None
     created_count: int = 0
     updated_count: int = 0

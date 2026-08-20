@@ -1,0 +1,128 @@
+{#
+  VM-15, R-44 — and R-43's body, included rather than duplicated.
+
+  Every HTMX partial is also reachable as a full page (view-model contract §9.1),
+  so this fragment is the whole of what R-43 renders inside its layout. Writing
+  it twice would be two renderings of one contract.
+
+  **Polling honours `poll_after_seconds` and stops on a terminal state.** The
+  interval is the server's N-22 floor, echoed in `Retry-After` as well, and
+  `hx-trigger` is static template text — there is no `hx-on:` attribute anywhere,
+  because that is inline script and would force a CSP weakening.
+
+  **Nothing artifact-derived is here.** Counts, closed-vocabulary issue codes,
+  the folder identity, the checksum and the profile version. The one Actor name
+  that crosses the boundary is a blocked create-candidate's, which is the minimum
+  a Council member needs to resolve it, is bounded, and is Council-only.
+#}
+<section data-job-id="{{ view.job_id }}"
+         data-job-state="{{ view.job_state }}"
+         data-job-kind="{{ view.kind }}"
+         data-state="{{ view.state }}"
+         data-attempts="{{ view.attempts }}"
+         data-poll-after="{{ view.poll_after_seconds }}"
+         {% if view.job_state in ("queued", "running") %}
+           hx-get="/v1/council/jobs/{{ view.job_id }}/status"
+           hx-trigger="every {{ view.poll_after_seconds }}s"
+           hx-swap="outerHTML"
+         {% endif %}>
+  <h2>{{ view.kind }} job</h2>
+  <p data-field="requested-by">
+    {{ view.requested_by.label.value }}
+    ({{ view.requested_by.capability.value }})
+    at {{ view.requested_at.display }}
+  </p>
+  <p data-field="correlation">{{ view.correlation.id }}</p>
+
+  {% if view.progress %}
+    <p data-field="progress" data-step="{{ view.progress.step }}">
+      {#
+        `percent` is always absent: the parser reports no fraction, and a
+        fabricated progress bar is worse than an indeterminate one.
+      #}
+      {{ view.progress.step }} — updated {{ view.progress.updated_at.display }}
+    </p>
+  {% endif %}
+
+  {% if view.stale_reason %}
+    <p data-field="stale-reason" data-code="{{ view.stale_reason.code }}">
+      This job is stale: {{ view.stale_reason.code }}. Nothing was applied.
+    </p>
+  {% endif %}
+
+  {% if view.failure %}
+    <p data-field="failure" data-code="{{ view.failure.code }}">
+      This job failed: {{ view.failure.code }}.
+      Correlation {{ view.failure.correlation.id }}.
+    </p>
+  {% endif %}
+
+  {% if view.result %}
+    <dl data-field="summary">
+      <dt>Actors</dt><dd data-count="actor_count">{{ view.result.actor_count }}</dd>
+      <dt>Mapped</dt><dd data-count="mapped">{{ view.result.mapped }}</dd>
+      <dt>Unmapped</dt><dd data-count="unmapped">{{ view.result.unmapped }}</dd>
+      <dt>Blocked</dt><dd data-count="blocked">{{ view.result.blocked }}</dd>
+      <dt>Absent</dt><dd data-count="absent">{{ view.result.absent }}</dd>
+      <dt>Would create</dt><dd data-count="would_create">{{ view.result.would_create }}</dd>
+      <dt>Would update</dt><dd data-count="would_update">{{ view.result.would_update }}</dd>
+    </dl>
+    {% if view.result.issue_counts %}
+      <ul data-field="issues">
+        {% for issue in view.result.issue_counts %}
+          {#
+            A code and a count. The human sentence is a lookup table the platform
+            owns; text from the artifact is never forwarded.
+          #}
+          <li data-issue-code="{{ issue.code }}" data-severity="{{ issue.severity }}">
+            {{ issue.code }} × {{ issue.count }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if view.result.blocked_entries %}
+      <ul data-field="blocked-entries">
+        {% for entry in view.result.blocked_entries %}
+          <li data-actor-id="{{ entry.external_actor_id }}"
+              data-issue-code="{{ entry.issue_code }}">
+            {{ entry.display_name.value }}{% if entry.display_name.truncated %}…{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+
+  {% if view.confirm %}
+    <form method="post" action="/v1/council/jobs/{{ view.job_id }}/apply"
+          data-control="confirm">
+      <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+      <input type="hidden" name="preview_token" value="{{ view.confirm.preview_token }}">
+      <input type="hidden" name="nonce" value="{{ view.job_id }}">
+      <p data-field="confirm-scope"
+         data-checksum="{{ view.confirm.checksum_full }}"
+         data-folder-id="{{ view.confirm.folder.folder_id }}"
+         data-profile-version="{{ view.confirm.profile_version }}">
+        Applying will create {{ view.confirm.would_create }} and update
+        {{ view.confirm.would_update }} character records from
+        {{ view.confirm.folder.folder_path.value }}, checksum
+        {{ view.confirm.checksum_full }}, profile
+        {{ view.confirm.profile_version }}. This confirmation expires at
+        {{ view.confirm.expires_at.display }}.
+      </p>
+      {% if view.confirm.blocked %}
+        <p data-field="blocked-notice">
+          This preview reported blocking issues. Applying will refuse.
+        </p>
+      {% endif %}
+      <button type="submit">Confirm import</button>
+    </form>
+  {% endif %}
+
+  {% if view.cancel_available %}
+    <form method="post" action="/v1/council/jobs/{{ view.job_id }}/cancel"
+          data-control="cancel">
+      <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+      <button type="submit">Cancel</button>
+    </form>
+  {% endif %}
+</section>

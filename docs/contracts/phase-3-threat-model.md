@@ -32,6 +32,14 @@ Controls are cited as `N-nn` ([numeric register](phase-3-numeric-policy-register
 `VM-nn` ([view models](phase-3-view-model-contract.md)), and `TC-…`
 ([test traceability](phase-3-test-traceability.md)).
 
+**Extended 2026-08-19 under the accepted D-03 correction (change-log
+`C-P3.4-A`, item D-03-1), by addition only.** §2 gains the M-01 `/static/*` entry
+point and §4 gains T-54 (traversal and directory disclosure through the static
+surface) and T-55 (session or authorization state leaking through a cached
+asset), continuing the numbering after the existing T-53 rather than reusing an
+identifier. No existing threat, control, residual risk or verification row is
+rewritten, and no attacker profile changes.
+
 ## 1. Assets
 
 | # | Asset | Why it matters | Worst realistic loss |
@@ -79,6 +87,7 @@ Controls are cited as `N-nn` ([numeric register](phase-3-numeric-policy-register
 |---|---|---|
 | `/v1/*`, `/auth/discord/callback` | 1 → 2 | Cookie session, or none |
 | `/api/v1/foundry/snapshots` | 1 → 2 | Service-principal credential (Phase 2, unchanged) |
+| `/static/*` (M-01) | 1 → 2 | **None, deliberately.** Public read-only assets. Host check applies; `GET`/`HEAD` only; reaches no session, no database, no application service. Added 2026-08-19 by the accepted D-03 correction |
 | `/healthz` | loopback only, **not** published by Caddy | none needed |
 | Operator CLI (C-01…C-07) | host shell | existing host/operator authority |
 | Discord's callback redirect | 5 | state + PKCE + transaction cookie |
@@ -195,6 +204,8 @@ honest.
 | T-44 | Resource exhaustion via job flooding | X-3 | N-42 queue bound, N-41 concurrency 1, N-45 runtime cap, N-47 memory ceiling | A Council member can still occupy the queue; attribution is the control, not prevention |
 | T-45 | Slow-loris / connection exhaustion | X-9 | Caddy timeouts, N-51/N-52 application timeouts, bounded keep-alive | Caddy tuning is an operations item (register §4) |
 | T-46 | Credential stuffing and scanning | X-9 | There is **no password endpoint to stuff**; N-18/N-32/N-33 limits; `/healthz` unpublished; no directory listing | Fixed-window burst at boundaries (RR-03) |
+| T-54 | **Path traversal or directory disclosure through the static surface.** Added 2026-08-19 with M-01 (accepted D-03 correction, item D-03-1) | X-1, X-9 | Four layers, and the first two are independent of each other: a URL grammar refusing any segment that does not start alphanumeric, checked before the filesystem is touched; Starlette's own `realpath` + `commonpath` containment against one root; `html=False`, so a directory is `404` with no listing and no implicit index; and a root that is **not configurable**, so there is no operator-supplied path to point elsewhere. Every refusal is the same safe `404` with no exception text, filesystem path or stack frame, so a grammar violation and a missing file are indistinguishable | The mount is only as contained as Starlette's containment check; TC-STATIC-02/03 assert both layers, and the grammar is proved load-bearing rather than decorative |
+| T-55 | **Session or authorization state leaking through a cached asset.** Added 2026-08-19 with M-01 | X-1, X-9 | The surface is unauthenticated and reaches no session, so an asset response is byte-identical for every caller; it sets and refreshes **no** cookie, so an asset fetch cannot extend an idle timeout (N-06) or refresh a CSRF token; and its `Cache-Control` is decided by the filename's fingerprint rather than by whether the caller is signed in, so a shared cache never holds a caller-varying body under a cacheable header | A future asset that embedded per-caller data would defeat this by construction; the root is repository-owned and reviewed, and TC-STATIC-05/06 assert both properties |
 | T-47 | Co-located host degradation | X-3, X-9 | Worker isolated as its own service with `MemoryMax`; bounded pools (N-53/N-54); job concurrency 1; kill switch stops the portal without stopping the bot or Foundry | Peak worker memory is **unmeasured** (RR-05) |
 
 ### Jobs, retries and audit integrity
@@ -243,6 +254,7 @@ honest.
 | T-34…T-40 | TC-SEC-08…13 | P3.2–P3.4 |
 | T-41…T-47 | TC-LIM-01…05, TC-PERF-01…02 | P3.1/P3.3/P3.5 |
 | T-48…T-53 | TC-JOB-01…16, TC-AUD-01…06 | P3.3 |
+| T-54…T-55 | TC-STATIC-01…07, TC-SEC-14 | D-03 correction (2026-08-19); re-verified in P3.4 |
 
 ## 7. What this model deliberately does not claim
 

@@ -1359,3 +1359,302 @@ identity_link_proposal_candidates = Table(
     ),
     CheckConstraint("length(trim(subject)) > 0", name="subject_not_blank"),
 )
+
+
+# ---------------------------------------------------------------------------
+# P3.3 — snapshot folder selection, durable reconciliation jobs and results
+# ---------------------------------------------------------------------------
+
+#: The Platform Administrator's folder choice for one snapshot (R-41).
+#:
+#: **A table rather than a column, because `foundry_snapshots` is append-only.**
+#: Schema §11 classifies that table `SELECT, INSERT` for the runtime role and
+#: migration 0002's trigger refuses `UPDATE` and `DELETE` on it even for the
+#: schema owner, so a selection an administrator can change cannot live there.
+#: §10 defines only the two job tables and §11 names no table for the selection,
+#: so the decomposition is this package's — made the way P3.2 made its own
+#: (migration 0010 added two tables §11 does not name), and recorded in the
+#: P3.3 submission rather than quietly.
+#:
+#: One live row per snapshot. The *history* of who selected what is the
+#: append-only `snapshot.folder_selected` audit event the route contract already
+#: requires (§6.1); this row is the current operational fact the preview reads,
+#: which is why it is mutable and versioned rather than an event log the reader
+#: would have to fold.
+snapshot_folder_selections = Table(
+    "snapshot_folder_selections",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column(
+        "snapshot_id",
+        UUID(as_uuid=True),
+        ForeignKey("foundry_snapshots.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    # The stable folder id and its displayed path. Folder identity is the pair
+    # under ADR 0006 — a folder renamed between selection and apply is a
+    # different confirmation from the one a Council member read — so both are
+    # stored and both are bound into the scope fingerprint.
+    Column("folder_id", String(64), nullable=False),
+    Column("folder_path", Text, nullable=False),
+    Column(
+        "selected_by_account_id",
+        UUID(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column(
+        "selected_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    ),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    Column("version", Integer, nullable=False, server_default="1"),
+    # One live selection per snapshot. A second row would be a second answer to
+    # "which folder is selected", which is the question R-42 asks. Declared as a
+    # named table constraint rather than `unique=True` on the column, because the
+    # upsert's `ON CONFLICT` names it and the two must not drift.
+    UniqueConstraint("snapshot_id", name="uq_snapshot_folder_selections_snapshot"),
+    CheckConstraint("length(trim(folder_id)) > 0", name="folder_id_not_blank"),
+    CheckConstraint("length(trim(folder_path)) > 0", name="folder_path_not_blank"),
+    CheckConstraint("version > 0", name="version_positive"),
+)
+
+#: Schema §10.1. The queue *is* PostgreSQL, and every rule the state machine
+#: states is a constraint here rather than a convention in the worker.
+reconciliation_jobs = Table(
+    "reconciliation_jobs",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("kind", String(10), nullable=False),
+    Column("state", String(12), nullable=False),
+    Column(
+        "snapshot_id",
+        UUID(as_uuid=True),
+        ForeignKey("foundry_snapshots.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("folder_id", String(64), nullable=False),
+    Column("profile_version", String(64), nullable=False),
+    # SHA-256 over checksum ‖ folder id ‖ folder path ‖ profile version ‖ the
+    # aggregate versions. **The staleness test is one equality comparison**, not
+    # a list of separate checks that can drift apart.
+    Column("scope_fingerprint", LargeBinary, nullable=False),
+    Column(
+        "requested_by_account_id",
+        UUID(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("requested_capability", String(30), nullable=False),
+    Column("request_key", String(255), nullable=False, unique=True),
+    Column(
+        "parent_job_id",
+        UUID(as_uuid=True),
+        ForeignKey("reconciliation_jobs.id", ondelete="RESTRICT"),
+    ),
+    # **The number of claims made against this job.** Incremented by the claim
+    # statement and by nothing else (N-43).
+    Column("attempts", Integer, nullable=False, server_default="0"),
+    Column("lease_owner", String(120)),
+    Column("lease_expires_at", DateTime(timezone=True)),
+    Column("heartbeat_at", DateTime(timezone=True)),
+    Column(
+        "queued_at", DateTime(timezone=True), nullable=False, server_default=func.now()
+    ),
+    Column("started_at", DateTime(timezone=True)),
+    Column("finished_at", DateTime(timezone=True)),
+    # Cancellation is a **request**, not a state: N-27 has six states and gains
+    # no seventh.
+    Column("cancel_requested_at", DateTime(timezone=True)),
+    # **The durable fact that an import effect committed for this job**, written
+    # inside the transaction that commits that effect and by nothing else
+    # (migration 0012). It is what makes SM-05's "a committed apply cannot be
+    # cancelled" a row-level serialization rather than an ordering hope: the
+    # fence takes this row's write lock as the last statement before the import
+    # commits, and every writer that would invalidate the attempt — the
+    # cancellation request, the worker's self-abandon — carries
+    # `AND effect_committed_at IS NULL` and so blocks on it and re-evaluates.
+    #
+    # Deliberately **never cleared**: it is what tells the reaper that an expired
+    # lease over this job is a publication the platform owes rather than an
+    # attempt to retry or exhaust (migration 0013), and it is the only durable
+    # record on the job that the effect exists.
+    Column("effect_committed_at", DateTime(timezone=True)),
+    # **What the publication owes, made durable where the effect is** (migration
+    # 0013). The bounded summary and blocked-entry list of the run, written by the
+    # commit fence in the transaction that commits the effect — so a process that
+    # dies before publishing its result leaves the result behind rather than
+    # taking it with it.
+    #
+    # Recovery is then two durable reads and one publication transaction: this
+    # column for what the run produced, and the immutable `snapshot_imports`
+    # receipt the same transaction wrote for the import's identity and counts. No
+    # artifact is re-parsed, no execution attempt is consumed (N-43), and the
+    # effect is never run a second time.
+    #
+    # It is bounded by exactly what a result row is bounded by, because it is the
+    # same value: counts, closed-vocabulary issue codes, the folder identity, the
+    # checksum, and at most 50 blocked create-candidates carrying one 120-character
+    # display name each. Never Actor field values and never artifact text.
+    Column("effect_result", JSONB),
+    Column("stale_reason", String(40)),
+    Column("failure_code", String(40)),
+    # The foreign key is declared **after** both tables exist, because the two
+    # reference each other: a job names its result and a result names its job.
+    # `use_alter` is what lets either be created first.
+    Column("result_id", UUID(as_uuid=True)),
+    Column("correlation_id", UUID(as_uuid=True), nullable=False),
+    Column("version", Integer, nullable=False, server_default="1"),
+    CheckConstraint("kind IN ('preview', 'apply')", name="kind"),
+    CheckConstraint(
+        "state IN ('queued', 'running', 'completed', 'stale', 'failed', 'cancelled')",
+        name="state",
+    ),
+    CheckConstraint(
+        "(state = 'running') = (lease_owner IS NOT NULL)", name="running_holds_a_lease"
+    ),
+    CheckConstraint(
+        "(state IN ('completed', 'stale', 'failed', 'cancelled')) "
+        "= (finished_at IS NOT NULL)",
+        name="terminal_states_have_finished",
+    ),
+    # A job cannot be `completed` without a durable result — delivery plan
+    # §8.7's "no state named `completed` precedes durable commit", expressed as
+    # a constraint rather than as a code-review comment.
+    CheckConstraint(
+        "(state = 'completed') = (result_id IS NOT NULL)",
+        name="completed_has_a_result",
+    ),
+    CheckConstraint(
+        "(state = 'failed') = (failure_code IS NOT NULL)", name="failed_states_why"
+    ),
+    CheckConstraint(
+        "(state = 'stale') = (stale_reason IS NOT NULL)", name="stale_states_why"
+    ),
+    CheckConstraint("attempts >= 0 AND attempts <= 3", name="attempts_within_n43"),
+    # *A queued job always has a remaining attempt.* Without this a job whose
+    # third lease expired could sit `running` forever — the stranded state the
+    # corrected N-43 makes unrepresentable rather than merely avoided.
+    CheckConstraint("state <> 'queued' OR attempts < 3", name="queued_can_be_claimed"),
+    CheckConstraint("length(scope_fingerprint) = 32", name="scope_fingerprint_sha256"),
+    CheckConstraint("length(trim(request_key)) > 0", name="request_key_not_blank"),
+    CheckConstraint("version > 0", name="version_positive"),
+    # An apply names the preview it was confirmed from; a preview names nothing.
+    CheckConstraint(
+        "(kind = 'apply') OR (parent_job_id IS NULL)", name="only_an_apply_has_a_parent"
+    ),
+    # A preview writes only its own result row, so it has no effect to fence.
+    CheckConstraint(
+        "(kind = 'apply') OR (effect_committed_at IS NULL)",
+        name="only_an_apply_commits_an_effect",
+    ),
+    # The fence writes both columns in one statement, so a job that records a
+    # committed effect always records what its publication owes. Without this a
+    # crash could leave an effect nobody can publish from durable data, and the
+    # only recovery left would be the one this remediation removed: re-running the
+    # attempt and spending one of N-43's three.
+    CheckConstraint(
+        "(effect_committed_at IS NULL) = (effect_result IS NULL)",
+        name="effect_result_accompanies_the_fence",
+    ),
+    # **`failed`, `cancelled` and `stale` each assert that nothing was applied**,
+    # so none of them can describe an apply whose import is durable. The
+    # application statements all carry the matching predicate and therefore refuse
+    # rather than violate; this is what makes the invariant true for direct
+    # runtime-role SQL and for a statement a future change forgets to write the
+    # predicate into. `queued` is deliberately absent: no production statement
+    # requeues a committed effect any more, and leaving the state representable
+    # keeps the import service's spent-request-key path a working safety net
+    # instead of a constraint violation.
+    CheckConstraint(
+        "effect_committed_at IS NULL "
+        "OR state NOT IN ('failed', 'cancelled', 'stale')",
+        name="committed_effect_is_never_denied",
+    ),
+)
+# The claim path (`FOR UPDATE SKIP LOCKED`), and nothing else, uses this.
+Index(
+    "ix_reconciliation_jobs_claimable",
+    reconciliation_jobs.c.queued_at,
+    postgresql_where=reconciliation_jobs.c.state == "queued",
+)
+# Two concurrent applies of the same input cannot both be in flight. The durable
+# `uq_snapshot_imports_applied_input` already prevents two from both succeeding;
+# this prevents the second from starting and doing ten seconds of work to find out.
+Index(
+    "uq_reconciliation_jobs_one_live_apply",
+    reconciliation_jobs.c.snapshot_id,
+    reconciliation_jobs.c.folder_id,
+    reconciliation_jobs.c.profile_version,
+    unique=True,
+    postgresql_where=text(
+        "kind = 'apply' AND state IN ('queued', 'running')"
+    ),
+)
+# R-40's `latest_job` stamp, and the reaper's expired-lease sweep.
+Index(
+    "ix_reconciliation_jobs_snapshot",
+    reconciliation_jobs.c.snapshot_id,
+    reconciliation_jobs.c.queued_at.desc(),
+)
+Index(
+    "ix_reconciliation_jobs_expired_leases",
+    reconciliation_jobs.c.lease_expires_at,
+    postgresql_where=reconciliation_jobs.c.state == "running",
+)
+
+#: Schema §10.2. Bounded summaries and references — **never raw bytes**. The
+#: artifact stays in the restricted store the Phase 2 package built, reachable by
+#: no route.
+reconciliation_job_results = Table(
+    "reconciliation_job_results",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("job_id", UUID(as_uuid=True), nullable=False),
+    # JSONB under plan §7.3.1's explicit exceptions: bounded parser metadata
+    # used only to explain an import, and a disposable presentation cache. N-24
+    # deletes them, no calculation reads them, and re-running the job against the
+    # immutable snapshot reproduces them. The precedent is
+    # `snapshot_imports.summary`, which passed the Phase 2 gate for this reason.
+    Column("summary", json_type, nullable=False),
+    Column("blocked_entries", json_type, nullable=False),
+    Column(
+        "produced_at",
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    ),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("expires_at > produced_at", name="expiry_after_production"),
+)
+# The cycle, declared once both ends exist. `RESTRICT` from job to result keeps a
+# completed job's result unremovable while the job names it; `CASCADE` the other
+# way is N-24's retention sweep deleting a job and its result together.
+reconciliation_jobs.append_constraint(
+    ForeignKeyConstraint(
+        ["result_id"],
+        ["reconciliation_job_results.id"],
+        name="fk_reconciliation_jobs_result_id_reconciliation_job_results",
+        ondelete="RESTRICT",
+        use_alter=True,
+    )
+)
+reconciliation_job_results.append_constraint(
+    ForeignKeyConstraint(
+        ["job_id"],
+        ["reconciliation_jobs.id"],
+        name="fk_reconciliation_job_results_job_id_reconciliation_jobs",
+        ondelete="CASCADE",
+        use_alter=True,
+    )
+)
+Index(
+    "ix_reconciliation_job_results_job",
+    reconciliation_job_results.c.job_id,
+)
+Index(
+    "ix_reconciliation_job_results_expiry",
+    reconciliation_job_results.c.expires_at,
+)

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Audit — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-18, R-48. The navigable page; its results are the same fragment R-49
+    answers, included rather than copied.
+
+    The filter form offers exactly the accepted bounded filters (N-63) and no
+    free-text payload search: an append-only table that grows forever cannot
+    serve one within N-21's bound, and offering it would be offering a query that
+    gets slower every day until it stops working. The action filter is a
+    **prefix**, which is an index range rather than a scan.
+  #}
+  <h1>Audit search</h1>
+  <form method="get" action="/v1/audit" data-control="filters">
+    {# A read. No CSRF token: N-17 applies to cookie-authenticated mutations. #}
+    <label for="action">Action prefix</label>
+    <input id="action" name="action" maxlength="120"
+           value="{{ view.filters.action_prefix.value if view.filters.action_prefix else '' }}">
+    <label for="entity_type">Entity type</label>
+    <input id="entity_type" name="entity_type" maxlength="120"
+           value="{{ view.filters.entity_type or '' }}">
+    <label for="entity_id">Entity id</label>
+    <input id="entity_id" name="entity_id" maxlength="120"
+           value="{{ view.filters.entity_id.value if view.filters.entity_id else '' }}">
+    <label for="capability">Capability</label>
+    <input id="capability" name="capability" maxlength="120"
+           value="{{ view.filters.capability.value if view.filters.capability else '' }}">
+    <label for="source">Source</label>
+    <input id="source" name="source" maxlength="120" value="{{ view.filters.source or '' }}">
+    <label for="from">From (UTC)</label>
+    <input id="from" name="from" maxlength="120"
+           value="{{ view.filters.occurred_from.iso_utc if view.filters.occurred_from else '' }}">
+    <label for="to">To (UTC)</label>
+    <input id="to" name="to" maxlength="120"
+           value="{{ view.filters.occurred_to.iso_utc if view.filters.occurred_to else '' }}">
+    <label for="correlation_id">Correlation id</label>
+    <input id="correlation_id" name="correlation_id" maxlength="120"
+           value="{{ view.filters.correlation_id or '' }}">
+    <button type="submit">Search</button>
+  </form>
+  {% include "audit_results.html" %}
+{% endblock %}

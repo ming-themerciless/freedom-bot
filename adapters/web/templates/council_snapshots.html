@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Snapshots — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-14, R-40. Minimal P3.3 contract template; the production integration is
+    P3.4 against the frozen `vm-1` shapes.
+
+    **The controls here are courtesies, not authorization.** `can_select_folder`
+    and `can_preview` decide whether a form is rendered; R-41 and R-42 refuse
+    regardless, and the matrix tests prove it by issuing those requests without
+    ever fetching this page (route contract §2.2).
+
+    **No artifact link exists anywhere on this page**, because no route serves an
+    artifact-derived byte. A checksum identifies a document a Council member
+    cannot download, and that is deliberate: audit visibility does not by itself
+    grant permission to download the raw artifact.
+
+    A folder whose path the platform has never observed renders as an identifier
+    rather than as a path. See `FolderChoice.path_observed` — the durable record
+    holds folder ids, and a path is known only once a preview has parsed the
+    artifact, so inventing one here would be inventing a fact.
+  #}
+  <h1>Submitted snapshots</h1>
+  {% if view.state == "empty" %}
+    <p data-state="empty">
+      No submitted snapshot is awaiting an import.
+    </p>
+  {% else %}
+    <table data-state="{{ view.state }}">
+      <thead>
+        <tr>
+          <th>Checksum</th><th>World</th><th>Foundry</th><th>System</th>
+          <th>Actors</th><th>Received</th><th>Folder</th><th>Latest job</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in view.snapshots %}
+          <tr data-snapshot-id="{{ row.snapshot_id }}"
+              data-applied="{{ 'true' if row.applied else 'false' }}">
+            <td data-field="checksum" title="{{ row.checksum_full }}">{{ row.checksum_short }}</td>
+            <td data-field="world">{{ row.world_title.value }} ({{ row.world_id }})</td>
+            <td data-field="core-version">{{ row.core_version }}</td>
+            <td data-field="system">{{ row.system_id }} {{ row.system_version }}</td>
+            <td data-field="actor-count">{{ row.actor_count }}</td>
+            <td data-field="received-at" data-received-via="{{ row.received_via }}">
+              {{ row.received_at.display }}
+            </td>
+            <td data-field="selected-folder">
+              {% if row.selected_folder %}
+                <span data-folder-id="{{ row.selected_folder.folder_id }}"
+                      data-path-observed="{{ 'true' if row.selected_folder.path_observed else 'false' }}">
+                  {{ row.selected_folder.folder_path.value }}
+                </span>
+              {% else %}
+                <span data-state="unselected">No folder selected</span>
+              {% endif %}
+            </td>
+            <td data-field="latest-job">
+              {% if row.latest_job %}
+                <a href="/v1/council/jobs/{{ row.latest_job.job_id }}"
+                   data-job-state="{{ row.latest_job.state }}"
+                   data-job-kind="{{ row.latest_job.kind }}">
+                  {{ row.latest_job.kind }} · {{ row.latest_job.state }}
+                </a>
+              {% else %}
+                <span data-state="none">None</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% if view.can_select_folder %}
+            <tr data-control="folder-selection">
+              <td colspan="8">
+                <form method="post"
+                      action="/v1/admin/snapshots/{{ row.snapshot_id }}/folder">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <label for="folder-{{ row.snapshot_id }}">Actor folder</label>
+                  <select id="folder-{{ row.snapshot_id }}" name="folder_id">
+                    {% for folder in row.selectable_folders %}
+                      <option value="{{ folder.folder_id }}"
+                              data-path-observed="{{ 'true' if folder.path_observed else 'false' }}"
+                              {% if folder.is_default %}selected{% endif %}>
+                        {{ folder.folder_path.value }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit">Select folder</button>
+                </form>
+                <p data-note="invalidation">
+                  Selecting a folder invalidates every outstanding preview and
+                  job for this snapshot.
+                </p>
+              </td>
+            </tr>
+          {% endif %}
+          {% if view.can_preview and row.selected_folder %}
+            <tr data-control="preview">
+              <td colspan="8">
+                <form method="post"
+                      action="/v1/council/snapshots/{{ row.snapshot_id }}/preview-jobs">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  {#
+                    The nonce is what makes a double-click one job and two
+                    deliberate previews two. It is server-rendered per page load
+                    and never read from a cookie by script.
+                  #}
+                  <input type="hidden" name="nonce" value="{{ row.snapshot_id }}:{{ row.selected_folder.folder_id }}">
+                  <button type="submit">Preview import</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if view.cursor.has_more %}
+      <a rel="next" href="/v1/council/snapshots?cursor={{ view.cursor.token }}">Next</a>
+    {% endif %}
+  {% endif %}
+{% endblock %}

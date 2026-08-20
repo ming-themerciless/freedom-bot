@@ -11,6 +11,7 @@ from .repositories import (
     SqlAlchemyExternalActorMappingRepository,
     SqlAlchemyIdempotencyRepository,
     SqlAlchemyPlatformInitializationRepository,
+    SqlAlchemyReconciliationJobLeaseRepository,
     SqlAlchemySheetRowMappingRepository,
     SqlAlchemySnapshotImportRepository,
     SqlAlchemySnapshotRepository,
@@ -83,6 +84,11 @@ class SqlAlchemyUnitOfWork:
     idempotency: SqlAlchemyIdempotencyRepository
     submission_admissions: SqlAlchemySubmissionAdmissionRepository
     initialization: SqlAlchemyPlatformInitializationRepository
+    #: P3.3's commit fence (migration 0012). Here rather than beside the other
+    #: job statements because it is the one that must run in **this**
+    #: transaction — the one that commits the import effect — instead of one of
+    #: its own.
+    job_leases: SqlAlchemyReconciliationJobLeaseRepository
 
     def __init__(self, engine: Engine) -> None:
         self._session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -105,6 +111,7 @@ class SqlAlchemyUnitOfWork:
         self.idempotency = SqlAlchemyIdempotencyRepository(session)
         self.submission_admissions = SqlAlchemySubmissionAdmissionRepository(session)
         self.initialization = SqlAlchemyPlatformInitializationRepository(session)
+        self.job_leases = SqlAlchemyReconciliationJobLeaseRepository(session)
         return self
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:

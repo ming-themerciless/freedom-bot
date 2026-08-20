@@ -1,19 +1,39 @@
 """The snapshot submission endpoint, as a dependency-free WSGI application.
 
-Two routes and no more:
+**One route, since P3.3.**
 
 | Route | Caller | Authority |
 |---|---|---|
 | `POST /api/v1/foundry/snapshots` | the Freedom Blades Foundry module | a submit-only service principal |
-| `GET  /api/v1/foundry/snapshots/{checksum}/preview` | a Guild Council member | resolved server-side, per request |
 
-The second route is **inert without a Phase 3 authentication composition**. With
-no preview service composed it answers `503 authentication_unavailable` and
-reaches no application service at all. This is the honest form of "the
-Discord-authenticated boundary does not exist yet": the contract is implemented
-and tested, and production cannot serve it because production has nothing to
-authenticate with. Faking a session here would be the alternative, and it would
-be worse than the gap it papered over.
+## The preview route is retired, not disabled
+
+`GET /api/v1/foundry/snapshots/{checksum}/preview` was built inert, pending a
+Phase 3 authentication composition: with no preview service composed it answered
+`503 authentication_unavailable` and reached no application service at all. That
+was the honest form of "the Discord-authenticated boundary does not exist yet".
+
+The boundary exists now. P3.3 supersedes it with R-42 to R-46 — a durable
+`preview` job, a polled status and a separate confirmation — on the `/v1/*`
+browser boundary with cookie sessions, CSRF and the object-authorization chain
+this route never had. Route contract §1.1 therefore **retires** it, and the
+retirement is a route *removal* rather than a behaviour change: it has never
+served an authenticated request, so there is nothing whose behaviour could
+change.
+
+It is removed rather than left answering `503`, because the requirement is that
+there be no second path to the same operation. A route that still resolves,
+still parses a checksum out of a path and still answers a code with the word
+"preview" in it is a second path — one an operator could reasonably believe is
+the supported one, and one a future composition could accidentally supply a
+service to. `tests/test_snapshot_api.py` asserts it now answers `404`, in the
+same way `tests/test_rejected_scope_absent.py` asserts a rejected scope's
+absence.
+
+`/api/v1/*` remains the **machine boundary** (service principals, no cookies)
+and `/v1/*` the **browser boundary**, so a reader can tell from the path alone
+which authentication model applies — and the Foundry module's hard-coded
+submission path (module 1.0.7, deployed) does not move.
 
 ## What this adapter is responsible for
 
@@ -82,11 +102,9 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import parse_qs
 
 from adapters.http.cors import CorsPolicy, PreflightAllowed, origin_of
 from adapters.http.credentials import (
@@ -97,11 +115,6 @@ from adapters.http.credentials import (
 from adapters.safe_logging import log_expected_failure
 from application.authorization import NotAuthorizedError
 from application.errors import PersistenceError, UniquenessConflict
-from application.foundry.import_service import ImportRefused
-from application.foundry.preview_service import (
-    PreviewUnavailable,
-    SnapshotPreviewService,
-)
 from application.foundry.submission import (
     SnapshotSubmissionService,
     SubmissionRefused,
@@ -110,7 +123,6 @@ from application.foundry.submission import (
 logger = logging.getLogger(__name__)
 
 SUBMISSION_PATH = "/api/v1/foundry/snapshots"
-_PREVIEW_PATH = re.compile(r"^/api/v1/foundry/snapshots/([0-9a-fA-F]{64})/preview$")
 
 #: The one body type accepted. A parameter such as `; charset=utf-8` is allowed;
 #: anything else is refused before the body is read.
@@ -156,19 +168,15 @@ _REFUSAL_STATUS = {
     "admission_closed": 403,
 }
 
-_PREVIEW_STATUS = {
-    "snapshot_not_held": 404,
-    "artifact_unreadable": 503,
-}
-
 
 class SnapshotSubmissionApplication:
-    """The WSGI callable.
+    """The WSGI callable. Submission only.
 
-    `preview` is optional and is `None` until a Phase 3 authentication
-    composition can supply one. That absence is the deployment control, not a
-    flag somebody could flip by accident: there is no code path that constructs
-    a preview service without an `AuthorizationPort`.
+    It took a `preview` service and a `preview_user_resolver` until P3.3, both
+    optional and both `None` in every production composition. **Both parameters
+    are gone**, rather than kept and ignored: a constructor argument nothing
+    reads is an invitation to supply one, and the point of retiring the route is
+    that there is no second path to the operation R-42 to R-46 now own.
     """
 
     def __init__(
@@ -177,16 +185,12 @@ class SnapshotSubmissionApplication:
         credentials: ServicePrincipalRegistry,
         *,
         cors: CorsPolicy | None = None,
-        preview: SnapshotPreviewService | None = None,
-        preview_user_resolver: Callable[[Mapping[str, Any]], int] | None = None,
     ) -> None:
         self._submissions = submissions
         self._credentials = credentials
         # An absent policy is an empty allowlist, not an open one: no browser
         # origin is permitted until an operator names one.
         self._cors = cors if cors is not None else CorsPolicy()
-        self._preview = preview
-        self._preview_user_resolver = preview_user_resolver
 
     def __call__(
         self,
@@ -262,17 +266,10 @@ class SnapshotSubmissionApplication:
                 )
             return _Response(*self._submit(environ))
 
-        preview_match = _PREVIEW_PATH.match(path)
-        if preview_match is not None:
-            if method != "GET":
-                return _Response(
-                    405,
-                    _error("method_not_allowed", "This endpoint accepts GET only."),
-                )
-            return _Response(
-                *self._preview_snapshot(environ, preview_match.group(1).lower())
-            )
-
+        # Everything else, the retired preview path included, is `404`. There is
+        # no branch for it: route contract §1.1 retires it and P3.3's R-42 to
+        # R-46 supersede it, and leaving a branch that answered anything else
+        # would leave a second path to the same operation.
         return _Response(404, _error("not_found", "No such endpoint."))
 
     # -- preflight ------------------------------------------------------------
@@ -412,50 +409,6 @@ class SnapshotSubmissionApplication:
         # 200 for a duplicate rather than 201: nothing was created by this
         # request, and a client that treats 201 as "new" would be misled.
         return (200 if receipt.duplicate else 201), receipt.as_payload()
-
-    # -- preview --------------------------------------------------------------
-
-    def _preview_snapshot(
-        self, environ: Mapping[str, Any], checksum: str
-    ) -> tuple[int, dict[str, Any]]:
-        if self._preview is None or self._preview_user_resolver is None:
-            return 503, _error(
-                "authentication_unavailable",
-                "Snapshot preview requires the Discord-authenticated web "
-                "boundary, which this deployment does not have yet. The "
-                "submitted snapshot is unaffected and remains pending.",
-            )
-        try:
-            discord_user_id = self._preview_user_resolver(environ)
-        except AuthenticationFailed as failure:
-            return 401, _error("unauthenticated", str(failure))
-
-        query = parse_qs(environ.get("QUERY_STRING", ""))
-        folder_id = (query.get("folder") or [None])[0]
-        request_key = (query.get("request_key") or [f"preview:{checksum}"])[0]
-
-        try:
-            view = self._preview.preview(
-                checksum,
-                discord_user_id=discord_user_id,
-                request_key=request_key,
-                folder_id=folder_id,
-            )
-        except NotAuthorizedError as refusal:
-            return 403, _error(refusal.code, str(refusal))
-        except PreviewUnavailable as refusal:
-            return _PREVIEW_STATUS.get(refusal.code, 400), _error(
-                refusal.code, str(refusal)
-            )
-        except ImportRefused as refusal:
-            return 409, _error(refusal.code, str(refusal))
-        except (PersistenceError, UniquenessConflict) as error:
-            log_expected_failure(logger, "database_unavailable", error)
-            return 503, _error(
-                "database_unavailable",
-                "The preview could not be produced. Nothing was changed.",
-            )
-        return 200, view.as_payload()
 
 
 _STATUS_TEXT = {

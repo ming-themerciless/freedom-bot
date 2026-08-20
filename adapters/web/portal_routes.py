@@ -39,6 +39,12 @@ That is not an omission: route contract §2.3 requires the `404` for an
 inaccessible object and the `404` for an absent one to be byte-identical, and a
 correlation id differs per request, so printing one would make the two
 distinguishable by exactly the amount it varies (TC-OBJ-07).
+
+Since the accepted D-03 correction of 2026-08-19 the carrier is **VM-22
+`DeniedView`**, which has exactly `state` and `reason`. Every generic denial on
+this surface renders it. The non-member page keeps VM-02 and its
+membership-recovery context, because that page is *meant* to be distinguishable
+from "not signed in" — that distinction is its entire content.
 """
 from __future__ import annotations
 
@@ -83,6 +89,7 @@ from application.web.view_models import (
     Correlation,
     DeniedReason,
     DenialCategory,
+    DeniedView,
     Instant,
     NonMemberView,
     RoleCapabilityView,
@@ -378,16 +385,24 @@ def register(app: FastAPI, composition, authority) -> None:
         return JSONResponse({"error": refusal.code.value}, status_code=refusal.status)
 
     def _denied(request: Request, refusal: WebRefusal) -> HTMLResponse:
-        """The safe denial view. **No correlation id**, deliberately (TC-OBJ-07)."""
+        """VM-22. A state and a closed-vocabulary category, and nothing else.
+
+        **No correlation id**, deliberately (TC-OBJ-07) — and, from the accepted
+        D-03 correction of 2026-08-19, no field that could carry one. This used to
+        hand `denied.html` a `NonMemberView` (VM-02) with an empty guild name, an
+        empty `Instant` and the nil UUID: the rendered bytes were right, but only
+        because the template did not print three fields it was given, and P3.4
+        rewrites that template. `DeniedView` has the two fields the page may show
+        and no others, so byte-identity between an unreachable object's `404` and
+        an absent object's `404` is a property of the type rather than of a
+        template author's memory.
+        """
         return authority.render(
             request,
             "denied.html",
-            view=NonMemberView(
+            view=DeniedView(
                 state="denied",
                 reason=DeniedReason(_category(refusal)),
-                guild_display_name="",
-                checked_at=Instant("", ""),
-                correlation=Correlation(UUID(int=0)),
             ),
             status_code=refusal.status,
         )

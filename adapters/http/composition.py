@@ -15,13 +15,19 @@ misconfiguration that has been silently half-working, and two of these — the
 storage permissions and the durability guarantee — would otherwise be discovered
 by the first upload of every active character's mechanics.
 
-**There is no production preview composition, and that is the point.** The
-Council preview needs an `AuthorizationPort` that resolves current Discord guild
-membership and role, which is Phase 3 work and does not exist. `build_application`
-therefore composes no preview service, and the route answers `503
-authentication_unavailable`. Tests build their own composition with a test
-authorization adapter; there is no environment variable that turns one on in
-production, because there is nothing correct for it to turn on.
+**There is no preview composition here at all, and since P3.3 there is no
+preview route either.** The paragraph this replaces explained why
+`build_application` composed no preview service: the Council preview needed an
+`AuthorizationPort` resolving current Discord guild membership and role, which was
+Phase 3 work that did not exist, so the route answered `503
+authentication_unavailable`.
+
+Phase 3 built that boundary, and P3.3 supersedes the route rather than filling it
+in: R-42 to R-46 enqueue a durable preview job on the `/v1/*` browser boundary,
+with cookie sessions, CSRF and object authorization, and the worker executes it.
+Route contract §1.1 retires the `/api/v1/*` preview accordingly, so this
+composition builds a **submission-only** application — which is what it always
+built, now with nothing left over to explain.
 """
 from __future__ import annotations
 
@@ -156,11 +162,6 @@ def build_application(
             submissions,
             credentials,
             cors=cors,
-            # No preview service and no user resolver. See the module docstring:
-            # the Phase 3 authentication boundary does not exist, so the route
-            # fails closed rather than being served by something invented here.
-            preview=None,
-            preview_user_resolver=None,
         ),
         engine=engine,
         artifacts=artifacts,

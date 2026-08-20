@@ -16,6 +16,36 @@
   </p>
   <p>Reference {{ view.correlation.id }}.</p>
   {% if view.current is not none %}
-    <p data-current-state="{{ view.current.state }}">The current state is shown on the page you came from.</p>
+    <p data-current-state="{{ view.current.state }}">The current state is shown below.</p>
+    {#
+      **Extended by P3.3.** The P3.1/P3.2 conflicts are optimistic-version
+      clashes, where "somebody changed this first" is the whole story. A refused
+      import confirmation is not: the mandatory Phase 3 test requires that
+      *"Council confirmation displays the exact changed scope before a new
+      apply"*, so when the current view is a job status its `stale_reason` — a
+      closed-vocabulary code, never prose — is rendered here rather than left on
+      a page the caller has to navigate back to.
+
+      `view.current` is whatever view model belongs to the screen, so the branch
+      tests for the field rather than for a type. A conflict whose current state
+      has no stale reason renders exactly as it did before.
+    #}
+    {% if view.current.stale_reason is defined and view.current.stale_reason %}
+      <p data-field="stale-reason" data-code="{{ view.current.stale_reason.code }}">
+        The scope this confirmation was made against has changed:
+        {{ view.current.stale_reason.code }}. Nothing was applied. Produce a new
+        preview and confirm the current scope.
+      </p>
+    {% endif %}
+    {% if view.current.confirm is defined and view.current.confirm %}
+      <p data-field="confirm-scope"
+         data-checksum="{{ view.current.confirm.checksum_full }}"
+         data-folder-id="{{ view.current.confirm.folder.folder_id }}"
+         data-profile-version="{{ view.current.confirm.profile_version }}">
+        The current scope is {{ view.current.confirm.folder.folder_path.value }},
+        checksum {{ view.current.confirm.checksum_full }}, profile
+        {{ view.current.confirm.profile_version }}.
+      </p>
+    {% endif %}
   {% endif %}
 {% endblock %}

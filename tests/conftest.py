@@ -149,8 +149,8 @@ def resolve_test_database_url() -> str:
     return url
 
 
-def run_alembic(url: str, *arguments: str) -> subprocess.CompletedProcess[str]:
-    """Run Alembic in a subprocess against `url`, as a deployment would.
+def alembic_environment(url: str) -> dict[str, str]:
+    """The child environment both Alembic entry points below run with.
 
     The child inherits the parent's environment so it resolves the same target
     the parent validated, except for the libpq variables that could point it
@@ -165,12 +165,40 @@ def run_alembic(url: str, *arguments: str) -> subprocess.CompletedProcess[str]:
     environment["APP_ENVIRONMENT"] = TEST_ENVIRONMENT
     for name, value in BOOTSTRAP_TEST_IDENTIFIERS.items():
         environment.setdefault(name, value)
+    return environment
+
+
+def run_alembic(url: str, *arguments: str) -> subprocess.CompletedProcess[str]:
+    """Run Alembic in a subprocess against `url`, as a deployment would."""
     return subprocess.run(
         [sys.executable, "-m", "alembic", *arguments],
         cwd=ROOT,
-        env=environment,
+        env=alembic_environment(url),
         check=True,
         capture_output=True,
+        text=True,
+    )
+
+
+def start_alembic(url: str, *arguments: str) -> subprocess.Popen[str]:
+    """The same command, started rather than awaited, for concurrency cases.
+
+    Added by the 2026-08-18 second migration-rollback remediation. Migration
+    0013's downgrade guard now decides under a table lock, and the only honest
+    way to test a lock is to observe the real migration process **while it is
+    waiting** — which `run_alembic` cannot do, because it blocks until the child
+    exits.
+
+    The caller owns the process: it must reap it (`communicate(timeout=…)`) on
+    every path, including a failing assertion, or a stray Alembic child would
+    hold a connection and a lock into the next test.
+    """
+    return subprocess.Popen(
+        [sys.executable, "-m", "alembic", *arguments],
+        cwd=ROOT,
+        env=alembic_environment(url),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
     )
 
@@ -193,10 +221,44 @@ def migrated_database(database_url: str) -> Engine:
         engine.dispose()
         pytest.fail(f"Refusing to run destructive database tests: {error}")
 
+    _clear_committed_effects(engine)
     run_alembic(database_url, "downgrade", "base")
     run_alembic(database_url, "upgrade", "head")
     yield engine
     engine.dispose()
+
+
+def _clear_committed_effects(engine: Engine) -> None:
+    """Apply migration 0013's own documented remedy to the disposable database.
+
+    From the 2026-08-18 migration-rollback remediation, revision 0013 **refuses**
+    to downgrade a database in which any reconciliation job records a committed
+    import effect: dropping `effect_result` would destroy a publication payload
+    nothing may truthfully reconstruct, and would leave the database unable to
+    return to head. `downgrade base` is a downgrade, so it is refused too — and
+    correctly, because it is the destructive direction taken further.
+
+    A previous run interrupted between committing an effect and its own cleanup
+    would therefore make **every** later session fail at this fixture. The remedy
+    the refusal names for a disposable database with no history worth keeping is
+    to empty the reconciliation tables, so that is what is done here, and only
+    here: nothing in the application or the runtime role can do it (schema §11.2
+    grants no `DELETE` on `reconciliation_jobs`), and the next two lines are about
+    to drop the tables outright.
+
+    Silent when the tables do not exist, which is the ordinary case — the database
+    is usually already at `base` or below `0011`.
+    """
+    with engine.begin() as connection:
+        if connection.execute(
+            text("SELECT to_regclass('public.reconciliation_jobs')")
+        ).scalar_one() is None:
+            return
+        connection.execute(
+            text(
+                "TRUNCATE TABLE reconciliation_job_results, reconciliation_jobs"
+            )
+        )
 
 
 @pytest.fixture()

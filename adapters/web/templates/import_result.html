@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Import {{ view.import_id }} — Freedom Blades{% endblock %}
+{% block content %}
+  {#
+    VM-17, R-47. The immutable receipt, mirroring the append-only
+    `snapshot_imports` row.
+
+    **There is no download control and no correction control**, because there is
+    no route for either. `duplicate_of` is rendered when it is set, so a retry
+    says it is a retry rather than implying a second import happened.
+  #}
+  <h1>Import receipt</h1>
+  <dl data-import-id="{{ view.import_id }}"
+      data-status="{{ view.status }}"
+      data-mode="{{ view.mode }}">
+    <dt>Status</dt><dd data-field="status">{{ view.status }}</dd>
+    <dt>Applied by</dt>
+    <dd data-field="actor" data-capability="{{ view.capability.value }}">
+      {{ view.actor.label.value }}
+    </dd>
+    <dt>World</dt><dd data-field="world">{{ view.snapshot.world_id }}</dd>
+    <dt>Checksum</dt><dd data-field="checksum">{{ view.checksum_full }}</dd>
+    <dt>Folder</dt>
+    <dd data-field="folder" data-folder-id="{{ view.folder.folder_id }}">
+      {{ view.folder.folder_path.value }}
+    </dd>
+    <dt>Field profile</dt><dd data-field="profile-version">{{ view.profile_version }}</dd>
+    <dt>Created</dt><dd data-count="created">{{ view.created_count }}</dd>
+    <dt>Updated</dt><dd data-count="updated">{{ view.updated_count }}</dd>
+    <dt>Warnings</dt><dd data-count="warnings">{{ view.warning_count }}</dd>
+    <dt>Occurred</dt><dd data-field="occurred-at">{{ view.occurred_at.display }}</dd>
+    <dt>Correlation</dt><dd data-field="correlation">{{ view.correlation.id }}</dd>
+  </dl>
+  {% if view.issue_counts %}
+    <ul data-field="issues">
+      {% for issue in view.issue_counts %}
+        <li data-issue-code="{{ issue.code }}">{{ issue.code }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if view.duplicate_of %}
+    <p data-field="duplicate-of" data-job-id="{{ view.duplicate_of }}">
+      This confirmation returned an import that had already been applied. One
+      durable effect, one audit record.
+    </p>
+  {% endif %}
+{% endblock %}

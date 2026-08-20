@@ -1,7 +1,7 @@
 """The authorization chain's outer links, in the order route contract §2.1 sets.
 
     1. Host check          -> 400 before routing
-    2. Kill switch         -> 503 for everything except /healthz
+    2. Kill switch         -> 503 for everything except /healthz and /static/
     3. Body bound          -> 413 before the body is read
     4. Session resolution   (route dependency)
     5. Origin check         (route dependency, mutations only)
@@ -28,12 +28,23 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, Response
 
+from adapters.web.static_assets import STATIC_URL_PREFIX
 from application.web.config import WebSettings
 
 #: The one path that answers while the kill switch is engaged. It is on the
 #: loopback bind and is not published by Caddy, so leaving it up during
 #: maintenance exposes nothing and is what lets an operator watch recovery.
 HEALTH_PATH = "/healthz"
+
+#: M-01's prefix, and the second thing that answers while the kill switch is
+#: engaged (accepted D-03 correction, item D-03-1; route contract §1.2,
+#: operational contract §4.4). The maintenance body, the login page and the safe
+#: error page are exactly the pages a person sees during an incident, and serving
+#: them unstyled would make the incident look worse than it is. Nothing here is
+#: authenticated, nothing here reads the database, and nothing here is a route
+#: the switch exists to disable — the switch protects *the application*, and this
+#: prefix is a directory of files.
+STATIC_PREFIX = STATIC_URL_PREFIX + "/"
 
 #: N-26, exactly. Tightening it needs no policy decision; weakening it, adding a
 #: remote asset origin or allowing inline script/style requires documented
@@ -84,6 +95,16 @@ class KillSwitch(BaseHTTPMiddleware):
     Foundry**, which is the property that makes it usable during an incident. The
     file is `stat`-ed at most once per second per process, so the switch is
     effective within a second and costs one syscall.
+
+    **Two prefixes stay up**, and the second was added on 2026-08-19 by the
+    accepted D-03 correction: `/healthz`, so an operator can watch recovery, and
+    `/static/`, so the maintenance body itself, the login page and the safe error
+    page keep their presentation while the portal is disabled. Neither is a route
+    the switch exists to disable — one is loopback-only and unpublished, the other
+    is an unauthenticated directory of files that reads no database and reaches no
+    application service. Everything the switch is *for* — every `/v1/*` route,
+    every mutation, every Council and administrator surface — is refused exactly
+    as before, and `TC-STATIC-04` asserts both halves of that in one test.
     """
 
     def __init__(self, app, *, settings: WebSettings) -> None:
@@ -99,8 +120,18 @@ class KillSwitch(BaseHTTPMiddleware):
             self._checked_at = now
         return self._engaged
 
+    @staticmethod
+    def exempt(path: str) -> bool:
+        """The closed set of paths the switch leaves serving.
+
+        A method rather than an inline condition so the test that proves the
+        exemption is closed can enumerate it, and so adding a third prefix is a
+        visible change to a named rule.
+        """
+        return path == HEALTH_PATH or path.startswith(STATIC_PREFIX)
+
     async def dispatch(self, request: Request, call_next):
-        if request.url.path != HEALTH_PATH and self.engaged():
+        if not self.exempt(request.url.path) and self.engaged():
             response = PlainTextResponse(
                 "The Freedom Blades portal is temporarily unavailable for "
                 "maintenance. The Discord bot is unaffected.",
@@ -142,11 +173,27 @@ class BodyBound(BaseHTTPMiddleware):
 
 
 class SecurityHeaders(BaseHTTPMiddleware):
-    """§7.2, on every response this application produces.
+    """§7.2, on every response this application produces — M-01's included.
 
     `Cache-Control: no-store` is added to every authenticated response — an
     intermediary or a browser's back button holding a rendered protected page is
     the same disclosure as an unauthenticated read of it.
+
+    **`/static/` is scoped out of that one rule** (2026-08-19, accepted D-03
+    correction, item D-03-1), and only that one: the six security headers above,
+    including N-26's CSP and `nosniff`, still apply to every asset. The reason the
+    cache rule does not is that the rule's premise does not hold here. `no-store`
+    exists because a *rendered protected page* varies by caller and must not be
+    held by an intermediary; a static asset is byte-identical for every caller,
+    carries nothing about the session that fetched it, and is served by a mount
+    that never reads one. Without this scoping the header would be decided by
+    whether the person happened to be signed in — the same asset uncacheable for
+    members and cacheable for visitors — which is not a security property, just a
+    slower portal for the people who use it most.
+
+    `M-01` sets its own `Cache-Control` in `StaticAssets.get_response`, so the
+    exemption is a refusal to overwrite an already-correct header rather than an
+    absence of one. `TC-STATIC-05` asserts the value on a signed-in request.
     """
 
     def __init__(self, app, *, session_cookie_name: str) -> None:
@@ -157,8 +204,11 @@ class SecurityHeaders(BaseHTTPMiddleware):
         response: Response = await call_next(request)
         for header, value in SECURITY_HEADERS.items():
             response.headers.setdefault(header, value)
+        path = request.url.path
+        if path.startswith(STATIC_PREFIX):
+            return response
         authenticated = self._cookie in request.cookies
-        if authenticated or request.url.path.startswith("/v1/"):
+        if authenticated or path.startswith("/v1/"):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -210,6 +260,7 @@ __all__ = [
     "CONTENT_SECURITY_POLICY",
     "ClientAddressPolicy",
     "HEALTH_PATH",
+    "STATIC_PREFIX",
     "HostGuard",
     "KillSwitch",
     "SECURITY_HEADERS",

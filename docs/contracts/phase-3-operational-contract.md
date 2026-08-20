@@ -12,6 +12,15 @@ Revised 2026-08-13 by the P3.0 remediation: §5 adds the reaper-liveness,
 unratified-mapping and mapping-refusal signals, and §6 adds the matching recovery
 procedures. No topology, perimeter or worker conclusion changed.
 
+**Corrected 2026-08-19 under the accepted D-03 correction (change-log
+`C-P3.4-A`, item D-03-1), and dated rather than folded into the text above.**
+§4.4 is new and records the operational half of the application-served `/static/`
+asset surface: `freedom-web` serves it, Caddy gains no static handler, there is no
+configuration for it, assets ship with the application, and the kill switch leaves
+it serving. §4.1's table gains the matching `/static/*` row and §4.3 records the
+second kill-switch exemption. No topology, service, port, backup, monitoring
+signal or worker conclusion changes.
+
 ## 1. Evidence discipline for this document
 
 The P3.0 prompt is explicit: *"Do not claim the current firewall or staging
@@ -150,6 +159,7 @@ observable to every concurrent user and to monitoring.
 | Timeouts | Read/write bounded; the submission route keeps its accepted longer budget |
 | Headers | Adds HSTS; the application owns CSP and the rest (route contract §7.2) so there is one authority per header |
 | `/healthz` | **Not proxied.** It stays loopback-only (N-50) |
+| `/static/*` | **Proxied to `freedom-web` like any other path. No Caddy `file_server`, no `root` directive, no separate static handler.** See §4.4 |
 | CORS | Caddy adds **no** CORS header. The submission route's exact-origin allowlist is owned by the application (`adapters/http/cors.py`), unchanged |
 
 The Rehearsal B teardown lesson is recorded as a procedure, not a footnote: a
@@ -187,6 +197,53 @@ Layer 1 is the intended control, because health and monitoring keep working and
 an operator can see the system while it is disabled. **No layer touches
 `freedom-bot`, PostgreSQL or Foundry** — that separation is the requirement
 (delivery plan §9.11).
+
+**Layer 1 leaves two prefixes serving, and the second is new on 2026-08-19**
+(accepted D-03 correction, item D-03-1): `/healthz`, as it always has, and
+`/static/*`. The maintenance body, the login page and the safe error page are the
+pages a person sees while the switch is engaged, and serving them unstyled makes
+the incident look worse than it is. The exemption is narrow and closed: the static
+mount is unauthenticated, reads no database, opens no transaction and reaches no
+application service, so nothing the switch exists to stop is reachable through it.
+Every `/v1/*` route — every read, every mutation, every Council and administrator
+surface — answers `503` exactly as before, and one test asserts both halves
+together so the exemption cannot quietly widen.
+
+### 4.4 Application-served static assets (M-01)
+
+**Added 2026-08-19 by the accepted D-03 correction (`C-P3.4-A`, item D-03-1).**
+The URL grammar, caller state, methods and cache policy are the route contract's
+to state and are stated in its §1.2. What belongs here is the operational half.
+
+| Property | Value |
+|---|---|
+| Served by | `freedom-web`, from `adapters/web/static/` inside the deployed package |
+| Caddy | **Nothing.** No `file_server`, no `root`, no `handle_path` for `/static/*`. It is proxied like every other path |
+| Configuration | **None.** There is no environment variable for the static root or the cache policy. Both are properties of the deployed code |
+| Deployment | Assets ship **with the application**, in the same unit of deployment. There is no separate asset sync, no separate bucket and no CDN — N-26 permits no remote origin |
+| Kill switch | Exempt (§4.3) |
+| Backup / restore | Not applicable. The root holds no state and no operator data; it is restored by redeploying the application |
+| Monitoring | Nothing new. Asset requests are unauthenticated reads of public files and are not audited (plan §9.4) |
+
+**Why the application and not Caddy**, since a reverse proxy serving files is the
+conventional answer. §4.1's table gives Caddy exactly two jobs — TLS and HSTS —
+and assigns every other header to the application, so that each header has one
+authority. A `file_server` would have broken that rule for exactly the responses
+whose headers matter most to N-26: the CSP and `nosniff` on an asset would come
+from the application's middleware only if the request reached the application,
+which by construction it would not. Serving from `freedom-web` also keeps the
+surface inside the closed inventory a test can assert, and keeps development and
+production identical rather than leaving a proxy-only path that no test exercises.
+
+The cost is honest and small: asset requests occupy `freedom-web` workers. On a
+co-located host serving one guild's Council and members, that is not the
+constraint — the measured constraint is the artifact parse the delivery plan
+already moved to a worker process (§3).
+
+**Rehearsal-B rule applies unchanged.** If a temporary Caddy route is ever added
+for an asset experiment, it is reverted by removing the block explicitly and
+verified with a live request, never by restoring a backup whose capture time is
+unverified (§4.1).
 
 ## 5. Monitoring without personal data
 

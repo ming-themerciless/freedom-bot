@@ -408,6 +408,19 @@ class ConfigurationProblem:
         return f"{tag}{named}: {self.message}"
 
 
+class ProcessRole(Enum):
+    """Which of the two processes is reading the environment.
+
+    The pair is closed and always will be: the topology has exactly `freedom-web`
+    and `freedom-worker`, both running the same code from the same virtualenv,
+    and adding a third would be a change to the accepted topology rather than a
+    new enum member.
+    """
+
+    WEB = "web"
+    WORKER = "worker"
+
+
 class WebEnvironment(Enum):
     DEVELOPMENT = "development"
     TEST = "test"
@@ -1226,8 +1239,35 @@ class WebSettings:
         return urlsplit(self.public_origin).hostname or ""
 
     @classmethod
-    def from_environment(cls, values: Mapping[str, str]) -> "WebSettings":
-        """Build settings, or raise `ConfigurationError` naming every problem."""
+    def from_environment(
+        cls, values: Mapping[str, str], *, process: "ProcessRole | None" = None
+    ) -> "WebSettings":
+        """Build settings, or raise `ConfigurationError` naming every problem.
+
+        `process` says **which** of the two processes is reading, and it exists
+        because S-11 is a statement about one of them.
+
+        Until P3.3 this method refused `WORKER_ENABLED=true` unconditionally,
+        which was right while there was only a web process and wrong the moment
+        there were two: the worker reads the same variables from the same
+        environment, so the refusal made it impossible for the worker to read its
+        own configuration at all.
+
+        The rule is **not relaxed**; it is made symmetric, and its subject is
+        stated rather than assumed:
+
+        - a **web** process with `WORKER_ENABLED=true` is refused `S-11`, exactly
+          as before and with the same sentence — a web process that claimed jobs
+          would execute the GIL-holding preview work N-40 exists to keep out of
+          it, stalling polling, health and every other request;
+        - a **worker** process with `WORKER_ENABLED=false` is refused `S-11` too,
+          because it would claim no job while appearing to run — monitoring sees
+          a live process and Council members watch a spinner.
+
+        The default is `WEB`, so every existing caller — `create_app`, the
+        operator commands, the suites — keeps the behaviour it had, and nothing a
+        web factory passes can change which rule applies to it.
+        """
         reader = _Reader(values)
         environment = _read_environment(reader)
         public_origin = _read_public_origin(reader, environment)
@@ -1247,11 +1287,20 @@ class WebSettings:
         bounds = _read_bounds(reader)
         worker = _read_worker(reader)
 
-        if worker.enabled:
+        role = process or ProcessRole.WEB
+        if role is ProcessRole.WEB and worker.enabled:
             reader.fail(
                 "must be false in the web process. A web process that claimed jobs "
                 "would execute the GIL-holding preview work N-40 exists to keep out "
                 "of it, stalling polling, health and every other request.",
+                "WORKER_ENABLED",
+                refusal="S-11",
+            )
+        if role is ProcessRole.WORKER and not worker.enabled:
+            reader.fail(
+                "must be true in a freedom-worker process. It is the one variable "
+                "that distinguishes this process from freedom-web, and a worker "
+                "started with it false would claim no job while appearing to run.",
                 "WORKER_ENABLED",
                 refusal="S-11",
             )
@@ -2191,6 +2240,7 @@ __all__ = [
     "PRODUCTION_REDIRECT_URI",
     "PolicyBound",
     "RATE_LIMIT_BOUNDS",
+    "ProcessRole",
     "REQUEST_BOUNDS",
     "REQUIRED_OAUTH_SCOPES",
     "RateLimitSettings",

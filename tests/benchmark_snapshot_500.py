@@ -64,6 +64,16 @@ CHECKED_MUTATED_TABLES = (
     "identity_link_proposal_candidates",
     "identity_link_proposals",
     "identity_migration_runs",
+    # **Extended by P3.3** (migration 0011), for exactly the same reason. All
+    # three reference `foundry_snapshots`, so PostgreSQL refuses to truncate it
+    # unless they are truncated in the same statement. The results come before
+    # the jobs because the two tables reference each other — a job names its
+    # result and a result names its job — and one `TRUNCATE` naming both
+    # satisfies the cycle in either order, which is why the cycle needs no
+    # `CASCADE` either.
+    "reconciliation_job_results",
+    "reconciliation_jobs",
+    "snapshot_folder_selections",
     "external_actor_mappings",
     "snapshot_imports",
     "foundry_snapshots",

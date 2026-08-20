@@ -486,10 +486,24 @@ class SnapshotImportService:
         preview: SnapshotPreview,
         *,
         discord_user_id: int | None = None,
+        actor_account_id: UUID | None = None,
         bootstrap: SupervisedBootstrap | None = None,
         folder_id: str | None = None,
+        commit_fence=None,
     ) -> ImportOutcome:
         """Re-check everything, then commit in one transaction — or refuse.
+
+        `actor_account_id` is the stable platform account the import is recorded
+        under (ADR 0010 D1, schema §11). **Added by P3.3, keyword-only and
+        defaulting to `None`**, so the Phase 2 operator path and the supervised
+        bootstrap are unchanged and unaffected — neither has an account, and the
+        first predates them entirely.
+
+        It is recorded, never trusted. The *authority* for the apply is still
+        resolved through the `AuthorizationPort` from `discord_user_id`, at the
+        moment of the commit, exactly as before; this only decides which column
+        the resulting row's attribution is written to. Passing an account here
+        confers nothing.
 
         `folder_id` is the folder that is selected *now* — in Phase 3, whatever
         the Platform Administrator has configured at the moment of the apply.
@@ -497,6 +511,19 @@ class SnapshotImportService:
         apply becomes a stale preview instead of a silent import from a folder
         nobody confirmed. Omitting it means "the preview's folder is still the
         selected one".
+
+        `commit_fence` is an optional `application.worker.fence.CommitFence`
+        (added by the 2026-08-18 P3.3 remediation). When one is given, its
+        `hold()` runs as the **last statement of the same transaction that
+        commits the effect**, and a fence that refuses aborts that transaction
+        with nothing written. It is how a caller whose entitlement to commit can
+        be revoked concurrently — a worker holding a job lease that may be
+        cancelled, abandoned or reaped — proves at the commit boundary that it
+        still holds it.
+
+        It defaults to `None` and the parameter is keyword-only, so Phase 2's
+        operator path and the supervised bootstrap are unchanged: neither has a
+        lease that anything can revoke, so neither has anything to prove.
         """
         context, capability, mode, supervisor = self._resolve_authority(
             discord_user_id=discord_user_id, bootstrap=bootstrap
@@ -532,9 +559,11 @@ class SnapshotImportService:
                     supervisor=supervisor,
                     bootstrap=bootstrap,
                     actor_discord_user_id=discord_user_id,
+                    actor_account_id=actor_account_id,
                     correlation_id=correlation_id,
                     folder=folder,
                     digest=digest,
+                    commit_fence=commit_fence,
                 )
             except UniquenessConflict as conflict:
                 # Another transaction claimed an identity this one needed. The
@@ -562,6 +591,7 @@ class SnapshotImportService:
                 mode=mode,
                 supervisor=supervisor,
                 actor_discord_user_id=discord_user_id,
+                actor_account_id=actor_account_id,
                 correlation_id=correlation_id,
                 folder=folder,
                 digest=digest,
@@ -579,9 +609,11 @@ class SnapshotImportService:
         supervisor: str | None,
         bootstrap: SupervisedBootstrap | None,
         actor_discord_user_id: int | None,
+        actor_account_id: UUID | None,
         correlation_id: UUID,
         folder: str,
         digest: str,
+        commit_fence=None,
     ) -> ImportOutcome:
         with self._unit_of_work_factory() as unit_of_work:
             if mode is ImportMode.BOOTSTRAP:
@@ -665,6 +697,7 @@ class SnapshotImportService:
                 mode=mode,
                 actor_capability=capability,
                 actor_discord_user_id=actor_discord_user_id,
+                actor_account_id=actor_account_id,
                 supervisor=supervisor,
                 created_count=created,
                 updated_count=0,
@@ -712,6 +745,15 @@ class SnapshotImportService:
                     ),
                 )
             )
+            if commit_fence is not None:
+                # **The last statement before the commit, and deliberately so.**
+                # Everything above is already pending in this session; issuing a
+                # statement here flushes it and then takes the fence's own row
+                # lock, which is therefore held for the commit alone rather than
+                # for the whole apply. A fence that refuses raises `FenceLost`,
+                # the `with` block rolls the session back, and not one character,
+                # mapping, import row or audit event survives.
+                commit_fence.hold(unit_of_work)
             # State, mappings, reconciliation effects, correction transactions
             # and the success audit commit together. An audit failure takes the
             # state with it, because there is one transaction and this is it.
@@ -1179,6 +1221,7 @@ class SnapshotImportService:
         mode: ImportMode,
         supervisor: str | None,
         actor_discord_user_id: int | None,
+        actor_account_id: UUID | None,
         correlation_id: UUID,
         folder: str,
         digest: str,
@@ -1212,6 +1255,7 @@ class SnapshotImportService:
                         mode=mode,
                         actor_capability=capability,
                         actor_discord_user_id=actor_discord_user_id,
+                        actor_account_id=actor_account_id,
                         supervisor=supervisor,
                         warning_count=report.warning_count,
                         summary={**report.summary(), "refusal_code": refusal.code},

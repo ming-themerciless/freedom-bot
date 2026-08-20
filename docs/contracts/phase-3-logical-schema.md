@@ -1175,6 +1175,8 @@ PostgreSQL is the shared state both already have.
 | `heartbeat_at` | TIMESTAMPTZ | N-23 |
 | `queued_at`, `started_at`, `finished_at` | TIMESTAMPTZ | |
 | `cancel_requested_at` | TIMESTAMPTZ | Cancellation is a **request**, not a state (N-27 has six states and gains no seventh) |
+| `effect_committed_at` | TIMESTAMPTZ | **Added 2026-08-18 by migration 0012 (the commit fence).** Written by, and only by, the transaction that commits the import effect. `NULL` for every `preview` and for every apply whose effect has not committed. It is what makes SM-05's "a committed apply can never be cancelled, abandoned or reaped" a row-level serialization rather than an ordering hope — see SM-05 §"The commit fence". Never cleared: it is also what tells the reaper that an expired lease over this job is a **publication the platform owes** rather than an attempt to retry or exhaust (migration 0013) |
+| `effect_result` | JSONB | **Added 2026-08-18 by migration 0013 (effect-publication recovery).** The bounded summary and blocked-entry list the run produced, written by the commit fence **in the same statement, and therefore the same transaction, as `effect_committed_at`**. It is what makes a committed effect publishable after the process that ran it is gone: recovery reads this and the immutable `snapshot_imports` receipt and publishes one `completed` result, without re-parsing the artifact, re-resolving authority or spending one of N-43's three attempts. Bounded by exactly what a result row is bounded by, because it is the same value (delivery plan §8.9): counts, closed-vocabulary issue codes, the folder identity, the checksum, and at most 50 blocked create-candidates carrying one 120-character display name each |
 | `stale_reason`, `failure_code` | VARCHAR(40) | Closed vocabularies matching VM-15 |
 | `result_id` | UUID | FK → `reconciliation_job_results.id` `RESTRICT` |
 | `correlation_id` | UUID | |
@@ -1191,6 +1193,66 @@ Constraints and indexes:
   than as a code review comment.
 - `CHECK ((state = 'failed') = (failure_code IS NOT NULL))`
 - `CHECK ((state = 'stale') = (stale_reason IS NOT NULL))`
+- `CHECK ((kind = 'apply') OR (effect_committed_at IS NULL))` (2026-08-18) — a
+  preview rolls its own transaction back and writes nothing, so it has no effect
+  to fence and can never carry a commit timestamp.
+- **Rollback boundary (2026-08-18, restated by the second migration-rollback
+  remediation).** Because the constraint below makes the pair inseparable,
+  downgrade below `0013` is **refused while any retained reconciliation job
+  records a committed effect**, and becomes available again only when no such job
+  survives — either none has committed, or the approved N-24 retention process has
+  removed every completed committed-effect job and its result and no
+  committed-but-unpublished job remains. The guard counts retained rows under
+  `LOCK TABLE reconciliation_jobs IN ACCESS EXCLUSIVE MODE`, taken before the
+  count and held to the end of the migration transaction. Retention never removes
+  a `running` job, so an unpublished effect blocks at any age. Ratification of the
+  operational consequence is RAID `D-09`; see `docs/operations/web-portal.md` §3.6.
+- **`CHECK ((effect_committed_at IS NULL) = (effect_result IS NULL))`**
+  (2026-08-18, migration 0013, named `effect_result_accompanies_the_fence`) — the
+  fence writes both columns in one statement, so a job that records a committed
+  effect always records what its publication owes. Without it a crash could leave
+  an effect nobody can publish from durable data, and the only recovery left would
+  be the one this remediation removed: re-running the attempt and spending one of
+  N-43's three.
+- **`CHECK (effect_committed_at IS NULL OR state NOT IN ('failed','cancelled','stale'))`**
+  (2026-08-18, migration 0013, named `committed_effect_is_never_denied`) — each of
+  those three states asserts that *nothing was applied*, so none of them can
+  describe an apply whose import is durable. Every application statement carries
+  the matching predicate and therefore **refuses** rather than violates; this
+  constraint is what makes the invariant true for direct runtime-role SQL and for
+  a statement a future change forgets the predicate in. `queued` is deliberately
+  absent: no production statement requeues a committed effect any more, and leaving
+  the state representable keeps the import service's spent-request-key path a
+  working safety net instead of a constraint violation.
+
+  **Migration precondition, added 2026-08-18 by the migration-rollback
+  remediation; predicate corrected 2026-08-19.** This constraint is what a
+  downgrade must not be allowed to leave unsatisfiable. Because `effect_result`
+  is written only by the fence and holds values that exist in no other row — the
+  blocked create-candidate list, the `{code, severity, count}` issue counts,
+  `would_create`/`would_update`, `selected_folder_path` — dropping it destroys a
+  payload nothing may truthfully reconstruct, and this constraint then refuses
+  the re-upgrade of every **surviving** row that carried one. So `0013`'s
+  `downgrade()` **refuses, before any schema change, while any retained
+  reconciliation job records a committed import effect, and becomes available
+  again once no such job survives** — either because no apply has committed, or
+  because the approved N-24 retention process has removed every completed
+  committed-effect job and its result and no committed-but-unpublished job
+  remains. The guard counts surviving rows because surviving rows are exactly
+  what a drop can destroy; it records no historical "an apply once committed"
+  fact, and this schema holds none. A committed-but-unpublished job is `running`
+  and therefore never retention-eligible at any age, so it refuses the downgrade
+  until it is published. Retention is not a rollback technique: manual deletion,
+  truncation of history, a shortened period and an early sweep are all outside
+  the supported procedure. The boundary, the preflight, the worker/version
+  ordering and the recovery procedure are `docs/operations/web-portal.md` §3.6;
+  the operational contract it implies was accepted 2026-08-19 as RAID D-09
+  (`C-P3.3-D`, `C-P3.3-E`, RAID `D-09`).
+
+  *Superseded wording, recorded so a reader meeting it elsewhere knows it is
+  dead:* an earlier revision of this bullet said the constraint "closes schema
+  rollback" once **any** committed effect exists. It does not; see the corrected
+  predicate above.
 - `CHECK (attempts >= 0 AND attempts <= 3)` (N-43)
 - **`CHECK (state <> 'queued' OR attempts < 3)`** — *a queued job always has a
   remaining attempt.* This is the constraint the first revision of this contract

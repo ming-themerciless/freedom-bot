@@ -69,8 +69,33 @@ PHASE_3_P3_2_TABLES = {
     "identity_link_proposal_candidates",
 }
 
+#: Phase 3 P3.3 (migration 0011). The durable job queue, its bounded results, and
+#: the administrator's folder selection.
+#:
+#: The accepted schema §10 names the two job tables and gives their columns.
+#: `snapshot_folder_selections` it does not name, and the reason it must exist is
+#: a property of a table the schema *does* classify: `foundry_snapshots` is
+#: append-only — `SELECT, INSERT` for the runtime role, and migration 0002's
+#: trigger refuses `UPDATE` and `DELETE` on it for the schema owner too — so
+#: R-41's changeable selection cannot be a column on it. The addition follows the
+#: precedent P3.2 set with `identity_migration_runs` and is recorded in the P3.3
+#: submission.
+#:
+#: None of them is authorization-bearing, and none of them holds artifact bytes:
+#: a job carries identifiers, counts and closed vocabularies, and the artifact
+#: stays in the restricted store no route reaches.
+PHASE_3_P3_3_TABLES = {
+    "snapshot_folder_selections",
+    "reconciliation_jobs",
+    "reconciliation_job_results",
+}
+
 EXPECTED_TABLES = (
-    PHASE_1_TABLES | PHASE_2_TABLES | PHASE_3_TABLES | PHASE_3_P3_2_TABLES
+    PHASE_1_TABLES
+    | PHASE_2_TABLES
+    | PHASE_3_TABLES
+    | PHASE_3_P3_2_TABLES
+    | PHASE_3_P3_3_TABLES
 )
 
 #: Tables the Acceptance Authority rejected with ADR 0008 on 2026-08-02. Named

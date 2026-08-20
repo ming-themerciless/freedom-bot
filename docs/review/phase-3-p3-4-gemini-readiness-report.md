@@ -609,3 +609,385 @@ This checklist must be evaluated by the maintainer prior to authorizing P3.4 pro
 ---
 
 P3.4 readiness analysis complete; P3.4 implementation remains NO-GO until P3.G2 and P3.G3 close, and no production or frozen-prototype file was changed.
+
+---
+
+# Addendum — current-state reconciliation, 2026-08-19
+
+**Added by:** Claude, as backend contract owner and working Technical Lead
+**Basis:** the accepted P3.1–P3.3 tree at `c318231` plus uncommitted P3.3 work
+**Nothing above this line is rewritten.** §§1–12 are the 2026-08-14 analysis and
+its NO-GO conclusion. That conclusion was correct on its own date: P3.G1, P3.G2
+and P3.G3 were all open. This addendum records what changed, corrects the parts
+of the 2026-08-14 analysis that the accepted implementation falsified, and
+states the current disposition.
+
+## A1. Gate state as at 2026-08-19
+
+| Gate | State | Record |
+|---|---|---|
+| P3.G0 — contract and security design baseline | **Closed 2026-08-13** | `docs/contracts/README.md`; change-log *Phase 3 P3.G0 final acceptance and P3.1 authorization* |
+| P3.G1 — authentication and security foundation | **Closed 2026-08-16** | `phase-3-p3-g1-independent-and-security-re-review-2026-08-16.md`; RAID *P3.G1 closure amendment — 2026-08-16* |
+| P3.G2 — member reads, identity reconciliation, access administration | **Closed 2026-08-18** | change-log `C-P3.2-D` |
+| P3.G3 — Council import, durable jobs, audit views | **Closed 2026-08-19** | change-log `C-P3.3-K` |
+| P3.G4 — frontend/integration/accessibility and visual acceptance | **Open** | Peter only. Claude, Gemini and Codex cannot close it |
+| D-03 backend route/view-model approval | **Open** | RAID D-03; `C-P3.3-K`; `C-P3.3-L`; `phase-3-p3-4-authorisation-and-conditions.md` §5 |
+| I-06 isolated staging evidence | **Open** | RAID I-06; `C-P3.3-L` |
+| A-05 protected administrator / WebAuthn readiness | **Open** | RAID A-05; `C-P3.3-L` |
+
+`C-P3.3-K` authorizes **P3.4 development**. It authorizes no deployment, no
+public exposure, no live-service contact and no live-data use. `C-P3.3-L` fixes
+the order: P3.4 development → isolated staging and I-06 → A-05 → **D-03 before
+Gemini production integration** → a separate exposure decision.
+
+## A2. Reconciliation of the 2026-08-14 gaps
+
+| 2026-08-14 gap | Disposition now | Evidence |
+|---|---|---|
+| GAP-01 — P3.G1 open | **Closed** 2026-08-16 | RAID P3.G1 closure amendment |
+| GAP-02 — P3.2 not implemented | **Closed.** R-20…R-38 are implemented and accepted | `adapters/web/portal_routes.py`; `C-P3.2-D` |
+| GAP-03 — P3.3 not implemented | **Closed.** R-40…R-49 are implemented and accepted | `adapters/web/import_routes.py`; `C-P3.3-K` |
+| GAP-04 — real-folder apply runtime and worker memory unmeasured | **Still open; moved to I-06.** TC-PERF-01…03 are staging evidence and cannot be produced locally | traceability §17, §20; RAID I-06 |
+| GAP-05 — four screens lack prototype pages | **Still open, unchanged, and confirmed exact.** The four are VM-10, VM-12, VM-13 and VM-18 | view-model contract §10, re-read 2026-08-19 |
+| GAP-06 — assistive-technology testing unrun | **Still open; belongs to P3.G4** as TC-UI-09 | traceability §16, §20 |
+| *(new)* six backend-contract items | **Open; they are the substance of D-03.** See §A6 | this addendum |
+
+## A3. Corrections to the 2026-08-14 analysis
+
+These are recorded because the sections above are preserved unedited and a
+reader must not carry their errors into implementation.
+
+1. **The TC-UI identifiers in §3 are wrong.** The accepted set is TC-UI-01…09
+   only (traceability §16). §3's matrix cites `TC-UI-10` and `TC-UI-11`, which do
+   not exist, and assigns `TC-UI-08` to VM-12 and `TC-UI-09` to VM-13 as though
+   they were per-screen automated cases. **TC-UI-08 is a real-device check on
+   Peter's own hardware and TC-UI-09 is a screen-reader traversal.** Neither is
+   per-screen, neither is automatable, and traceability §16 states in terms that
+   they "must not be reported as passing on automated evidence".
+2. **`TC-VM-05` … `TC-VM-21` in §3 do not exist.** The accepted set is
+   TC-VM-01…05, and TC-VM-05 is specifically *`level = None` renders as "not
+   recorded", never `0`*.
+3. **R-37 requires no reason.** §4.2 item 4 lists "identity unlink reason" among
+   the forms requiring a non-blank reason. The route contract §5.1 requires none,
+   and the handler reads none — it takes the CSRF token and the path identifier
+   and nothing else.
+4. **R-46 submits no version.** §4.2 item 4 says "`preview_token` & versions".
+   The form carries `preview_token` and `nonce`; the checksum, folder, profile
+   version and aggregate versions are **re-read server-side** and are not
+   browser inputs (route contract §6.1, step 4).
+5. **R-36 does not redirect.** §4.1's inventory follows the route contract's
+   *Response* column (`303` to provider). The accepted implementation answers
+   `200` rendering VM-13 in its `denied` state — which is what the same
+   contract's §5.1 prose requires. See D-03-5 below.
+6. **§9.1's proposed file tree already conflicts with the accepted tree.** It
+   proposes `council_character_index.html` and `council_character_links.html`;
+   the accepted templates are `council_characters.html` and
+   `character_links.html`, and the accepted fragments are
+   `identity_search.html`, `job_status_fragment.html` and `audit_results.html`
+   at the template root rather than under `partials/`. §A7 supersedes it.
+7. **§9.1 proposes `portrait-preview.js`.** Phase 3 renders no character image
+   (view-model contract §3.4): `CharacterPortrait` carries `state`, `initials`
+   and `accessible_label`, and there is nothing to preview. The prototype's
+   dialog is not a Phase 3 component.
+
+## A4. The accepted implementation, proved rather than assumed
+
+Read-only comparisons run against the current tree on 2026-08-19. Commands and
+literal output are in §A9.
+
+| Claim | Result |
+|---|---|
+| The registered route inventory equals the accepted contract exactly | **39 = 39**; no contract-only route, no implementation-only route, no method or path difference |
+| Routes deferred to a later package | `DEFERRED_ROUTES == {}` — the accepted inventory is complete |
+| The implemented view-model set equals the documented `vm-1` set | **21 = 21**; `DEFERRED_VIEW_MODELS == {}` |
+| Version identifier | `VIEW_MODEL_VERSION == "vm-1"` |
+| Field-level comparison of all 21 view models against the contract's own type sketches | One implementation-only field (VM-13 `csrf_token`) and one ordering difference (VM-12). No field is missing, renamed or removed |
+| No character-game-state mutation affordance | `CharacterDetailView` has no form token, no editable field and no action list; `my_characters.html` and `character_detail.html` contain zero `<form>` elements |
+| Deferred legacy fields cannot carry a value | `MigrationDeferred` fields are exactly `{field_key, owning_package}` |
+| Safe error carries nothing else | `SafeErrorView` fields are exactly `{state, correlation, message_code}` |
+| Current minimal templates are already CSP-clean | zero `\|safe`, zero `hx-on:`, zero `<script>`, zero `design-prototype/` references, zero absolute URLs, CDN or remote-font references across all 24 templates |
+
+**Conclusion on drift:** on everything a static comparison can decide — the
+closed route set, the view-model set, the version, the field shapes, and the
+absence controls — the accepted implementation matches the frozen contract.
+The six items in §A6 are gaps *in* the contract or inconsistencies *within* it,
+not places where the implementation departed from an accepted sentence.
+
+## A5. Current-tree route matrix — what Gemini may consume
+
+Authority column uses the route contract's caller states. `obj` = object-scoped.
+`cont` = reachable by a continuity-scoped session (`BG`/`AC`) within N-65/N-67.
+Every mutation additionally requires the exact `Origin` (N-01) and a
+session-bound synchronizer CSRF token (N-17) read from the view model, never
+from a cookie.
+
+### P3.1 — `adapters/web/app.py`
+
+| R | Method · path | Kind | Authority | View model | Template | Inputs | Success | Bound |
+|---|---|---|---|---|---|---|---|---|
+| R-01 | GET `/` | navigation | all | – | – | – | `303` `/v1/characters` or `/v1/login` | – |
+| R-02 | GET `/v1/login` | full page | all | **VM-01** | `login.html` | – | `200` | – |
+| R-03 | GET `/v1/auth/discord/start` | navigation | all | – | – | `return` (server-side allowlist) | `303` to provider | N-18 |
+| R-04 | GET `/auth/discord/callback` | navigation | all | **VM-02** on refusal | `non_member.html` | provider `code`, `state` | `303` to stored target; `403` VM-02 for a non-member | N-18 |
+| R-05 | POST `/v1/auth/logout` | form | session | – | – | `csrf_token` | `303` `/v1/login` | 1 KiB |
+| R-06 | GET `/v1/auth/emergency` | full page | all | **VM-04** | `emergency.html` | – | `200` | – |
+| R-07 | POST `…/emergency/webauthn/options` | JSON `fetch` | all | – | – | JSON | `200` JSON | N-32 · 4 KiB |
+| R-08 | POST `…/emergency/webauthn/verify` | JSON `fetch` | all | – | – | JSON assertion | `200` JSON | N-32 · 16 KiB |
+| R-09 | POST `…/emergency/recovery` | form | all | – | – | grant token | `303` `/v1/admin/role-capabilities` | N-33 · 4 KiB |
+| R-10 | GET `/healthz` | operator JSON | loopback only (N-50) | **VM-16** | – | – | `200`/`503` JSON | – |
+
+R-07 and R-08 are the **only** browser JSON routes in Phase 3, and they exist
+solely because the WebAuthn API requires script-driven credential exchange.
+Nothing else in P3.4 may use `fetch`.
+
+### P3.2 — `adapters/web/portal_routes.py`
+
+| R | Method · path | Kind | Authority | View model | Template | Inputs | Success |
+|---|---|---|---|---|---|---|---|
+| R-20 | GET `/v1/characters` | full page | `M` `C` `CA` | **VM-05** | `my_characters.html` | – | `200` |
+| R-21 | GET `/v1/characters/{character_id}` | full page | `M`(obj) `C` `CA` | **VM-06** | `character_detail.html` | – | `200`; `404` otherwise |
+| R-22 | GET `/v1/council/characters` | full page | `C` `CA` | **VM-07** | `council_characters.html` | `q`, `cursor`, `size` | `200` |
+| R-23 | GET `/v1/council/characters/{character_id}/links` | full page | `C` `CA` | **VM-08** | `character_links.html` | `cursor` | `200` |
+| R-24 | GET `/v1/council/identity-search` | **fragment** of R-23 | `C` `CA` | **VM-09** | `identity_search.html` | `q` (≥2, ≤120), `character_id` | `200` fragment; `401` unauthenticated |
+| R-25 | POST `/v1/council/characters/{character_id}/links` | form | `C` `CA` | – | – | `csrf_token`, `version`, `subject`, `access_kind`, `reason` | `303` R-23 |
+| R-26 | POST `…/links/{access_id}/revoke` | form | `C` `CA` | – | – | `csrf_token`, `version`, `reason` | `303` R-23 |
+| R-27 | POST `…/links/{access_id}/default` | form | `C` `CA` | – | – | `csrf_token`, `version`, `reason` | `303` R-23 |
+| R-28 | GET `/v1/council/identity-migration` | full page | `C` `CA` | **VM-10** | `identity_migration.html` | `cursor`, `size` | `200` |
+| R-29 | POST `…/identity-migration/{proposal_id}/confirm` | form | `C` `CA` | – | – | `csrf_token`, `version`, `reason` | `303` R-28 |
+| R-30 | POST `…/identity-migration/{proposal_id}/reject` | form | `C` `CA` | – | – | `csrf_token`, `reason` | `303` R-28 |
+| R-31 | GET `/v1/council/field-profile` | full page | `C` `A` `CA` | **VM-11** | `field_profile.html` | – | `200` |
+| R-32 | GET `/v1/admin/role-capabilities` | full page | `A` `CA` `cont` | **VM-12** | `role_capabilities.html` | – | `200` |
+| R-33 | POST `/v1/admin/role-capabilities` | form | `A` `CA` `cont`(N-67) | – | – | `csrf_token`, `role_id`, `capability`, `reason` | `303` R-32 |
+| R-34 | POST `…/role-capabilities/{mapping_id}/revoke` | form | `A` `CA` `cont`(N-67) | – | – | `csrf_token`, `version`, `reason` | `303` R-32 |
+| R-35 | GET `/v1/account/identities` | full page | any session, `cont` | **VM-13** | `account_identities.html` | – | `200` |
+| R-36 | GET `/v1/account/identities/link/start` | full page | any session (not `BG`) | **VM-13** `state="denied"` | `account_identities.html` | – | **`200`**, not a redirect — see D-03-5 |
+| R-37 | POST `/v1/account/identities/{identity_id}/unlink` | form | any session (not `BG`) | – | – | `csrf_token` **only** | `303` R-35 |
+| R-38 | POST `…/role-capabilities/{mapping_id}/ratify` | form | `A` `CA` full scope only | – | – | `csrf_token`, `version`, `reason` | `303` R-32 |
+
+### P3.3 — `adapters/web/import_routes.py`
+
+| R | Method · path | Kind | Authority | View model | Template | Inputs | Success | Body |
+|---|---|---|---|---|---|---|---|---|
+| R-40 | GET `/v1/council/snapshots` | full page | `C` `A` `CA` | **VM-14** | `council_snapshots.html` | `cursor`, `size` | `200` | – |
+| R-41 | POST `/v1/admin/snapshots/{snapshot_id}/folder` | form | `A` `CA` | – | – | `csrf_token`, `folder_id` | `303` R-40 | 4 KiB |
+| R-42 | POST `/v1/council/snapshots/{snapshot_id}/preview-jobs` | form | `C` `CA` | – | – | `csrf_token`, `nonce` | `303` R-43 | 4 KiB |
+| R-43 | GET `/v1/council/jobs/{job_id}` | full page | `C` `CA` | **VM-15** | `job_status.html` | – | `200` | – |
+| R-44 | GET `/v1/council/jobs/{job_id}/status` | **fragment** of R-43 | `C` `CA` | **VM-15** | `job_status_fragment.html` | – | `200` + `Retry-After`; `401` unauthenticated | – |
+| R-45 | POST `/v1/council/jobs/{job_id}/cancel` | form | `C` `CA` | – | – | `csrf_token` | `303` R-43 | 4 KiB |
+| R-46 | POST `/v1/council/jobs/{job_id}/apply` | form | `C` `CA` | – | – | `csrf_token`, `preview_token`, `nonce` | `303` R-43 | 8 KiB |
+| R-47 | GET `/v1/council/imports/{import_id}` | full page | `C` `A` `CA` | **VM-17** | `import_result.html` | – | `200` | – |
+| R-48 | GET `/v1/audit` | full page | `C` `A` `CA` `cont` | **VM-18** | `audit_search.html` | `action`, `entity_type`, `entity_id`, `capability`, `source`, `from`, `to`, `correlation_id`, `cursor`, `size` | `200` | – |
+| R-49 | GET `/v1/audit/results` | **fragment** of R-48 | `C` `A` `CA` `cont` | **VM-18** | `audit_results.html` | as R-48 | `200` fragment; `401` unauthenticated | – |
+
+### Cross-cutting responses
+
+| Outcome | Status | View model | Template |
+|---|---|---|---|
+| Non-member | `403` | VM-02 | `non_member.html` |
+| Membership unconfirmable, N-10 grace exhausted | `503` | VM-03 | `degraded.html` |
+| Denied (any closed category) | `401`/`403`/`404` | **VM-02 used as the carrier** — see D-03-6 | `denied.html` |
+| Conflict | `409` | VM-19 (`stale_version`, `stale_preview`, `already_applied`, `already_cancelled`, `duplicate_request` — all five in use) | `conflict.html` |
+| Validation failure | `422` | VM-21 | `validation.html` |
+| Safe error | `500` | VM-20 | `error.html` |
+
+### The four confirmations the handover required
+
+1. **Every HTMX fragment is independently authorized and also reachable as a
+   full page.** R-24/R-23, R-44/R-43, R-49/R-48. Each fragment carries its own
+   `RouteGuard` row with its own requirement, and each answers `401` rather than
+   `303` when unauthenticated so a login page is never swapped into a fragment
+   target.
+2. **Polling honours `poll_after_seconds` and stops on a terminal state.**
+   `job_status_fragment.html` emits `hx-get`/`hx-trigger`/`hx-swap` **only**
+   when `job_state in ("queued", "running")`; `completed`, `stale`, `failed` and
+   `cancelled` render no polling attribute at all. The interval and the
+   `Retry-After` header are both the validated N-22 floor.
+3. **Ordinary members receive no import control and direct calls remain
+   denied.** `M` is refused `403` on R-40…R-47, before the job row is read, so a
+   job UUID discloses nothing. VM-14's `can_select_folder`/`can_preview` are
+   rendering hints computed from the same resolution the server performs again.
+4. **Administrator status does not imply Council apply authority.** R-42 and
+   R-46 carry `Requirement.COUNCIL`; `A` alone is refused `403`. R-41 carries
+   `Requirement.ADMINISTRATOR`; `C` alone is refused `403`. A continuity-scoped
+   session reaches **no** import route, R-41 included.
+5. **No character-game-state correction route or form exists.** The closed
+   inventory is 39 routes, all accounted for; VM-06 exposes no mutation
+   affordance by type; the two member templates contain zero forms.
+6. **Deferred legacy fields carry their owning package and no control.**
+   `MigrationDeferred(field_key, owning_package)` — there is no value field to
+   render and no control to attach.
+7. **Raw snapshot bytes, exception text, SQL, paths, tokens and unsafe detail
+   cannot reach a response.** Reconciliation warnings cross the boundary as
+   closed-vocabulary codes plus counts (9 `ISSUE_CODES`); `SafeErrorView` carries
+   a correlation UUID and one message code; the denial body carries a category
+   and nothing else; the only Actor name that crosses is a Council-only bounded
+   `BlockedEntry.display_name`.
+8. **The four screens with no frozen prototype page are exactly VM-10, VM-12,
+   VM-13 and VM-18** (view-model contract §10, unchanged).
+
+## A6. D-03 disposition — **not closable on the existing gate record**
+
+The question the handover set was whether the accepted P3.G2/P3.G3 records and
+the contract freeze already supply the backend route/view-model approval D-03
+requires. **They do not**, for two independent reasons.
+
+**First, as a matter of record.** `C-P3.3-K` and `C-P3.3-L` were both decided on
+2026-08-19 — the same day P3.G3 closed, and after P3.G2 closed on 2026-08-18.
+Both restate D-03 as in force and as the thing that must close *before* Gemini
+production integration. Peter recorded that with the gate closures in front of
+him. Reading P3.G2/P3.G3 as having silently closed D-03 would overturn a dated
+decision by inference, which is exactly what the handover forbids.
+
+**Second, and substantively.** Six concrete items remain. Two of them would stop
+a faithful P3.4 implementation on its first file; four are record corrections
+that should not be left for a frontend package to absorb.
+
+| # | Item | Why it is a backend-contract issue | Owner | Safest resolution |
+|---|---|---|---|---|
+| **D-03-1** | **No accepted static-asset surface exists.** N-26 is `default-src 'self'; … script-src 'self'; style-src 'self'; img-src 'self' data:`, so production CSS, vendored HTMX and the emblem must be served same-origin. The route contract's set is **closed** and contains no static path; the operational contract's Caddy table (§4.1) defines no static handler and assigns everything but HSTS to the application. Worse, `TC-STRUCT-01` would **not** catch a `StaticFiles` mount: it reads `getattr(route, "methods", …)`, and a Starlette `Mount` has none — so the one machine check protecting the closed set is blind here | A URL surface, its authorization state, its kill-switch and host behaviour, its cache headers and its place in the closed inventory are all route-contract decisions. A frontend package cannot invent them | Claude/backend, then Codex, then Peter | Add the static surface to the route contract (path, method, caller states, kill-switch behaviour, `Cache-Control`, and whether Caddy or `freedom-web` serves it), and extend `TC-STRUCT-01` to assert over mounts as well as routes. **Blocking for P3.4** |
+| **D-03-2** | **`ConfirmScope` is referenced by VM-15 and never defined in `vm-1`.** The implementation carries eight fields (`preview_token`, `checksum_full`, `folder`, `profile_version`, `expires_at`, `would_create`, `would_update`, `blocked`); the frozen contract carries the name only | *"Council confirmation exact scope"* is a mandatory delivery-plan §11 evidence row owned jointly by P3.3 and **P3.4**. Gemini cannot render an exact scope whose shape the contract does not state | Claude/backend | Define `ConfirmScope` in view-model contract §7 from the accepted implementation. Additive under §1 rule 5; no new version. **Blocking for faithful P3.4** |
+| **D-03-3** | **`CharacterFilters` is referenced by VM-07 and never defined in `vm-1`.** The implementation carries `query: SafeText \| None` and `include_inactive: bool` | The Council character index's filter bar is a P3.4 surface with no stated shape | Claude/backend | Define it in §5 alongside `CouncilCharacterRow`. Additive |
+| **D-03-4** | **VM-13 carries an implemented `csrf_token` the frozen block does not list.** It is genuinely additive and genuinely required — R-37 is a cookie-authenticated mutation, so N-17 obliges a server-rendered synchronizer token, and VM-13 is the only view model carrying a mutation control without one. §1 rule 5 permits the addition. But the field's own docstring says *"Recorded in the P3.2 submission"*, and it is not: `phase-3-p3-2-submission.md` contains no occurrence of `csrf_token` | An accepted-record claim that cannot be located is a provenance defect, not a code defect | Claude/backend | Add `csrf_token` to the VM-13 block and correct or remove the docstring's provenance claim |
+| **D-03-5** | **R-36's two halves of the route contract disagree.** The §5 table's *Response* column says `303` to provider; §5.1's prose says it is *"refused with VM-13's `no_additional_provider` state"*. The implementation follows the prose and answers `200` with VM-13 in `denied` | An internal inconsistency in the frozen contract, resolved by the implementation without the table being corrected | Claude/backend | Correct the table's *Response* cell to `200` HTML · VM-13 (`denied`) and say why, so the closed set reads consistently |
+| **D-03-6** | **The safe denial body has no view model of its own.** `denied.html` is rendered from a `NonMemberView` (VM-02) whose `guild_display_name` is `""`, `checked_at` is `Instant("", "")` and `correlation` is the nil UUID, for **every** denial category — the placeholders exist because §2.3 requires an object-denial `404` and an absent-object `404` to be byte-identical. `vm-1` names no general denial view; §7.1 says only *"the safe denial view"* | A P3.4 template that rendered `view.guild_display_name` or `view.correlation.id` on a denial page would print an empty string and `00000000-0000-0000-0000-000000000000`, and printing the correlation id would break TC-OBJ-07's byte-identity requirement | Claude/backend to record; Gemini constrained by it | Either define a `DeniedView` carrying only `state` and `reason`, or record in §8 that the denial body is VM-02-shaped with three deliberately inert fields that **must not** be rendered |
+
+**Recommended disposition, for Peter's decision.** Items D-03-2 through D-03-6
+are additive definitions and record corrections that change no runtime
+behaviour; D-03-1 is a genuine missing contract surface that must be decided
+before any production template writes a `<link>` or a `<script src>`. All six
+return through Claude/backend, an independent Codex review and Peter's decision
+— none may be absorbed into templates. A proposed change-log entry presenting
+this is filed as **`C-P3.4-A`**, deliberately **not** marked accepted.
+
+## A7. What Gemini may and may not change in P3.4
+
+### May change or create
+
+| Path | Responsibility |
+|---|---|
+| `adapters/web/templates/base.html` | Production layout: skip link, landmarks, two-level header, navigation, footer, the stylesheet reference decided by D-03-1 |
+| `adapters/web/templates/*.html` — the 24 existing files | Replace each minimal contract template with its production rendering, **keeping the filename and the view-model contract identical** |
+| `adapters/web/templates/components/`, `adapters/web/templates/partials/` | New shared includes, if genuinely shared. Not a dumping ground |
+| the static asset location settled by **D-03-1** | Production CSS, vendored HTMX (single reviewed file, version + upstream URL + SHA-256 in its header), the emblem image |
+| `tests/web/test_p3_4_*.py` and equivalents | Frontend contract, escaping, header, accessibility, structural and browser tests |
+| `docs/review/phase-3-p3-4-submission.md` | The P3.4 handoff |
+
+The 24 template filenames the accepted routes render are fixed by the handlers:
+`base`, `login`, `emergency`, `non_member`, `degraded`, `denied`, `conflict`,
+`validation`, `error`, `my_characters`, `character_detail`,
+`council_characters`, `character_links`, `identity_search`,
+`identity_migration`, `field_profile`, `role_capabilities`,
+`account_identities`, `council_snapshots`, `job_status`,
+`job_status_fragment`, `import_result`, `audit_search`, `audit_results`.
+Renaming one is a route-handler change and therefore a backend change.
+
+### Must not change
+
+`adapters/web/app.py`, `adapters/web/portal_routes.py`,
+`adapters/web/import_routes.py`, `adapters/web/composition.py`,
+`adapters/web/middleware.py`, `adapters/web/repositories.py`,
+`adapters/web/discord_provider.py`, anything under `application/`, `domain/`,
+`adapters/database/`, `adapters/http/`, `adapters/worker/`, `migrations/`,
+`infra/`, `tools/`, `docs/contracts/`, `design-prototype/`,
+`docs/review/phase-3-visual-freeze-manifest.sha256`, `requirements-web*.txt`,
+`requirements-web.lock`, `.env.example`, and every existing test module that
+is not a P3.4 frontend test.
+
+## A8. P3.4 evidence classes — what may and may not be claimed
+
+| Class | Rows | Who produces it |
+|---|---|---|
+| Automated, source/structural | TC-UI-06, TC-SEC-08, TC-SEC-10, TC-SEC-11, TC-STRUCT-01, TC-STRUCT-02 | Gemini |
+| Automated, response | TC-SEC-05, TC-SEC-09, and the denial/error/stale/validation state rows | Gemini |
+| Automated, browser | TC-UI-01, TC-UI-02, TC-UI-03, TC-UI-04, TC-UI-05 | Gemini — **only** with an already-installed browser; installing one requires explicit authorization |
+| Supervised | TC-UI-07 contrast | Gemini's source-derived matrix **plus** a supervised confirmation |
+| **Real-device, manual** | **TC-UI-08** | **Peter only.** Never an automated pass |
+| **Assistive technology, manual** | **TC-UI-09** | **Peter only**, and still *not yet scheduled*. Phase 3 inherits no pass from the prototype |
+| Staging | TC-SEC-07 browser half, TC-LIM-02, TC-OPS-01…05, TC-PERF-01…03 | **Not P3.4.** These belong to I-06 and require isolated staging |
+
+`TC-UI-06` — *no production template imports, links to or serves anything under
+`design-prototype/`* — **does not exist yet**. It is P3.4's to write, and it is
+the structural proof the delivery plan asks for.
+
+## A9. Commands run and literal results, 2026-08-19
+
+```bash
+$ sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
+design-prototype/assets/freedom-blades-token.png: OK
+design-prototype/assets/portraits/lyra.png: OK
+design-prototype/assets/portraits/thorin.png: OK
+design-prototype/assets/portraits/valerius.png: OK
+design-prototype/character-detail.html: OK
+design-prototype/components.html: OK
+design-prototype/council-approval.html: OK
+design-prototype/css/styles.css: OK
+design-prototype/css/tokens.css: OK
+design-prototype/index.html: OK
+design-prototype/js/portrait-preview.js: OK
+design-prototype/login.html: OK
+design-prototype/my-characters.html: OK
+design-prototype/reconciliation.html: OK
+# exit status 0 — 14/14
+```
+
+```bash
+$ git diff --check
+# no output; exit status 0
+```
+
+Route and view-model comparison, run under `./venv-web/bin/python` against the
+current tree:
+
+```text
+contract routes: 39   implemented inventory: 39   deferred: {}
+contract - inventory: []
+inventory - contract: []
+method/path drift: {}
+documented VMs: 21    implemented: 21             deferred: {}
+documented - implemented: []
+implemented - documented: []
+VIEW_MODEL_VERSION: vm-1
+```
+
+Field-level comparison of all 21 view models against the contract's own type
+sketches:
+
+```text
+checked 21
+('VM-13', 'AccountIdentitiesView', {'contract_only': [], 'impl_only': ['csrf_token'], 'order_identical': False})
+('VM-12', 'RoleCapabilityView',    {'contract_only': [], 'impl_only': [],             'order_identical': False})
+```
+
+Template corpus audit across all 24 files in `adapters/web/templates/`:
+
+```text
+|safe                : 0 occurrences (one prose mention in a base.html comment)
+hx-on:               : 0 occurrences (two prose mentions in comments)
+<script              : 0
+design-prototype     : 0
+http:// or https://  : 0
+cdn / fonts.google   : 0
+```
+
+**Not run, deliberately:** the portal and bot pytest suites, because they run
+Alembic migrations against the disposable database and this preparation task is
+forbidden to run migrations; any browser; any package installation; any
+network call; any live Discord, Google, Foundry or production service; any
+real Actor, player or guild data. No `.env`, secret or credential file was
+read. The pre-existing stash was neither inspected nor touched.
+
+## A10. Literal readiness result
+
+> **NO-GO for P3.4 production frontend implementation.**
+
+P3.G0, P3.G1, P3.G2 and P3.G3 are closed and `C-P3.3-K` authorizes P3.4
+development, so the 2026-08-14 blockers are gone. The result is nevertheless
+NO-GO for one reason and one reason only: **D-03's backend route/view-model
+approval is open**, `C-P3.3-L` requires it to close before Gemini production
+integration, and §A6 records six concrete contract items that must be resolved
+in that decision. GO is permitted only after Peter accepts the D-03 disposition
+and explicitly releases
+`docs/review/phase-3-p3-4-gemini-implementation-prompt.md`.
+
+Nothing in this addendum is staging, deployment or production-readiness
+evidence. I-06 and A-05 remain open and continue to prohibit public exposure.

@@ -1,0 +1,72 @@
+{#
+  VM-18, R-49 — and R-48's results table, included rather than duplicated.
+
+  **Structured facts only.** `AuditRow.facts` is a bounded projection of the
+  payload, not the payload: a key the projection does not recognize renders as a
+  redacted marker with **no value at all**, so a future writer that puts a new key
+  in a payload widens the audit table and does not widen this page.
+
+  There is no export control, no correction control and no delete control,
+  because there is no route for any of them and the runtime role holds only
+  `SELECT, INSERT` on the table.
+#}
+<section data-state="{{ view.state }}" data-total-unbounded="{{ 'true' if view.total_is_unbounded else 'false' }}">
+  <p data-notice="{{ view.immutability_notice_code }}">
+    Audit history is append-only. Corrections are recorded as new events.
+  </p>
+  {% if view.state == "empty" %}
+    <p data-state="empty">No audit event matches these filters.</p>
+  {% else %}
+    <table data-field="audit-rows">
+      <thead>
+        <tr>
+          <th>When</th><th>Actor</th><th>Capability</th><th>Action</th>
+          <th>Entity</th><th>Source</th><th>Correlation</th><th>Facts</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in view.rows %}
+          <tr data-event-id="{{ row.event_id }}"
+              data-payload-truncated="{{ 'true' if row.payload_truncated else 'false' }}">
+            <td data-field="occurred-at">{{ row.occurred_at.display }}</td>
+            {#
+              `data-has-actor` states the *fact*, so a row with no person reads
+              as "there was no person" rather than as an empty cell a reader
+              would take for a defect. A system action — the reaper's terminal
+              event is the one in this package — genuinely has no actor.
+            #}
+            <td data-field="actor" data-has-actor="{{ 'true' if row.actor else 'false' }}">
+              {% if row.actor %}{{ row.actor.label.value }}{% else %}no person{% endif %}
+            </td>
+            <td data-field="capability">{{ row.actor_capability.value }}</td>
+            <td data-field="action">{{ row.action }}</td>
+            <td data-field="entity" data-entity-type="{{ row.entity_type }}">
+              {{ row.entity_type }} {{ row.entity_id.value }}
+            </td>
+            <td data-field="source">{{ row.source }}</td>
+            <td data-field="correlation">{{ row.correlation.id }}</td>
+            <td data-field="facts">
+              <ul>
+                {% for fact in row.facts %}
+                  <li data-fact-key="{{ fact.key }}"
+                      data-redacted="{{ 'true' if fact.redacted else 'false' }}">
+                    {% if fact.redacted %}
+                      {{ fact.key }}: (not rendered)
+                    {% else %}
+                      {{ fact.key }}:
+                      {% if fact.before %}{{ fact.before.value }} →{% endif %}
+                      {% if fact.after %}{{ fact.after.value }}{% endif %}
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if view.cursor.has_more %}
+      <a rel="next" href="/v1/audit/results?cursor={{ view.cursor.token }}">Next</a>
+    {% endif %}
+  {% endif %}
+</section>

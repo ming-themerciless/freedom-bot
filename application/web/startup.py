@@ -258,13 +258,12 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
     artifact_ok = artifact_root is None or _artifact_root_ok(artifact_root)
     checks.append(HealthCheck(name="artifact_store", ok=artifact_ok))
 
-    # The worker and its lease reaper belong to P3.3. Reporting them as not-ok
-    # here would be a false alarm about something that does not exist yet, and
-    # reporting them as ok would be a claim nothing supports — so both are
-    # reported as ok-with-nothing-to-check and the check names stay in VM-16's
-    # closed vocabulary for P3.3 to make real.
-    checks.append(HealthCheck(name="worker_heartbeat", ok=True))
-    checks.append(HealthCheck(name="expired_leases", ok=True))
+    # **Made real by P3.3.** Both were reported `ok` with nothing to check while
+    # the worker did not exist; the names stayed in VM-16's closed vocabulary for
+    # this package to fill in, and it does.
+    worker_ok, leases_ok = _worker_liveness(engine, database_ok)
+    checks.append(HealthCheck(name="worker_heartbeat", ok=worker_ok))
+    checks.append(HealthCheck(name="expired_leases", ok=leases_ok))
     checks.append(HealthCheck(name="identity_provider", ok=provider_ok))
     checks.append(
         HealthCheck(name="kill_switch", ok=not settings.kill_switch_file.exists())
@@ -277,6 +276,73 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
         version=WEB_APPLICATION_VERSION,
         environment=settings.environment.value,
     )
+
+
+def _worker_liveness(engine, database_ok: bool) -> tuple[bool, bool]:
+    """The two signals the operational contract §5 asks a monitor to watch.
+
+    Both are **numbers only**: no job id, no requester, no checksum, no queue
+    contents. A health endpoint that named the work in flight would be a health
+    endpoint that discloses who is importing what to anything that can reach the
+    loopback port.
+
+    ## `worker_heartbeat` — is anything claiming work?
+
+    There is no direct answer available. A worker with nothing to do writes
+    nothing, and inventing a liveness row would be inventing a fact the process
+    could keep writing while wedged.
+
+    The honest observable is the **consequence** of a dead worker: a job that has
+    been `queued` for longer than a live worker would have taken to claim it. The
+    bound is `N-23 + N-44` — one lease plus one reaper interval — which is the
+    same figure the recovery argument uses, and it is deliberately generous: this
+    check answers "nothing is draining the queue", not "the worker is healthy".
+
+    An empty queue therefore reports `ok`, and that is stated rather than hidden:
+    **this check cannot distinguish an idle worker from an absent one when there
+    is no work.** A monitor that needs that distinction watches the systemd unit,
+    which is the thing that actually knows.
+
+    ## `expired_leases` — is the reaper running?
+
+    Under the corrected N-43 the reaper is the **only** writer of the expiry
+    transition, so a stalled reaper is the one way a job can sit unterminated
+    (SM-05). The oldest expired lease should never be older than `N-23 + N-44`;
+    if it is, nothing is reaping and a Council member is watching a spinner over
+    a job nobody is running.
+    """
+    from application.web.jobs import REAPER_INTERVAL_SECONDS
+
+    if not database_ok:
+        # Nothing can be concluded without the database, and reporting `ok`
+        # would be reporting a check that did not run. The database check has
+        # already failed, so the status is degraded either way.
+        return False, False
+
+    # N-23's exact lease plus N-44's interval. Read from the register's own
+    # constants rather than restated, so a change to either moves this too.
+    tolerance = LEASE_SECONDS + REAPER_INTERVAL_SECONDS
+    try:
+        with engine.connect() as connection:
+            oldest_queued = connection.execute(
+                text(
+                    "SELECT EXTRACT(EPOCH FROM max(now() - queued_at)) "
+                    "FROM reconciliation_jobs WHERE state = 'queued'"
+                )
+            ).scalar_one_or_none()
+            oldest_expired = connection.execute(
+                text(
+                    "SELECT EXTRACT(EPOCH FROM max(now() - lease_expires_at)) "
+                    "FROM reconciliation_jobs "
+                    "WHERE state = 'running' AND lease_expires_at < now()"
+                )
+            ).scalar_one_or_none()
+    except Exception:  # noqa: BLE001 - the answer is a boolean either way
+        return False, False
+
+    worker_ok = oldest_queued is None or float(oldest_queued) <= tolerance
+    leases_ok = oldest_expired is None or float(oldest_expired) <= tolerance
+    return worker_ok, leases_ok
 
 
 def _artifact_root_ok(artifact_root) -> bool:
@@ -296,7 +362,12 @@ def _artifact_root_ok(artifact_root) -> bool:
         store.close()
 
 
+#: N-23's exact lease, as `WorkerSettings` pins it. Named here so the health
+#: tolerance below reads as the policy it is rather than as a magic number.
+LEASE_SECONDS = 60
+
 __all__ = [
+    "LEASE_SECONDS",
     "MINIMUM_ENROLLED_CREDENTIALS",
     "StartupWarning",
     "build_health_view",

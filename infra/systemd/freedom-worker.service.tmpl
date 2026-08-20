@@ -1,0 +1,69 @@
+# `freedom-worker` — the process that executes durable reconciliation jobs (N-40).
+#
+# Copy to /etc/systemd/system/freedom-worker.service and replace the __PLACEHOLDER__
+# values. Never commit a filled-in copy: EnvironmentFile points at the secrets.
+#
+# ## Why this is a separate unit and not a thread in freedom-web
+#
+# Operational contract §3. The work holds the GIL for ~9.6 seconds, its peak
+# memory is per-job and unmeasured, and a web deploy should be quick while a
+# worker holding a 60-second lease should drain. All three are unit-level
+# properties, which is why they are expressed here.
+#
+# ## The three numbers below are the accepted ones, and each has a reason
+#
+# `MemoryMax=1G`   — N-47. Peak resident size for a parsed real folder is **not
+#                    measured**; this is a guard, and TC-PERF-01 must measure it
+#                    in staging before production. A job killed by the ceiling is
+#                    an abandoned attempt, not a failure verdict: the lease
+#                    expires, the reaper requeues it while an attempt remains,
+#                    and the durable effect is fenced by the import's own unique
+#                    constraints either way.
+# `TimeoutStopSec=30` — N-52. **Deliberately below the 60-second lease** (N-23).
+#                    A shutdown that outlived the lease would let a restarting
+#                    process hold a claim it can no longer heartbeat.
+# `Restart=on-failure` — a crashed worker's claim is recovered by the reaper
+#                    within N-23 + N-44, so restarting is safe and losing the
+#                    process is not a data-integrity event.
+
+[Unit]
+Description=Freedom Blades portal reconciliation worker
+Wants=network-online.target postgresql.service
+After=network-online.target postgresql.service
+# The worker does not serve the portal and the portal does not need the worker to
+# answer: a queued job waits, which is the whole point of a durable queue. So
+# there is no ordering dependency on freedom-web in either direction.
+
+[Service]
+Type=simple
+WorkingDirectory=__REPOSITORY_ROOT__
+# The same virtualenv and the same code as freedom-web. The processes differ by
+# WORKER_ENABLED and by nothing else, and each refuses the other's value.
+ExecStart=__REPOSITORY_ROOT__/venv-web/bin/python -m tools.freedom_worker
+EnvironmentFile=__ENVIRONMENT_FILE__
+Environment=PYTHONUNBUFFERED=1
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# N-47. Unmeasured; see TC-PERF-01.
+MemoryMax=1G
+
+# The worker exposes no listener at all (N-50), so it needs no network
+# capability beyond the loopback PostgreSQL socket its pool opens.
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+# The restricted artifact store is the one path outside the repository the
+# worker writes to — and it only ever reads there. Named explicitly so
+# ProtectSystem=strict does not have to be relaxed wholesale.
+ReadWritePaths=__ARTIFACT_ROOT__
+ReadOnlyPaths=__REPOSITORY_ROOT__
+
+[Install]
+WantedBy=multi-user.target

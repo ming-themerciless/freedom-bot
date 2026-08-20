@@ -430,8 +430,27 @@ def test_the_public_import_graph_reaches_no_rejected_module():
 
     # Whatever was skipped was skipped for the one permitted reason, and is a
     # portal module rather than anything else that happens to fail.
+    #
+    # `application.worker` and `adapters.worker` join the list at P3.3. The
+    # worker is not a third process with a third dependency set: the operational
+    # contract has it running the **same code from the same virtualenv** as
+    # `freedom-web`, differing only by `WORKER_ENABLED`, so it reaches the
+    # portal's settings graph and repositories and is therefore unimportable
+    # under the bot's interpreter for exactly the reason the portal is.
+    #
+    # The exemption stays bounded in the direction that matters: a worker module
+    # that failed to import for any *other* reason still fails this test, and the
+    # rejected-module assertion above ran over everything that did import.
     assert all(
-        name.startswith(("application.web", "adapters.web")) for name in skipped
+        name.startswith(
+            (
+                "application.web",
+                "application.worker",
+                "adapters.web",
+                "adapters.worker",
+            )
+        )
+        for name in skipped
     ), skipped
 
 

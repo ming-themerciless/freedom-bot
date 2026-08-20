@@ -10,6 +10,24 @@ column by §3.3; and R-03/R-04 now state PKCE verifier handling consistently wit
 the schema — the previous text said the verifier was hashed, which contradicted
 the schema and describes a flow that cannot complete.
 
+**Corrected 2026-08-19 under the accepted D-03 correction (change-log
+`C-P3.4-A`), and dated rather than folded into the text above.** Two items land
+in this document:
+
+- **D-03-1** — §1.2 is new. It adds the application-served `/static/` asset
+  surface, M-01, as the one Starlette mount this application registers, states
+  its URL grammar, caller state, host and kill-switch behaviour and cache policy,
+  and brings mounts inside the closed inventory `TC-STRUCT-01` asserts. Before
+  this the contract defined no static path at all while N-26 required same-origin
+  CSS, script and images, and the structural guard could not see a mount.
+- **D-03-5** — R-36's *Response* cell in the §5 table said `303` to provider,
+  which contradicted §5.1's own prose and the accepted implementation. It now
+  reads `200` HTML · VM-13 (`denied`). This corrects a record, not behaviour: no
+  handler changed, and Phase 3 still has exactly one ordinary identity provider.
+
+No caller state, capability, denial code, matrix cell, CSRF, origin or body rule
+is changed by either item.
+
 Package: P3.0 · Owner: Claude · Implemented by: P3.1 (§4), P3.2 (§5), P3.3 (§6)
 · Frozen for Gemini at P3.G2/P3.G3.
 
@@ -23,9 +41,9 @@ View models cited as `VM-nn` are defined in
 This document names **every** HTTP route the Freedom Blades portal will have at
 the end of P3.3. The set is closed:
 
-> A route that is not in §4–§8 of this document does not exist. A P3.1–P3.3
-> implementation that registers one is a contract violation, not an
-> implementation detail.
+> A route that is not in §4–§8 of this document does not exist, and a mount that
+> is not in §1.2 does not exist. A P3.1–P3.3 implementation that registers one is
+> a contract violation, not an implementation detail.
 
 This is the structural control behind the plan's requirement that *"no Phase 3
 route or form mutates character game state"* (plan §12 Phase 3) and behind the
@@ -36,6 +54,14 @@ character-game-state correction endpoint exists"*. The control is machine-checke
 parses the tables below and asserts set equality against the application's
 registered routes, in the same way `tests/test_field_ownership_document.py`
 already checks the field-ownership matrix against the profile.
+
+**The guard covers mounts from 2026-08-19.** It previously read
+`getattr(route, "methods", …)` off each registered route, and a Starlette `Mount`
+has no `methods` — so a mount contributed nothing to the compared set and an
+`app.mount("/anything", …)` would have added a whole URL subtree without failing
+anything. TC-STRUCT-01 now asserts §1.2's mount table against the registered
+`Mount` objects as well, and the falsification evidence for that assertion is
+recorded in the D-03 correction submission.
 
 ### 1.1 Routes that already exist and are not changed
 
@@ -50,6 +76,104 @@ partials). The two prefixes exist so that a reader can tell from the path alone
 which authentication model applies, and so that the Foundry module's hard-coded
 submission path (module 1.0.7, deployed) does not move.
 
+### 1.2 The one mount — M-01, the application-served static asset surface
+
+**Added 2026-08-19 by the accepted D-03 correction (`C-P3.4-A`, item D-03-1).**
+
+N-26 is `default-src 'self'; … script-src 'self'; style-src 'self'; img-src
+'self' data:`. P3.4's production CSS, its vendored HTMX and its emblem therefore
+have to be served from this origin, and until this section existed there was no
+accepted surface to serve them from — while the set above was closed and named
+none. This is that surface, decided here rather than in a template.
+
+| # | Mount | Prefix | Served by | Kind |
+|---|---|---|---|---|
+| M-01 | `static` | `/static` | `freedom-web` (`adapters/web/static_assets.py`) | Starlette `Mount` over one directory |
+
+**Why the application and not Caddy.** The operational contract's §4.1 table
+gives Caddy exactly two jobs — TLS and HSTS — and assigns every other header to
+the application so that each header has one authority. A Caddy `file_server`
+would have split that: the CSP and `nosniff` on an asset would come from the
+application's middleware only if the request reached the application, which by
+construction it would not. Serving assets from `freedom-web` keeps one authority
+per header, keeps the surface inside the closed inventory a test can assert, and
+keeps development and production identical. §4.4 of the operational contract
+records the deployment consequence.
+
+#### Contract
+
+| Property | Value |
+|---|---|
+| Methods | `GET` and `HEAD` only. Every other method is `405`, uniformly for every path under the prefix, so the refusal confirms no filename |
+| Caller states | **All eight** — `U` `N` `M` `C` `A` `CA` `BG` `AC`. Public: no session, no capability, no CSRF token and no `Origin` requirement |
+| Host check | **Applies** (N-01, §2.1 step 1). An asset request under an unknown `Host` is `400` before routing, exactly as a page is |
+| Kill switch | **Exempt.** Assets keep serving while the switch is engaged (N-56), so the maintenance body, the login page and the safe error page keep their presentation during an incident. Every `/v1/*` route retains its `503` unchanged |
+| Body bound | Not applicable; the methods carry no body |
+| Session effect | **None.** A static response sets no cookie and refreshes no session, login-transaction or CSRF cookie. It cannot: the mount reaches no handler that issues one |
+| Audit effect | None. Reads of a public asset are not audited (plan §9.4, *collect only necessary data*) |
+| Origins | Same-origin only, N-26 unweakened. **No CDN, no remote font, no remote script and no remote image origin is permitted**, in this contract or in a P3.4 template |
+
+#### URL grammar
+
+```text
+/static/<segment>[/<segment>…]
+segment := [A-Za-z0-9][A-Za-z0-9._-]*
+```
+
+A path that does not match is `404`, **not** `400`: a grammar violation and a
+missing file are the same fact to a caller, and distinguishing them would make
+the grammar enumerable. The leading character may not be a dot, so every dotfile
+in the root — the `.gitkeep` below included — is unreachable.
+
+The grammar is checked before the filesystem is touched. It sits *in front of*
+Starlette's own protection, which normalises `..` out of the request path and
+then refuses any resolved path outside the root by `realpath` + `commonpath`;
+both are asserted, over plain and percent-encoded traversal, by TC-STATIC-03.
+
+#### Filesystem root
+
+Exactly one directory: `adapters/web/static/`, resolved from the package rather
+than from configuration. **There is no environment variable for it**, deliberately
+— a configurable static root is an operator-supplied path to serve files from, and
+"outside the approved root" should have one answer rather than one per deployment.
+Directory listing is off, an implicit `index.html` is off, and a directory request
+is `404`.
+
+A missing root refuses at **construction**, not per request, so a mis-deployed
+application does not start and then answer `404` to every asset. Git does not
+track an empty directory, so the root holds one empty `.gitkeep` and nothing else.
+That file is a placeholder that makes the root real; it is not an asset, it is
+unreachable through the grammar above, and P3.4 owns everything that will
+actually live here.
+
+#### Cache policy
+
+| Filename shape | `Cache-Control` |
+|---|---|
+| Fingerprinted — `<stem>.<16 lowercase hex>.<ext>`, e.g. `styles.9f2a1c4b8e7d6f50.css` | `public, max-age=31536000, immutable` |
+| Anything else | `public, max-age=0, must-revalidate` |
+
+The conservative branch is the default, so an asset that forgets to fingerprint
+is slow rather than stale. Both are `public` and neither is `no-store`: §7.2's
+`no-store` rule exists because a *rendered protected page* varies by caller, and
+an asset does not — it is byte-identical for everyone and carries nothing about
+the session that fetched it. Without that scoping the header would be decided by
+whether the reader happened to be signed in. The six security headers of §7.2
+still apply to every asset; only the cache rule is scoped out.
+
+#### Missing assets
+
+`404` with a safe body: no exception text, no filesystem path, no directory
+listing, no stack frame. Same rule as VM-20 (N-25), and asserted by TC-STATIC-03.
+
+#### What this section does not authorize
+
+No production CSS, HTMX, image or other visual asset is added by it, and none is
+in the tree. This is the surface and its rules; filling it is P3.4's work, under
+Gemini, after Peter accepts the corrected D-03 contract and releases the
+implementation prompt.
+
+
 ## 2. How authorization is decided
 
 ### 2.1 The chain, in order, for every `/v1/*` route
@@ -57,7 +181,11 @@ submission path (module 1.0.7, deployed) does not move.
 1. **Host check.** `Host` must equal the configured allowed host (N-01). Anything
    else is refused `400` before routing.
 2. **Kill switch.** If the operator kill switch is engaged, every route except
-   `GET /healthz` returns `503` with the static maintenance body (N-56).
+   `GET /healthz` and the M-01 asset surface (§1.2) returns `503` with the static
+   maintenance body (N-56). Both exemptions are closed and named: one is
+   loopback-only and unpublished, the other is an unauthenticated directory of
+   files that reaches no application service, and keeping them up is what lets an
+   operator watch recovery and lets the maintenance page look like the platform.
 3. **Body bound.** Content-Length over N-19 is refused `413` before the body is
    read.
 4. **Session resolution.** The opaque cookie (N-05) is looked up by hash. Idle
@@ -109,6 +237,17 @@ suite proves it by never rendering the control.
 
 A `404` for an object-level denial and a `404` for a genuinely absent object are
 byte-identical. That is deliberate.
+
+**The denial body is VM-22 `DeniedView` from 2026-08-19** (accepted D-03
+correction, item D-03-6). Every row above that renders the safe denial page —
+`401`, `403` and `404` alike — renders a view model carrying exactly `state` and a
+closed-vocabulary `reason`. It previously rendered VM-02 with an empty guild name,
+an empty `Instant` and the nil UUID; the bytes were right, but only because
+`denied.html` did not print three fields it was handed, and P3.4 rewrites that
+template. The byte-identity above is now a property of the type: there is no
+correlation id, timestamp, guild name or object identifier for a template to
+print. The non-member row keeps VM-02 and its recovery context, because that page
+is *meant* to be distinguishable from "not signed in". No status code changes.
 
 ### 2.4 What is never authoritative from the browser
 
@@ -337,7 +476,7 @@ valid grant.
 | R-33 | `admin_role_capability_create` | POST | `/v1/admin/role-capabilities` | form | `303` to R-32 |
 | R-34 | `admin_role_capability_revoke` | POST | `/v1/admin/role-capabilities/{mapping_id}/revoke` | form | `303` to R-32 |
 | R-35 | `account_identities` | GET | `/v1/account/identities` | navigation | `200` HTML · VM-13 |
-| R-36 | `account_identity_link_start` | GET | `/v1/account/identities/link/start` | navigation | `303` to provider |
+| R-36 | `account_identity_link_start` | GET | `/v1/account/identities/link/start` | navigation | `200` HTML · VM-13 (`denied`) |
 | R-37 | `account_identity_unlink` | POST | `/v1/account/identities/{identity_id}/unlink` | form | `303` to R-35 |
 | R-38 | `admin_role_capability_ratify` | POST | `/v1/admin/role-capabilities/{mapping_id}/ratify` | form | `303` to R-32 |
 
@@ -505,7 +644,20 @@ ratification waits until an administrator can authenticate normally. Audit:
 *additional* identity to the existing account; per N-16 it requires strong
 reauthentication first — in Phase 3 the only ordinary provider is Discord, so R-36
 exists to make the boundary real and is refused with VM-13's `no_additional_provider`
-state until a later approved provider package. R-37 unlinks, and **refuses** when
+state until a later approved provider package.
+
+**R-36's table cell was corrected on 2026-08-19** (accepted D-03 correction, item
+D-03-5). The §5 table's *Response* column read `303` to provider, which
+contradicted this paragraph and the accepted implementation; it now reads `200`
+HTML · VM-13 (`denied`), which is what the route has always answered. There is
+nothing to redirect *to*: a redirect presupposes a second ordinary provider, and
+Phase 3 has exactly one. The route answers `200` rendering
+`account_identities.html` with `state="denied"` and
+`additional_provider="no_additional_provider"`, so the refusal is a page a person
+can read rather than a bounce to the provider they are already signed in with. A
+second provider package is what makes this a redirect, and that is its work. The
+matrix cell below is unchanged: `U` is still `✗ 303` to the login page, which is
+§2.3's unauthenticated-navigation rule and a different thing entirely. R-37 unlinks, and **refuses** when
 it would leave the account with no usable identity and no reviewed recovery route
 (§9.5 of the delivery plan). Unlink marks the identity `retired`; it never deletes
 the row, because historical audit attribution must stay readable (schema contract
@@ -735,7 +887,7 @@ preference.
 | Empty | `200` with the view model's empty variant | Never `404`, never an error page. An empty list is a fact |
 | Loading / polling | `200` fragment with `state = queued\|running` and a `Retry-After`-respecting poll hint | N-22 |
 | Stale | `409` for a confirmation; `200` with `state = stale` for a status poll | A stale confirmation must not look like a server error |
-| Denied | Per §2.3 | Body is the safe denial view; no object detail, no reason beyond the category |
+| Denied | Per §2.3 | Body is the safe denial view, **VM-22 `DeniedView`**; no object detail, no reason beyond the category, and no field able to carry one |
 | Validation failure | `422` with the form re-rendered and field-level messages | Never a bare `400`; the user must be able to correct it |
 | Safe error | `500` with VM-20: a UUID correlation ID and nothing else (N-25) | Exception text, paths, SQL, tokens, Actor content and stack traces never reach the response or the log line the user can quote |
 

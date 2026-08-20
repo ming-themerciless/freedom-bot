@@ -56,6 +56,55 @@ explicit classification table in `application/web/capabilities.py` that refuses 
 unclassified method at startup and at construction. Still no state, trigger or
 accepted numeric value changes.
 
+Amended on 2026-08-18 by the P3.3 implementation re-review remediation, and this
+one is a **mechanism correction to SM-05**. The row "cancelling a committed
+apply" named its mechanism as *"the apply's commit sets `state='completed'`; the
+cancel statement filters `state IN ('queued','running')` and matches zero rows"*.
+That mechanism did not exist: the apply's commit and the job's completion were
+two transactions, and in the window between them the job was still `running`, so
+a cancellation matched and cancelled a job whose import had already committed.
+The same window let a timeout self-abandon, a kill-switch self-abandon and a
+reaper requeue leave a job saying `queued`, `stale`, `failed` or `cancelled`
+while an abandoned worker thread committed the effect afterwards.
+
+The correction adds one column and three predicates and is described in the row
+itself, in the new "commit fence" subsection, and in migration 0012. **No state,
+no transition and no accepted numeric value changes**; what changes is the
+mechanism cell, which now names something the code does. The one behaviour a
+reader may notice as new is that a `running` apply whose effect has committed
+refuses a cancellation *before* it reaches `completed` — which is what the
+forbidden-transition row always said, applied from the instant the effect became
+durable rather than from the instant it was published.
+
+Amended again on 2026-08-18 by the P3.3 **effect-publication** remediation, for
+the two blocking findings the independent implementation and security re-review
+raised against the amendment above. Both are cases where a job could still deny an
+import the database was holding:
+
+1. the `queued` branch of the cancel statement carried no
+   `effect_committed_at IS NULL`, and the reaper deliberately requeued a job whose
+   effect had committed but whose result had not been published — so R-45 arriving
+   in that window cancelled a job over a durable import; and
+2. the reaper chose between `queued` and `failed` from `attempts` alone, so an
+   apply whose effect committed on attempt three and whose process died before
+   publishing was written `failed` with `attempts_exhausted`. RR-16 recorded that
+   as a residual risk; the reviewer refused it as one, correctly.
+
+**This amendment adds one transition and is therefore larger than the last.**
+`running → completed`, performed by the reaper's pass rather than by the worker
+that ran the attempt, when the lease has expired and the effect has committed. It
+adds two forbidden transitions and two check constraints (migration 0013), and it
+adds one column, `effect_result`, which the commit fence writes in the same
+statement as `effect_committed_at`. **No state is added** — a seventh state
+`recovering` was considered and rejected, because the publication is one
+transaction under the row lock and no distinguishable state is observable — and
+**no accepted numeric value changes**. RR-16 is closed rather than carried.
+
+**Accepted 2026-08-19 by Peter/Acceptance Authority.** The amendment and its
+three derived operational limits were ratified in change-log entry `C-P3.3-J`:
+`EFFECT_RECOVERY_LIMIT = 20`, `EFFECT_PUBLICATION_GRACE_HEARTBEATS = 3`, and
+the retention sweep's `MAX_LIMIT = 10 000`.
+
 Numbers are `N-nn` from
 [`phase-3-numeric-policy-register.md`](phase-3-numeric-policy-register.md);
 tables are in [`phase-3-logical-schema.md`](phase-3-logical-schema.md).
@@ -357,11 +406,13 @@ in the vocabulary.
 | — | `queued` | R-42 (`preview`) or R-46 (`apply`) | Insert with `attempts = 0`; `request_key` unique; N-42 admission bound; for `apply`, the one-live-apply partial unique index |
 | `queued` | `running` | Worker claim | The `FOR UPDATE SKIP LOCKED` statement in schema §10.1; sets lease, increments `attempts`, and matches only while `attempts < 3` |
 | `running` | `running` | Heartbeat ≤ every 20 s (N-23) | `UPDATE … SET heartbeat_at, lease_expires_at = now() + 60s WHERE id = $1 AND lease_owner = $2` |
-| `running` | `queued` | Lease expired **and** `attempts < 3` | The reaper's requeue branch (schema §10.1). Clears the lease; the job keeps its `attempts` and is claimable again |
-| `running` | `failed` | Lease expired **and** `attempts = 3` | The **same statement's** other branch: `failure_code = 'attempts_exhausted'`, `finished_at = now()`. This replaces the first revision's unreachable "4th claim" transition |
+| `running` | `queued` | Lease expired, `attempts < 3` **and** `effect_committed_at IS NULL` | The reaper's requeue branch (schema §10.1). Clears the lease; the job keeps its `attempts` and is claimable again |
+| `running` | `failed` | Lease expired, `attempts = 3` **and** `effect_committed_at IS NULL` | The **same statement's** other branch: `failure_code = 'attempts_exhausted'`, `finished_at = now()`. This replaces the first revision's unreachable "4th claim" transition |
+| `running` | `completed` | Lease expired **and** `effect_committed_at IS NOT NULL` | **Added 2026-08-18; accepted 2026-08-19.** Effect-publication recovery: neither reaper branch may fire, because both assert that the attempt produced nothing. `lock_unpublished_effect` takes the row under `FOR UPDATE SKIP LOCKED` and the same transaction inserts the result — read from `effect_result` and the immutable `snapshot_imports` receipt — completes the job and records the completion event. `attempts` is untouched, no lease is minted, and no artifact is re-parsed |
 | `running` | `queued` \| `failed` | Worker self-abandon at N-45's hard cap or on the kill switch | The same two-branch update, under `AND lease_owner = $2`; zero rows if the reaper already acted |
 | `running` | `completed` | Work finished **and** its result row committed | Result row inserted, then the job updated in the **same transaction**; `CHECK ((state='completed') = (result_id IS NOT NULL))` |
 | `running` \| `queued` | `stale` | `scope_fingerprint` no longer matches, folder changed (R-41), profile version changed, or N-46 elapsed | Single update setting `stale_reason` |
+| `completed` preview | `stale` | R-41 changes the folder or R-46 expires the preview, **and no apply names the preview** | **Accepted narrow exception 2026-08-19.** Clears the preview job's `result_id`; the immutable result row remains reachable by its own `job_id`. Completed applies and previews already named by an apply are never changed |
 | `running` \| `queued` | `cancelled` | `cancel_requested_at` observed (queued: immediately; running: at the next heartbeat) | Update; forbidden once an apply has committed |
 | `running` | `failed` | Deterministic refusal (`parse_refused`, `artifact_unavailable`) | Update with `failure_code`, immediately, whatever `attempts` says. A refusal that will recur is not retried |
 
@@ -387,7 +438,7 @@ detected by the same statement that would otherwise retry.
 
 | Forbidden | Mechanism |
 |---|---|
-| Any terminal state → any other state | `CHECK` that terminal states have `finished_at`, plus the application's single-statement guards on `state IN ('queued','running')` |
+| Any terminal state → any other state, except the accepted completed-unconfirmed-preview → `stale` transition above | `CHECK` that terminal states have `finished_at`, plus guarded single-statement transitions; the exception requires that no apply names the preview |
 | `completed` without a durable result | The `result_id` check constraint (delivery plan §8.7) |
 | Two workers on one attempt | `FOR UPDATE SKIP LOCKED` claim; the lease is proof of ownership and every write carries `AND lease_owner = $2` |
 | Two applies of the same input both committing | `uq_snapshot_imports_applied_input` (existing) and `snapshot_imports.request_key` (existing). The job-level index only prevents the wasted work |
@@ -397,7 +448,13 @@ detected by the same statement that would otherwise retry.
 | A fourth claim | The cap, the claim predicate `attempts < 3`, and the fact that the reaper never requeues an exhausted job |
 | Two reapers both transitioning one job | `FOR UPDATE SKIP LOCKED` in the reaper's sub-select |
 | A worker stamping a verdict on a job it no longer holds | Every worker write carries `AND lease_owner = $2`; a lost lease means zero rows |
-| Cancelling a committed apply | The apply's commit sets `state='completed'`; the cancel statement filters `state IN ('queued','running')` and matches zero rows, answering `409` (route contract §6.1) |
+| Cancelling a committed apply | **Corrected 2026-08-18, twice.** The apply's commit sets `effect_committed_at` in the **same transaction as the effect** (migration 0012, the commit fence), and **both** branches of the cancel statement — the `queued` one and the `running` one — filter `AND effect_committed_at IS NULL`. The fence holds the job row's write lock across the commit, so a cancellation arriving during it blocks and then matches zero rows, answering `409` with VM-19's `already_applied` (route contract §6.1) and writing **no** audit event. The first correction put the predicate on the `running` branch only, which the reaper's requeue of a committed-but-unpublished effect reached around; migration 0013's `committed_effect_is_never_denied` now refuses the row whatever statement writes it |
+| An abandoned or reaped attempt committing an effect afterwards | **Added 2026-08-18.** The same fence: its `UPDATE` carries `AND lease_owner = $2 AND state = 'running' AND cancel_requested_at IS NULL AND effect_committed_at IS NULL`, so a token that has been superseded, requeued, failed or cancelled matches zero rows and the whole import transaction rolls back. Uniqueness (`uq_snapshot_imports_applied_input`, `snapshot_imports.request_key`) does **not** cover this: it prevents a *second* effect, not the *first* effect from a cancelled attempt |
+| R-41 or R-46 making a committed apply `stale` | **Added 2026-08-18.** `mark_stale` and `invalidate_for_snapshot` carry `AND effect_committed_at IS NULL`. `stale` means *nothing was applied*; it cannot describe an apply whose import committed, whether that apply is `running`, requeued or `completed` |
+| A worker's self-abandon over a committed effect | **Added 2026-08-18.** The self-abandon carries `AND effect_committed_at IS NULL`. When it matches zero rows because the effect won, the worker keeps the lease alive for a bounded three heartbeats and publishes the result instead of writing `queued` or `failed` over a real import; if the thread has still not returned, the job is left `running` and effect-publication recovery finishes it once the lease lapses |
+| A committed effect reaching `failed`, `cancelled` or `stale` by any route | **Added 2026-08-18; accepted 2026-08-19.** `CHECK (effect_committed_at IS NULL OR state NOT IN ('failed','cancelled','stale'))` (migration 0013). Each of those states asserts that *nothing was applied*. `fail`, `cancel_under_lease`, `mark_stale_under_lease`, `abandon`, `mark_stale`, `invalidate_for_snapshot` and both cancel branches carry the matching predicate so they **refuse**; the constraint is what makes the invariant hold for direct runtime-role SQL and for a statement a future change forgets it in |
+| A committed effect whose publication cannot be reconstructed | **Added 2026-08-18; accepted 2026-08-19.** `CHECK ((effect_committed_at IS NULL) = (effect_result IS NULL))` (migration 0013). The fence writes both in one statement, so an effect that becomes durable always leaves behind the bounded result a later recovery can publish from it |
+| Recovery granting a fourth execution attempt | **Added 2026-08-18.** The recovery transition never mints a lease, never increments `attempts` and never calls the import service; the claim statement is untouched and still filters `state = 'queued' AND attempts < 3`. Publishing a result the effect already produced is not an execution |
 | Applying on a stale scope | Apply re-checks the fingerprint **inside** its own transaction, after re-resolving Council authority. A mismatch aborts before any write |
 | Applying without current Council authority | `SnapshotImportService.apply` re-resolves through `AuthorizationPort` at apply time — the module's documented reason for existing |
 | Raw artifact bytes reaching a result, response, log or job payload | The result columns hold counts, codes and identifiers only (schema §10.2; delivery plan §8.9) |
@@ -456,10 +513,129 @@ detected by the same statement that would otherwise retry.
   or abandons the current attempt at its next heartbeat; an abandoned attempt is
   recoverable, not failed.
 
+### The commit fence (added 2026-08-18)
+
+SM-05's durable effect is committed by `SnapshotImportService.apply`, and the
+job's terminal state is published by the worker afterwards. Those are two
+transactions and always were; what was missing is anything making the second
+one's premise true at the moment of the first.
+
+The fence is one statement, issued on the **same session as the effect** as the
+last statement before it commits:
+
+```sql
+UPDATE reconciliation_jobs SET effect_committed_at = now(), version = version + 1
+WHERE id = $1 AND lease_owner = $2 AND state = 'running'
+  AND cancel_requested_at IS NULL AND effect_committed_at IS NULL;
+```
+
+Zero rows raises, and the whole import transaction — characters, mappings, the
+`snapshot_imports` row and the success audit event — rolls back with it.
+
+It is an `UPDATE` rather than a `SELECT` because the row's write lock is the
+serialization:
+
+| Competing writer | How exactly one side wins |
+|---|---|
+| Cancellation request (R-45) | Carries `AND effect_committed_at IS NULL`. Blocks on the fence's lock, then re-evaluates under `READ COMMITTED`: if the effect committed it matches zero rows and R-45 answers `409`; if it committed first the fence matches zero rows and the effect is rolled back |
+| Worker self-abandon (N-45 cap, kill switch) | The same predicate, the same two outcomes |
+| Reaper | `FOR UPDATE SKIP LOCKED` in its sub-select, so it skips a locked row rather than reaping it, and acts on its next pass if the effect rolled back |
+| A newer claim | A claim mints a **fresh** per-claim token, so the old attempt's `lease_owner = $2` matches nothing — including when the same worker instance reclaims |
+| R-41's folder change and R-46's N-46 expiry (`mark_stale`, `invalidate_for_snapshot`) | Both transition **live** jobs, so a `running` apply is in their reach. The fence requires `state = 'running'`, so an invalidation that lands first leaves nothing to commit; and both statements now carry `AND effect_committed_at IS NULL`, so neither can rewrite an apply whose import is durable into a state that means *nothing was applied*. This is the same argument that already excluded a `completed` apply, applied from the instant the effect became durable |
+
+`effect_committed_at` is deliberately **never** cleared. It is the durable fact
+that tells the reaper an expired lease over this job is a publication the platform
+owes rather than an attempt to retry or exhaust.
+
+### Effect-publication recovery (added 2026-08-18; accepted 2026-08-19)
+
+**This closes RR-16, which was recorded on 2026-08-18 and is not a residual risk
+any more.** It read: *a job whose effect committed and whose third lease then
+expires is failed by the reaper with `attempts_exhausted` while a valid import
+exists.* The independent re-review raised it as a blocking finding rather than a
+risk to accept, and it was right to: `failed` over a durable import is a job
+denying something the database is holding.
+
+The reaper's two branches both assume the attempt produced nothing — one retries
+it, the other declares it exhausted — so neither can describe a committed effect.
+Two things changed:
+
+1. **The fence writes the publication with the effect.** The same statement stores
+   `effect_result`: the bounded summary and blocked-entry list the run produced.
+   The result the worker owed used to exist only as an in-memory value on the
+   execution thread, and process death took it away.
+2. **The reaper declines the row and recovery takes it.** The reaper's locking
+   sub-select carries `AND effect_committed_at IS NULL`.
+   `lock_unpublished_effect` selects `state = 'running' AND effect_committed_at IS
+   NOT NULL AND lease_expires_at < now()` under `FOR UPDATE SKIP LOCKED`, and the
+   same transaction inserts the result, completes the job and records the
+   completion audit event.
+
+| Property | How |
+|---|---|
+| The summary is authoritative | Read from `effect_result` (written inside the effect's transaction) and from the immutable `snapshot_imports` row that transaction wrote. Nothing is recomputed against the database as it stands now, and nothing comes from a caller — Phase 2 finding B-1R's rule, applied to the job's result |
+| One atomic publication | The insert, the state change and the audit event are one transaction under the row lock. A crash, a failed audit or a lost connection rolls all three back |
+| Two workers cannot double-publish | `FOR UPDATE SKIP LOCKED`: the second finds nothing to do and writes nothing, rather than blocking and inserting a second result |
+| Retry is safe and needs no bookkeeping | The predicate *is* the idempotency: after a successful pass the job is `completed`, and only `running` rows are selected. After a failed pass nothing changed, so the next pass repeats it |
+| The live worker is not raced | `lease_expires_at < now()`. While the lease is alive the process that ran the attempt may still publish (`EFFECT_PUBLICATION_GRACE_HEARTBEATS`); the platform publishes on its behalf only once the lease has lapsed |
+| N-43 is not spent or disguised | No lease is minted, `attempts` is untouched, no artifact is parsed and no authority is re-resolved. The claim statement is unchanged |
+| Cancellation and invalidation cannot win | Every denying statement carries `AND effect_committed_at IS NULL`, before and after the lease lapses, and `committed_effect_is_never_denied` refuses the row regardless |
+
+The result carries `recovered: true` and `duplicate: false` — the truthful pair:
+this job's own first and only effect wrote the import, and what was recovered is
+the *publication*. The completion audit event carries the same marker, the reason
+`effect_committed_unpublished`, the job's `attempts` and the lease that stopped
+answering, so an operator can tell a job the worker finished from a job the
+platform finished for it.
+
+**What remains if recovery itself cannot succeed.** A publication that raises —
+which requires a row migration 0013's constraints make unrepresentable — leaves the
+job `running` with a lapsed lease. It is never written `failed`. VM-16's
+`expired_lease_age_seconds` is the signal, and the operational runbook names it.
+
+**A seventh state was considered and rejected.** `recovering` would be observable
+nowhere: the publication is one transaction under the row lock, so there is no
+interval in which a distinguishable state exists. N-27's six states are an accepted
+register value, and an internal convenience must not spend one.
+
+**A schema downgrade cannot pass through this transition, and 0013 refuses rather
+than let one try** (added 2026-08-18 by the migration-rollback remediation). A
+`running` job with a committed effect is a publication the platform owes, and the
+only durable record of what it owes is `effect_result` — which is why schema
+downgrade below `0013` is refused while any **retained** reconciliation job
+records a committed effect, and reopens only when approved N-24 retention has
+removed every completed committed-effect job and its result and no
+committed-but-unpublished job remains (2026-08-18 second migration-rollback
+remediation; `docs/operations/web-portal.md` §3.6, RAID `D-09`). Migration `0013`'s
+`downgrade()` drops that column, so a downgrade taken while such a job exists
+would leave the job in a state SM-05 has no exit from: the effect can never be
+denied (`committed_effect_is_never_denied`, and the invariant it states), and the
+publication can no longer be reconstructed, because the receipt in
+`snapshot_imports` does not carry the run's blocked-entry list, issue counts or
+would-create/would-update figures.
+
+So the downgrade **refuses before any schema change** while any *retained*
+reconciliation job records a committed import effect, counting the `completed`
+and the committed-but-unpublished populations separately (wording corrected
+2026-08-19; the earlier "once any … records" phrasing described a historical
+event the guard does not record). SM-05 therefore gains no transition, no state
+and no exception from schema rollback: while such a job is retained, rollback is
+simply not available, and it becomes available again once no such job survives —
+which for a completed job means approved N-24 retention has removed it and its
+result, and for a committed-but-unpublished job never happens until it is
+published, because a `running` job is never retention-eligible. That is an
+operational contract (`docs/operations/web-portal.md` §3.6), **accepted
+2026-08-19** as RAID `D-09` and recorded in `C-P3.3-J`, not a state-machine
+change. The operator's action for an outstanding
+unpublished effect is unchanged and is the one this subsection already describes —
+let the recovery pass publish it.
+
 ### Cancellation semantics, stated exactly
 
 `cancel_requested_at` is a request. It cancels a `queued` job immediately, a
-`running` job at its next heartbeat, and **never** an apply that has committed.
+`running` job at its next heartbeat, and **never** an apply that has committed —
+where "has committed" now means *its effect is durable*, not *its result has been
+published*, which is the 2026-08-18 correction above.
 It does not erase history: the job's audit events and, if the apply committed, the
 `snapshot_imports` row remain (delivery plan §8.8).
 

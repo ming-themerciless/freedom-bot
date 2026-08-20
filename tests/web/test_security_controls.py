@@ -304,6 +304,95 @@ def test_no_view_model_field_reaches_a_script_context(app):
 
 
 # ---------------------------------------------------------------------------
+# TC-SEC-14 — same-origin assets (added 2026-08-19, accepted D-03 correction)
+# ---------------------------------------------------------------------------
+
+#: Every shape of "fetch this from somebody else's server". Checked as substrings
+#: over the rendered source, which is coarse on purpose: a template has no
+#: legitimate reason to contain any of them, so a coarse check has no false
+#: positives to trade against.
+_REMOTE_ORIGIN_MARKERS = (
+    "http://",
+    "https://",
+    "//cdn.",
+    "cdn.jsdelivr",
+    "unpkg.com",
+    "cdnjs.",
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "@import url(",
+)
+
+
+def test_no_template_references_a_remote_origin(app):
+    """TC-SEC-14. N-26 permits `'self'` and `data:` and nothing else.
+
+    **Added 2026-08-19 by the accepted D-03 correction (item D-03-1).** The
+    correction adds an application-served `/static/` surface precisely so that
+    production CSS, vendored HTMX and the emblem can be same-origin; this is the
+    assertion that keeps them there. A CDN `<script src>` or a Google Fonts
+    `<link>` in a P3.4 template would not merely violate a preference — it would
+    be a request the accepted CSP blocks, so the page would silently render
+    unstyled or unscripted in production while looking correct in a browser with
+    a warm cache.
+
+    The delivery plan states the same exclusion at §4: *no SPA, React, Vue, npm,
+    bundler, CDN, remote font or frontend build step*.
+    """
+    for template in _templates():
+        body = _rendered_source(template).lower()
+        for marker in _REMOTE_ORIGIN_MARKERS:
+            assert marker not in body, f"{template.name} references {marker}"
+
+
+def test_no_template_references_the_frozen_design_prototype(app):
+    """The backend half of TC-UI-06. **Added 2026-08-19 with the D-03 correction.**
+
+    `design-prototype/` is a **reference-only** frozen visual baseline (plan
+    §12.1, view-model contract §1.1): no production module imports it, links to
+    it or serves it. It also sits outside the one approved static root, so a
+    template pointing at it would be asking for a file the M-01 mount cannot
+    serve — a broken page as well as a contract violation.
+
+    This is *not* the whole of TC-UI-06, and does not claim to be. That row is
+    P3.4's to write against the production template corpus and the production
+    asset tree, and it belongs to Gemini's package. What is asserted here is the
+    half the backend owns and can hold today: the current corpus, and the static
+    root the correction introduces.
+    """
+    for template in _templates():
+        body = _rendered_source(template)
+        assert "design-prototype" not in body, template.name
+
+    from adapters.web.composition import STATIC_ROOT
+
+    for asset in sorted(STATIC_ROOT.glob("**/*")):
+        if not asset.is_file():
+            continue
+        assert "design-prototype" not in asset.name, asset.name
+
+
+def test_the_static_root_holds_no_executable_or_remote_referencing_asset(app):
+    """TC-SEC-14. The same rules, applied to the new asset root rather than the corpus.
+
+    The corpus checks above would never have looked here: `_templates()` globs
+    `**/*.html` under the template root, and the static root is a sibling. An
+    asset with an `@import url(https://…)` or a remote `src` is exactly the shape
+    that would slip past a template-only guard, which is why the root gets its own
+    case from the day it exists.
+    """
+    from adapters.web.composition import STATIC_ROOT
+
+    text_suffixes = {".css", ".js", ".svg", ".html", ".json", ".map"}
+    for asset in sorted(STATIC_ROOT.glob("**/*")):
+        if not asset.is_file() or asset.suffix.lower() not in text_suffixes:
+            continue
+        body = asset.read_text(errors="replace").lower()
+        for marker in _REMOTE_ORIGIN_MARKERS:
+            assert marker not in body, f"{asset.name} references {marker}"
+
+
+# ---------------------------------------------------------------------------
 # TC-SEC-09
 # ---------------------------------------------------------------------------
 
