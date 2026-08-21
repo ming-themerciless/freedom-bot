@@ -47,7 +47,12 @@ from application.web.access_control import (
 )
 from application.web.audit_search import FilterBounds
 from application.web.errors import NotAMember, RefusalCode, WebRefusal
-from application.web.jobs import ConfirmationRefused, JobState
+from application.web.jobs import (
+    ConfirmationRefused,
+    JobState,
+    mint_preview_nonce,
+    parse_preview_nonce,
+)
 from application.web.pagination import InvalidCursor, page_size
 from application.web.view_models import (
     ConflictView,
@@ -345,10 +350,53 @@ def register(app: FastAPI, composition, authority) -> None:
         except ValueError:
             return None
 
+    def _submitted_preview_nonce(form) -> str | None:
+        """R-42's `nonce` field, admitted only as the exact minted shape (VM-14).
+
+        The **request boundary** half of the rule; the rule itself is
+        `application.web.jobs.parse_preview_nonce`, which is also what
+        `mint_preview_nonce` is built to satisfy. Nothing here restates the width
+        or the alphabet, so the value R-40 renders and the value R-42 admits
+        cannot drift.
+
+        What this function adds to the shared rule is the thing only the boundary
+        can see: **how many `nonce` fields arrived**. A form body may repeat a
+        key, and the parsed mapping answers `.get()` with one of them, so a body
+        carrying a valid nonce *and* a hostile one would be admitted on the
+        strength of whichever the parser happened to keep. An ambiguous request
+        has no single request identity, which is exactly the thing R-42 needs one
+        of, so it is refused rather than resolved by precedence.
+
+        A refusal here is the accepted `422` validation response and happens
+        before `enqueue_preview` is called, so a malformed nonce creates no job,
+        queues no audit effect and reaches no repository. It is also *after* the
+        guard, so authorization and CSRF denials keep their precedence: an
+        unauthorized caller with a perfect nonce is still refused first.
+        """
+        submitted = form.getlist("nonce")
+        if len(submitted) != 1:
+            return None
+        return parse_preview_nonce(submitted[0])
+
     # -- R-40 --------------------------------------------------------------
     @app.get("/v1/council/snapshots", name="council_snapshots")
     async def council_snapshots(request: Request) -> Response:
-        """R-40. VM-14. Council **and** administrator; the controls differ."""
+        """R-40. VM-14. Council **and** administrator; the controls differ.
+
+        **This is where a preview request identity is minted**, once per
+        successful render, next to the CSRF token and for the same reason: both
+        are facts about *this response* rather than about the rows in it, and the
+        handler is the only layer that knows a response is being produced. A
+        template that derived the value from row data instead would mint one
+        identity for the lifetime of a snapshot/folder pair, and every deliberate
+        preview after the first would collapse onto the first job (VM-14
+        `preview_nonce`).
+
+        It is minted **after** the guard has admitted the caller, so a refused
+        request never spends one, and it is minted unconditionally rather than
+        only when `can_preview` — the view's shape does not vary with capability,
+        and a Council member's page is the only one that renders an R-42 form.
+        """
         guard = GUARDS["R-40"]
         try:
             gate, context = await enter(request, guard)
@@ -360,6 +408,7 @@ def register(app: FastAPI, composition, authority) -> None:
                     context=context,
                     cursor_token=request.query_params.get("cursor"),
                     csrf_token=gate.csrf_token,
+                    preview_nonce=mint_preview_nonce(),
                     size=page_size(request.query_params.get("size")),
                 )
             )
@@ -430,11 +479,16 @@ def register(app: FastAPI, composition, authority) -> None:
                 {"error": RefusalCode.OBJECT_NOT_REACHABLE.value}, status_code=404
             )
         # The nonce is what makes two *deliberate* previews distinct and two
-        # submissions of the same form identical. A form that omits it is one
-        # request whose identity the platform cannot establish, so it is refused
-        # rather than given a fresh identity that would defeat the idempotency.
-        nonce = (form.get("nonce") or "").strip()
-        if not nonce:
+        # submissions of the same form identical: R-40 minted it for one rendered
+        # response, so the same form resubmitted carries the same value and a
+        # separately rendered form carries a different one. A form that omits it
+        # is one request whose identity the platform cannot establish, so it is
+        # refused rather than given a fresh identity that would defeat the
+        # idempotency. Nothing here treats it as authorization — the capability
+        # and every server-owned snapshot, folder and profile fact are resolved
+        # below, from the session and the database, not from the body.
+        nonce = _submitted_preview_nonce(form)
+        if nonce is None:
             return _validation(request, "nonce")
         try:
             enqueued = await unit(
@@ -591,10 +645,20 @@ def register(app: FastAPI, composition, authority) -> None:
                 {"error": RefusalCode.OBJECT_NOT_REACHABLE.value}, status_code=404
             )
         token = (form.get("preview_token") or "").strip()
-        nonce = (form.get("nonce") or "").strip()
         if not token:
             return _validation(request, "preview_token")
-        if not nonce:
+        # The nonce is what makes every confirmation of *one* completed preview
+        # the same request: the rendered form carries the preview job's own id,
+        # so a double-click, a retry and a second browser all produce the
+        # identical R-46 request key. A caller-chosen value would let one
+        # preview acquire several request keys, which is the property the
+        # one-live-apply fence and `uq_snapshot_imports_applied_input` would
+        # then have to refuse *after* the work had been queued. Nothing here
+        # treats it as authorization — capability, preview state, expiry,
+        # checksum, folder, profile version and the aggregate versions are all
+        # resolved below, from the session and the database, not from the body.
+        nonce = _submitted_apply_nonce(form, identifier)
+        if nonce is None:
             return _validation(request, "nonce")
         try:
             outcome = await unit(
@@ -748,6 +812,80 @@ def register(app: FastAPI, composition, authority) -> None:
                 request, _field_for(refusal), code=_code_for(refusal)
             )
         return JSONResponse({"error": refusal.code.value}, status_code=refusal.status)
+
+
+def _submitted_apply_nonce(form, identifier: UUID) -> str | None:
+    """R-46's `nonce` field, admitted only as the preview job's own identity.
+
+    **R-42's rule is deliberately not reused.** The two routes have opposite
+    idempotency requirements, so they have different grammars, and folding
+    them into one shared parser would name a similarity that does not exist.
+    R-42's nonce is minted per R-40 render because a Council member may
+    legitimately want a *second* preview. R-46's is the preview job's UUID
+    because one completed preview may produce only one durable effect: a
+    double-click, a retried lost response, a back-and-resubmit and a second
+    browser must all carry the identical request identity and converge on
+    one apply. `job_status_fragment.html` renders exactly that value, and
+    this is the boundary that admits exactly it back.
+
+    Two things only the boundary can see, and both are transport facts:
+
+    1. **how many `nonce` fields arrived.** A form body may repeat a key and
+       the parsed mapping answers `.get()` with one of them, so a body
+       carrying the canonical value *and* a hostile one would be admitted on
+       the strength of whichever the parser happened to keep. A request with
+       two request identities has none, so it is refused rather than
+       resolved by precedence — even when the two values agree, because the
+       rendered form emits one field and a body with two did not come from
+       it.
+    2. **which preview this path names.** `identifier` is the UUID already
+       parsed from the R-46 path, so equality here ties the submitted
+       identity to the route's own object rather than to any other
+       well-formed UUID a caller could mint.
+
+    **Nothing is normalized or repaired.** No strip, no case fold, no
+    `UUID()` re-parse. Comparing against `str(identifier)` — the canonical
+    lowercase hyphenated spelling, which is the one the template renders —
+    rather than against a parsed value means uppercase text, an unhyphenated
+    hex run, a `{...}` or `urn:uuid:` spelling and a padded value are all
+    refused rather than accepted as "the same UUID". A boundary whose job is
+    "accept exactly this" must not be the thing that manufactures a match:
+    every one of those spellings is a request the production form never
+    emitted, and admitting it would let one preview acquire several request
+    keys.
+
+    Not a constant-time comparison, and deliberately: the value is the job
+    id from the caller's own request path. There is nothing secret to leak
+    by timing. The `preview_token`, which *is* compared against stored
+    state, is compared in constant time by the application service.
+
+    A refusal here is the accepted `422` validation response and happens
+    before `enqueue_apply` is called, so a malformed nonce enqueues no apply,
+    writes no `reconciliation.apply_requested` event and reaches no
+    repository. It is also *after* the guard and after path parsing, so
+    authorization, CSRF and the non-enumerating `404` all keep their
+    precedence: an unauthorized caller with a perfect nonce is still refused
+    first, and an unreachable job is still `404` rather than `422`.
+
+    At **module scope** rather than inside `register`, unlike its R-42
+    counterpart, because it closes over nothing — no composition, no authority,
+    no settings — and because the non-`str` branch is otherwise unreachable from
+    an HTTP test: a multipart body is refused `415` by the content-type guard
+    long before this runs, so the only way to prove that branch is to call this
+    directly.
+    """
+    submitted = form.getlist("nonce")
+    if len(submitted) != 1:
+        return None
+    value = submitted[0]
+    # A multipart part is an upload object, not text. Refused rather than
+    # coerced: `str(upload) == str(identifier)` is never true, but relying on
+    # that would be relying on a repr.
+    if not isinstance(value, str):
+        return None
+    if value != str(identifier):
+        return None
+    return value
 
 
 def _cancel_conflict(refusal: WebRefusal, job_state: str) -> str:

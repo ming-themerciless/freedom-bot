@@ -745,7 +745,13 @@ operational one. Audit: `snapshot.folder_selected`.
 `reconciliation_jobs` row of kind `preview` (N-27 states, N-42 admission bound).
 Idempotent on a request key derived from `(snapshot, folder, profile version,
 account, submitted nonce)`: a double-click returns the **existing** job's redirect
-rather than creating a second. Returns `303` to R-43 — never the result, which does
+rather than creating a second. The submitted nonce is `SnapshotListView.preview_nonce`
+(VM-14), minted server-side for one R-40 render and identical in every preview form
+of that response — so resubmitting one rendered form is one job, and a separately
+rendered form is a second. It is a request identity, not authorization: this route
+re-resolves Council capability and every server-owned snapshot, folder and
+profile-version fact irrespective of it, and the raw text is hashed into the
+request key rather than persisted. Returns `303` to R-43 — never the result, which does
 not exist yet. Refusals: `queue_full` (N-42), `snapshot_absent`, `folder_unselected`,
 `blocked_by_running_apply`. Audit: `reconciliation.job_queued`.
 

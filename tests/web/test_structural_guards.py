@@ -364,6 +364,100 @@ def test_the_web_module_graph_never_reaches_the_bot_config():
     assert offenders == []
 
 
+#: Modules under `application/web/` that reach outward to `adapters` today. Each
+#: one is a **pre-existing** inversion of the dependency direction `.agents/
+#: AGENTS.md` states, inherited from packages accepted before this remediation and
+#: outside its allowlist. The list is written down so it can only shrink: it is
+#: not an acceptance of the inversions, it is the ratchet that stops the next one.
+#:
+#: `account_identities` is deliberately **not** here. It briefly belonged on this
+#: list — the P3.4 Step 9 unlink runner put it there — and came back off when that
+#: runner moved to `adapters/web/portal_routes.py`, which is what the first test
+#: below pins.
+APPLICATION_WEB_ADAPTER_IMPORTS_STILL_OPEN = frozenset(
+    {
+        "application/web/config.py",
+        "application/web/errors.py",
+        "application/web/rate_limit.py",
+        "application/web/refusals.py",
+        "application/web/role_mappings.py",
+        "application/web/startup.py",
+    }
+)
+
+#: The R-37 unlink path: the application module the review found importing a
+#: concrete web repository, and the one that must stay clean of engines,
+#: sessions and adapters for the fix to mean anything.
+R_37_APPLICATION_MODULES = ("application/web/account_identities.py",)
+
+#: Outward names an application module must not import. `adapters` is the layer
+#: rule; `sqlalchemy` is there because "no concrete repository" is worth nothing
+#: if the same module can open its own transaction instead.
+_OUTWARD_ROOTS = ("adapters", "sqlalchemy")
+
+
+def _imported_roots(path: Path) -> set[str]:
+    """Every top-level package `path` imports, at any nesting depth.
+
+    Read from the syntax tree rather than grepped, and from the whole tree rather
+    than the module header, so a function-local import — which is how the defect
+    this guards against was written — is counted exactly like a top-level one. A
+    `TYPE_CHECKING` guard is not special either: it is an `ast.ImportFrom` in the
+    tree and it is reported.
+    """
+    roots: set[str] = set()
+    tree = ast.parse(path.read_text(), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""]
+        else:
+            continue
+        roots.update(name.split(".", 1)[0] for name in names if name)
+    return roots
+
+
+def test_the_r37_unlink_use_case_never_imports_an_adapter_or_an_engine():
+    """The regression guard for the Step 9 review finding.
+
+    `run_identity_unlink` briefly lived in `application/web/account_identities.py`
+    and imported `adapters.web.repositories.WebAuditRepository` inside itself to
+    write the durable refusal. That made the use case depend on the concrete
+    adapter it is supposed to be independent of, and a function-local import is
+    exactly the shape a header-only check would miss — hence the whole-tree walk
+    above.
+
+    The behaviour did not move: `AccountIdentityService.unlink` still decides
+    which refusal is durable and still describes the event. Only the engine and
+    the repository moved, to `adapters/web/portal_routes.py`, where they belong.
+    """
+    offenders: list[str] = []
+    for relative in R_37_APPLICATION_MODULES:
+        path = ROOT / relative
+        for root in sorted(_imported_roots(path) & set(_OUTWARD_ROOTS)):
+            offenders.append(f"{relative}: {root}")
+    assert offenders == []
+
+
+def test_no_new_application_web_module_starts_importing_an_adapter():
+    """The same rule for the rest of the layer, as a ratchet rather than a gate.
+
+    Six modules invert the dependency direction already, from packages accepted
+    before P3.4. Fixing them is not in this remediation's allowlist, so this test
+    does not fail on them — it fails when the set **changes**, in either
+    direction: a seventh module is a new violation, and a module that has been
+    corrected must be removed from the list so the next one cannot hide behind it.
+    """
+    offending: set[str] = set()
+    for path in sorted((ROOT / "application" / "web").glob("**/*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        if _imported_roots(path) & set(_OUTWARD_ROOTS):
+            offending.add(str(path.relative_to(ROOT)))
+    assert offending == set(APPLICATION_WEB_ADAPTER_IMPORTS_STILL_OPEN)
+
+
 def test_importing_the_web_package_does_not_pull_in_the_bot_config():
     """The same rule, resolved by running rather than by reading."""
     import importlib

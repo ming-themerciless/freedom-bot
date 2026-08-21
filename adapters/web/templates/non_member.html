@@ -7,11 +7,14 @@
     need in order to recover. It names no roles, no characters and no other
     members.
   #}
-  <h1>You are not currently a member</h1>
-  <p data-state="denied" data-reason="{{ view.reason.category.value }}">
-    Your {{ view.guild_display_name }} membership could not be confirmed at
-    {{ view.checked_at.display }}.
-  </p>
-  <p>Reference {{ view.correlation.id }}.</p>
-  <p><a href="/v1/login">Back to sign in</a></p>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1 class="auth-title">You are not currently a member</h1>
+      <div class="alert alert-warning" data-state="denied" data-reason="{{ view.reason.category.value }}">
+        <p>Your {{ view.guild_display_name }} membership could not be confirmed at {{ view.checked_at.display }}.</p>
+      </div>
+      <p class="auth-meta">Reference <span class="reference-code">{{ view.correlation.id }}</span>.</p>
+      <p class="auth-links"><a href="/v1/login">Back to sign in</a></p>
+    </div>
+  </div>
 {% endblock %}

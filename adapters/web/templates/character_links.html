@@ -4,84 +4,235 @@
   {#
     VM-08, R-23, and the three controls R-25/R-26/R-27 carry.
 
-    The invariants are stated **before** the Council member commits rather than
+    The invariants are stated before the Council member commits rather than
     reported afterwards as a constraint violation. The database still enforces
-    every one of them; this page explains one, it does not replace one — and the
-    server refuses each mutation whether or not the control was rendered, which
-    is what TC-BG-05b and the denial tests prove by never fetching this page.
+    every one of them; this page explains one, it does not replace one.
 
     `character_version` is submitted back with every mutation and re-checked
-    server-side. A stale value is refused `409` and applied on top of nothing.
+    server-side. A stale value is refused 409 and applied on top of nothing.
   #}
-  <h1>{{ view.character.display_name.value }}</h1>
-  <p data-field="version">{{ view.character_version }}</p>
-  <p data-invariant="one-active-owner" data-value="{{ 'true' if view.invariants.one_active_owner else 'false' }}">
-    {% if view.invariants.revoking_last_owner_leaves_unresolved %}
-      Revoking the last active owner is permitted and leaves this character with
-      no owner until Council grants one.
-    {% else %}
-      This character currently has no active owner.
-    {% endif %}
-  </p>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">{{ view.character.display_name.value }}</h1>
+      <span class="badge badge-warning">Council Link Management</span>
+    </div>
+    <div class="profile-badges">
+      {% if view.character.active %}
+        <span class="badge badge-success">Active</span>
+      {% else %}
+        <span class="badge badge-warning">Inactive</span>
+      {% endif %}
+      <span class="badge badge-info">Level: {% if view.character.level is not none %}{{ view.character.level }}{% else %}not recorded{% endif %}</span>
+      <span class="badge badge-primary profile-version" data-field="version">Version {{ view.character_version }}</span>
+    </div>
+  </header>
 
-  <h2>Active links</h2>
-  <ul data-section="active-links">
-    {% for fact in view.active_links %}
-      <li data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}"
-          data-default="{{ 'true' if fact.is_default else 'false' }}">
-        {{ fact.account.label.value }}
-        {% if fact.discord_subject_display %}
-          <span data-evidence="discord-subject">{{ fact.discord_subject_display }}</span>
+  <div class="alert alert-info invariant-notice" data-invariant="one-active-owner" data-value="{{ 'true' if view.invariants.one_active_owner else 'false' }}">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <div>
+      <strong>Ownership Invariants:</strong>
+      <p>A character may have at most one active owner. When another account is the active owner, granting an owner link is refused and Council must revoke that owner before granting a new owner.</p>
+      <p>
+        {% if view.invariants.revoking_last_owner_leaves_unresolved %}
+          Revoking the last active owner is permitted by rule and leaves this character with no owner until Council grants one.
+        {% else %}
+          Revoking the last active owner is constrained.
         {% endif %}
-        <span data-field="reason">{{ fact.reason.value }}</span>
-        <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/revoke">
-          <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-          <input type="hidden" name="version" value="{{ view.character_version }}">
-          <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-          <button type="submit">Revoke</button>
-        </form>
-        <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/default">
-          <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-          <input type="hidden" name="version" value="{{ view.character_version }}">
-          <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-          <button type="submit">Make default</button>
-        </form>
-      </li>
-    {% endfor %}
-  </ul>
+      </p>
+      {% if view.invariants.default_character_held_elsewhere %}
+        <div class="default-held-notice">
+          <span>Target account holds default status on character(s):</span>
+          <ul>
+            {% for char_id in view.invariants.default_character_held_elsewhere %}
+              <li><code class="font-mono text-xs">{{ char_id }}</code></li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <div class="default-held-notice text-muted">
+          <span>No default character held elsewhere by target account.</span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-  <h2>Grant a link</h2>
-  {#
-    The target is a **snowflake**, chosen from the R-24 search. The browser never
-    supplies a platform account id: the form has no such field, and the service
-    has no parameter for one — the account is resolved server-side (TC-ID-08).
-  #}
-  <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links">
-    <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-    <input type="hidden" name="version" value="{{ view.character_version }}">
-    <label>Discord snowflake <input type="text" name="subject" required></label>
-    <label>Access kind
-      <select name="access_kind">
-        <option value="owner">owner</option>
-        <option value="co_owner">co_owner</option>
-        <option value="delegate">delegate</option>
-        <option value="viewer">viewer</option>
-      </select>
-    </label>
-    <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-    <button type="submit">Grant</button>
-  </form>
+  <section class="detail-section" data-section="active-links">
+    <h2 class="section-title">Active Character Links ({{ view.active_links | length }})</h2>
+    {% if not view.active_links %}
+      <p class="empty-text">No active access links for this character.</p>
+    {% else %}
+      <div class="access-list">
+        {% for fact in view.active_links %}
+          <article class="card access-card" data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}"
+                   data-default="{{ 'true' if fact.is_default else 'false' }}">
+            <div class="access-header">
+              <div>
+                <h3 class="access-account-label">{{ fact.account.label.value }}</h3>
+                <div class="access-badges">
+                  <span class="badge badge-primary badge-sm">{{ fact.access_kind }}</span>
+                  <span class="badge badge-success badge-sm">Active</span>
+                  {% if fact.is_default %}
+                    <span class="badge badge-success badge-sm">Default Character</span>
+                  {% else %}
+                    <span class="badge badge-secondary badge-sm">Not Default</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="access-subject-block">
+                <span class="data-label">Discord Snowflake:</span>
+                {% if fact.discord_subject_display %}
+                  <code class="font-mono" data-evidence="discord-subject">{{ fact.discord_subject_display }}</code>
+                {% else %}
+                  <span class="text-muted" data-evidence="discord-subject">not recorded</span>
+                {% endif %}
+              </div>
+            </div>
 
-  <h2>History</h2>
-  <ul data-section="historical-links">
-    {% for fact in view.historical_links %}
-      <li data-access-id="{{ fact.access_id }}">
-        {{ fact.account.label.value }} — revoked
-        {% if fact.revoked_at %}{{ fact.revoked_at.display }}{% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  {% if view.cursor.has_more %}
-    <a rel="next" href="/v1/council/characters/{{ view.character.character_id }}/links?cursor={{ view.cursor.token }}">Older</a>
-  {% endif %}
+            <div class="data-grid">
+              <div class="data-item">
+                <span class="data-label">Granted By</span>
+                <span class="data-value">{{ fact.granted_by.label.value }}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Granted At</span>
+                <span class="data-value font-mono">{{ fact.granted_at.display }}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Expires At</span>
+                <span class="data-value font-mono">{% if fact.expires_at %}{{ fact.expires_at.display }}{% else %}<span class="text-muted">never</span>{% endif %}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Reason</span>
+                <span class="data-value" data-field="reason">{{ fact.reason.value }}</span>
+              </div>
+              <div class="data-item">
+                <span class="data-label">Correlation ID</span>
+                <span class="data-value font-mono text-xs">{{ fact.correlation.id }}</span>
+              </div>
+            </div>
+
+            <div class="access-actions">
+              <!-- R-26 Revoke Form -->
+              <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/revoke" class="action-form">
+                <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                <input type="hidden" name="version" value="{{ view.character_version }}">
+                <div class="form-group-inline">
+                  <label for="revoke-reason-{{ fact.access_id }}" class="form-label-inline">Revoke Reason</label>
+                  <input type="text" id="revoke-reason-{{ fact.access_id }}" name="reason" maxlength="500" placeholder="Reason for revocation..." class="form-input form-input-sm" required>
+                  <button type="submit" class="btn btn-danger btn-sm">Revoke Link</button>
+                </div>
+              </form>
+
+              {% if not fact.is_default %}
+                <!-- R-27 Set Default Form -->
+                <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links/{{ fact.access_id }}/default" class="action-form">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <input type="hidden" name="version" value="{{ view.character_version }}">
+                  <div class="form-group-inline">
+                    <label for="default-reason-{{ fact.access_id }}" class="form-label-inline">Default Reason</label>
+                    <input type="text" id="default-reason-{{ fact.access_id }}" name="reason" maxlength="500" placeholder="Reason for setting default..." class="form-input form-input-sm" required>
+                    <button type="submit" class="btn btn-secondary btn-sm">Make Default</button>
+                  </div>
+                </form>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="detail-section" data-section="grant-link">
+    <h2 class="section-title">Grant Character Access</h2>
+    <div class="card grant-card">
+      <!-- R-25 Grant Form -->
+      <form method="post" action="/v1/council/characters/{{ view.character.character_id }}/links" class="grant-form">
+        <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+        <input type="hidden" name="version" value="{{ view.character_version }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="grant-subject" class="form-label">Discord Snowflake (User ID)</label>
+            <input type="text" id="grant-subject" name="subject" class="form-input font-mono" placeholder="e.g. 123456789012345678" required>
+            <span class="form-help">Enter the decimal Discord snowflake identifier.</span>
+          </div>
+          <div class="form-group">
+            <label for="grant-access-kind" class="form-label">Access Kind</label>
+            <select id="grant-access-kind" name="access_kind" class="form-select" required>
+              <option value="owner">owner (Exclusive primary owner)</option>
+              <option value="co_owner">co_owner (Shared ownership)</option>
+              <option value="delegate">delegate (Authorized agent)</option>
+              <option value="viewer" selected>viewer (Read-only)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="grant-reason" class="form-label">Council Justification / Reason</label>
+          <input type="text" id="grant-reason" name="reason" maxlength="500" class="form-input" placeholder="Justification for granting link..." required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Grant Access Link</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="detail-section" data-section="historical-links">
+    <h2 class="section-title">Access Link History</h2>
+    {% if not view.historical_links %}
+      <p class="empty-text">No historical revocations recorded.</p>
+    {% else %}
+      <div class="table-container">
+        <table class="council-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Access Kind</th>
+              <th>Status</th>
+              <th>Revoked At</th>
+              <th>Granted By</th>
+              <th>Granted At</th>
+              <th>Expires At</th>
+              <th>Reason</th>
+              <th>Correlation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for fact in view.historical_links %}
+              <tr data-access-id="{{ fact.access_id }}">
+                <td>
+                  <strong>{{ fact.account.label.value }}</strong>
+                  <br>
+                  {% if fact.discord_subject_display %}
+                    <span class="font-mono text-xs text-muted" data-evidence="discord-subject">{{ fact.discord_subject_display }}</span>
+                  {% else %}
+                    <span class="text-xs text-muted" data-evidence="discord-subject">not recorded</span>
+                  {% endif %}
+                </td>
+                <td><span class="badge badge-secondary badge-sm">{{ fact.access_kind }}</span></td>
+                <td>
+                  <span class="badge badge-warning badge-sm">Inactive</span>
+                  {% if fact.is_default %}
+                    <br><span class="badge badge-info badge-sm">Default</span>
+                  {% endif %}
+                </td>
+                <td class="font-mono text-sm">{% if fact.revoked_at %}{{ fact.revoked_at.display }}{% else %}<span class="text-muted">not recorded</span>{% endif %}</td>
+                <td>{{ fact.granted_by.label.value }}</td>
+                <td class="font-mono text-sm">{{ fact.granted_at.display }}</td>
+                <td class="font-mono text-sm">{% if fact.expires_at %}{{ fact.expires_at.display }}{% else %}<span class="text-muted">never</span>{% endif %}</td>
+                <td><span data-field="reason">{{ fact.reason.value }}</span></td>
+                <td class="font-mono text-xs">{{ fact.correlation.id }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if view.cursor.has_more %}
+        <nav class="cursor-nav" aria-label="Historical pagination">
+          <a rel="next" href="/v1/council/characters/{{ view.character.character_id }}/links?cursor={{ view.cursor.token | urlencode }}" class="btn btn-secondary">Older History &rarr;</a>
+        </nav>
+      {% endif %}
+    {% endif %}
+  </section>
 {% endblock %}

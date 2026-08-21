@@ -91,6 +91,42 @@ class UnlinkRefused(WebRefusal):
         )
 
 
+class UnlinkRefusedPendingAudit(UnlinkRefused):
+    """The last-identity refusal, carrying the audit that has to outlive the rollback.
+
+    R-37's audit requirement and its transaction are in direct conflict, and only
+    for this one branch. `identity.link_refused` must be durable — it is the
+    record that somebody tried to remove their own way back in — but the raise
+    that answers `409` rolls the transaction back, and a record written before it
+    is discarded exactly when the refusal happened. Writing it in the same
+    transaction as the mutation is right for `identity.unlinked`, where the event
+    and the state change must stand or fall together (SM-04); it is wrong here,
+    where there is no state change to stand with.
+
+    So the event is *described* rather than written, and travels out on the
+    exception. The adapter that owns the engine —
+    `adapters.web.portal_routes.run_identity_unlink` — writes it in a fresh
+    transaction and then re-raises the plain refusal, which is what the route
+    renders. This module names no engine, no connection and no repository: the
+    rule about *which* refusal is durable is an application rule, and the
+    machinery that makes a write durable is not.
+
+    This subclasses `UnlinkRefused` rather than wrapping it, so a caller holding
+    the service directly — a service-level test, a future non-route consumer —
+    still catches the refusal it already catches, and the two-transaction rule is
+    a property of the runner rather than a new exception contract imposed on
+    everybody. The runner catches this exact subclass, so the account's other
+    refusals stay plain `UnlinkRefused` and write nothing.
+    """
+
+    __slots__ = ("refusal", "event")
+
+    def __init__(self, refusal: UnlinkRefused, event: AuditEvent) -> None:
+        super().__init__(refusal.correlation_id)
+        self.refusal = refusal
+        self.event = event
+
+
 class AccountIdentityService:
     """The caller's own identities. Every method is scoped to `context.account_id`."""
 
@@ -190,7 +226,13 @@ class AccountIdentityService:
 
         if self._accounts.active_identity_count(context.account_id) <= 1:
             if not self._has_reviewed_recovery_route(context.account_id):
-                self._audit.record(
+                # Described, **not written**. The raise below rolls this
+                # transaction back, and the row would go with it — the one case
+                # the record exists for. The adapter's `run_identity_unlink`
+                # owns the second transaction; carrying the event out rather
+                # than recording it here is what lets it.
+                raise UnlinkRefusedPendingAudit(
+                    UnlinkRefused(correlation_id),
                     self._event(
                         "identity.link_refused",
                         identity_id,
@@ -200,9 +242,8 @@ class AccountIdentityService:
                             "provider_key": row["provider_key"],
                             "refusal": "last_usable_identity",
                         },
-                    )
+                    ),
                 )
-                raise UnlinkRefused(correlation_id)
 
         if not self._accounts.retire_identity(
             identity_id, reason="unlinked by the account holder", at=now
@@ -275,4 +316,5 @@ __all__ = [
     "PROTECTED_CREDENTIAL_FLOOR",
     "PROVIDER_DISPLAY_NAMES",
     "UnlinkRefused",
+    "UnlinkRefusedPendingAudit",
 ]

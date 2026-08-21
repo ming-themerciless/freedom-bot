@@ -2,34 +2,113 @@
 {% block title %}Characters — Council — Freedom Blades{% endblock %}
 {% block content %}
   {#
-    VM-07, R-22. Bounded and cursor-paginated (N-21, N-64): there is no "show
-    all" and no page number, because an offset over a growing table either
-    repeats a row or skips one while somebody is paging.
+    VM-07, R-22. Bounded and cursor-paginated: there is no "show all" and no
+    page number, because an offset over a growing table either repeats a row or
+    skips one while somebody is paging.
 
     `unresolved_owner` is OD-37's exception made visible. The database enforces
-    *at most* one active owner; *at least* one cannot be a constraint, because
-    the Phase 2 importer creates a character before Council has resolved who
-    owns it. So a character with no active owner is a reportable state, and this
-    is where it is reported.
+    at most one active owner; at least one cannot be a constraint, because
+    the importer creates a character before Council has resolved who owns it.
+    So a character with no active owner is a reportable state.
   #}
-  <h1>Characters</h1>
-  <form method="get" action="/v1/council/characters">
-    <label>Search <input type="text" name="q" maxlength="120"
-      value="{% if view.filters.query %}{{ view.filters.query.value }}{% endif %}"></label>
-    <button type="submit">Search</button>
-  </form>
-  <ul data-state="{{ view.state }}">
-    {% for row in view.rows %}
-      <li data-character-id="{{ row.character_id }}"
-          data-unresolved-owner="{{ 'true' if row.unresolved_owner else 'false' }}"
-          data-active-links="{{ row.active_link_count }}">
-        <a href="{{ row.links_path }}">{{ row.display_name.value }}</a>
-        {% if row.active_owner %}<span data-field="owner">{{ row.active_owner.label.value }}</span>
-        {% else %}<span data-field="owner" data-unresolved="true">no active owner</span>{% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  {% if view.cursor.has_more %}
-    <a rel="next" href="/v1/council/characters?cursor={{ view.cursor.token }}">Next</a>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Council Character Directory</h1>
+      <span class="badge badge-warning">Council Authority</span>
+    </div>
+    <p class="page-description">
+      Manage platform character ownership links, delegates, and default character assignments.
+    </p>
+  </header>
+
+  <div class="filter-bar">
+    <form method="get" action="/v1/council/characters" class="search-form">
+      <div class="search-input-group">
+        <label for="search-query" class="form-label">Search Character Name</label>
+        <input type="text" id="search-query" name="q" class="form-input" maxlength="120" placeholder="Search by character name..."
+               value="{% if view.filters.query %}{{ view.filters.query.value }}{% endif %}">
+      </div>
+      <div class="form-checkbox-group">
+        <label class="form-checkbox-label">
+          <input type="checkbox" name="include_inactive" value="true" class="form-checkbox"{% if view.filters.include_inactive %} checked{% endif %}>
+          Include inactive characters
+        </label>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if view.filters.query or view.filters.include_inactive %}
+          <a href="/v1/council/characters" class="btn btn-secondary">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  {% if view.state == "empty" %}
+    <div class="empty-card" data-state="empty">
+      <div class="empty-icon" aria-hidden="true">&empty;</div>
+      <h2>No Characters Found</h2>
+      <p>No characters matched your search filter or exist in the registry.</p>
+    </div>
+  {% else %}
+    <div class="table-container">
+      <table class="council-table" data-state="{{ view.state }}">
+        <thead>
+          <tr>
+            <th>Character</th>
+            <th>Level</th>
+            <th>Status</th>
+            <th>Active Owner</th>
+            <th>Active Links</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in view.rows %}
+            <tr data-character-id="{{ row.character_id }}"
+                data-unresolved-owner="{{ 'true' if row.unresolved_owner else 'false' }}"
+                data-active-links="{{ row.active_link_count }}">
+              <td>
+                <a href="{{ row.links_path }}" class="char-title-link">
+                  <strong>{{ row.display_name.value }}</strong>
+                </a>
+              </td>
+              <td data-field="level">
+                {% if row.level is not none %}
+                  {{ row.level }}
+                {% else %}
+                  <span class="text-muted">not recorded</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if row.active %}
+                  <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                  <span class="badge badge-warning badge-sm">Inactive</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if row.active_owner %}
+                  <span data-field="owner" class="badge badge-primary badge-sm">{{ row.active_owner.label.value }}</span>
+                {% else %}
+                  <span data-field="owner" data-unresolved="true" class="badge badge-danger badge-sm">no active owner</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge badge-info badge-sm">{{ row.active_link_count }}</span>
+              </td>
+              <td>
+                <a href="{{ row.links_path }}" class="btn btn-secondary btn-sm">Manage Links &rarr;</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if view.cursor.has_more %}
+      <nav class="cursor-nav" aria-label="Pagination">
+        <a rel="next" href="/v1/council/characters?cursor={{ view.cursor.token | urlencode }}{% if view.filters.query %}&q={{ view.filters.query.value | urlencode }}{% endif %}{% if view.filters.include_inactive %}&include_inactive=true{% endif %}" class="btn btn-secondary">Next Page &rarr;</a>
+      </nav>
+    {% endif %}
   {% endif %}
 {% endblock %}

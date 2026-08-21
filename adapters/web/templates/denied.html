@@ -15,9 +15,13 @@
     reason leaks, and one assembled from the object that was refused is an
     enumeration oracle.
   #}
-  <h1>Not available</h1>
-  <p data-state="denied" data-reason="{{ view.reason.category.value }}">
-    This is not available to you.
-  </p>
-  <p><a href="/v1/characters">Back to My Characters</a></p>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1 class="auth-title">Not available</h1>
+      <div class="alert alert-danger" data-state="denied" data-reason="{{ view.reason.category.value }}">
+        <p>This is not available to you.</p>
+      </div>
+      <p class="auth-links"><a href="/v1/characters">Back to My Characters</a></p>
+    </div>
+  </div>
 {% endblock %}

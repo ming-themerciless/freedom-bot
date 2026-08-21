@@ -89,6 +89,7 @@ class SnapshotAdminService:
         context,
         cursor_token: str | None,
         csrf_token: str,
+        preview_nonce: str,
         size: int,
     ) -> SnapshotListView:
         """VM-14. Council **and** administrator: the administrator needs it to
@@ -104,6 +105,13 @@ class SnapshotAdminService:
         receipt is R-47. `SnapshotRow.applied` is computed rather than hardcoded
         `False`, so a snapshot applied between two page loads reads correctly and
         a later widening of this filter needs no view-model change.
+
+        `preview_nonce` arrives from the caller for the same reason `csrf_token`
+        does: it is a fact about **this HTTP render**, minted at the composition
+        boundary that knows a response is being produced, so this method stays a
+        deterministic query over the rows it read. It is placed on the view
+        unchanged and never consulted here — R-42 is where a submitted nonce
+        means anything.
         """
         context.require_guild_member()
         if not (context.guild_council or context.platform_administrator):
@@ -140,6 +148,7 @@ class SnapshotAdminService:
             can_select_folder=bool(context.platform_administrator),
             can_preview=bool(context.guild_council),
             csrf_token=csrf_token,
+            preview_nonce=preview_nonce,
         )
 
     def _row(self, row, selections, observed, stamps, applied) -> SnapshotRow:

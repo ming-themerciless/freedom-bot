@@ -32,8 +32,15 @@ from adapters.database.tables import (
     snapshot_imports,
 )
 from application.web.jobs import JobKind, JobState, scope_fingerprint
+from application.web.view_models import PREVIEW_NONCE_BOUND
 from domain.foundry import OBSERVED_DEPLOYMENT
 from tests import foundry_fixtures as fx
+
+#: The URL/form-safe alphabet `secrets.token_urlsafe` emits, and therefore the
+#: only characters R-42 admits.
+_NONCE_ALPHABET = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+)
 
 #: The folder path the synthetic bundle's `Characters (active)` folder resolves
 #: to. Not `/actors/Characters (active)`: that is the *deployment's* contracted
@@ -42,6 +49,26 @@ from tests import foundry_fixtures as fx
 FIXTURE_FOLDER_PATH = "/Characters/Characters (active)"
 
 PROFILE_VERSION_UNSET = "0000-00-00.0"
+
+
+def preview_nonce(label: str) -> str:
+    """A submitted R-42 `nonce` of the accepted shape (VM-14), named for its case.
+
+    R-42 admits exactly what R-40 mints: `PREVIEW_NONCE_BOUND` characters from
+    `[A-Za-z0-9_-]`. A test that submitted `nonce=double-click` was therefore
+    testing the refusal path, and before the boundary enforced the contract it was
+    testing nothing at all — which is how the missing validation stayed invisible.
+
+    `mint_preview_nonce()` is the right value when a test only needs *a* nonce.
+    This is for the cases that need a **named** one: the same label twice is the
+    same request identity, so a double-click stays a double-click, and two labels
+    stay two deliberate previews. The label is folded into the accepted alphabet
+    and padded to the accepted width, so it stays legible in a failure message.
+    """
+    safe = "".join(
+        character if character in _NONCE_ALPHABET else "-" for character in label
+    )
+    return (safe + "-" * PREVIEW_NONCE_BOUND)[:PREVIEW_NONCE_BOUND]
 
 
 def utcnow() -> datetime:
@@ -453,6 +480,7 @@ def clean_p3_3_tables(connection) -> None:
 
 
 __all__ = [
+    "preview_nonce",
     "FIXTURE_FOLDER_PATH",
     "clean_p3_3_tables",
     "complete_preview",

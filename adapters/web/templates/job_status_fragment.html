@@ -3,126 +3,384 @@
 
   Every HTMX partial is also reachable as a full page (view-model contract §9.1),
   so this fragment is the whole of what R-43 renders inside its layout. Writing
-  it twice would be two renderings of one contract.
+  it twice would be two renderings of one contract, and the one that drifted
+  would be the one nobody was looking at.
 
   **Polling honours `poll_after_seconds` and stops on a terminal state.** The
   interval is the server's N-22 floor, echoed in `Retry-After` as well, and
   `hx-trigger` is static template text — there is no `hx-on:` attribute anywhere,
-  because that is inline script and would force a CSP weakening.
+  no inline handler and no client-built URL, because each of those is script and
+  would force a CSP weakening. `hx-trigger` appears in exactly one place in this
+  file, inside the live-state branch, so a terminal job's fragment contains the
+  attribute nowhere at all rather than in a disabled form.
+
+  **HTMX is an enhancement, never the mechanism.** Cancellation and confirmation
+  are ordinary `POST` forms, the state is readable without a swap, and a
+  nonterminal job carries a plain link that re-reads R-43. A browser with no
+  JavaScript loses the automatic refresh and nothing else.
 
   **Nothing artifact-derived is here.** Counts, closed-vocabulary issue codes,
   the folder identity, the checksum and the profile version. The one Actor name
   that crosses the boundary is a blocked create-candidate's, which is the minimum
   a Council member needs to resolve it, is bounded, and is Council-only.
+
+  **`confirm` decides the confirmation control, and nothing else does.** Not
+  `kind`, not `job_state`, not the result counts, not the expiry — the server
+  decides confirmability and puts a `ConfirmScope` in the view when it holds.
+  Inferring it here from a completed preview would be the template deciding an
+  authorization question it cannot see the inputs to.
 #}
-<section data-job-id="{{ view.job_id }}"
+<section class="card"
+         data-job-id="{{ view.job_id }}"
          data-job-state="{{ view.job_state }}"
          data-job-kind="{{ view.kind }}"
          data-state="{{ view.state }}"
          data-attempts="{{ view.attempts }}"
          data-poll-after="{{ view.poll_after_seconds }}"
          {% if view.job_state in ("queued", "running") %}
+           data-polling="true"
            hx-get="/v1/council/jobs/{{ view.job_id }}/status"
            hx-trigger="every {{ view.poll_after_seconds }}s"
            hx-swap="outerHTML"
+         {% else %}
+           data-polling="false"
          {% endif %}>
-  <h2>{{ view.kind }} job</h2>
-  <p data-field="requested-by">
-    {{ view.requested_by.label.value }}
-    ({{ view.requested_by.capability.value }})
-    at {{ view.requested_at.display }}
-  </p>
-  <p data-field="correlation">{{ view.correlation.id }}</p>
+
+  <div class="page-title-row">
+    <h2 class="section-title">
+      {% if view.kind == "apply" %}Import apply{% else %}Import preview{% endif %}
+    </h2>
+    <span class="badge badge-secondary badge-sm" data-field="kind">{{ view.kind }}</span>
+    {#
+      One badge per state, from N-27's closed six. The mapping is presentation;
+      the state is `data-job-state` above, which is what a test and an operator
+      both read.
+    #}
+    {% if view.job_state == "queued" %}
+      <span class="badge badge-info badge-sm" data-field="job-state">Queued</span>
+    {% elif view.job_state == "running" %}
+      <span class="badge badge-primary badge-sm" data-field="job-state">Running</span>
+    {% elif view.job_state == "completed" %}
+      <span class="badge badge-success badge-sm" data-field="job-state">Completed</span>
+    {% elif view.job_state == "stale" %}
+      <span class="badge badge-warning badge-sm" data-field="job-state">Stale</span>
+    {% elif view.job_state == "failed" %}
+      <span class="badge badge-danger badge-sm" data-field="job-state">Failed</span>
+    {% else %}
+      <span class="badge badge-secondary badge-sm" data-field="job-state">Cancelled</span>
+    {% endif %}
+  </div>
+
+  <div class="data-grid">
+    <div class="data-item">
+      <span class="data-label">Requested By</span>
+      <span class="data-value" data-field="requested-by">
+        {{ view.requested_by.label.value }}
+        <span class="badge badge-secondary badge-sm" data-field="requested-capability">{{ view.requested_by.capability.value }}</span>
+      </span>
+    </div>
+    <div class="data-item">
+      <span class="data-label">Requested At</span>
+      <span class="data-value font-mono" data-field="requested-at">{{ view.requested_at.display }}</span>
+    </div>
+    <div class="data-item">
+      {#
+        N-43's single meaning: the number of claims made against this job, at
+        most three. Shown rather than hidden — a Council member watching a job
+        retry twice is watching something worth knowing about, and
+        `attempts_exhausted` is what the third expiry produces.
+      #}
+      <span class="data-label">Attempts</span>
+      <span class="data-value font-mono" data-field="attempts">{{ view.attempts }}</span>
+    </div>
+    <div class="data-item">
+      <span class="data-label">Reference</span>
+      <span class="data-value"><span class="reference-code" data-field="correlation">{{ view.correlation.id }}</span></span>
+    </div>
+  </div>
 
   {% if view.progress %}
-    <p data-field="progress" data-step="{{ view.progress.step }}">
-      {#
-        `percent` is always absent: the parser reports no fraction, and a
-        fabricated progress bar is worse than an indeterminate one.
-      #}
-      {{ view.progress.step }} — updated {{ view.progress.updated_at.display }}
+    {#
+      A real observation, never a fabricated fraction. `percent` is `None`
+      whenever the worker cannot report one — which is every case today, because
+      the parse reports no fraction — and an indeterminate `<progress>` is the
+      accessible way to say "working, and the platform does not know how far".
+      The bounded branch exists because VM-15 permits a percent, not because
+      anything supplies one yet; it never invents a number of its own.
+    #}
+    <p class="alert alert-info alert-sm"
+       role="status"
+       aria-live="polite"
+       data-field="progress"
+       data-step="{{ view.progress.step }}"
+       data-percent="{% if view.progress.percent is not none %}{{ view.progress.percent }}{% endif %}">
+      {% if view.progress.percent is not none %}
+        <progress value="{{ view.progress.percent }}" max="100"
+                  aria-label="{{ view.progress.step }} progress, {{ view.progress.percent }} percent complete">{{ view.progress.percent }}%</progress>
+        <span data-field="progress-step">{{ view.progress.step }} — {{ view.progress.percent }}% complete, updated {{ view.progress.updated_at.display }}</span>
+      {% else %}
+        <progress aria-label="{{ view.progress.step }} in progress, completion unknown"></progress>
+        <span data-field="progress-step">{{ view.progress.step }} — in progress, updated {{ view.progress.updated_at.display }}</span>
+      {% endif %}
     </p>
   {% endif %}
 
   {% if view.stale_reason %}
-    <p data-field="stale-reason" data-code="{{ view.stale_reason.code }}">
-      This job is stale: {{ view.stale_reason.code }}. Nothing was applied.
-    </p>
+    <div class="alert alert-warning" role="status" data-field="stale-reason" data-code="{{ view.stale_reason.code }}">
+      <p>
+        This job is stale: <span class="validation-code">{{ view.stale_reason.code }}</span>.
+        <strong>Nothing was applied.</strong> Produce a new preview against the
+        current scope and confirm that instead.
+      </p>
+    </div>
   {% endif %}
 
   {% if view.failure %}
-    <p data-field="failure" data-code="{{ view.failure.code }}">
-      This job failed: {{ view.failure.code }}.
-      Correlation {{ view.failure.correlation.id }}.
-    </p>
+    {#
+      A closed-vocabulary code and a correlation id. Never exception text, never
+      a path, never a provider payload — the code is what the platform is willing
+      to say, and the reference is how an operator finds the rest in the logs.
+    #}
+    <div class="alert alert-danger" role="status" data-field="failure" data-code="{{ view.failure.code }}">
+      <p>
+        This job failed: <span class="validation-code">{{ view.failure.code }}</span>.
+        Reference <span class="reference-code">{{ view.failure.correlation.id }}</span>.
+        <strong>Nothing was applied.</strong>
+      </p>
+    </div>
+  {% endif %}
+
+  {% if view.job_state == "cancelled" %}
+    <div class="alert alert-info" role="status" data-field="cancelled-notice">
+      <p>This job was cancelled. <strong>Nothing was applied.</strong></p>
+    </div>
   {% endif %}
 
   {% if view.result %}
-    <dl data-field="summary">
-      <dt>Actors</dt><dd data-count="actor_count">{{ view.result.actor_count }}</dd>
-      <dt>Mapped</dt><dd data-count="mapped">{{ view.result.mapped }}</dd>
-      <dt>Unmapped</dt><dd data-count="unmapped">{{ view.result.unmapped }}</dd>
-      <dt>Blocked</dt><dd data-count="blocked">{{ view.result.blocked }}</dd>
-      <dt>Absent</dt><dd data-count="absent">{{ view.result.absent }}</dd>
-      <dt>Would create</dt><dd data-count="would_create">{{ view.result.would_create }}</dd>
-      <dt>Would update</dt><dd data-count="would_update">{{ view.result.would_update }}</dd>
-    </dl>
-    {% if view.result.issue_counts %}
-      <ul data-field="issues">
-        {% for issue in view.result.issue_counts %}
-          {#
-            A code and a count. The human sentence is a lookup table the platform
-            owns; text from the artifact is never forwarded.
-          #}
-          <li data-issue-code="{{ issue.code }}" data-severity="{{ issue.severity }}">
-            {{ issue.code }} × {{ issue.count }}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    {% if view.result.blocked_entries %}
-      <ul data-field="blocked-entries">
-        {% for entry in view.result.blocked_entries %}
-          <li data-actor-id="{{ entry.external_actor_id }}"
-              data-issue-code="{{ entry.issue_code }}">
-            {{ entry.display_name.value }}{% if entry.display_name.truncated %}…{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+    <section class="detail-section" data-section="result">
+      <h3 class="section-title">Reconciliation Summary</h3>
+      <div class="card totals-card">
+        <dl class="totals-dl" data-field="summary">
+          <div class="totals-item">
+            <dt class="totals-dt">actors</dt>
+            <dd class="totals-dd font-mono" data-count="actor_count">{{ view.result.actor_count }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">mapped</dt>
+            <dd class="totals-dd font-mono" data-count="mapped">{{ view.result.mapped }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">unmapped</dt>
+            <dd class="totals-dd font-mono" data-count="unmapped">{{ view.result.unmapped }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">blocked</dt>
+            <dd class="totals-dd font-mono" data-count="blocked">{{ view.result.blocked }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">absent</dt>
+            <dd class="totals-dd font-mono" data-count="absent">{{ view.result.absent }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">would create</dt>
+            <dd class="totals-dd font-mono" data-count="would_create">{{ view.result.would_create }}</dd>
+          </div>
+          <div class="totals-item">
+            <dt class="totals-dt">would update</dt>
+            <dd class="totals-dd font-mono" data-count="would_update">{{ view.result.would_update }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {% if view.result.issue_counts %}
+        {#
+          A code, a severity and a count. The reconciliation's own sentence is
+          never forwarded: `ISSUE_CODES` is closed precisely so the browser
+          receives a vocabulary the platform owns rather than text from an
+          artifact, which closes the escaping question at the design level.
+        #}
+        <h4 class="section-subtitle">Issues</h4>
+        <ul class="profile-item-list" data-field="issues">
+          {% for issue in view.result.issue_counts %}
+            <li class="profile-entry-item"
+                data-issue-code="{{ issue.code }}"
+                data-severity="{{ issue.severity }}">
+              <div class="profile-entry-main">
+                <code class="font-mono profile-key">{{ issue.code }}</code>
+                <span class="badge {% if issue.severity == 'error' %}badge-danger{% else %}badge-warning{% endif %} badge-sm" data-field="issue-severity">{{ issue.severity }}</span>
+                <span class="font-mono text-sm" data-field="issue-count">&times; {{ issue.count }}</span>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if view.result.blocked_entries %}
+        {#
+          The one place an Actor name crosses the boundary: bounded at §3.2's 120
+          characters, capped at 50 entries, Council-only, and carrying no other
+          Actor field. The truncation is *stated* — a name silently cut would be
+          a name a Council member might not recognise as cut.
+        #}
+        <h4 class="section-subtitle">Blocked Entries</h4>
+        <ul class="profile-item-list" data-field="blocked-entries">
+          {% for entry in view.result.blocked_entries %}
+            <li class="profile-entry-item"
+                data-actor-id="{{ entry.external_actor_id }}"
+                data-issue-code="{{ entry.issue_code }}"
+                data-truncated="{{ 'true' if entry.display_name.truncated else 'false' }}"
+                data-candidate-count="{{ entry.candidate_character_ids | length }}">
+              <div class="profile-entry-main">
+                <span data-field="blocked-name">{{ entry.display_name.value }}{% if entry.display_name.truncated %}&hellip;{% endif %}</span>
+                <code class="font-mono text-xs" data-field="blocked-actor-id">{{ entry.external_actor_id }}</code>
+                <span class="badge badge-danger badge-sm" data-field="blocked-issue-code">{{ entry.issue_code }}</span>
+              </div>
+              {% if entry.candidate_character_ids %}
+                <ul class="candidate-list" data-field="blocked-candidates">
+                  {% for candidate_id in entry.candidate_character_ids %}
+                    <li class="candidate-item font-mono" data-candidate="{{ candidate_id }}">{{ candidate_id }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </section>
   {% endif %}
 
   {% if view.confirm %}
-    <form method="post" action="/v1/council/jobs/{{ view.job_id }}/apply"
-          data-control="confirm">
-      <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-      <input type="hidden" name="preview_token" value="{{ view.confirm.preview_token }}">
-      <input type="hidden" name="nonce" value="{{ view.job_id }}">
-      <p data-field="confirm-scope"
-         data-checksum="{{ view.confirm.checksum_full }}"
-         data-folder-id="{{ view.confirm.folder.folder_id }}"
-         data-profile-version="{{ view.confirm.profile_version }}">
-        Applying will create {{ view.confirm.would_create }} and update
-        {{ view.confirm.would_update }} character records from
-        {{ view.confirm.folder.folder_path.value }}, checksum
-        {{ view.confirm.checksum_full }}, profile
-        {{ view.confirm.profile_version }}. This confirmation expires at
-        {{ view.confirm.expires_at.display }}.
-      </p>
-      {% if view.confirm.blocked %}
-        <p data-field="blocked-notice">
-          This preview reported blocking issues. Applying will refuse.
-        </p>
-      {% endif %}
-      <button type="submit">Confirm import</button>
-    </form>
+    <section class="detail-section" data-section="confirmation">
+      <h3 class="section-title">Confirm This Import</h3>
+      <form method="post" action="/v1/council/jobs/{{ view.job_id }}/apply"
+            class="confirm-form action-form"
+            data-control="confirm">
+        <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+        {#
+          The preview token names *which* preview is being confirmed. It is a
+          hidden field and never shown as text: it is one control among four —
+          R-46 re-resolves Council authority and re-reads the checksum, folder,
+          profile version and aggregate versions server-side — so displaying it
+          would dress a digest up as a credential it is not.
+        #}
+        <input type="hidden" name="preview_token" value="{{ view.confirm.preview_token }}">
+        {#
+          **The apply nonce is the preview job's own id, deliberately stable.**
+
+          R-42's nonce is minted per render because a Council member may
+          legitimately want a *second* preview. An apply is the opposite: one
+          completed preview may produce only one durable effect, so a
+          double-click, a retried lost response, a back-and-resubmit and a second
+          browser must all converge on it. Keying the request on the preview job
+          gives every one of those submissions the identical R-46 request key.
+          Randomising it here — or re-minting it on each poll — would ask the
+          platform to start a second apply for one confirmation, which the
+          one-live-apply fence and `uq_snapshot_imports_applied_input` would then
+          have to refuse after the work had already been queued.
+        #}
+        <input type="hidden" name="nonce" value="{{ view.job_id }}">
+
+        <div class="confirm-summary-box" data-section="confirm-summary"
+             data-field="confirm-scope"
+             data-checksum="{{ view.confirm.checksum_full }}"
+             data-folder-id="{{ view.confirm.folder.folder_id }}"
+             data-path-observed="{{ 'true' if view.confirm.folder.path_observed else 'false' }}"
+             data-profile-version="{{ view.confirm.profile_version }}"
+             data-blocked="{{ 'true' if view.confirm.blocked else 'false' }}">
+          <p class="confirm-summary-text">
+            Applying will create
+            <strong data-field="confirm-would-create">{{ view.confirm.would_create }}</strong>
+            and update
+            <strong data-field="confirm-would-update">{{ view.confirm.would_update }}</strong>
+            character records.
+          </p>
+          <dl class="totals-dl">
+            <div class="totals-item">
+              <dt class="totals-dt">snapshot checksum</dt>
+              <dd class="totals-dd font-mono" data-field="confirm-checksum">{{ view.confirm.checksum_full }}</dd>
+            </div>
+            <div class="totals-item">
+              <dt class="totals-dt">actor folder</dt>
+              {#
+                Identity **and** displayed path, and honest about which it has.
+                A folder whose path the platform has never observed renders as an
+                identifier awaiting its first preview rather than as a path
+                (`FolderChoice.path_observed`); inventing one would be inventing
+                a fact about what is being committed.
+              #}
+              <dd class="totals-dd font-mono" data-field="confirm-folder">
+                {% if view.confirm.folder.path_observed %}
+                  {{ view.confirm.folder.folder_path.value }}
+                {% else %}
+                  {{ view.confirm.folder.folder_id }}
+                  <span class="badge badge-warning badge-sm" data-state="unobserved">path awaiting preview</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div class="totals-item">
+              <dt class="totals-dt">field profile</dt>
+              <dd class="totals-dd font-mono" data-field="confirm-profile-version">{{ view.confirm.profile_version }}</dd>
+            </div>
+            <div class="totals-item">
+              <dt class="totals-dt">confirmable until</dt>
+              <dd class="totals-dd font-mono" data-field="confirm-expires-at">{{ view.confirm.expires_at.display }}</dd>
+            </div>
+          </dl>
+          <p class="text-xs text-muted" data-note="server-owned-scope">
+            The scope above is read from the server at each request and is
+            re-checked when the confirmation is applied. Nothing on this page is
+            submitted as authority for it.
+          </p>
+        </div>
+
+        {% if view.confirm.blocked %}
+          {#
+            A fact to resolve, not a control to clear. There is no override here
+            and there is no field the browser could send to obtain one: the
+            server refuses a blocked apply on its own re-read.
+          #}
+          <div class="alert alert-danger alert-sm" data-field="blocked-notice">
+            <p>
+              This preview reported blocking issues. Applying will refuse until
+              they are resolved and a new preview is confirmed.
+            </p>
+          </div>
+        {% endif %}
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Confirm import</button>
+        </div>
+      </form>
+    </section>
   {% endif %}
 
   {% if view.cancel_available %}
+    {#
+      Rendered only when the server says so. A cancellation carries the CSRF
+      token and nothing else: the job is in the URL, and its state, kind,
+      requester, version and capability are the server's to read rather than the
+      browser's to assert.
+    #}
     <form method="post" action="/v1/council/jobs/{{ view.job_id }}/cancel"
+          class="action-form"
           data-control="cancel">
       <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-      <button type="submit">Cancel</button>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-danger btn-sm">Cancel this job</button>
+      </div>
     </form>
+  {% endif %}
+
+  {% if view.job_state in ("queued", "running") %}
+    {#
+      The no-JavaScript path. HTMX refreshes this fragment on the server's
+      interval; without it, this link is how a Council member gets the same
+      answer, and it is an ordinary anchor to R-43 rather than anything a script
+      builds.
+    #}
+    <p class="text-xs text-muted" data-control="manual-refresh">
+      This status refreshes automatically every {{ view.poll_after_seconds }} seconds.
+      <a href="/v1/council/jobs/{{ view.job_id }}">Refresh now</a>.
+    </p>
   {% endif %}
 </section>

@@ -11,24 +11,57 @@
     mirroring the invariant `domain/field_profile.py` enforces — so the page
     cannot claim an authority the profile refuses to.
   #}
-  <h1>Field profile {{ view.profile_version }}</h1>
-  <p data-policy="{{ view.unknown_path_policy_code }}">
-    A path the profile does not classify is reported and never written.
-  </p>
-  <h2>Fields</h2>
-  <ul data-section="fields">
-    {% for field in view.fields %}
-      <li data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}"
-          data-owning-package="{{ field.owning_package or '' }}">
-        {{ field.field_key }} — {{ field.authority }}
-        {% if field.owning_package %}(package {{ field.owning_package }}){% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  <h2>Snapshot paths</h2>
-  <ul data-section="paths">
-    {% for path in view.paths %}
-      <li data-path="{{ path.path }}" data-mode="{{ path.snapshot_mode }}">{{ path.path }}</li>
-    {% endfor %}
-  </ul>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Field profile {{ view.profile_version }}</h1>
+      <span class="badge badge-info">System Policy</span>
+    </div>
+    <p class="page-description" data-policy="{{ view.unknown_path_policy_code }}">
+      A path the profile does not classify is reported and never written.
+    </p>
+  </header>
+
+  <section class="detail-section">
+    <h2 class="section-title">Fields</h2>
+    <div class="card profile-list-card">
+      <ul class="profile-item-list" data-section="fields">
+        {% for field in view.fields %}
+          <li class="profile-entry-item" data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}"
+              data-owning-package="{{ field.owning_package or '' }}">
+            <div class="profile-entry-main">
+              <code class="font-mono profile-key">{{ field.field_key }}</code>
+              <span class="profile-separator">&mdash;</span>
+              <span class="badge {% if field.authority == 'database_authority' %}badge-success{% else %}badge-deferred{% endif %} badge-sm">{{ field.authority }}</span>
+              {% if field.owning_package %}
+                <span class="text-sm text-muted">(package {{ field.owning_package }})</span>
+              {% endif %}
+              {% if field.difference_direction %}
+                <span class="badge badge-warning badge-sm">{{ field.difference_direction }}</span>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="detail-section">
+    <h2 class="section-title">Snapshot paths</h2>
+    <div class="card profile-list-card">
+      <ul class="profile-item-list" data-section="paths">
+        {% for path in view.paths %}
+          <li class="profile-entry-item" data-path="{{ path.path }}" data-mode="{{ path.snapshot_mode }}">
+            <div class="profile-entry-main">
+              <code class="font-mono profile-path">{{ path.path }}</code>
+              <span class="profile-separator">&mdash;</span>
+              <span class="badge badge-secondary badge-sm">{{ path.snapshot_mode }}</span>
+              {% if path.reports_field %}
+                <span class="text-sm text-muted">(reports <code class="font-mono text-xs">{{ path.reports_field }}</code>)</span>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
 {% endblock %}

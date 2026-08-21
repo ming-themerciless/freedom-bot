@@ -1,5 +1,29 @@
 # Project status
 
+Status date: 2026-08-21 (twenty-ninth update: Peter/Acceptance Authority accepted
+P3.4 Step 9 after the final independent review closed the R-37, R-42 and R-46
+findings and the complete PostgreSQL-backed Step 9 gate passed. Step 9 is closed;
+P3.G4 remains open and Step 10 remains held.)
+
+Update 2026-08-21 (twenty-ninth) — P3.4 Step 9 accepted.
+
+- **Decision:** Peter accepted P3.4 Step 9 and closed its bounded implementation
+  gate.
+- **Evidence:** the complete accepted P3.4 surface through Step 9 passed against
+  disposable PostgreSQL: **711 passed, 26 intentional matrix skips, 0 failed**.
+  `compileall` and `git diff --check` passed.
+- **Findings closed:** R-37 concrete transaction/audit orchestration is at the
+  adapter boundary; R-42 admits only the accepted server-minted preview nonce;
+  R-46 admits only one canonical preview-job UUID nonce.
+- **Step 10 remains held.** Its three in-progress templates are preserved in the
+  named Git stash `Preserve in-progress P3.4 Step 10 templates before Step 9
+  gate`. This acceptance neither releases nor approves those bytes.
+- **Boundaries unchanged:** P3.G4, I-06 and A-05 remain open. No deployment,
+  public exposure, live-service contact, secret access or real-player-data use
+  is authorized.
+- Record:
+  `docs/review/phase-3-p3-4-step-09-final-independent-review.md`.
+
 Status date: 2026-08-20 (twenty-eighth update: both required Codex reviews of
 the bounded D-03 correction passed with no blocking findings. Peter/Acceptance
 Authority accepted the corrected backend contract and explicitly released the

@@ -1070,6 +1070,12 @@ class DeniedView:
 #: on each. Both are bounds on a page a co-located host has to render (R-24).
 SNAPSHOT_ROW_BOUND = 50
 FOLDER_CHOICE_BOUND = 50
+#: VM-14: the exact length of `SnapshotListView.preview_nonce`. 32 random bytes
+#: rendered by `secrets.token_urlsafe` are always 43 URL/form-safe characters, so
+#: this is a fixed width rather than a ceiling, and a rendered value of any other
+#: length was not minted by this platform.
+PREVIEW_NONCE_BYTES = 32
+PREVIEW_NONCE_BOUND = 43
 #: VM-15. `issue_counts` is one entry per `ISSUE_CODES` member, and 30 is the
 #: headroom over the nine that exist; `blocked_entries` is the one place an Actor
 #: name crosses the boundary and it is Council-only.
@@ -1171,6 +1177,38 @@ class SnapshotListView:
     same resolution the server will perform again**. They exist so the page is
     honest, not so it is safe: R-41 and R-42 refuse regardless of what was
     rendered, and the matrix tests prove it by never fetching this page.
+
+    ## `preview_nonce`, and why the page has to carry one
+
+    `preview_nonce` is the **request identity every R-42 form on this response
+    submits**. It is minted by the server for one R-40 render
+    (`PREVIEW_NONCE_BOUND` URL/form-safe characters from
+    `application.web.jobs.mint_preview_nonce`), it is the same value in every
+    preview form of that response, and a separately rendered response carries a
+    different one.
+
+    That pair of properties is the whole contract, and each half is load-bearing:
+
+    * **stable within one response**, so two submissions of the same rendered
+      form — a double-click, a browser retry, a back-and-resubmit — produce the
+      identical R-42 request key and therefore one durable job and one
+      `reconciliation.job_queued` event; and
+    * **distinct across renders**, so a Council member who deliberately loads the
+      page again and previews again gets a *second* job rather than the first
+      one's redirect.
+
+    A value derived from the row — the snapshot and folder ids, say — satisfies
+    the first half and silently breaks the second: it never changes while the
+    snapshot and folder do not, so every later deliberate preview collapses onto
+    the first job. That is the defect this field exists to close.
+
+    **It is not authorization, and it is not a credential.** It carries no
+    account, capability, snapshot, folder, timestamp or CSRF material, and
+    holding it permits nothing: R-42 re-resolves Council capability and every
+    server-owned snapshot, folder and profile fact on its own. Nor is the raw
+    text durable — `jobs.request_key` hashes it with the server-read checksum,
+    folder, profile version and account into the fixed-width digest that is the
+    persisted identity.
     """
 
     state: PageState
@@ -1179,6 +1217,7 @@ class SnapshotListView:
     can_select_folder: bool
     can_preview: bool
     csrf_token: str
+    preview_nonce: str
 
 
 @dataclass(frozen=True, slots=True)

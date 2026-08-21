@@ -18,6 +18,7 @@ from sqlalchemy import text
 from tests.web.p3_3_fixtures import (
     clean_p3_3_tables,
     complete_preview,
+    preview_nonce,
     seed_import,
     seed_job,
     seed_snapshot,
@@ -187,7 +188,7 @@ async def test_council_enqueues_a_preview_and_is_redirected_to_the_job(
         settings,
         callers[state],
         f"/v1/council/snapshots/{world['snapshot_id']}/preview-jobs",
-        f"nonce=success-{state}",
+        f"nonce={preview_nonce(f'success-{state}')}",
     )
     assert response.status_code == 303
     location = response.headers["location"]
@@ -321,7 +322,11 @@ async def test_council_confirms_a_preview_by_enqueuing_an_apply(
         settings,
         callers[state],
         f"/v1/council/jobs/{world['preview_job_id']}/apply",
-        f"nonce=confirm-{state}&preview_token=live-token",
+        # R-46's nonce is the preview job's own id — the value the confirmation
+        # form renders — not a per-case label. Both parametrized callers submit
+        # the identical identity and each still enqueues its own apply, because
+        # the request key also includes the account.
+        f"nonce={world['preview_job_id']}&preview_token=live-token",
     )
     assert response.status_code == 303
     with migrated_database.begin() as connection:

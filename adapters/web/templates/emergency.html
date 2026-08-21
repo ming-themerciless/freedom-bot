@@ -1,36 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Emergency access — Freedom Blades{% endblock %}
 {% block content %}
-  <h1>Server Administrator emergency access</h1>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1 class="auth-title">Server Administrator emergency access</h1>
 
-  {#
-    This page is byte-identical whether or not a credential is enrolled and
-    whether or not a grant is outstanding. It names no account, no credential
-    nickname and no grant state — a page that revealed any of them would be an
-    oracle reachable without authentication.
-  #}
-  <section data-section="webauthn">
-    <h2>Security key</h2>
-    <p>Present an enrolled security key.</p>
-  </section>
+      {#
+        This page is byte-identical whether or not a credential is enrolled and
+        whether or not a grant is outstanding. It names no account, no credential
+        nickname and no grant state — a page that revealed any of them would be an
+        oracle reachable without authentication.
+      #}
+      {% if view.webauthn_supported_hint %}
+        <section data-section="webauthn" class="auth-section">
+          <h2>Security key</h2>
+          <p>Present an enrolled security key.</p>
+        </section>
+      {% else %}
+        <section data-section="webauthn" class="auth-section">
+          <h2>Security key</h2>
+          <p>Security key sign-in is not available.</p>
+        </section>
+      {% endif %}
 
-  <section data-section="recovery">
-    <h2>Recovery grant</h2>
-    {#
-      No CSRF token: there is no session yet. The origin check and the N-33 rate
-      limit are what bound this form, and the grant itself is single-use with a
-      ten-minute life.
-    #}
-    <form method="post" action="/v1/auth/emergency/recovery">
-      <label for="token">One-time recovery token</label>
-      <input id="token" name="token" type="password" autocomplete="off" required>
-      <button type="submit">Sign in</button>
-    </form>
-  </section>
+      {% if view.recovery_form_available %}
+        <section data-section="recovery" class="auth-section">
+          <h2>Recovery grant</h2>
+          {#
+            No CSRF token: there is no session yet. The origin check and the N-33 rate
+            limit are what bound this form, and the grant itself is single-use with a
+            ten-minute life.
+          #}
+          <form method="post" action="/v1/auth/emergency/recovery" class="auth-form">
+            <div class="form-group">
+              <label for="token" class="form-label">One-time recovery token</label>
+              <input id="token" name="token" type="password" autocomplete="off" required class="form-input">
+            </div>
+            <button type="submit" class="form-submit">Sign in</button>
+          </form>
+        </section>
+      {% else %}
+        <section data-section="recovery" class="auth-section">
+          <h2>Recovery grant</h2>
+          <p>Recovery token sign-in is not available.</p>
+        </section>
+      {% endif %}
 
-  {% if view.failure %}
-    <p data-state="error" data-code="{{ view.failure.code }}">
-      Emergency sign-in did not complete. Reference {{ view.failure.correlation.id }}.
-    </p>
-  {% endif %}
+      {% if view.failure %}
+        <div class="alert alert-danger" data-state="error" data-code="{{ view.failure.code }}">
+          <p>Emergency sign-in did not complete. Reference <span class="reference-code">{{ view.failure.correlation.id }}</span>.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
 {% endblock %}

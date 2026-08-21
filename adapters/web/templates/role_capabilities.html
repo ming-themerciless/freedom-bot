@@ -20,61 +20,129 @@
     Role **snowflakes** are what every control submits. `role_label` is
     presentation: a renamed role changes nothing about authorization.
   #}
-  <h1>Role capabilities</h1>
-  <p data-scope="{{ view.administrator_scope }}"
-     data-unratified="{{ view.unratified_count }}"
-     data-notice="{{ view.lockout_guard_notice_code }}"
-     {% if view.scope_notice_code %}data-scope-notice="{{ view.scope_notice_code }}"{% endif %}>
-    Guild {{ view.guild_id }}.
-    {% if view.scope_notice_code %}
-      This session's administrator authority is emergency-derived, so it may
-      manage only the platform administrator capability until a full-scope
-      administrator ratifies.
-    {% endif %}
-  </p>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Role Capabilities</h1>
+      <span class="badge badge-primary">Administrator Authority</span>
+    </div>
+    <p class="page-description" data-scope="{{ view.administrator_scope }}"
+       data-unratified="{{ view.unratified_count }}"
+       data-notice="{{ view.lockout_guard_notice_code }}"
+       {% if view.scope_notice_code %}data-scope-notice="{{ view.scope_notice_code }}"{% endif %}>
+      Guild <code class="font-mono">{{ view.guild_id }}</code>.
+      {% if view.scope_notice_code %}
+        This session's administrator authority is emergency-derived, so it may
+        manage only the platform administrator capability until a full-scope
+        administrator ratifies.
+      {% endif %}
+      {% if view.unratified_count > 0 %}
+        <span class="badge badge-warning badge-sm unratified-badge">Unratified mappings: {{ view.unratified_count }}</span>
+      {% endif %}
+    </p>
+  </header>
 
-  <ul data-state="{{ view.state }}">
-    {% for mapping in view.mappings %}
-      <li data-mapping-id="{{ mapping.mapping_id }}"
-          data-role="{{ mapping.role_snowflake }}"
-          data-capability="{{ mapping.capability.value }}"
-          data-protected="{{ 'true' if mapping.protected else 'false' }}"
-          data-provenance="{{ mapping.provenance }}"
-          data-revocable="{{ 'true' if mapping.revocable else 'false' }}"
-          data-ratifiable="{{ 'true' if mapping.ratifiable else 'false' }}">
-        {{ mapping.role_snowflake }} → {{ mapping.capability.value }}
-        {% if mapping.revocable %}
-          <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/revoke">
-            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-            <input type="hidden" name="version" value="{{ mapping.version }}">
-            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-            <button type="submit">Revoke</button>
-          </form>
-        {% endif %}
-        {% if mapping.ratifiable %}
-          <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/ratify">
-            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-            <input type="hidden" name="version" value="{{ mapping.version }}">
-            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-            <button type="submit">Ratify</button>
-          </form>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
+  <section class="detail-section">
+    <h2 class="section-title">Configured Role Mappings</h2>
+    {% if not view.mappings %}
+      <div class="empty-card" data-state="{{ view.state }}">
+        <div class="empty-icon" aria-hidden="true">&empty;</div>
+        <h2>No Role Mappings</h2>
+        <p class="empty-text">No role capability mappings are currently configured.</p>
+      </div>
+    {% else %}
+      <ul class="mapping-list" data-state="{{ view.state }}">
+        {% for mapping in view.mappings %}
+          <li class="card mapping-card" data-mapping-id="{{ mapping.mapping_id }}"
+              data-role="{{ mapping.role_snowflake }}"
+              data-capability="{{ mapping.capability.value }}"
+              data-protected="{{ 'true' if mapping.protected else 'false' }}"
+              data-provenance="{{ mapping.provenance }}"
+              data-revocable="{{ 'true' if mapping.revocable else 'false' }}"
+              data-ratifiable="{{ 'true' if mapping.ratifiable else 'false' }}">
+            <div class="mapping-header">
+              <div class="mapping-title-group">
+                <code class="font-mono mapping-snowflake" data-field="role-snowflake">{{ mapping.role_snowflake }}</code>
+                {% if mapping.role_label %}
+                  <span class="mapping-role-label" data-field="role-label">{{ mapping.role_label.value }}</span>
+                {% endif %}
+              </div>
+              <div class="mapping-badges">
+                <span class="badge badge-primary badge-sm" data-field="capability">{{ mapping.capability.value }}</span>
+                <span class="badge {% if mapping.provenance == 'ordinary' %}badge-info{% else %}badge-warning{% endif %} badge-sm">{{ mapping.provenance }}</span>
+                {% if mapping.protected %}
+                  <span class="badge badge-success badge-sm">Protected Bootstrap</span>
+                {% endif %}
+              </div>
+            </div>
 
-  <h2>Map a role</h2>
-  <form method="post" action="/v1/admin/role-capabilities">
-    <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-    <label>Role snowflake <input type="text" name="role_id" required></label>
-    <label>Capability
-      <select name="capability">
-        {% for capability in view.available_capabilities %}
-          <option value="{{ capability.value }}">{{ capability.value }}</option>
+            <div class="mapping-meta">
+              <span class="text-xs text-muted">Auth method: <code class="font-mono text-xs">{{ mapping.created_under_auth_method }}</code></span>
+              <span class="text-xs text-muted">Created {{ mapping.created_at.display }} by {{ mapping.created_by.label.value }}</span>
+              <span class="text-xs text-muted font-mono">Version {{ mapping.version }}</span>
+              {% if mapping.ratified_at %}
+                <span class="text-xs text-muted">Ratified {{ mapping.ratified_at.display }}{% if mapping.ratified_by %} by {{ mapping.ratified_by.label.value }}{% endif %}</span>
+              {% endif %}
+            </div>
+
+            <div class="mapping-actions">
+              {% if mapping.revocable %}
+                <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/revoke" class="action-form revoke-form">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <input type="hidden" name="version" value="{{ mapping.version }}">
+                  <div class="form-group-inline">
+                    <label for="revoke-reason-{{ mapping.mapping_id }}" class="form-label-inline">Reason</label>
+                    <input type="text" id="revoke-reason-{{ mapping.mapping_id }}" name="reason" maxlength="500" placeholder="Reason for revocation..." class="form-input form-input-sm" required>
+                    <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                  </div>
+                </form>
+              {% endif %}
+              {% if mapping.ratifiable %}
+                <form method="post" action="/v1/admin/role-capabilities/{{ mapping.mapping_id }}/ratify" class="action-form ratify-form">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <input type="hidden" name="version" value="{{ mapping.version }}">
+                  <div class="form-group-inline">
+                    <label for="ratify-reason-{{ mapping.mapping_id }}" class="form-label-inline">Reason</label>
+                    <input type="text" id="ratify-reason-{{ mapping.mapping_id }}" name="reason" maxlength="500" placeholder="Reason for ratification..." class="form-input form-input-sm" required>
+                    <button type="submit" class="btn btn-primary btn-sm">Ratify</button>
+                  </div>
+                </form>
+              {% endif %}
+            </div>
+          </li>
         {% endfor %}
-      </select>
-    </label>
-    <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-    <button type="submit">Map</button>
-  </form>
+      </ul>
+    {% endif %}
+  </section>
+
+  <section class="detail-section">
+    <h2 class="section-title">Map a role</h2>
+    <div class="card create-mapping-card">
+      <form method="post" action="/v1/admin/role-capabilities" class="create-mapping-form">
+        <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="role-snowflake-input" class="form-label">Role snowflake</label>
+            <input type="text" id="role-snowflake-input" name="role_id" class="form-input font-mono" placeholder="e.g. 1124405581298552933" required>
+            <span class="form-help">Enter the decimal Discord role snowflake identifier.</span>
+          </div>
+          <div class="form-group">
+            <label for="capability-select" class="form-label">Capability</label>
+            <select id="capability-select" name="capability" class="form-select" required>
+              {% for capability in view.available_capabilities %}
+                <option value="{{ capability.value }}">{{ capability.value }}</option>
+              {% endfor %}
+            </select>
+            <span class="form-help">Select from server-authorized capabilities for this administrator session.</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="map-reason-input" class="form-label">Reason</label>
+          <input type="text" id="map-reason-input" name="reason" maxlength="500" class="form-input" placeholder="Justification for role mapping..." required>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Map</button>
+        </div>
+      </form>
+    </div>
+  </section>
 {% endblock %}

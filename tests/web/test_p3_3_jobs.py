@@ -38,6 +38,7 @@ from tests.web.p3_3_fixtures import (
     complete_preview,
     expire_lease,
     job_row,
+    preview_nonce,
     seed_import,
     seed_job,
     seed_snapshot,
@@ -110,7 +111,7 @@ async def test_a_job_is_created_queued_and_no_work_happens_in_the_request(
         settings,
         callers["C"],
         f"/v1/council/snapshots/{snapshot_id}/preview-jobs",
-        "nonce=tc-job-01",
+        f"nonce={preview_nonce('tc-job-01')}",
     )
     assert response.status_code == 303
     with migrated_database.begin() as connection:
@@ -587,8 +588,9 @@ async def test_a_double_click_yields_one_job_and_one_audit_event(
     """
     snapshot_id, _ = snapshot
     path = f"/v1/council/snapshots/{snapshot_id}/preview-jobs"
-    first = await _post(client, settings, callers["C"], path, "nonce=double-click")
-    second = await _post(client, settings, callers["C"], path, "nonce=double-click")
+    body = f"nonce={preview_nonce('double-click')}"
+    first = await _post(client, settings, callers["C"], path, body)
+    second = await _post(client, settings, callers["C"], path, body)
 
     assert first.status_code == second.status_code == 303
     assert first.headers["location"] == second.headers["location"]
@@ -611,11 +613,20 @@ async def test_two_browsers_confirming_the_same_preview_resolve_to_one_apply(
 ):
     """TC-JOB-07's two-browser half, and TC-JOB-08's job-level fence.
 
-    Two *different* nonces, so the request keys differ and idempotency cannot be
-    what resolves it. `uq_reconciliation_jobs_one_live_apply` is: the second
-    apply of the same `(snapshot, folder, profile version)` cannot start while
-    the first is in flight, so it is refused with the current state rather than
-    spending ten seconds of parsing to discover the first won.
+    **Two Council accounts, one preview, and the one nonce the form emits.** The
+    R-46 nonce is the preview job's own id, so neither browser can choose a
+    request identity; what differs between the two request keys is the *account*,
+    which the key also includes. Idempotency therefore cannot be what resolves
+    this, and `uq_reconciliation_jobs_one_live_apply` is: the second apply of the
+    same `(snapshot, folder, profile version)` cannot start while the first is in
+    flight, so it is refused with the current state rather than spending ten
+    seconds of parsing to discover the first won.
+
+    Before the R-46 boundary admitted only the canonical value this case
+    submitted `nonce=browser-a` and `nonce=browser-b` — hand-built values the
+    production form never emits — and so proved the fence against an input shape
+    that could not occur. Two accounts is the way two browsers actually reach two
+    request keys.
 
     The durable effect is fenced separately and already was, by
     `uq_snapshot_imports_applied_input` and `snapshot_imports.request_key`. This
@@ -631,12 +642,9 @@ async def test_two_browsers_confirming_the_same_preview_resolve_to_one_apply(
             preview_token="two-browsers",
         )
     path = f"/v1/council/jobs/{preview_id}/apply"
-    first = await _post(
-        client, settings, callers["C"], path, "nonce=browser-a&preview_token=two-browsers"
-    )
-    second = await _post(
-        client, settings, callers["C"], path, "nonce=browser-b&preview_token=two-browsers"
-    )
+    body = f"nonce={preview_id}&preview_token=two-browsers"
+    first = await _post(client, settings, callers["C"], path, body)
+    second = await _post(client, settings, callers["CA"], path, body)
 
     assert first.status_code == 303
     assert second.status_code == 409
@@ -833,7 +841,7 @@ async def test_a_confirmation_of_a_stale_preview_applies_nothing_and_says_why(
         settings,
         callers["C"],
         f"/v1/council/jobs/{preview_id}/apply",
-        "nonce=stale-confirm&preview_token=will-go-stale",
+        f"nonce={preview_id}&preview_token=will-go-stale",
     )
     assert response.status_code == 409
     assert "profile_version_changed" in response.text
@@ -873,7 +881,7 @@ async def test_a_preview_past_n46_cannot_be_confirmed(
         settings,
         callers["C"],
         f"/v1/council/jobs/{preview_id}/apply",
-        "nonce=expired&preview_token=expired",
+        f"nonce={preview_id}&preview_token=expired",
     )
     assert response.status_code == 409
     row = _row(migrated_database, preview_id)
@@ -905,7 +913,7 @@ async def test_a_wrong_preview_token_is_refused(
         settings,
         callers["C"],
         f"/v1/council/jobs/{preview_id}/apply",
-        "nonce=forged&preview_token=not-the-real-token",
+        f"nonce={preview_id}&preview_token=not-the-real-token",
     )
     assert response.status_code == 409
     with migrated_database.begin() as connection:
@@ -955,7 +963,7 @@ async def test_council_revoked_between_preview_and_apply_is_refused(
         settings,
         callers["C"],
         f"/v1/council/jobs/{preview_id}/apply",
-        "nonce=revoked&preview_token=before-revocation",
+        f"nonce={preview_id}&preview_token=before-revocation",
     )
     assert response.status_code == 403
     with migrated_database.begin() as connection:
@@ -1110,10 +1118,14 @@ async def test_the_queue_bound_refuses_the_sixth_job_and_creates_no_row(
     snapshot_id, _ = snapshot
     path = f"/v1/council/snapshots/{snapshot_id}/preview-jobs"
     for index in range(settings.worker.queue_max_depth):
-        accepted = await _post(client, settings, callers["C"], path, f"nonce=n{index}")
+        accepted = await _post(
+            client, settings, callers["C"], path, f"nonce={preview_nonce(f'n{index}')}"
+        )
         assert accepted.status_code == 303, index
 
-    refused = await _post(client, settings, callers["C"], path, "nonce=one-too-many")
+    refused = await _post(
+        client, settings, callers["C"], path, f"nonce={preview_nonce('one-too-many')}"
+    )
     assert refused.status_code == 503
     assert refused.json()["error"] == "queue_full"
     with migrated_database.begin() as connection:

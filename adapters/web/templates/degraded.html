@@ -6,9 +6,13 @@
     character data, because the point at which this page appears is exactly the
     point at which cached authorization stopped being trustworthy.
   #}
-  <h1>Authorization cannot be confirmed</h1>
-  <p data-state="error" data-reason="{{ view.reason.category.value }}" data-subsystem="{{ view.subsystem }}">
-    The platform is refusing rather than guessing. Please try again shortly.
-  </p>
-  <p>Reference {{ view.correlation.id }}.</p>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1 class="auth-title">Authorization cannot be confirmed</h1>
+      <div class="alert alert-warning" data-state="error" data-reason="{{ view.reason.category.value }}" data-subsystem="{{ view.subsystem }}">
+        <p>The platform is refusing rather than guessing. Please try again shortly.</p>
+      </div>
+      <p class="auth-meta">Reference <span class="reference-code">{{ view.correlation.id }}</span>.</p>
+    </div>
+  </div>
 {% endblock %}

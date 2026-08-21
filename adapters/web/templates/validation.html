@@ -9,12 +9,18 @@
     object-scoped fields, matching the `404` rule so validation cannot become
     the enumeration oracle the status code refuses to be.
   #}
-  <h1>That could not be accepted</h1>
-  <ul data-state="invalid">
-    {% for error in view.errors %}
-      <li data-field="{{ error.field }}" data-code="{{ error.code }}">
-        {{ error.field }}: {{ error.code }}{% if error.limit %} ({{ error.limit }}){% endif %}
-      </li>
-    {% endfor %}
-  </ul>
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <h1 class="auth-title">That could not be accepted</h1>
+      <div class="validation-summary" tabindex="-1">
+        <ul class="validation-list" data-state="invalid">
+          {% for error in view.errors %}
+            <li class="validation-item" data-field="{{ error.field }}" data-code="{{ error.code }}">
+              <span class="validation-field">{{ error.field }}</span>: <span class="validation-code">{{ error.code }}</span>{% if error.limit %} <span class="validation-limit">({{ error.limit }})</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
 {% endblock %}

@@ -313,7 +313,11 @@ async def test_an_administrator_alone_cannot_preview_or_apply(
         f"/v1/council/jobs/{seeded['preview_job_id']}/apply",
         cookies=cookies,
         headers=headers,
-        content=f"csrf_token={token}&nonce=probe&preview_token=x",
+        # The canonical R-46 nonce, so the `403` below is unambiguously about
+        # capability rather than about a field the request got wrong anyway.
+        content=(
+            f"csrf_token={token}&nonce={seeded['preview_job_id']}&preview_token=x"
+        ),
     )
     assert preview.status_code == 403
     assert apply.status_code == 403
@@ -370,7 +374,7 @@ async def test_a_combined_caller_acts_under_council_authority_for_apply(
         },
         content=(
             f"csrf_token={csrf_token_for(settings, callers['CA'])}"
-            "&nonce=combined&preview_token=live-token"
+            f"&nonce={seeded['preview_job_id']}&preview_token=live-token"
         ),
     )
     assert response.status_code == 303

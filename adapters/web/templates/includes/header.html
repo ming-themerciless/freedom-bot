@@ -1,0 +1,29 @@
+<header class="app-header">
+  <div class="app-header-top">
+    <a href="/v1/characters" class="brand-title">
+      <img src="/static/images/freedom-blades-token.eab0d13128f5.png" alt="" class="brand-emblem" width="36" height="36">
+      <span>Freedom Blades</span>
+    </a>
+  </div>
+  {% set p = request.url.path if request and request.url else "" %}
+  {% if p.startswith("/v1/auth/emergency") %}
+    {% set current_nav = "emergency" %}
+  {% elif p == "/v1/login" or p.startswith("/v1/login") or p.startswith("/v1/auth/") or p == "/" %}
+    {% set current_nav = "login" %}
+  {% else %}
+    {% set current_nav = "characters" %}
+  {% endif %}
+  <nav aria-label="Main navigation" class="app-navigation">
+    <ul class="nav-menu">
+      <li>
+        <a href="/v1/characters" class="nav-link{% if current_nav == 'characters' %} active{% endif %}"{% if current_nav == 'characters' %} aria-current="page"{% endif %}>Characters</a>
+      </li>
+      <li>
+        <a href="/v1/auth/emergency" class="nav-link{% if current_nav == 'emergency' %} active{% endif %}"{% if current_nav == 'emergency' %} aria-current="page"{% endif %}>Emergency Access</a>
+      </li>
+      <li>
+        <a href="/v1/login" class="nav-link nav-link-login{% if current_nav == 'login' %} active{% endif %}"{% if current_nav == 'login' %} aria-current="page"{% endif %}>Login</a>
+      </li>
+    </ul>
+  </nav>
+</header>

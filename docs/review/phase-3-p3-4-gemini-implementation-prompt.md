@@ -184,11 +184,14 @@ You may not:
   `can_preview` and `unlink_blocked_reason` exist so the page is honest. They
   are not the control — the server refuses regardless, and the tests prove it by
   never rendering the control;
-- render `guild_display_name`, `checked_at` or `correlation` on the **denial**
-  body. `denied.html` receives a VM-02-shaped object whose three fields are
-  deliberately inert placeholders, and printing the correlation id would break
-  the byte-identity `404` requirement of route contract §2.3 (readiness report
-  D-03-6);
+- render `guild_display_name`, `checked_at`, `correlation`, an object identifier,
+  a timestamp, or free-form details on the generic **denial** body.
+  `denied.html` receives VM-22 `DeniedView`, containing only `state` and the
+  closed-vocabulary `reason`. The carrier deliberately has no correlation ID,
+  guild name, timestamp, object identifier, or free-form reason, preserving the
+  byte-identical absent-object and unreachable-object `404` requirement of route
+  contract §2.3 (accepted D-03-6). `non_member.html` alone retains VM-02 and its
+  intentional membership-recovery context;
 - claim TC-UI-08, TC-UI-09, staging, deployment or production readiness;
 - install a browser, package or dependency without explicit authorization;
 - run migrations, live services, external network calls, or anything against
@@ -221,10 +224,12 @@ The complete matrix is readiness report §A5. The facts most easily got wrong:
    `nonce`; **R-37 and R-45 submit the CSRF token and nothing else.**
 4. **R-46 submits no version.** Checksum, folder, profile version and aggregate
    versions are re-read server-side. Do not put them in the form.
-5. **R-36 is not a redirect.** It answers `200` rendering VM-13 in its `denied`
-   state with `additional_provider = "no_additional_provider"`. The route
-   contract's table cell says `303`; its §5.1 prose and the implementation say
-   otherwise, and D-03-5 is the correction.
+5. **R-36 is not a redirect.** It answers `200` HTML, rendering VM-13 in its
+   `denied` state with `additional_provider = "no_additional_provider"`. The
+   accepted route-contract response table, its §5.1 prose, and the implementation
+   agree; D-03-5 corrected the former `303` record. The P3.2 caller-matrix value
+   `U: ✗ 303` remains correct and means an unauthenticated navigation redirects
+   to login—it is not R-36's authenticated response.
 6. **Administrator is not Council.** `A` alone is refused on R-20, R-21, R-22,
    R-23, R-24, R-25, R-26, R-27, R-28, R-29, R-30, R-42, R-43, R-44, R-45 and
    R-46. Council alone is refused on R-32, R-33, R-34, R-38 and R-41. Render

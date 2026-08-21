@@ -2,37 +2,65 @@
 {% block title %}My Characters — Freedom Blades{% endblock %}
 {% block content %}
   {#
-    VM-05, R-20. There is **no mutation control on this page**, and there is no
-    route that would honour one: ordinary users are read-only (OD-31), and links
-    are managed by Guild Council. The empty state says so rather than offering a
-    self-service form.
-
-    `level` renders "not recorded" when it is `None`. Rendering it as `0` would
-    fabricate a game fact about a character whose import is still awaiting
-    Council reconciliation, and the view model forbids it by type (TC-VM-05).
+    VM-05, R-20. Read-only character roster view.
+    Zero mutation controls, forms, or actions on this page.
+    Guild Council manages character links.
+    `level` renders "not recorded" when it is `None` (TC-VM-05).
   #}
-  <h1>My Characters</h1>
+  <div class="page-header">
+    <h1 class="page-title">My Characters</h1>
+  </div>
+
   {% if view.state == "empty" %}
-    <p data-state="empty">
-      You have no linked characters. Guild Council manages character links.
-    </p>
+    <div class="card empty-card" data-state="empty">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <h2>No Linked Characters Found</h2>
+      <p>You have no linked characters. Guild Council manages character links.</p>
+    </div>
   {% else %}
-    <ul data-state="{{ view.state }}">
+    <div class="card-grid" data-state="{{ view.state }}">
       {% for character in view.characters %}
-        <li data-character-id="{{ character.character_id }}"
-            data-access-kind="{{ character.access_kind }}"
-            data-default="{{ 'true' if character.is_default else 'false' }}">
-          <a href="{{ character.detail_path }}">{{ character.display_name.value }}</a>
-          <span data-field="level">{% if character.level is none %}not recorded{% else %}{{ character.level }}{% endif %}</span>
-          <span data-field="portrait" data-portrait-state="{{ character.portrait.state }}">{{ character.portrait.initials }}</span>
-          {% if character.last_snapshot %}
-            <span data-field="snapshot">{{ character.last_snapshot.checksum_short }}</span>
-          {% endif %}
-        </li>
+        <article class="card character-card"
+                 data-character-id="{{ character.character_id }}"
+                 data-access-kind="{{ character.access_kind }}"
+                 data-default="{{ 'true' if character.is_default else 'false' }}">
+          <div class="char-card-header">
+            <div class="char-portrait-fallback" role="img" aria-label="{{ character.portrait.accessible_label }}">
+              <span class="portrait-initials">{{ character.portrait.initials }}</span>
+            </div>
+            <div class="char-title-group">
+              <h2 class="char-title">
+                <a href="{{ character.detail_path }}" class="char-title-link">{{ character.display_name.value }}</a>
+              </h2>
+              <div class="char-badges">
+                <span class="badge {{ 'badge-success' if character.active else 'badge-warning' }}">{{ 'Active' if character.active else 'Inactive' }}</span>
+                <span class="badge badge-primary">{{ character.access_kind | replace('_', ' ') | title }}</span>
+                {% if character.is_default %}
+                  <span class="badge badge-info">Default Character</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <ul class="char-details-list">
+            <li class="char-detail-item">
+              <span class="data-label">Level:</span>
+              <span class="data-value" data-field="level">{% if character.level is none %}not recorded{% else %}{{ character.level }}{% endif %}</span>
+            </li>
+            {% if character.last_snapshot %}
+              <li class="char-detail-item">
+                <span class="data-label">Last Snapshot:</span>
+                <span class="data-value" data-field="snapshot">{{ character.last_snapshot.checksum_short }} ({{ character.last_snapshot.world_id }})</span>
+              </li>
+            {% endif %}
+          </ul>
+        </article>
       {% endfor %}
-    </ul>
+    </div>
     {% if view.truncated %}
-      <p data-truncated="true">Only the first entries are shown.</p>
+      <p class="alert alert-info" data-truncated="true">Only the first entries are shown.</p>
     {% endif %}
   {% endif %}
 {% endblock %}

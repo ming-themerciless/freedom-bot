@@ -1,25 +1,62 @@
 {#
-  VM-09, R-24 — an HTMX **fragment**, and authorized exactly like a page. No
+  VM-09, R-24 — an HTMX fragment, and authorized exactly like a page. No
   fragment route relies on having been reached from its parent, so this file
   extends nothing and the route refuses a non-Council caller before it is
   rendered.
 
-  The operator picks a **snowflake**. `username` and `global_name` are labels
-  beside it: names are evidence and never identity (OD-42, ADR 0006), which is
-  what `evidence_notice_code` renders as a standing warning.
+  The operator picks a snowflake. `username` and `global_name` are labels
+  beside it: names are evidence and never identity, which is what
+  `evidence_notice_code` renders as a standing warning.
 #}
-<div data-state="{{ view.state }}" data-notice="{{ view.evidence_notice_code }}">
-  <p>Names are evidence, not identity. The link carries the snowflake.</p>
-  <ul>
-    {% for candidate in view.candidates %}
-      <li data-subject="{{ candidate.discord_subject }}"
-          data-already-linked="{{ 'true' if candidate.already_linked_to_account else 'false' }}"
-          data-linked-here="{{ 'true' if candidate.existing_link_here else 'false' }}">
-        {{ candidate.username.value }}
-        {% if candidate.global_name %}({{ candidate.global_name.value }}){% endif %}
-        <span data-field="subject">{{ candidate.discord_subject }}</span>
-      </li>
-    {% endfor %}
-  </ul>
-  {% if view.truncated %}<p data-truncated="true">More matches exist. Narrow the search.</p>{% endif %}
+<div class="identity-search-fragment" data-state="{{ view.state }}" data-notice="{{ view.evidence_notice_code }}">
+  <div class="alert alert-info candidate-notice">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <span><strong>Evidence Notice:</strong> Names are evidence, not identity. The link carries the snowflake.</span>
+  </div>
+
+  {% if view.state == "empty" %}
+    <div class="candidate-empty" data-state="empty">
+      <p>No Discord members found matching <code>{{ view.query_echo.value }}</code>.</p>
+    </div>
+  {% elif view.state == "invalid" %}
+    <div class="candidate-invalid" data-state="invalid">
+      <p>Invalid search query <code>{{ view.query_echo.value }}</code>. Enter a valid username or snowflake.</p>
+    </div>
+  {% else %}
+    <div class="candidate-meta text-sm text-muted">
+      <span>Search query: <code>{{ view.query_echo.value }}</code></span>
+    </div>
+    <ul class="candidate-list">
+      {% for candidate in view.candidates %}
+        <li class="candidate-item" data-subject="{{ candidate.discord_subject }}"
+            data-already-linked="{{ 'true' if candidate.already_linked_to_account else 'false' }}"
+            data-linked-here="{{ 'true' if candidate.existing_link_here else 'false' }}">
+          <div class="candidate-info">
+            <span class="candidate-username"><strong>{{ candidate.username.value }}</strong></span>
+            {% if candidate.global_name %}
+              <span class="candidate-global-name">({{ candidate.global_name.value }})</span>
+            {% endif %}
+            <div class="candidate-meta">
+              <span>Snowflake: <code class="font-mono" data-field="subject">{{ candidate.discord_subject }}</code></span>
+              <span class="text-muted">&bull;</span>
+              <span class="text-muted">Observed: {{ candidate.membership_observed_at.display }}</span>
+            </div>
+          </div>
+          <div class="candidate-badges">
+            {% if candidate.existing_link_here %}
+              <span class="badge badge-warning badge-sm">Linked Here</span>
+            {% endif %}
+            {% if candidate.already_linked_to_account %}
+              <span class="badge badge-info badge-sm">Has Account</span>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if view.truncated %}
+      <p class="candidate-truncated" data-truncated="true">More matches exist. Narrow the search query.</p>
+    {% endif %}
+  {% endif %}
 </div>

@@ -1,31 +1,17 @@
-{#
-  Minimal P3.1 contract template.
-
-  These templates exist so the P3.1 contracts can be *tested* — status codes,
-  headers, escaping, the absence of controls — and for no other purpose. The
-  production visual integration is P3.4 (Gemini), against the frozen `vm-1`
-  view models and the accepted visual language.
-
-  Three rules they already obey, because P3.4 inherits them rather than
-  introducing them:
-
-  - autoescaping is on for every extension, set at environment construction;
-  - **no value anywhere is passed through `|safe`** — the whole application
-    permits it on zero values in Phase 3;
-  - no `hx-on:` attribute appears, because that is inline script and would
-    force a CSP weakening (route contract §6.4).
-
-  No stylesheet, no script and no image is referenced: every one would be a
-  request the CSP has to permit, and P3.1 has nothing to show.
-#}
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Freedom Blades{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/images/freedom-blades-token.eab0d13128f5.png">
+    <link rel="stylesheet" href="/static/css/freedom-blades.b0a1f3305683.css">
+    <script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script>
   </head>
   <body>
-    <main>{% block content %}{% endblock %}</main>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    {% include "includes/header.html" %}
+    <main id="main-content" class="main-container">{% block content %}{% endblock %}</main>
+    {% include "includes/footer.html" %}
   </body>
 </html>

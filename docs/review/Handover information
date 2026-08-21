@@ -1,313 +1,266 @@
-# D-03 backend-contract correction — instructions for Claude
+# Claude prompt — P3.4 Step 9 R-46 nonce-boundary remediation
 
-Date: 2026-08-19
+Work in `/opt/discord-bots/freedom-bot`.
 
-Peter/Acceptance Authority accepted change-log `C-P3.4-A` as written on
-2026-08-19. This authorizes a bounded backend-contract correction for D-03-1
-through D-03-6. It does not close D-03, release Gemini, authorize production
-frontend implementation, close P3.G4, or authorize staging exposure,
-deployment, live-service contact or real-player data.
+You are Claude, the P3.4 Step 9 implementer. Remediate the remaining independent
+review finding at R-46 only. This is a bounded request-validation and
+idempotency-contract correction. It does not authorize Step 10 acceptance,
+template-digest changes, broader architecture cleanup, deployment, live-service
+contact, or later-phase work.
 
-Claude remains the backend contract owner and working Technical Lead for this
-correction. Gemini remains the designated P3.4 production frontend implementer.
-Do not implement Gemini's production templates, CSS, assets or visual design.
+## Finding
 
-## Objective
+The Step 9 confirmation template renders the preview job UUID as R-46's stable
+apply nonce:
 
-Implement and document the six accepted D-03 corrections so the frozen backend
-route and view-model contracts are complete, mechanically enforced and safe for
-Gemini to consume. Preserve all accepted P3.1–P3.3 behavior, especially
-authorization, denial non-enumeration, byte-identical `404` responses, CSRF,
-trusted-host handling, the portal kill switch and the closed route inventory.
-
-When complete, prepare the package for:
-
-1. an independent Codex implementation review;
-2. a distinct Codex security-focused review; and
-3. Peter's acceptance of the corrected contract and explicit release of the
-   Gemini implementation prompt.
-
-Stop after the correction handoff. Do not begin P3.4 frontend implementation.
-
-## Read completely before planning or editing
-
-1. `.agents/AGENTS.md` and `docs/implementation-plan.md`;
-2. `docs/review/phase-3-delivery-plan.md`, especially P3.4, P3.G4, traceability
-   and the frontend/backend responsibility boundary;
-3. `docs/review/phase-3-p3-4-authorisation-and-conditions.md`;
-4. change-log `C-P3.3-K`, `C-P3.3-L` and accepted `C-P3.4-A`, plus current
-   `status.md` and RAID D-03;
-5. `docs/contracts/README.md` and every Phase 3 contract in its prescribed
-   order, especially route authorization, view models, operations, threat model
-   and test traceability;
-6. `docs/review/phase-3-p3-4-gemini-readiness-report.md` §§A1–A10;
-7. `docs/review/phase-3-p3-4-gemini-implementation-prompt.md`, which remains
-   held and must not be marked released;
-8. the accepted P3.2 and P3.3 submissions and gate records;
-9. the complete current implementations of application construction,
-   middleware ordering, portal/import routes, view models, template rendering
-   and structural guards; and
-10. the complete current diff and Git status.
-
-Read files completely. Historical records must remain historical; add dated
-corrections instead of rewriting old gate states.
-
-## Preserve the current tree
-
-All current changes are user changes. Preserve them. Do not inspect, apply,
-drop or modify `stash@{0}: On main: temp before rebase`. Do not commit, push,
-deploy, run live services or contact Discord, Google, Foundry or production
-PostgreSQL. Do not read `.env`, `yt-cookies.txt`, credentials, secret files or
-real Actor/player/guild data.
-
-Before editing:
-
-- record `git status --short`;
-- record SHA-256 for every file you will edit;
-- identify all existing changes that overlap this package; and
-- preserve a before copy or another auditable digest source for every edited
-  file so the final handoff can report exact before/after SHA-256 values.
-
-## Accepted decisions — implement exactly
-
-### D-03-1 — application-served static surface
-
-Add an application-owned static asset surface under `/static/` with this
-contract:
-
-- methods: `GET` and `HEAD` only;
-- caller: public; no authentication, capability, session or CSRF requirement;
-- trusted-host validation still applies;
-- the surface remains available while the portal kill switch is active, so
-  maintenance, login and safe error pages can retain their presentation;
-- assets are same-origin and remain compatible with N-26; no CDN, remote font,
-  remote script or remote image origin is permitted;
-- path traversal, directory listing and serving files outside the one approved
-  static root must be impossible;
-- missing assets return a safe `404` without exception text or filesystem paths;
-- fingerprinted assets receive immutable public caching; non-fingerprinted
-  assets receive a conservative short-lived or no-cache policy documented in
-  the operational contract;
-- static responses must not set or refresh session, login-transaction or CSRF
-  cookies; and
-- the closed structural inventory must explicitly account for Starlette mounts
-  as well as ordinary method routes. A mount may not remain invisible to
-  TC-STRUCT-01.
-
-Record the exact URL grammar, static filesystem root, cache policy, host and
-kill-switch behavior in the route and operational contracts. Keep static-file
-plumbing in the backend package; do not add production CSS, HTMX, images or
-visual assets. If framework construction requires the static directory to
-exist, add only the smallest non-visual repository-owned placeholder necessary
-and explain it.
-
-### D-03-2 — define `ConfirmScope`
-
-Define `ConfirmScope` in the frozen `vm-1` contract using the accepted
-implementation shape, without renaming, removing or inventing fields:
-
-- `preview_token`
-- `checksum_full`
-- `folder`
-- `profile_version`
-- `expires_at`
-- `would_create`
-- `would_update`
-- `blocked`
-
-Document exact types, bounds, safety/provenance rules and when the value is
-present. Preserve the rule that R-46 submits `preview_token` and `nonce`; the
-checksum, folder, profile and aggregate versions are re-read server-side and
-must not become browser authority.
-
-### D-03-3 — define `CharacterFilters`
-
-Define `CharacterFilters` in `vm-1` exactly as implemented:
-
-- `query: SafeText | None`
-- `include_inactive: bool`
-
-Document its bounds and that display-name search is a search fact, never an
-identity or authorization fact.
-
-### D-03-4 — record VM-13 CSRF accurately
-
-Add VM-13's implemented `csrf_token` to the view-model contract. Preserve the
-synchronizer-token design required by N-17. Do not introduce cookie-readable
-CSRF, double-submit CSRF or client-side token authority.
-
-Correct or remove the implementation docstring claim that this addition was
-recorded in the P3.2 submission; no supporting occurrence exists there. Do not
-rewrite the accepted historical P3.2 submission to manufacture provenance.
-
-### D-03-5 — correct R-36
-
-Make the route contract internally consistent:
-
-- R-36 returns `200` HTML;
-- it renders VM-13 with `state="denied"` and
-  `additional_provider="no_additional_provider"`;
-- it is not a `303` redirect; and
-- Phase 3 still has exactly one ordinary identity provider.
-
-This is a contract-record correction matching accepted runtime behavior. Do not
-add another provider or linking flow.
-
-### D-03-6 — dedicated safe denial view
-
-Introduce a dedicated typed `DeniedView` containing only:
-
-- `state`; and
-- a closed-vocabulary `reason`.
-
-Replace the use of VM-02/`NonMemberView` as the generic denial carrier at every
-portal and import route boundary. Do not add correlation IDs, guild names,
-timestamps, object identifiers, exception text or free-form reasons to
-`DeniedView`.
-
-Preserve these invariants exactly:
-
-- an object the caller cannot reach and an absent object produce byte-identical
-  `404` response bodies and equivalent relevant headers;
-- denial categories remain closed vocabulary;
-- authorization happens before object lookup where the accepted contract
-  requires it;
-- the distinct non-member page may continue using VM-02 with its intentionally
-  permitted membership-recovery context; and
-- the dedicated denial view does not weaken existing `401`, `403` or `404`
-  status behavior.
-
-Assign and document the new view-model identifier consistently. Treat it as an
-additive `vm-1` extension unless the accepted versioning rules demonstrably
-require otherwise; if they do, stop and return the conflict to Peter instead of
-silently changing the version.
-
-## Scope boundaries
-
-Permitted changes are limited to files genuinely necessary for the six items:
-
-- Phase 3 route, view-model, operational, threat-model and traceability
-  contracts;
-- backend application/static composition and middleware ordering;
-- typed view models and denial construction at existing route boundaries;
-- structural, response, authorization and security regression tests;
-- narrowly necessary operations documentation;
-- the D-03 correction submission and controlled project records; and
-- the smallest non-visual static-root placeholder if technically required.
-
-Do not change:
-
-- production visual templates except for a strictly necessary type-compatible
-  denial reference that cannot be made solely in backend construction;
-- production CSS, HTMX, images or other frontend assets;
-- `design-prototype/` or its freeze manifest;
-- authentication, capability meanings, persistence, migrations, runtime grants,
-  application use cases or dependencies;
-- existing route paths or methods other than recording and adding the accepted
-  `/static/` surface;
-- character-game-state behavior; or
-- P3.5 or later-phase scope.
-
-If any accepted decision cannot be implemented without crossing these
-boundaries, stop, document the exact conflict and return it to Peter. Do not
-hide a backend problem in a template.
-
-## Required tests and falsification
-
-Add focused tests that prove at least:
-
-1. the registered route-and-mount surface equals the corrected contract, and a
-   new undeclared `Route` or `Mount` fails the guard;
-2. `/static/` permits `GET` and `HEAD`, refuses mutation methods appropriately,
-   and serves only the approved root;
-3. traversal attempts, encoded traversal, missing files and directory requests
-   cannot expose content, directory listings, exception text or filesystem
-   paths;
-4. untrusted hosts remain refused on static requests;
-5. static assets remain reachable during the portal kill switch while protected
-   application routes retain their accepted kill-switch behavior;
-6. static responses set the accepted cache policy and do not set or refresh
-   authentication/session/CSRF cookies;
-7. `ConfirmScope` and `CharacterFilters` match the corrected contract exactly;
-8. VM-13 carries server-rendered CSRF and R-37 still rejects missing or invalid
-   tokens;
-9. R-36 returns the accepted `200` denied VM-13 response and never redirects;
-10. every generic denial uses `DeniedView`, while the non-member page retains
-    its separate VM-02 behavior;
-11. denied-object and absent-object `404` bodies remain byte-identical, with no
-    correlation, UUID, guild name, timestamp or object detail;
-12. direct unauthorized calls remain denied before object lookup where required;
-13. template/static structural guards still prove zero unsafe Jinja `|safe`,
-    `hx-on:`, inline executable script, CDN, remote-font and
-    `design-prototype/` production references; and
-14. the complete existing portal and bot suites remain green.
-
-Include falsification evidence for the mount inventory guard and denial leakage
-guard: demonstrate that each test fails when its protected defect is
-deliberately reintroduced, restore the files, and verify restoration by digest.
-Do not leave mutations in the tree.
-
-Do not install a browser, package or dependency without Peter's explicit
-authorization. Do not claim browser, real-device, screen-reader, staging or
-production evidence from source tests.
-
-## Required verification
-
-Run, where supported by the existing environment:
-
-```bash
-sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
-./venv-web/bin/python -m pytest tests/web -q
-./venv/bin/python -m pytest -q
-./venv-web/bin/python -m compileall application adapters tests/web
-git diff --check
-git status --short
+```html
+<input type="hidden" name="nonce" value="{{ view.job_id }}">
 ```
 
-Use the repository's actual configured environments if those exact virtual
-environment paths differ. Report every command literally, including exit code,
-pass/fail/skip counts and anything not run. Do not run migrations, external
-network calls or live services for this package. If the existing complete suite
-necessarily runs migrations only against its already-approved disposable test
-database, report that fact accurately; never point it at production.
+That is the accepted semantic: every confirmation of one completed preview — a
+double-click, retry, back-and-resubmit, or second browser — must carry the same
+request identity and converge on one apply.
 
-## Controlled records
+The direct R-46 route currently does this instead:
 
-Create a focused D-03 correction submission under `docs/review/` containing:
+```python
+nonce = (form.get("nonce") or "").strip()
+if not nonce:
+    return _validation(request, "nonce")
+```
 
-- the six accepted decisions and their implementation mapping;
-- exact files and edited regions;
-- before/after SHA-256 for every edited or created file (`absent` for a new
-  file);
-- contract/version effects;
-- tests and literal results;
-- falsification and restoration evidence;
-- security analysis of static serving and denial non-enumeration;
-- checks not run and why;
-- confirmation that the prototype freeze remains 14/14;
-- residual risks;
-- an explicit request for an independent Codex implementation review and a
-  distinct security-focused review; and
-- an explicit statement that D-03 remains open and Gemini remains blocked.
+It therefore accepts arbitrary, malformed, duplicated, padded, oversized, or
+alternate nonces. A direct caller can generate different request keys for the
+same preview even though the rendered Step 9 contract defines one canonical
+identity. PostgreSQL's one-live-apply and applied-input constraints protect the
+durable effect, but they do not make the request boundary honest or bounded.
 
-Update `status.md`, RAID D-03 and the change log only as necessary to record the
-correction submission. Do not mark either review complete, do not accept your
-own work, do not close D-03 and do not mark the Gemini prompt released.
+## Required outcome
 
-## Handoff and stop condition
+At R-46, require exactly one submitted `nonce` field whose text is exactly the
+canonical lowercase hyphenated UUID of the preview job named by the route path.
 
-Deliver:
+Preserve all existing security and state-machine controls:
 
-1. corrected backend contracts and bounded implementation;
-2. focused regression and structural tests;
-3. the D-03 correction submission;
-4. exact before/after SHA-256 and edited-region accounting;
-5. literal verification results and honest evidence classes;
-6. independent implementation-review request;
-7. distinct security-review request; and
-8. the exact decision Peter must make after both reviews pass: accept the
-   corrected D-03 backend contract and explicitly release
-   `docs/review/phase-3-p3-4-gemini-implementation-prompt.md`.
+- authorization and CSRF are checked before nonce validation;
+- malformed/unreachable `job_id` remains the accepted non-enumerating `404`;
+- `preview_token` remains required and is compared in constant time by the
+  application service;
+- current Council authority, preview state/expiry, checksum, folder, profile,
+  aggregate versions and scope fingerprint remain server-owned and rechecked;
+- the one-live-apply database fence and applied-input uniqueness constraint
+  remain unchanged;
+- the apply stays asynchronous;
+- no raw nonce is persisted, logged, audited, or returned in an error; and
+- no new route, form field, credential, schema, migration, capability, or
+  browser authority is introduced.
 
-Then stop. Do not implement the production frontend, do not release Gemini, do
-not close D-03 or P3.G4, and do not begin P3.5.
+## Read completely before editing
+
+Read:
+
+1. `AGENTS.md`, `.agents/AGENTS.md`, and `docs/implementation-plan.md`;
+2. `docs/review/phase-3-p3-4-step-09-remediation-handoff.md`;
+3. the current P3.4 authorization/conditions, execution plan, and baseline;
+4. `docs/contracts/phase-3-route-authorization-contract.md`, especially R-46
+   and its form/body, authorization, idempotency and concurrency requirements;
+5. `docs/contracts/phase-3-view-model-contract.md`, especially VM-15,
+   `ConfirmScope`, and the statement that R-46's nonce is a separate contract;
+6. `application/web/jobs.py`, especially `enqueue_apply` and `request_key`;
+7. `adapters/web/import_routes.py`, especially R-46 and request preambles;
+8. `adapters/web/templates/job_status_fragment.html`;
+9. `tests/web/test_p3_3_jobs.py` and
+   `tests/web/test_p3_4_job_status_views.py`; and
+10. the complete current diff and Git status.
+
+Treat accepted contracts as authoritative. If they require a different R-46
+nonce semantic from the stable preview-job identity already rendered and tested,
+stop and report the exact conflict rather than inventing a new protocol.
+
+All current changes belong to the user. Preserve unrelated and later-step work.
+Do not commit, push, deploy, contact Discord, Google Sheets, Foundry, or
+production PostgreSQL, or read secrets, `.env`, real snapshots, or player data.
+
+## Boundary behavior to implement
+
+After the existing mutation preamble and successful path UUID parsing:
+
+1. Read all submitted `nonce` form values, not only `form.get("nonce")`.
+2. Require exactly one value.
+3. Require that value to be a `str`.
+4. Do not strip, case-fold, normalize, coerce, or otherwise repair it.
+5. Require exact equality with `str(identifier)`, where `identifier` is the
+   parsed UUID from the R-46 path.
+6. On failure, return the accepted safe `422` validation response for `nonce`
+   before calling `enqueue_apply`.
+
+This deliberately rejects:
+
+- missing or empty nonce;
+- duplicate nonce keys, even if both values are identical;
+- another valid UUID;
+- uppercase UUID text;
+- UUID text without hyphens;
+- braces, URN prefixes or other UUID spellings Python could parse;
+- leading/trailing/internal whitespace;
+- padding or punctuation;
+- Unicode lookalikes and control characters;
+- upload/non-text form parts; and
+- oversized values within the global body limit.
+
+Do not add randomness. Do not mint a new R-46 nonce per render. Do not accept a
+client-selected request identity. The preview job UUID is already the stable,
+server-owned identity for this confirmation.
+
+Prefer a focused helper at the HTTP adapter boundary because exact field
+multiplicity and equality with the parsed path UUID are transport facts. Do not
+generalize R-42's random preview-nonce parser into a misleading shared grammar:
+R-42 and R-46 intentionally have different nonce contracts.
+
+## Required regression tests
+
+Add direct HTTP tests that call R-46 without first fetching R-43 and exercise a
+real disposable PostgreSQL database.
+
+Prove at least:
+
+1. exactly one nonce equal to `str(job_id)` plus the correct preview token is
+   accepted and enqueues one apply;
+2. repeating the same canonical submission resolves to the accepted one-effect
+   outcome;
+3. two browsers/accounts confirming the same preview with the canonical nonce
+   converge on one live apply and one queued apply audit effect;
+4. missing, empty, duplicate-identical, duplicate-conflicting, other UUID,
+   uppercase, unhyphenated, whitespace-padded, punctuation, Unicode, control,
+   non-text and oversized nonce values return `422`;
+5. every nonce refusal creates no apply job and no
+   `reconciliation.job_queued` success audit event;
+6. malformed nonce is never echoed in HTML, JSON, headers, logs, audit facts or
+   a persisted request key;
+7. unauthorized/non-member/non-Council/continuity callers retain the accepted
+   denial status regardless of whether their nonce is canonical or malformed;
+8. missing/invalid CSRF remains `403` regardless of nonce shape;
+9. malformed/unreachable path UUID remains the accepted `404` and does not
+   become `422`; and
+10. stale, expired, changed-scope, blocked and already-running apply outcomes
+    retain their accepted semantics with the canonical nonce.
+
+Update older R-46 tests that deliberately submit `browser-a`, `browser-b`, or
+other hand-built nonce values. They must use the canonical `str(preview_id)` and
+continue to prove the concurrency/database fences rather than relying on an
+input shape the production form never emits.
+
+Do not weaken or delete uniqueness, concurrency, authorization, CSRF,
+non-enumeration, audit, digest, cleanup, or disclosure assertions to make the
+suite green.
+
+## Scope allowlist
+
+Expected files:
+
+- `adapters/web/import_routes.py`;
+- `tests/web/test_p3_3_jobs.py`;
+- `tests/web/test_p3_4_job_status_views.py`; and
+- a narrowly relevant shared P3.3/P3.4 test helper only if needed.
+
+Conditionally allowed:
+
+- `application/web/jobs.py` only if an application-level defense-in-depth check
+  is demonstrably required by an accepted contract. The HTTP boundary remains
+  responsible for multiplicity and canonical path equality.
+- directly governing Step 9 review/handoff documentation.
+
+Do not modify:
+
+- `job_status_fragment.html` unless the current stable UUID field is proven to
+  contradict an accepted contract;
+- schemas or migrations;
+- R-42's separately accepted random nonce contract;
+- authorization, CSRF, session, audit-disclosure, worker or import semantics;
+- Step 10 templates or any template digest;
+- shared shell/assets or unrelated tests;
+- Phase 3 contracts without an explicit pre-existing authorization; or
+- P3.5 or later-phase scope.
+
+The three Step 10 template digest failures remain a separate documented stop
+condition. Do not update expected hashes, restore those templates, or claim
+P3.G4 is green as part of this remediation.
+
+## Verification
+
+Use the configured web environment and disposable local PostgreSQL database.
+Do not install dependencies without Peter's approval.
+
+Run the focused Step 9 evidence:
+
+```bash
+TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' \
+  /opt/discord-bots/venv-web/bin/python -m pytest -q -rs \
+  tests/web/test_p3_3_jobs.py \
+  tests/web/test_p3_4_job_status_views.py
+```
+
+Run the prior remediation and structural evidence:
+
+```bash
+TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' \
+  /opt/discord-bots/venv-web/bin/python -m pytest -q -rs \
+  tests/web/test_account_identity_refusal_audit.py \
+  tests/web/test_p3_4_snapshot_views.py \
+  tests/web/test_structural_guards.py
+```
+
+Then run the complete accepted P3.4 surface through Step 9. Report the known
+Step 10 digest failures separately and prove this remediation adds no new
+failure. Also run configured formatter, linter, type checker, `compileall`,
+`git diff --check`, and any dependency-direction check. State honestly when a
+tool is unavailable.
+
+PostgreSQL evidence is required for no-effect refusals, one-live-apply,
+duplicate/concurrent confirmation and audit effects. Skips do not close this
+finding.
+
+## Falsification
+
+Demonstrate that the new tests fail when each defect is temporarily
+reintroduced:
+
+- `.strip()` repairs a whitespace-padded nonce;
+- `form.get("nonce")` silently chooses one duplicate value;
+- another well-formed UUID is accepted for the same preview; and
+- two direct submissions choose different arbitrary request identities.
+
+Restore the exact original bytes after each probe, verify restoration by
+SHA-256, and rerun green. Leave no falsification mutation in the tree.
+
+## Stop conditions
+
+Stop and report rather than broadening scope if:
+
+- an accepted contract explicitly permits a caller-selected R-46 nonce;
+- canonical validation changes authorization, CSRF, non-enumeration, preview
+  token, concurrency, audit, or durable import semantics;
+- remediation requires a schema/migration or template change;
+- PostgreSQL evidence shows a duplicate apply, duplicate audit effect, partial
+  mutation, false success, or constraint bypass; or
+- resolving any failure would require touching Step 10 work or self-approving
+  its template bytes.
+
+## Required handoff
+
+Return:
+
+- the finding and disposition;
+- files changed and why;
+- the final R-46 nonce grammar, multiplicity rule and validation precedence;
+- direct malformed/duplicate/alternate nonce outcomes with proof of no apply
+  job and no queued success audit effect;
+- duplicate and concurrent confirmation outcomes against PostgreSQL;
+- focused and combined commands with exact pass/fail/skip totals;
+- formatter, linter, type checker, `compileall` and `git diff --check` results;
+- falsification failures and restoration SHA-256 values;
+- explicit confirmation that R-42, templates, digests, schemas, migrations,
+  live services, secrets and real data were untouched; and
+- remaining blockers, including the unchanged Step 10 digest stop condition.
+
+Do not mark P3.G4 accepted. Stop for independent re-review and Peter's decision.

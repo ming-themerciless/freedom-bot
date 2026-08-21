@@ -55,6 +55,8 @@ elapsing, or authority changing — and each of those is known without parsing.
 from __future__ import annotations
 
 import hashlib
+import re
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -69,6 +71,8 @@ from application.web.view_models import (
     CANDIDATE_CHARACTER_BOUND,
     DISCORD_NAME_BOUND,
     ISSUE_COUNT_BOUND,
+    PREVIEW_NONCE_BOUND,
+    PREVIEW_NONCE_BYTES,
     Actor,
     BlockedEntry,
     ConfirmScope,
@@ -351,6 +355,82 @@ def scope_fingerprint(
     digest.update(b"\x1f")
     digest.update(material.encode("utf-8"))
     return digest.digest()
+
+
+def mint_preview_nonce() -> str:
+    """A fresh R-42 request identity for **one** R-40 render (VM-14).
+
+    Lives here rather than in the adapter because this module owns the other half
+    of the pair: `request_key` below is the only thing that consumes a nonce, and
+    a value minted somewhere with no view of that algorithm is a value nobody can
+    reason about. The R-40 handler calls it once per successful render and hands
+    the result to `SnapshotAdminService.snapshot_list`, in the same position as
+    the CSRF token it already passes and for the same reason the handler passes
+    `now=` to this module's other use cases: a service that generated its own
+    randomness would be a service whose output no test could predict.
+
+    **Opaque, and deliberately empty of meaning.** `secrets.token_urlsafe` over
+    `PREVIEW_NONCE_BYTES` is 256 bits of CSPRNG output rendered as exactly
+    `PREVIEW_NONCE_BOUND` URL/form-safe characters. It encodes no account, no
+    capability, no snapshot, no folder and no timestamp, because every one of
+    those is a server-owned fact that R-42 re-reads rather than believes, and
+    putting one here would be inviting a caller to edit it.
+
+    It is **not** a bearer token and shares nothing with `crypto.mint_token`
+    beyond the primitive: possessing it authorizes nothing, it is never checked
+    for validity, and it is never stored in this form.
+    """
+    return secrets.token_urlsafe(PREVIEW_NONCE_BYTES)
+
+
+#: The exact rendered shape of a `preview_nonce`, and therefore the exact shape
+#: R-42 accepts back. Built from `PREVIEW_NONCE_BOUND` rather than restating 43,
+#: so the width the page renders and the width the boundary admits cannot drift:
+#: they are the same number read once.
+#:
+#: `secrets.token_urlsafe` emits base64url without padding, whose alphabet is
+#: exactly `A-Za-z0-9_-`. No `=`, no `+`, no `/`, no whitespace and nothing
+#: outside ASCII was ever minted, so nothing outside this class is a value this
+#: platform produced.
+_PREVIEW_NONCE_GRAMMAR = re.compile(f"[A-Za-z0-9_-]{{{PREVIEW_NONCE_BOUND}}}")
+
+
+def parse_preview_nonce(submitted: object) -> str | None:
+    """The submitted R-42 nonce if it is **exactly** what R-40 mints, else `None`.
+
+    The one place the R-42 grammar is stated, consumed by the route boundary so
+    that "what the page renders" and "what the server accepts" are one rule rather
+    than two that agree today. `mint_preview_nonce` above produces the only values
+    that satisfy it.
+
+    **Nothing is normalized.** No strip, no case fold, no Unicode normalization,
+    no percent-decoding. Every one of those turns some submitted value that is
+    not a minted nonce into one that looks like it, and a boundary whose job is
+    "accept exactly this" must not be the thing that manufactures a match. A
+    value with a leading space is refused rather than trimmed into acceptance.
+
+    **This is not authentication.** A well-formed nonce is not checked against
+    anything, grants nothing, and is never compared to a stored value — R-42
+    re-resolves Council capability and every server-owned snapshot, folder and
+    profile fact regardless. All this function establishes is that the request
+    carries a *request identity of the accepted shape*, so that `request_key`
+    below hashes something bounded and the idempotency it provides is the
+    idempotency VM-14 describes.
+
+    Takes `object` because a form value is whatever the framework parsed: a
+    `str` for an ordinary field, an upload object for a multipart part. Anything
+    that is not a `str` is refused rather than coerced.
+    """
+    if not isinstance(submitted, str):
+        return None
+    # Width first, so an oversized body — a megabyte of `A` inside the global
+    # body bound — is refused by a length comparison rather than by running a
+    # quantified pattern over all of it.
+    if len(submitted) != PREVIEW_NONCE_BOUND:
+        return None
+    if _PREVIEW_NONCE_GRAMMAR.fullmatch(submitted) is None:
+        return None
+    return submitted
 
 
 def request_key(
@@ -1008,6 +1088,8 @@ __all__ = [
     "blocked_by_running_apply",
     "folder_unselected",
     "issue_counts_from",
+    "mint_preview_nonce",
+    "parse_preview_nonce",
     "preview_not_confirmable",
     "queue_full",
     "request_key",

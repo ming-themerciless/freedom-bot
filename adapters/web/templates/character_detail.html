@@ -2,60 +2,84 @@
 {% block title %}{{ view.display_name.value }} — Freedom Blades{% endblock %}
 {% block content %}
   {#
-    VM-06, R-21. Two absences are the contract here, and both are structural
-    rather than editorial:
-
-    - **No editable control, anywhere.** There is no form, no `POST` sibling and
-      no route that accepts one. That absence is the acceptance criterion "no
-      Phase 3 route or form mutates character game state", and TC-STRUCT-01 is
-      what keeps it true.
-    - **A deferred field cannot show a value.** `MigrationDeferred` carries a
-      field key and its owning package and has no value field at all, so this
-      template could not print one if it tried.
+    VM-06, R-21. Read-only character detail view.
+    Zero mutation controls, forms, or actions on this page.
+    Deferred fields carry no value (TC-VM-03).
+    Missing snapshot values are explicit (SnapshotField.unavailable_reason).
+    `level` renders "not recorded" when it is `None` (TC-VM-05).
   #}
-  <h1>{{ view.display_name.value }}</h1>
-  {% if view.long_name %}<p data-field="long_name">{{ view.long_name.value }}</p>{% endif %}
-  <p data-field="level">{% if view.level is none %}not recorded{% else %}{{ view.level }}{% endif %}</p>
-  <p data-field="active">{{ 'active' if view.active else 'inactive' }}</p>
-  <p data-field="viewer-access">{{ view.viewer_access_kind or 'council' }}</p>
-
-  <h2>Platform-authoritative fields</h2>
-  <ul data-section="snapshot-fields">
-    {% for field in view.snapshot_fields %}
-      <li data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}">
-        {{ field.label }}:
-        {% if field.value is none %}
-          <span data-unavailable="{{ field.unavailable_reason }}">not available</span>
-        {% else %}
-          {{ field.value.value }}
+  <section class="card profile-hero">
+    <div class="profile-identity">
+      <div class="char-portrait-fallback" role="img" aria-label="{{ view.portrait.accessible_label }}">
+        <span class="portrait-initials">{{ view.portrait.initials }}</span>
+      </div>
+      <div class="profile-identity-text">
+        <h1 class="page-title">{{ view.display_name.value }}</h1>
+        {% if view.long_name %}
+          <p class="profile-long-name" data-field="long_name">{{ view.long_name.value }}</p>
         {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
+        <div class="profile-badges">
+          <span class="badge badge-primary" data-field="level">{% if view.level is none %}not recorded{% else %}Level {{ view.level }}{% endif %}</span>
+          <span class="badge {{ 'badge-success' if view.active else 'badge-warning' }}" data-field="active">{{ 'Active' if view.active else 'Inactive' }}</span>
+          <span class="badge badge-info" data-field="viewer-access">Access: {{ view.viewer_access_kind or 'Council (by role)' }}</span>
+          <span class="profile-version" data-field="version">Version {{ view.version }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <h2>Awaiting migration</h2>
-  <ul data-section="deferred-fields">
-    {% for field in view.deferred_fields %}
-      <li data-field-key="{{ field.field_key }}" data-owning-package="{{ field.owning_package }}">
-        {{ field.field_key }}: migration deferred (package {{ field.owning_package }})
-      </li>
-    {% endfor %}
-  </ul>
+  <section class="card detail-section">
+    <h2 class="section-title">Platform-authoritative fields</h2>
+    <div class="data-grid" data-section="snapshot-fields">
+      {% for field in view.snapshot_fields %}
+        <div class="data-item" data-field-key="{{ field.field_key }}" data-authority="{{ field.authority }}">
+          <span class="data-label">{{ field.label }} <span class="badge badge-sm badge-deferred">{{ field.authority }}</span>:</span>
+          {% if field.value is none %}
+            <span class="data-value" data-unavailable="{{ field.unavailable_reason }}">not available ({{ field.unavailable_reason }})</span>
+          {% else %}
+            <span class="data-value">{{ field.value.value }}</span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
-  <h2>Who may reach this character</h2>
-  <ul data-section="access">
-    {% for fact in view.access %}
-      <li data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}">
-        {{ fact.account.label.value }} — granted {{ fact.granted_at.display }}
-      </li>
-    {% endfor %}
-  </ul>
+  <section class="card detail-section">
+    <h2 class="section-title">Awaiting migration</h2>
+    <div class="data-grid" data-section="deferred-fields">
+      {% for field in view.deferred_fields %}
+        <div class="data-item" data-field-key="{{ field.field_key }}" data-owning-package="{{ field.owning_package }}">
+          <span class="data-label">{{ field.field_key }}:</span>
+          <span class="data-value">migration deferred (package {{ field.owning_package }})</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 
-  <p data-section="provenance" data-profile-version="{{ view.provenance.profile_version }}">
-    {% if view.provenance.snapshot %}
-      Snapshot {{ view.provenance.snapshot.checksum_short }} from {{ view.provenance.world_id }}
-    {% else %}
-      No Foundry snapshot is mapped to this character.
-    {% endif %}
-  </p>
+  <section class="card detail-section">
+    <h2 class="section-title">Who may reach this character</h2>
+    <div class="data-grid" data-section="access">
+      {% for fact in view.access %}
+        <div class="data-item" data-access-id="{{ fact.access_id }}" data-access-kind="{{ fact.access_kind }}">
+          <span class="data-label">{{ fact.account.label.value }} (<span class="badge badge-sm badge-primary">{{ fact.access_kind }}</span>):</span>
+          <span class="data-value">granted {{ fact.granted_at.display }} &mdash; {{ fact.reason.value }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card detail-section">
+    <h2 class="section-title">Provenance</h2>
+    <div class="provenance-details" data-section="provenance" data-profile-version="{{ view.provenance.profile_version }}">
+      {% if view.provenance.snapshot %}
+        <p class="provenance-item">Snapshot {{ view.provenance.snapshot.checksum_short }} from world {{ view.provenance.world_id }} (exported {{ view.provenance.snapshot.exported_at.display }})</p>
+      {% else %}
+        <p class="provenance-item">No Foundry snapshot is mapped to this character.</p>
+      {% endif %}
+      <p class="provenance-item">Profile version: {{ view.provenance.profile_version }}</p>
+      {% if view.provenance.external_actor_id %}
+        <p class="provenance-item">Foundry Actor ID: <code class="font-mono">{{ view.provenance.external_actor_id }}</code></p>
+      {% endif %}
+    </div>
+  </section>
 {% endblock %}

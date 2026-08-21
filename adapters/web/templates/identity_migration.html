@@ -45,169 +45,284 @@
     The totals are §7.4's control totals, shown to the person doing the
     confirming rather than only in a report they may not read.
   #}
-  <h1>Identity migration</h1>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Identity Migration</h1>
+      <span class="badge badge-warning">Council Authority</span>
+    </div>
+    <p class="page-description">
+      Review Sheet-era identity link proposals, balance control totals, and record Council confirmation or rejection decisions.
+    </p>
+  </header>
+
   {% if view.run %}
-    <p data-run-id="{{ view.run.run_id }}"
-       data-dry-run="{{ 'true' if view.run.dry_run else 'false' }}">
-      {{ view.run.source_snapshot }} — produced {{ view.run.produced_at.display }}
-    </p>
-    <p data-notice="confirmation-creates-the-link">
-      Confirming a proposal creates that character's access row immediately and
-      records the decision, the reason and both audit events in the same
-      transaction. Rejecting one creates nothing. A link created here is
-      administered on the character's links page like any other, and is revoked
-      there.
-    </p>
+    <div class="card migration-run-card" data-run-id="{{ view.run.run_id }}"
+         data-dry-run="{{ 'true' if view.run.dry_run else 'false' }}">
+      <div class="data-grid">
+        <div class="data-item">
+          <span class="data-label">Source Snapshot</span>
+          <span class="data-value font-mono">{{ view.run.source_snapshot }}</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Produced At</span>
+          <span class="data-value font-mono">{{ view.run.produced_at.display }}</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Profile Version</span>
+          <span class="data-value font-mono">{{ view.run.profile_version }}</span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Execution Mode</span>
+          <span class="data-value">
+            {% if view.run.dry_run %}
+              <span class="badge badge-info badge-sm">Dry Run (Evidence Only)</span>
+            {% else %}
+              <span class="badge badge-success badge-sm">Live</span>
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-info" data-notice="confirmation-creates-the-link">
+      <p>
+        Confirming a proposal creates that character's access row immediately and
+        records the decision, the reason and both audit events in the same
+        transaction. Rejecting one creates nothing. A link created here is
+        administered on the character's links page like any other, and is revoked
+        there.
+      </p>
+    </div>
   {% endif %}
-  <dl data-section="totals" data-balances="{{ 'true' if view.totals.balances() else 'false' }}">
-    <dt>source characters</dt><dd data-total="source_characters">{{ view.totals.source_characters }}</dd>
-    <dt>source players</dt><dd data-total="source_players">{{ view.totals.source_players }}</dd>
-    <dt>already linked</dt><dd data-total="already_linked">{{ view.totals.already_linked }}</dd>
-    <dt>proposed</dt><dd data-total="proposed">{{ view.totals.proposed }}</dd>
-    <dt>ambiguous</dt><dd data-total="ambiguous">{{ view.totals.ambiguous }}</dd>
-    <dt>unresolved</dt><dd data-total="unresolved">{{ view.totals.unresolved }}</dd>
-    <dt>confirmed (link active now)</dt><dd data-total="confirmed">{{ view.totals.confirmed }}</dd>
-    {#
-      Confirmations Council has since revoked through R-26. Counted beside
-      `confirmed` rather than inside it, so the number above is the number of
-      links that exist, and counted rather than dropped, so the second balance
-      still accounts for every proposal (§7.4, C-P3.2-C).
-    #}
-    <dt>confirmed (link revoked)</dt><dd data-total="confirmed_revoked">{{ view.totals.confirmed_revoked }}</dd>
-    <dt>rejected</dt><dd data-total="rejected">{{ view.totals.rejected }}</dd>
-    <dt>outstanding</dt><dd data-total="outstanding">{{ view.totals.outstanding }}</dd>
-  </dl>
 
-  <ul data-state="{{ view.state }}">
-    {% for proposal in view.proposals %}
-      {#
-        `data-stage` is the one attribute that answers "where is this row?" in
-        the two-stage pipeline, so a reader does not have to combine
-        `resolution` and `decided` themselves to find out.
-      #}
-      <li data-proposal-id="{{ proposal.proposal_id }}"
-          data-resolution="{{ proposal.resolution }}"
-          data-confirmable="{{ 'true' if proposal.confirmable else 'false' }}"
-          data-decided="{{ 'true' if proposal.decided else 'false' }}"
-          data-stage="{% if proposal.decided %}decided{% else %}outstanding{% endif %}"
-          data-notice="{{ proposal.evidence_notice_code }}">
-        <span data-field="character">{{ proposal.character.display_name.value }}</span>
-        <span data-evidence="player-name">{{ proposal.sheet_player_name.value }}</span>
-        {% if proposal.sheet_discord_name %}
-          <span data-evidence="discord-name">{{ proposal.sheet_discord_name.value }}</span>
-        {% endif %}
-        <span data-evidence="active-dm">{{ 'true' if proposal.active_dm_flag else 'false' }}</span>
-        {% if proposal.proposed_subject %}
-          <span data-field="subject">{{ proposal.proposed_subject }}</span>
-        {% endif %}
-        {% if proposal.candidate_subjects %}
-          {#
-            Bounded to VM-10's ten, and the bound is *reported*. The run persisted
-            every candidate (§7.6); this list is the rendering of it, and a
-            rendering that showed ten of fifteen without saying so would tell a
-            Council member they were choosing from a complete set.
-          #}
-          <ul data-section="candidates"
-              data-candidate-count="{{ proposal.candidate_count }}"
-              data-candidates-truncated="{{ 'true' if proposal.candidate_subjects_truncated else 'false' }}">
-            {% for subject in proposal.candidate_subjects %}
-              <li data-candidate="{{ subject }}">{{ subject }}</li>
-            {% endfor %}
-          </ul>
-          {% if proposal.candidate_subjects_truncated %}
-            <p data-notice="candidates-truncated">
-              Showing {{ proposal.candidate_subjects|length }} of
-              {{ proposal.candidate_count }} recorded candidates. All of them were
-              stored with this proposal; none has been chosen.
-            </p>
-          {% endif %}
-        {% endif %}
-
+  <section class="detail-section">
+    <h2 class="section-title">Reconciliation Totals</h2>
+    <div class="card totals-card">
+      <dl class="totals-dl" data-section="totals" data-balances="{{ 'true' if view.totals.balances() else 'false' }}">
+        <div class="totals-item">
+          <dt class="totals-dt">source characters</dt>
+          <dd class="totals-dd font-mono" data-total="source_characters">{{ view.totals.source_characters }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">source players</dt>
+          <dd class="totals-dd font-mono" data-total="source_players">{{ view.totals.source_players }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">already linked</dt>
+          <dd class="totals-dd font-mono" data-total="already_linked">{{ view.totals.already_linked }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">proposed</dt>
+          <dd class="totals-dd font-mono" data-total="proposed">{{ view.totals.proposed }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">ambiguous</dt>
+          <dd class="totals-dd font-mono" data-total="ambiguous">{{ view.totals.ambiguous }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">unresolved</dt>
+          <dd class="totals-dd font-mono" data-total="unresolved">{{ view.totals.unresolved }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">confirmed (link active now)</dt>
+          <dd class="totals-dd font-mono" data-total="confirmed">{{ view.totals.confirmed }}</dd>
+        </div>
         {#
-          The states a row can be read in, each said in words rather than left
-          for the reader to infer from a resolution string. `data-link-state` is
-          the access row's current state and is absent on every row that created
-          no link, so "no link exists" and "the link was revoked" are never the
-          same rendering.
+          Confirmations Council has since revoked through R-26. Counted beside
+          `confirmed` rather than inside it, so the number above is the number of
+          links that exist, and counted rather than dropped, so the second balance
+          still accounts for every proposal (§7.4, C-P3.2-C).
         #}
-        {% if proposal.decided and proposal.resolution == 'confirmed' and proposal.link_state == 'active' %}
-          <p data-status="confirmed-and-active" data-link-state="active">
-            Confirmed. This character's access row was created by the
-            confirmation and is active now.
-          </p>
-        {% elif proposal.decided and proposal.resolution == 'confirmed' %}
-          {#
-            Confirmed, and the link it created has since been revoked. The
-            decision is not undone and is not re-opened: it stays recorded with
-            its decider and reason, and this says only what is true of the access
-            row today. Re-linking is R-25 on the character's links page, which
-            inserts a new row rather than reviving this one.
-          #}
-          <p data-status="confirmed-and-revoked" data-link-state="revoked">
-            Confirmed, and the access row this confirmation created has since
-            been revoked. It is not active now. The confirmation itself stands
-            and is not re-opened; this proposal cannot be decided again.
-          </p>
-        {% elif proposal.decided and proposal.resolution == 'rejected' %}
-          <p data-status="rejected">
-            Rejected. Nothing was created for this proposal.
-          </p>
+        <div class="totals-item">
+          <dt class="totals-dt">confirmed (link revoked)</dt>
+          <dd class="totals-dd font-mono" data-total="confirmed_revoked">{{ view.totals.confirmed_revoked }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">rejected</dt>
+          <dd class="totals-dd font-mono" data-total="rejected">{{ view.totals.rejected }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">outstanding</dt>
+          <dd class="totals-dd font-mono" data-total="outstanding">{{ view.totals.outstanding }}</dd>
+        </div>
+      </dl>
+      <div class="totals-balance-status">
+        {% if view.totals.balances() %}
+          <span class="badge badge-success badge-sm">Totals Balanced</span>
         {% else %}
-          <p data-status="outstanding">
-            Outstanding evidence. No decision has been recorded and no access
-            row exists.
-          </p>
+          <span class="badge badge-danger badge-sm">Reconciliation Discrepancy</span>
         {% endif %}
+      </div>
+    </div>
+  </section>
 
-        {#
-          Controls appear only on an outstanding row. A decided proposal cannot
-          be decided again — `decide()` is conditional on it still being
-          outstanding — and rendering a control the server would refuse is how a
-          page teaches an operator to distrust it.
-        #}
-        {% if not proposal.decided %}
-          {% if proposal.confirmable %}
-            <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/confirm">
-              <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-              <input type="hidden" name="version" value="{{ proposal.character_version }}">
-              {#
-                What the confirmation will do, stated before it does it. The
-                access kind is the server's and there is no field for it: it is
-                shown so the Council member can see it, not so the browser can
-                choose it.
-              #}
-              <p data-section="confirm-summary"
-                 data-character-id="{{ proposal.character.character_id }}"
-                 data-subject="{{ proposal.proposed_subject }}"
-                 data-access-kind="{{ proposal.resulting_access_kind }}"
-                 data-character-version="{{ proposal.character_version }}">
-                Confirming links Discord identity
-                <span data-field="confirm-subject">{{ proposal.proposed_subject }}</span>
-                to <span data-field="confirm-character">{{ proposal.character.display_name.value }}</span>
-                as <span data-field="confirm-access-kind">{{ proposal.resulting_access_kind }}</span>,
-                immediately. The names above are evidence; the identity is the
-                snowflake.
-              </p>
-              <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-              <button type="submit">Confirm and create the link</button>
-            </form>
-          {% endif %}
+  <section class="detail-section">
+    <h2 class="section-title">Proposals</h2>
+    {% if not view.proposals %}
+      <div class="empty-card" data-state="{{ view.state }}">
+        <div class="empty-icon" aria-hidden="true">&empty;</div>
+        <h2>No Proposals</h2>
+        <p class="empty-text">No identity link proposals are recorded in this migration view.</p>
+      </div>
+    {% else %}
+      <ul class="proposal-list" data-state="{{ view.state }}">
+        {% for proposal in view.proposals %}
           {#
-            Rejection is available on every outstanding row, including the
-            ambiguous and unresolved ones: rejecting one is how a Council member
-            says "there is nothing here" and stops it standing outstanding for
-            ever (§7.6). It changes no character, so it carries no version.
+            `data-stage` is the one attribute that answers "where is this row?" in
+            the two-stage pipeline, so a reader does not have to combine
+            `resolution` and `decided` themselves to find out.
           #}
-          <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/reject">
-            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-            <label>Reason <input type="text" name="reason" maxlength="500" required></label>
-            <button type="submit">Reject</button>
-          </form>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  {% if view.cursor.has_more %}
-    <a rel="next" href="/v1/council/identity-migration?cursor={{ view.cursor.token }}">Next</a>
-  {% endif %}
+          <li class="card proposal-card" data-proposal-id="{{ proposal.proposal_id }}"
+              data-resolution="{{ proposal.resolution }}"
+              data-confirmable="{{ 'true' if proposal.confirmable else 'false' }}"
+              data-decided="{{ 'true' if proposal.decided else 'false' }}"
+              data-stage="{% if proposal.decided %}decided{% else %}outstanding{% endif %}"
+              data-notice="{{ proposal.evidence_notice_code }}">
+            <div class="proposal-header">
+              <div class="proposal-char-info">
+                <span class="proposal-char-name" data-field="character"><strong>{{ proposal.character.display_name.value }}</strong></span>
+                <span class="badge badge-secondary badge-sm" data-resolution-badge="{{ proposal.resolution }}">{{ proposal.resolution }}</span>
+              </div>
+              <div class="proposal-evidence-badges">
+                <span class="badge badge-info badge-sm" data-evidence="player-name">Player: {{ proposal.sheet_player_name.value }}</span>
+                {% if proposal.sheet_discord_name %}
+                  <span class="badge badge-secondary badge-sm" data-evidence="discord-name">Sheet Discord: {{ proposal.sheet_discord_name.value }}</span>
+                {% endif %}
+                <span class="badge {% if proposal.active_dm_flag %}badge-warning{% else %}badge-secondary{% endif %} badge-sm" data-evidence="active-dm">Active DM: {{ 'true' if proposal.active_dm_flag else 'false' }}</span>
+              </div>
+            </div>
+
+            <div class="proposal-subject-row">
+              <span class="data-label">Target Discord Snowflake:</span>
+              {% if proposal.proposed_subject %}
+                <code class="font-mono text-sm" data-field="subject">{{ proposal.proposed_subject }}</code>
+              {% else %}
+                <span class="text-muted text-sm" data-field="subject">None (Unresolved / Ambiguous)</span>
+              {% endif %}
+            </div>
+
+            {% if proposal.candidate_subjects %}
+              {#
+                Bounded to VM-10's ten, and the bound is *reported*. The run persisted
+                every candidate (§7.6); this list is the rendering of it, and a
+                rendering that showed ten of fifteen without saying so would tell a
+                Council member they were choosing from a complete set.
+              #}
+              <div class="candidates-block">
+                <span class="data-label">Candidate Snowflakes:</span>
+                <ul class="candidate-list" data-section="candidates"
+                    data-candidate-count="{{ proposal.candidate_count }}"
+                    data-candidates-truncated="{{ 'true' if proposal.candidate_subjects_truncated else 'false' }}">
+                  {% for subject in proposal.candidate_subjects %}
+                    <li class="candidate-item font-mono" data-candidate="{{ subject }}">{{ subject }}</li>
+                  {% endfor %}
+                </ul>
+                {% if proposal.candidate_subjects_truncated %}
+                  <p class="candidate-truncated" data-notice="candidates-truncated">
+                    Showing {{ proposal.candidate_subjects|length }} of {{ proposal.candidate_count }} recorded candidates. All of them were stored with this proposal; none has been chosen.
+                  </p>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            {#
+              The states a row can be read in, each said in words rather than left
+              for the reader to infer from a resolution string. `data-link-state` is
+              the access row's current state and is absent on every row that created
+              no link, so "no link exists" and "the link was revoked" are never the
+              same rendering.
+            #}
+            <div class="proposal-status-block">
+              {% if proposal.decided and proposal.resolution == 'confirmed' and proposal.link_state == 'active' %}
+                <p class="alert alert-success alert-sm" data-status="confirmed-and-active" data-link-state="active">
+                  Confirmed. This character's access row was created by the confirmation and is active now.
+                </p>
+              {% elif proposal.decided and proposal.resolution == 'confirmed' %}
+                {#
+                  Confirmed, and the link it created has since been revoked. The
+                  decision is not undone and is not re-opened: it stays recorded with
+                  its decider and reason, and this says only what is true of the access
+                  row today. Re-linking is R-25 on the character's links page, which
+                  inserts a new row rather than reviving this one.
+                #}
+                <p class="alert alert-warning alert-sm" data-status="confirmed-and-revoked" data-link-state="revoked">
+                  Confirmed, and the access row this confirmation created has since been revoked. It is not active now. The confirmation itself stands and is not re-opened; this proposal cannot be decided again.
+                </p>
+              {% elif proposal.decided and proposal.resolution == 'rejected' %}
+                <p class="alert alert-danger alert-sm" data-status="rejected">
+                  Rejected. Nothing was created for this proposal.
+                </p>
+              {% else %}
+                <p class="alert alert-info alert-sm" data-status="outstanding">
+                  Outstanding evidence. No decision has been recorded and no access row exists.
+                </p>
+              {% endif %}
+            </div>
+
+            {#
+              Controls appear only on an outstanding row. A decided proposal cannot
+              be decided again — `decide()` is conditional on it still being
+              outstanding — and rendering a control the server would refuse is how a
+              page teaches an operator to distrust it.
+            #}
+            {% if not proposal.decided %}
+              <div class="proposal-actions">
+                {% if proposal.confirmable %}
+                  <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/confirm" class="confirm-form action-form">
+                    <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                    <input type="hidden" name="version" value="{{ proposal.character_version }}">
+                    {#
+                      What the confirmation will do, stated before it does it. The
+                      access kind is the server's and there is no field for it: it is
+                      shown so the Council member can see it, not so the browser can
+                      choose it.
+                    #}
+                    <div class="confirm-summary-box" data-section="confirm-summary"
+                         data-character-id="{{ proposal.character.character_id }}"
+                         data-subject="{{ proposal.proposed_subject }}"
+                         data-access-kind="{{ proposal.resulting_access_kind }}"
+                         data-character-version="{{ proposal.character_version }}">
+                      <p class="confirm-summary-text">
+                        Confirming links Discord identity
+                        <code class="font-mono" data-field="confirm-subject">{{ proposal.proposed_subject }}</code>
+                        to <span data-field="confirm-character"><strong>{{ proposal.character.display_name.value }}</strong></span>
+                        as <span class="badge badge-primary badge-sm" data-field="confirm-access-kind">{{ proposal.resulting_access_kind }}</span>,
+                        immediately. The names above are evidence; the identity is the
+                        snowflake.
+                      </p>
+                    </div>
+                    <div class="form-group-inline">
+                      <label for="confirm-reason-{{ proposal.proposal_id }}" class="form-label-inline">Reason</label>
+                      <input type="text" id="confirm-reason-{{ proposal.proposal_id }}" name="reason" maxlength="500" placeholder="Justification for confirmation..." class="form-input form-input-sm" required>
+                      <button type="submit" class="btn btn-primary btn-sm">Confirm and create the link</button>
+                    </div>
+                  </form>
+                {% endif %}
+                {#
+                  Rejection is available on every outstanding row, including the
+                  ambiguous and unresolved ones: rejecting one is how a Council member
+                  says "there is nothing here" and stops it standing outstanding for
+                  ever (§7.6). It changes no character, so it carries no version.
+                #}
+                <form method="post" action="/v1/council/identity-migration/{{ proposal.proposal_id }}/reject" class="reject-form action-form">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <div class="form-group-inline">
+                    <label for="reject-reason-{{ proposal.proposal_id }}" class="form-label-inline">Reason</label>
+                    <input type="text" id="reject-reason-{{ proposal.proposal_id }}" name="reason" maxlength="500" placeholder="Reason for rejection..." class="form-input form-input-sm" required>
+                    <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                  </div>
+                </form>
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+
+      {% if view.cursor.has_more %}
+        <nav class="cursor-nav" aria-label="Pagination">
+          <a rel="next" href="/v1/council/identity-migration?cursor={{ view.cursor.token | urlencode }}" class="btn btn-secondary">Next Page &rarr;</a>
+        </nav>
+      {% endif %}
+    {% endif %}
+  </section>
 {% endblock %}

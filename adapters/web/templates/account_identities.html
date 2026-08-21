@@ -13,30 +13,99 @@
     through them after a provider is retired. They carry no control, because
     there is nothing left to do to them.
   #}
-  <h1>Your sign-in identities</h1>
-  <ul data-state="{{ view.state }}"
-      data-additional-provider="{{ view.additional_provider if view.additional_provider is string else view.additional_provider.key }}"
-      {% if view.unlink_blocked_reason %}data-unlink-blocked="{{ view.unlink_blocked_reason }}"{% endif %}>
-    {% for identity in view.identities %}
-      <li data-identity-id="{{ identity.identity_id }}"
-          data-provider="{{ identity.provider_key }}"
-          data-identity-state="{{ identity.state }}"
-          data-current="{{ 'true' if identity.is_current_session_identity else 'false' }}">
-        {{ identity.provider_display_name }} — {{ identity.subject_display }}
-        (linked {{ identity.linked_at.display }})
-        {% if identity.state == "active" and not view.unlink_blocked_reason %}
-          <form method="post" action="/v1/account/identities/{{ identity.identity_id }}/unlink">
-            <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
-            <button type="submit">Unlink</button>
-          </form>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-  {% if view.additional_provider is string %}
-    <p data-state="{{ view.additional_provider }}">
-      Phase 3 has one sign-in provider. Linking an additional identity requires a
-      separately approved provider package.
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Your sign-in identities</h1>
+      <span class="badge badge-info">Account Security</span>
+    </div>
+    <p class="page-description">
+      Manage platform sign-in identities linked to your account (<code class="font-mono text-xs">{{ view.account_id }}</code>).
     </p>
+  </header>
+
+  {% if view.state == "denied" %}
+    <div class="alert alert-warning" data-state="denied">
+      <p>Linking an additional identity is unavailable or refused under the current session policy.</p>
+    </div>
+  {% endif %}
+
+  {% if view.unlink_blocked_reason %}
+    <div class="alert alert-info" data-unlink-blocked="{{ view.unlink_blocked_reason }}">
+      {% if view.unlink_blocked_reason == "last_usable_identity" %}
+        <p>Unlinking is blocked: this account has only one usable sign-in identity. You must maintain at least one active identity to access the platform.</p>
+      {% elif view.unlink_blocked_reason == "emergency_session" %}
+        <p>Unlinking is blocked: identity modifications are prohibited during an emergency continuity session.</p>
+      {% else %}
+        <p>Unlinking is currently unavailable: {{ view.unlink_blocked_reason }}.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <section class="detail-section">
+    <h2 class="section-title">Linked Identities</h2>
+    {% if not view.identities %}
+      <div class="empty-card" data-state="{{ view.state }}">
+        <div class="empty-icon" aria-hidden="true">&empty;</div>
+        <h2>No Identities</h2>
+        <p class="empty-text">No identities are linked to this account.</p>
+      </div>
+    {% else %}
+      <ul class="identity-list" data-state="{{ view.state }}"
+          data-additional-provider="{{ view.additional_provider if view.additional_provider is string else view.additional_provider.key }}"
+          {% if view.unlink_blocked_reason %}data-unlink-blocked="{{ view.unlink_blocked_reason }}"{% endif %}>
+        {% for identity in view.identities %}
+          <li class="card identity-card" data-identity-id="{{ identity.identity_id }}"
+              data-provider="{{ identity.provider_key }}"
+              data-identity-state="{{ identity.state }}"
+              data-current="{{ 'true' if identity.is_current_session_identity else 'false' }}">
+            <div class="identity-header">
+              <div class="identity-title-group">
+                <strong class="identity-provider-name">{{ identity.provider_display_name }}</strong>
+                <span class="identity-separator">&mdash;</span>
+                <code class="font-mono identity-subject">{{ identity.subject_display }}</code>
+              </div>
+              <div class="identity-badges">
+                {% if identity.state == "active" %}
+                  <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                  <span class="badge badge-secondary badge-sm">Retired</span>
+                {% endif %}
+                {% if identity.is_current_session_identity %}
+                  <span class="badge badge-primary badge-sm">Current Session</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="identity-meta">
+              <span class="text-xs text-muted">(linked {{ identity.linked_at.display }})</span>
+              {% if identity.last_authenticated_at %}
+                <span class="text-xs text-muted">Last authenticated: {{ identity.last_authenticated_at.display }}</span>
+              {% endif %}
+            </div>
+
+            {% if identity.state == "active" and not view.unlink_blocked_reason %}
+              <div class="identity-actions">
+                <form method="post" action="/v1/account/identities/{{ identity.identity_id }}/unlink" class="action-form unlink-form">
+                  <input type="hidden" name="csrf_token" value="{{ view.csrf_token }}">
+                  <button type="submit" class="btn btn-danger btn-sm">Unlink</button>
+                </form>
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+
+  {% if view.additional_provider is string %}
+    <section class="detail-section">
+      <div class="card additional-provider-card" data-state="{{ view.additional_provider }}">
+        <h3 class="section-subtitle">Additional Providers</h3>
+        <p class="text-sm text-muted">
+          Phase 3 has one sign-in provider. Linking an additional identity requires a
+          separately approved provider package.
+        </p>
+      </div>
+    </section>
   {% endif %}
 {% endblock %}

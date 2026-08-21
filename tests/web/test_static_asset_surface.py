@@ -60,7 +60,12 @@ def asset():
             path.unlink(missing_ok=True)
         # The root is a contract surface, not a scratch directory. A test that
         # left a file behind would make the *next* run's inventory wrong.
-        assert sorted(entry.name for entry in STATIC_ROOT.iterdir()) == [".gitkeep"]
+        assert sorted(entry.name for entry in STATIC_ROOT.iterdir()) == [
+            "asset-integrity.sha256",
+            "css",
+            "images",
+            "vendor",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -427,26 +432,27 @@ def test_the_url_grammar_accepts_exactly_the_documented_shape(path, accepted):
     assert path_is_within_grammar(path) is accepted
 
 
-def test_the_static_root_ships_only_its_placeholder(asset):
-    """The D-03 boundary, asserted rather than promised.
+def test_the_static_root_contains_exact_authorized_corpus(asset):
+    """The Step 2 static asset boundary.
 
-    The accepted correction adds the *surface*, not its contents: no production
-    CSS, no vendored HTMX, no emblem, no visual asset of any kind. The one file
-    in the repository-owned root is the empty `.gitkeep` that makes the directory
-    exist for `StaticFiles(check_dir=True)`.
-
-    This case is what would fail if a later change quietly landed a production
-    asset in a backend package. It runs *inside* the `asset` fixture, so the two
-    probe files are present and are excluded by name — the fixture's own teardown
-    assertion covers the clean state.
+    The static root contains exactly the authorized Step 2 static corpus: the
+    integrity manifest, one fingerprinted CSS foundation, one fingerprinted
+    emblem image, and one fingerprinted vendored HTMX distribution. No extra,
+    undeclared, or unmanifested file exists.
     """
     entries = sorted(
         entry.name
         for entry in STATIC_ROOT.iterdir()
         if entry.name not in (FINGERPRINTED_NAME, PLAIN_NAME)
     )
-    assert entries == [".gitkeep"]
-    assert (STATIC_ROOT / ".gitkeep").read_bytes() == b""
+    assert entries == ["asset-integrity.sha256", "css", "images", "vendor"]
+    assert (STATIC_ROOT / "asset-integrity.sha256").is_file()
+    assert (STATIC_ROOT / "css").is_dir()
+    assert (STATIC_ROOT / "images").is_dir()
+    assert (STATIC_ROOT / "vendor").is_dir()
+    assert sorted(p.name for p in (STATIC_ROOT / "css").iterdir()) == ["freedom-blades.b0a1f3305683.css"]
+    assert sorted(p.name for p in (STATIC_ROOT / "images").iterdir()) == ["freedom-blades-token.eab0d13128f5.png"]
+    assert sorted(p.name for p in (STATIC_ROOT / "vendor").iterdir()) == ["htmx-2.0.10.71ea67185bfa.min.js"]
     assert STATIC_ROOT == Path(__file__).resolve().parents[2] / "adapters" / "web" / "static"
 
 

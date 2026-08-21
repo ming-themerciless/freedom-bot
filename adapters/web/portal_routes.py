@@ -55,6 +55,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
+from adapters.web.repositories import WebAuditRepository
 from application.audit import ActorCapability
 from application.web import csrf
 from application.web.access_control import (
@@ -65,6 +66,7 @@ from application.web.access_control import (
     close_request,
     open_request,
 )
+from application.web.account_identities import UnlinkRefusedPendingAudit
 from application.web.capabilities import (
     AdministratorScope,
     MAPPABLE_CAPABILITIES,
@@ -183,6 +185,46 @@ class _Refused(Exception):
     def __init__(self, response: Response) -> None:
         super().__init__("refused")
         self.response = response
+
+
+def run_identity_unlink(engine, change):
+    """Run R-37 so that **the last-identity refusal is recorded even though it failed**.
+
+    Two transactions, and the second one is the whole point:
+
+    1. `change(connection)` runs in a transaction that commits a successful
+       retirement together with its `identity.unlinked` event, and rolls back on
+       any refusal — so a refused attempt retires nothing, exactly as required.
+    2. If it was the audited last-identity refusal, a **fresh** transaction writes
+       the `identity.link_refused` event, with the same correlation id and the
+       same event identity the service constructed. That row survives precisely
+       because it is not in the transaction that rolled back.
+
+    **It lives on this side of the boundary**, not in
+    `application/web/account_identities.py` where it was first written. The
+    application layer states the rule — `AccountIdentityService.unlink` decides
+    which refusal is durable and describes the event — and an engine, a
+    connection and a `WebAuditRepository` are how an adapter makes a write
+    durable. A use case that reached out for the concrete repository to finish
+    its own work would have inverted the dependency direction for exactly one
+    branch of one route, which is the shape that spreads.
+
+    Module level rather than inside `register()`, and separate from `unit()`,
+    because it is one route's rule: "commit something on the way out of a
+    failure" must not become every handler's, and a reader of `unit()` should not
+    have to check whether it sometimes does two transactions.
+
+    A failure of the second transaction propagates. That is the required
+    behaviour, not an oversight — answering `409` when the audit did not commit
+    would claim a durable refusal record that does not exist.
+    """
+    try:
+        with engine.begin() as connection:
+            return change(connection)
+    except UnlinkRefusedPendingAudit as refused:
+        with engine.begin() as connection:
+            WebAuditRepository(connection).record(refused.event)
+        raise refused.refusal from None
 
 
 def register(app: FastAPI, composition, authority) -> None:
@@ -1005,15 +1047,27 @@ def register(app: FastAPI, composition, authority) -> None:
             return JSONResponse(
                 {"error": RefusalCode.OBJECT_NOT_REACHABLE.value}, status_code=404
             )
-        try:
-            await unit(
-                lambda services: services.account_identities.unlink(
-                    context=context,
-                    identity_id=identifier,
-                    correlation_id=uuid4(),
-                    now=utcnow(),
-                )
+        correlation_id = uuid4()
+
+        def change(connection):
+            services = composition.services(connection)
+            return services.account_identities.unlink(
+                context=context,
+                identity_id=identifier,
+                correlation_id=correlation_id,
+                now=utcnow(),
             )
+
+        # Not `unit()`. The last-identity refusal has to be *recorded* by a
+        # request that *changes nothing*, and `unit()`'s single transaction
+        # cannot do both: it rolls back on the refusal, which is right for the
+        # identity and wrong for the audit. `run_identity_unlink` keeps the
+        # retirement in one transaction and puts that one refusal record in a
+        # second — here rather than inside `unit()`, because "commit something on
+        # the way out of a failure" is R-37's rule and must not become every
+        # route's.
+        try:
+            await run_in_threadpool(run_identity_unlink, composition.engine, change)
         except WebRefusal as refusal:
             return _mutation_refusal(request, refusal, guard)
         return RedirectResponse("/v1/account/identities", status_code=303)

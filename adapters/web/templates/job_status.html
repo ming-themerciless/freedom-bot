@@ -1,12 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Job {{ view.job_id }} — Freedom Blades{% endblock %}
+{% block title %}Reconciliation job — Council — Freedom Blades{% endblock %}
 {% block content %}
   {#
     VM-15, R-43. The navigable page; its body is the same fragment R-44 answers,
     included rather than copied, so a caller with no JavaScript gets the full
     page and a working — if manual — flow.
+
+    Everything that varies with the job lives in the fragment. This file is the
+    page furniture around it: the heading, the capability badge, and the route
+    back to the snapshot ledger. Nothing here re-states a job fact, because a
+    fact stated in two templates is a fact that can disagree with itself after a
+    swap replaces one of them.
+
+    **The title carries no job identity.** A browser tab, a history entry and a
+    shared screenshot are all places a UUID would travel to for no benefit; the
+    id is on the page, in `data-job-id`, where the operator and the tests read
+    it.
   #}
-  <h1>Reconciliation job</h1>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Reconciliation Job</h1>
+      <span class="badge badge-warning">Council Authority</span>
+    </div>
+    <p class="page-description">
+      Foundry VTT snapshot reconciliation job status, bounded preview results, and
+      Council confirmation of an import.
+    </p>
+  </header>
+
   {% include "job_status_fragment.html" %}
-  <p><a href="/v1/council/snapshots">Back to snapshots</a></p>
+
+  <nav class="cursor-nav" aria-label="Snapshot navigation">
+    <a href="/v1/council/snapshots" class="btn btn-secondary">&larr; Back to snapshots</a>
+  </nav>
 {% endblock %}
