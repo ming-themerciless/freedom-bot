@@ -33,35 +33,11 @@ FRAGMENT_TEMPLATES: frozenset[str] = frozenset({
     "job_status_fragment.html",
 })
 
-# Explicit immutable mapping of all 23 accepted templates to their SHA-256 digests
-# (15 untouched Step 1 templates + 8 Step 4 realized templates)
-ACCEPTED_TEMPLATE_DIGESTS: dict[str, str] = {
-    # 15 Untouched / Subsequent Step Templates
-    "account_identities.html": "5f458b6fe335d34b7ba400d4f7c4c0dcbcceadabd613bfbd5c25890af37f1287",
-    "audit_results.html": "11ee0efcba8892970dee0870b5612d0fbf9c5091d5cf954ddf77e4af4f98291e",
-    "audit_search.html": "c54db1a4cc1779a52921269641330f79d295a843086eb198916a2f07c6e61c15",
-    "character_detail.html": "7524e43e0e2ee814b5c8b65365f4e0d72bcb9c1e42e4087ea927e3934c0c9890",
-    "character_links.html": "a1f280c1700ee4aa53655fb94a7290ff43edc108159b1df85c8572ee37ac395d",
-    "council_characters.html": "a18419ab163e00e54987ae7a4071f7b8698b916bf517a714b51cb0ea6dff7a02",
-    "council_snapshots.html": "627b42f740bceac8ae5665a5be235aa76add3ffd7f08617861f39f2befcb5d8e",
-    "field_profile.html": "06277334db018cd82e313af0556a35e658c86841e06602a7bd65d0edde15f703",
-    "identity_migration.html": "66f3669661c40f2a73d250122c35e0f8af397d6f8bd94a4571402e7a8a63134b",
-    "identity_search.html": "36978ca19d5366188ae42892111cb5425ece1b6e2355710a32b71e2c6ef1e394",
-    "import_result.html": "152b84f766211b886ddd67ca1ce03c53cb37ceefc9ea5678cd22f7f2b7f3fff6",
-    "job_status.html": "9a7a62892f9983ccd1a359f213f4feab0f85b1a084dccdabdbb0cb68a380deb3",
-    "job_status_fragment.html": "81fcd1bb2a80657c979e8c4581657bb0ba0b3940fb689ca7d56483c9d66ee234",
-    "my_characters.html": "3705fbcd3e0803b2190746102cf6a67e20aa607432de128e3127a5a8987ce042",
-    "role_capabilities.html": "e297c26dc326a2a28c9439948fcd781c29b12d3cda74911d9f747727d760613a",
-    # 8 Step 4 Realized Templates
-    "conflict.html": "1dda40f2e43212631fba5001e4982748fc5a090b0a32a6be57965daae4805648",
-    "degraded.html": "98f3ac888788d24e173fb4a497e0b138c23987b459d29d37b4131c9bbd211915",
-    "denied.html": "197913db5909d6d9801f599b0a0b2eed47b6384f4e5bd3e38de6e9ae6c686c20",
-    "emergency.html": "0eec75c17bb6ea602fabc7aace0aaf1453e70fd102e61da5298759e094980a99",
-    "error.html": "6fdf24733c0b06139434c7b7198cab979438758fb6b8c18175e473b4ad404945",
-    "login.html": "eafd7635be0b6b8dfb7d60df7a827a49863b5b12bb1cdc0e49ddbd4c0f7d5e3b",
-    "non_member.html": "de43a127d11f77bfccfb515fa93e3a2ef9373b123c880c1290dcedc1f1721f02",
-    "validation.html": "ff00f7acf78f8d055c3a37af92d0f32230b98fb95aa385b4f327e3851c3e4e7d",
-}
+from tests.web.template_digests import (
+    P3_4_IMPLEMENTATION_INCLUDE_DIGESTS,
+    P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS,
+)
+
 
 # Step 4 Authorized & Actually Used Selectors (must be used in templates)
 STEP_4_SELECTORS: tuple[str, ...] = (
@@ -188,14 +164,14 @@ def validate_child_templates_preservation(templates_dir: Path) -> None:
     }
 
     # 1. Exact set equality
-    expected_names = set(ACCEPTED_TEMPLATE_DIGESTS.keys())
+    expected_names = set(P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS.keys())
     actual_names = set(found_templates.keys())
     assert actual_names == expected_names, (
         f"Child template set mismatch: extra={actual_names - expected_names}, missing={expected_names - actual_names}"
     )
 
     # 2. Exact digest equality for every template
-    for name, expected_sha in sorted(ACCEPTED_TEMPLATE_DIGESTS.items()):
+    for name, expected_sha in sorted(P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS.items()):
         actual_sha = found_templates[name]
         assert actual_sha == expected_sha, (
             f"Digest mismatch for template '{name}': expected {expected_sha}, got {actual_sha}"
@@ -208,6 +184,17 @@ def validate_child_templates_preservation(templates_dir: Path) -> None:
             continue
         assert '{% extends "base.html" %}' in content or "{% extends 'base.html' %}" in content, (
             f"Page template '{name}' must extend base.html"
+        )
+
+
+def validate_shared_includes_preservation(templates_dir: Path) -> None:
+    """Validator: asserts shared includes (header, footer) and base shell match exact SHA-256 digests."""
+    for rel_path, expected_sha in sorted(P3_4_IMPLEMENTATION_INCLUDE_DIGESTS.items()):
+        target_file = templates_dir / rel_path
+        assert target_file.is_file(), f"Expected include/base file '{rel_path}' does not exist"
+        actual_sha = compute_sha256(target_file)
+        assert actual_sha == expected_sha, (
+            f"Digest mismatch for include/base '{rel_path}': expected {expected_sha}, got {actual_sha}"
         )
 
 
@@ -249,14 +236,24 @@ def validate_landmark_order_and_skip_link(rendered_html: str) -> None:
     )
 
 
-def validate_aria_current_uniqueness(rendered_header: str, expected_active_text: str | None = None) -> None:
-    """Validator: exactly one nav link has aria-current='page', matching expected text if given."""
+def validate_aria_current_uniqueness(
+    rendered_header: str,
+    expected_active_text: str | None = None,
+    *,
+    expected_count: int = 1,
+) -> None:
+    """Validator: exactly one nav link has aria-current='page' (matching text if given), or expected_count."""
     current_count = rendered_header.count('aria-current="page"')
-    assert current_count == 1, (
-        f"Expected exactly one aria-current='page', found {current_count}"
-    )
+    if expected_count == 1:
+        assert current_count == 1, (
+            f"Expected exactly one aria-current='page', found {current_count}"
+        )
+    else:
+        assert current_count == expected_count, (
+            f"Expected exactly {expected_count} aria-current='page', found {current_count}"
+        )
 
-    if expected_active_text is not None:
+    if expected_count > 0 and expected_active_text is not None:
         match = re.search(r'<a\s+[^>]*aria-current="page"[^>]*>([^<]+)</a>', rendered_header)
         assert match, "Could not extract link text for aria-current='page'"
         active_text = match.group(1).strip()
@@ -440,8 +437,13 @@ def validate_step4_selectors_usage(
 # ===========================================================================
 
 def test_child_templates_preservation_positive() -> None:
-    """1. All 23 child/fragment templates match accepted immutable digests."""
+    """1. All 23 child/fragment templates match implementation digests."""
     validate_child_templates_preservation(TEMPLATE_ROOT)
+
+
+def test_shared_includes_preservation_positive() -> None:
+    """1b. All shared includes (header, footer) and base shell match implementation digests."""
+    validate_shared_includes_preservation(TEMPLATE_ROOT)
 
 
 def test_base_references_exact_manifest_assets() -> None:
@@ -498,28 +500,32 @@ def test_landmark_order_and_skip_link_positive() -> None:
 
 
 @pytest.mark.parametrize(
-    "path,expected_active_text",
+    "path,expected_active_text,expected_count",
     [
-        ("/v1/characters", "Characters"),
-        ("/v1/characters/123e4567-e89b-12d3-a456-426614174000", "Characters"),
-        ("/v1/auth/emergency", "Emergency Access"),
-        ("/v1/auth/emergency/webauthn", "Emergency Access"),
-        ("/v1/login", "Login"),
-        ("/v1/auth/discord/start", "Login"),
-        ("/", "Login"),
-        # Fallback tests for privileged/unmapped/error paths
-        ("/v1/council/queue", "Characters"),
-        ("/v1/admin/audit-log", "Characters"),
-        ("/not-found", "Characters"),
-        ("/error", "Characters"),
+        ("/v1/characters", "Characters", 1),
+        ("/v1/characters/123e4567-e89b-12d3-a456-426614174000", "Characters", 1),
+        ("/v1/auth/emergency", "Emergency Access", 1),
+        ("/v1/auth/emergency/webauthn", "Emergency Access", 1),
+        ("/v1/login", "Login", 1),
+        ("/v1/auth/discord/start", "Login", 1),
+        ("/", "Login", 1),
+        # Unmapped/non-destination paths render zero current items on primary nav
+        ("/v1/council/queue", None, 0),
+        ("/v1/admin/audit-log", None, 0),
+        ("/not-found", None, 0),
+        ("/error", None, 0),
     ],
 )
-def test_aria_current_page_selection_positive(path: str, expected_active_text: str) -> None:
-    """5. Exactly one nav item has aria-current='page' for representative and fallback paths."""
+def test_aria_current_page_selection_positive(
+    path: str, expected_active_text: str | None, expected_count: int
+) -> None:
+    """5. Exactly one nav item has aria-current='page' for matching paths, and zero for unmapped paths."""
     env = get_jinja_env()
     template = env.get_template("includes/header.html")
     rendered = template.render(request=make_request(path))
-    validate_aria_current_uniqueness(rendered, expected_active_text)
+    validate_aria_current_uniqueness(
+        rendered, expected_active_text=expected_active_text, expected_count=expected_count
+    )
 
 
 def test_shell_rendering_introduces_no_contextual_facts() -> None:
@@ -769,8 +775,8 @@ def test_falsification_5_css_byte_tampering_fails_fingerprint_and_manifest(tmp_p
 
     # 7. Prove production CSS and manifest hashes remain unchanged
     prod_css = ROOT / css_rel
-    assert compute_sha256(prod_css) == "b0a1f3305683c740c73ad5c68cb7e4ea767175a2823c8f7afc31676c21fd3773"
-    assert compute_sha256(MANIFEST_PATH) == "5b663d9e27d0c87d937eb8ad25b98831972ea156450ee7ecb383de645d3493da"
+    assert compute_sha256(prod_css) == "58a9b9eed003c44b0b4e63d25910ecd704cdac03b0dcea6d2e105d63b8756649"
+    assert compute_sha256(MANIFEST_PATH) == "299a8a26ec64e862677e61e46cb432c632fc3d9dc48c29f0648dc03b9f31bf2b"
 
 
 def test_falsification_f2_unsupported_head_extra_block_fails() -> None:
@@ -783,7 +789,7 @@ def test_falsification_f2_unsupported_head_extra_block_fails() -> None:
 def test_falsification_f3_child_template_byte_mutation_fails(tmp_path: Path) -> None:
     """Falsification (F3): Mutating one byte of a child template fails preservation validator with digest mismatch."""
     # Copy all 23 templates to tmp_path
-    for filename in ACCEPTED_TEMPLATE_DIGESTS:
+    for filename in P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS:
         source = TEMPLATE_ROOT / filename
         dest = tmp_path / filename
         dest.write_bytes(source.read_bytes())
@@ -871,3 +877,21 @@ def test_falsification_unterminated_comment_rejected() -> None:
         match=r"Unterminated CSS block comment detected in stylesheet",
     ):
         validate_step4_selectors_usage(TEMPLATE_ROOT, mutated_css, (".auth-card",))
+
+
+def test_shared_include_digest_falsification_fails_on_mutation(tmp_path: Path) -> None:
+    """Falsification: a 1-byte mutation to header.html fails include digest validation."""
+    import shutil
+    mock_templates = tmp_path / "templates"
+    shutil.copytree(TEMPLATE_ROOT, mock_templates)
+
+    # Clean verification passes
+    validate_shared_includes_preservation(mock_templates)
+
+    # Mutate header.html by 1 byte
+    header_file = mock_templates / "includes" / "header.html"
+    header_content = header_file.read_text(encoding="utf-8")
+    header_file.write_text(header_content + "\n", encoding="utf-8")
+
+    with pytest.raises(AssertionError, match="Digest mismatch for include/base 'includes/header.html'"):
+        validate_shared_includes_preservation(mock_templates)

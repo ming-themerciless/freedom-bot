@@ -13,8 +13,9 @@ import pytest
 from sqlalchemy import select
 
 from adapters.web.app import create_app
-from adapters.web.composition import TEMPLATE_ROOT
+from adapters.web.composition import STATIC_ROOT, TEMPLATE_ROOT
 from adapters.web.middleware import CONTENT_SECURITY_POLICY, SECURITY_HEADERS
+from bs4 import BeautifulSoup
 from application.audit import ActorCapability
 from application.web import csrf
 from application.web.capabilities import (
@@ -292,15 +293,168 @@ def test_no_template_carries_an_inline_event_attribute(app):
             assert handler not in body, f"{template.name} carries {handler}"
 
 
-def test_no_view_model_field_reaches_a_script_context(app):
-    """TC-SEC-11. There is no `<script>` block in the corpus at all.
+def _allowed_htmx_script_src() -> str:
+    manifest = (STATIC_ROOT / "asset-integrity.sha256").read_text()
+    for line in manifest.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2 and "vendor/htmx-" in parts[1]:
+            static_rel = parts[1].split("adapters/web/static", 1)[-1]
+            return f"/static{static_rel}"
+    raise AssertionError("No HTMX vendor entry found in asset-integrity.sha256")
 
-    The strongest form of the rule: a value cannot reach a script context in a
-    page that has none, and Phase 3 has no server-rendered JSON island.
+
+def validate_script_contexts(
+    template_sources: dict[str, str],
+    allowed_script_src: str,
+) -> None:
+    """Production validator for TC-SEC-11.
+
+    Verifies that across all templates:
+    1. Exactly one script tag exists, in base.html only.
+    2. Its src attribute equals allowed_script_src exactly.
+    3. It has no inline body content.
+    4. It has no executable or unexpected attributes.
+    5. In source, no Jinja expressions appear in script attributes or body.
+    6. No other template/include declares any script element.
+    7. No inline event handler (on*), hx-on:, or javascript: URL exists in any template.
     """
-    for template in _templates():
-        body = _rendered_source(template).lower()
-        assert "<script" not in body, template.name
+    import re
+    assert template_sources, "there are template sources to validate"
+    assert "base.html" in template_sources, "base.html must be present in template sources"
+
+    for name, raw_source in template_sources.items():
+        clean_source = re.sub(r"\{#.*?#\}", "", raw_source, flags=re.DOTALL)
+        soup = BeautifulSoup(clean_source, "html.parser")
+        scripts = soup.find_all("script")
+
+        if name == "base.html":
+            assert len(scripts) == 1, f"base.html must contain exactly 1 script tag, found {len(scripts)}"
+            script = scripts[0]
+            # 1. Exact src matching integrity manifest
+            actual_src = script.get("src")
+            assert actual_src == allowed_script_src, (
+                f"base.html script src {actual_src!r} != manifest {allowed_script_src!r}"
+            )
+            # 2. No inline content / body
+            assert not script.get_text(strip=True), "base.html script has inline content"
+            # 3. No executable or unexpected attributes
+            for attr in script.attrs:
+                assert attr in ("src", "defer", "async", "type", "integrity", "crossorigin"), (
+                    f"Unexpected attribute {attr!r} on base.html script"
+                )
+            # 4. In source, ensure no Jinja expressions inside the script tag or body
+            script_blocks = re.findall(r"<script[^>]*>(.*?)</script>", clean_source, flags=re.DOTALL | re.IGNORECASE)
+            assert len(script_blocks) == 1, "base.html must have exactly 1 script block in source"
+            assert "{{" not in script_blocks[0] and "{%" not in script_blocks[0], "Jinja found in script body"
+            script_open_match = re.search(r"<script([^>]*)>", clean_source, flags=re.IGNORECASE)
+            assert script_open_match, "base.html missing script opening tag"
+            script_open = script_open_match.group(1)
+            assert "{{" not in script_open and "{%" not in script_open, "Jinja found in script tag attributes"
+        else:
+            assert len(scripts) == 0, f"Template {name} must not contain any <script> element"
+            assert "<script" not in clean_source.lower(), f"Template {name} contains unparsed <script tag"
+
+        # Across all templates: no inline event handlers, hx-on, or javascript: URLs
+        assert "hx-on:" not in clean_source.lower(), f"{name} contains hx-on:"
+        for el in soup.find_all(True):
+            for attr_name, attr_val in el.attrs.items():
+                assert not attr_name.lower().startswith("on"), (
+                    f"{name} element <{el.name}> has inline event handler {attr_name}"
+                )
+                assert not attr_name.lower().startswith("hx-on"), (
+                    f"{name} element <{el.name}> has hx-on handler {attr_name}"
+                )
+                if isinstance(attr_val, str):
+                    assert not attr_val.lower().startswith("javascript:"), (
+                        f"{name} element <{el.name}> has javascript: URL in {attr_name}"
+                    )
+
+
+def test_no_view_model_field_reaches_a_script_context(app):
+    """TC-SEC-11. Script elements, attributes, and contexts across all templates."""
+    allowed_script_src = _allowed_htmx_script_src()
+    templates = _templates()
+    assert templates, "there are templates to check"
+    sources = {t.name: t.read_text() for t in templates}
+    validate_script_contexts(sources, allowed_script_src)
+
+
+def test_no_view_model_field_reaches_a_script_context_falsification() -> None:
+    """Falsification: exercises validate_script_contexts against deliberate invalid mutations."""
+    allowed_script_src = _allowed_htmx_script_src()
+    clean_sources = {t.name: t.read_text() for t in _templates()}
+
+    # 0. Clean baseline passes
+    validate_script_contexts(clean_sources, allowed_script_src)
+
+    # 1. Second script in base.html fails
+    bad_base_2scripts = clean_sources.copy()
+    bad_base_2scripts["base.html"] = bad_base_2scripts["base.html"] + f'<script src="{allowed_script_src}"></script>'
+    with pytest.raises(AssertionError, match="base.html must contain exactly 1 script tag"):
+        validate_script_contexts(bad_base_2scripts, allowed_script_src)
+
+    # 2. Script in non-base template fails
+    bad_non_base = clean_sources.copy()
+    bad_non_base["login.html"] = bad_non_base["login.html"] + f'<script src="{allowed_script_src}"></script>'
+    with pytest.raises(AssertionError, match="Template login.html must not contain any <script> element"):
+        validate_script_contexts(bad_non_base, allowed_script_src)
+
+    # 3. Remote or wrong local script source fails
+    bad_src = clean_sources.copy()
+    bad_src["base.html"] = bad_src["base.html"].replace(
+        f'src="{allowed_script_src}"',
+        'src="https://unpkg.com/htmx.org@2.0.0"',
+    )
+    with pytest.raises(AssertionError, match="base.html script src .* != manifest"):
+        validate_script_contexts(bad_src, allowed_script_src)
+
+    # 4. Inline script body content fails
+    bad_body = clean_sources.copy()
+    bad_body["base.html"] = bad_body["base.html"].replace(
+        f'src="{allowed_script_src}"></script>',
+        f'src="{allowed_script_src}">alert(1)</script>',
+    )
+    with pytest.raises(AssertionError, match="base.html script has inline content"):
+        validate_script_contexts(bad_body, allowed_script_src)
+
+    # 5. Jinja expression inserted into script src fails
+    bad_jinja_src = clean_sources.copy()
+    bad_jinja_src["base.html"] = bad_jinja_src["base.html"].replace(
+        f'src="{allowed_script_src}"',
+        f'src="{{{{ dynamic_src }}}}"',
+    )
+    with pytest.raises(AssertionError):
+        validate_script_contexts(bad_jinja_src, allowed_script_src)
+
+    # 6. Jinja expression inserted into script body fails
+    bad_jinja_body = clean_sources.copy()
+    bad_jinja_body["base.html"] = bad_jinja_body["base.html"].replace(
+        f'src="{allowed_script_src}"></script>',
+        f'src="{allowed_script_src}">{{{{ script_body }}}}</script>',
+    )
+    with pytest.raises(AssertionError):
+        validate_script_contexts(bad_jinja_body, allowed_script_src)
+
+    # 7. Inline event handler (on*) fails
+    bad_event = clean_sources.copy()
+    bad_event["login.html"] = bad_event["login.html"].replace(
+        '<div class="auth-card">',
+        '<div class="auth-card" onclick="alert(1)">',
+    )
+    with pytest.raises(AssertionError, match="has inline event handler onclick"):
+        validate_script_contexts(bad_event, allowed_script_src)
+
+    # 8. javascript: URL fails
+    bad_js_url = clean_sources.copy()
+    bad_js_url["login.html"] = bad_js_url["login.html"].replace(
+        '<a href="',
+        '<a href="javascript:void(0)" data-old="',
+    )
+    with pytest.raises(AssertionError, match="has javascript: URL"):
+        validate_script_contexts(bad_js_url, allowed_script_src)
 
 
 # ---------------------------------------------------------------------------

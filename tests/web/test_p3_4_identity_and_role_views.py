@@ -99,32 +99,8 @@ MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 
 FORM = "application/x-www-form-urlencoded"
 
-# All 23 accepted template digests (10 untouched + 8 Step 4 + 2 Step 5 + 3 Step 6 + 4 Step 7)
-ACCEPTED_TEMPLATE_DIGESTS: dict[str, str] = {
-    "account_identities.html": "5f458b6fe335d34b7ba400d4f7c4c0dcbcceadabd613bfbd5c25890af37f1287",
-    "audit_results.html": "11ee0efcba8892970dee0870b5612d0fbf9c5091d5cf954ddf77e4af4f98291e",
-    "audit_search.html": "c54db1a4cc1779a52921269641330f79d295a843086eb198916a2f07c6e61c15",
-    "character_detail.html": "7524e43e0e2ee814b5c8b65365f4e0d72bcb9c1e42e4087ea927e3934c0c9890",
-    "character_links.html": "a1f280c1700ee4aa53655fb94a7290ff43edc108159b1df85c8572ee37ac395d",
-    "conflict.html": "1dda40f2e43212631fba5001e4982748fc5a090b0a32a6be57965daae4805648",
-    "council_characters.html": "a18419ab163e00e54987ae7a4071f7b8698b916bf517a714b51cb0ea6dff7a02",
-    "council_snapshots.html": "627b42f740bceac8ae5665a5be235aa76add3ffd7f08617861f39f2befcb5d8e",
-    "degraded.html": "98f3ac888788d24e173fb4a497e0b138c23987b459d29d37b4131c9bbd211915",
-    "denied.html": "197913db5909d6d9801f599b0a0b2eed47b6384f4e5bd3e38de6e9ae6c686c20",
-    "emergency.html": "0eec75c17bb6ea602fabc7aace0aaf1453e70fd102e61da5298759e094980a99",
-    "error.html": "6fdf24733c0b06139434c7b7198cab979438758fb6b8c18175e473b4ad404945",
-    "field_profile.html": "06277334db018cd82e313af0556a35e658c86841e06602a7bd65d0edde15f703",
-    "identity_migration.html": "66f3669661c40f2a73d250122c35e0f8af397d6f8bd94a4571402e7a8a63134b",
-    "identity_search.html": "36978ca19d5366188ae42892111cb5425ece1b6e2355710a32b71e2c6ef1e394",
-    "import_result.html": "152b84f766211b886ddd67ca1ce03c53cb37ceefc9ea5678cd22f7f2b7f3fff6",
-    "job_status.html": "9a7a62892f9983ccd1a359f213f4feab0f85b1a084dccdabdbb0cb68a380deb3",
-    "job_status_fragment.html": "81fcd1bb2a80657c979e8c4581657bb0ba0b3940fb689ca7d56483c9d66ee234",
-    "login.html": "eafd7635be0b6b8dfb7d60df7a827a49863b5b12bb1cdc0e49ddbd4c0f7d5e3b",
-    "my_characters.html": "3705fbcd3e0803b2190746102cf6a67e20aa607432de128e3127a5a8987ce042",
-    "non_member.html": "de43a127d11f77bfccfb515fa93e3a2ef9373b123c880c1290dcedc1f1721f02",
-    "role_capabilities.html": "e297c26dc326a2a28c9439948fcd781c29b12d3cda74911d9f747727d760613a",
-    "validation.html": "ff00f7acf78f8d055c3a37af92d0f32230b98fb95aa385b4f327e3851c3e4e7d",
-}
+from tests.web.template_digests import P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS
+
 
 # Contract §5.2 Authoritative Caller Matrix for R-28 through R-38
 ACCEPTED_ROUTE_CALLER_MATRIX: dict[str, dict[str, int]] = {
@@ -1813,15 +1789,15 @@ def bad_clean_fixture(request):
 # 5. Static Asset Integrity & Template Digests Tests
 # ===========================================================================
 
-def test_template_digests_match_accepted_corpus() -> None:
-    """All 23 child and fragment templates match exact accepted SHA-256 digests."""
+def test_template_digests_match_implementation_corpus() -> None:
+    """All 23 child and fragment templates match exact implementation SHA-256 digests."""
     found_templates = {
         p.name: compute_sha256(p)
         for p in TEMPLATE_ROOT.glob("*.html")
         if p.name != "base.html" and not p.name.startswith(".")
     }
-    assert set(found_templates.keys()) == set(ACCEPTED_TEMPLATE_DIGESTS.keys())
-    for name, expected_sha in ACCEPTED_TEMPLATE_DIGESTS.items():
+    assert set(found_templates.keys()) == set(P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS.keys())
+    for name, expected_sha in P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS.items():
         assert found_templates[name] == expected_sha, (
             f"Digest mismatch for '{name}': expected {expected_sha}, got {found_templates[name]}"
         )

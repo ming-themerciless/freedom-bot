@@ -10,8 +10,10 @@
     {% set current_nav = "emergency" %}
   {% elif p == "/v1/login" or p.startswith("/v1/login") or p.startswith("/v1/auth/") or p == "/" %}
     {% set current_nav = "login" %}
-  {% else %}
+  {% elif p == "/v1/characters" or p.startswith("/v1/characters/") %}
     {% set current_nav = "characters" %}
+  {% else %}
+    {% set current_nav = "" %}
   {% endif %}
   <nav aria-label="Main navigation" class="app-navigation">
     <ul class="nav-menu">

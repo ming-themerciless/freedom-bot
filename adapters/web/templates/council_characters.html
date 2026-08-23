@@ -52,14 +52,15 @@
   {% else %}
     <div class="table-container">
       <table class="council-table" data-state="{{ view.state }}">
+        <caption class="sr-only">Council Character Directory</caption>
         <thead>
           <tr>
-            <th>Character</th>
-            <th>Level</th>
-            <th>Status</th>
-            <th>Active Owner</th>
-            <th>Active Links</th>
-            <th>Actions</th>
+            <th scope="col">Character</th>
+            <th scope="col">Level</th>
+            <th scope="col">Status</th>
+            <th scope="col">Active Owner</th>
+            <th scope="col">Active Links</th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>

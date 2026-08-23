@@ -54,24 +54,8 @@ TEMPLATE_ROOT = ROOT / "adapters" / "web" / "templates"
 STATIC_ROOT = ROOT / "adapters" / "web" / "static"
 MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 
-# 15 Non-Step-4 Template Digests (including transitioned Step 5 member templates)
-NON_STEP_4_TEMPLATE_DIGESTS: dict[str, str] = {
-    "account_identities.html": "5f458b6fe335d34b7ba400d4f7c4c0dcbcceadabd613bfbd5c25890af37f1287",
-    "audit_results.html": "11ee0efcba8892970dee0870b5612d0fbf9c5091d5cf954ddf77e4af4f98291e",
-    "audit_search.html": "c54db1a4cc1779a52921269641330f79d295a843086eb198916a2f07c6e61c15",
-    "character_detail.html": "7524e43e0e2ee814b5c8b65365f4e0d72bcb9c1e42e4087ea927e3934c0c9890",
-    "character_links.html": "a1f280c1700ee4aa53655fb94a7290ff43edc108159b1df85c8572ee37ac395d",
-    "council_characters.html": "a18419ab163e00e54987ae7a4071f7b8698b916bf517a714b51cb0ea6dff7a02",
-    "council_snapshots.html": "627b42f740bceac8ae5665a5be235aa76add3ffd7f08617861f39f2befcb5d8e",
-    "field_profile.html": "06277334db018cd82e313af0556a35e658c86841e06602a7bd65d0edde15f703",
-    "identity_migration.html": "66f3669661c40f2a73d250122c35e0f8af397d6f8bd94a4571402e7a8a63134b",
-    "identity_search.html": "36978ca19d5366188ae42892111cb5425ece1b6e2355710a32b71e2c6ef1e394",
-    "import_result.html": "152b84f766211b886ddd67ca1ce03c53cb37ceefc9ea5678cd22f7f2b7f3fff6",
-    "job_status.html": "9a7a62892f9983ccd1a359f213f4feab0f85b1a084dccdabdbb0cb68a380deb3",
-    "job_status_fragment.html": "81fcd1bb2a80657c979e8c4581657bb0ba0b3940fb689ca7d56483c9d66ee234",
-    "my_characters.html": "3705fbcd3e0803b2190746102cf6a67e20aa607432de128e3127a5a8987ce042",
-    "role_capabilities.html": "e297c26dc326a2a28c9439948fcd781c29b12d3cda74911d9f747727d760613a",
-}
+from tests.web.template_digests import NON_STEP_4_TEMPLATE_DIGESTS
+
 
 
 @pytest.fixture(autouse=True)
@@ -682,7 +666,7 @@ def test_adversarial_probes_render_inert_across_views(probe: str) -> None:
 # ===========================================================================
 
 def test_non_step_4_templates_remain_byte_identical() -> None:
-    """14. All 15 non-Step-4 child/fragment templates match accepted immutable hashes."""
+    """14. All 15 non-Step-4 child/fragment templates match expected immutable implementation hashes."""
     for filename, expected_sha in NON_STEP_4_TEMPLATE_DIGESTS.items():
         template_path = TEMPLATE_ROOT / filename
         assert template_path.is_file(), f"Non-Step-4 template '{filename}' missing"

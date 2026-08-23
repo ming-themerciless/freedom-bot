@@ -84,7 +84,11 @@ class HostGuard(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         host = (request.headers.get("host") or "").split(":", 1)[0].lower()
         if host not in self._allowed:
-            return PlainTextResponse("Unknown host.", status_code=400)
+            response = PlainTextResponse("Unknown host.", status_code=400)
+            for header, value in SECURITY_HEADERS.items():
+                response.headers.setdefault(header, value)
+            response.headers["Cache-Control"] = "no-store"
+            return response
         return await call_next(request)
 
 
@@ -137,6 +141,9 @@ class KillSwitch(BaseHTTPMiddleware):
                 "maintenance. The Discord bot is unaffected.",
                 status_code=503,
             )
+            for header, value in SECURITY_HEADERS.items():
+                response.headers.setdefault(header, value)
+            response.headers["Cache-Control"] = "no-store"
             response.headers["Retry-After"] = "300"
             return response
         return await call_next(request)
@@ -161,14 +168,26 @@ class BodyBound(BaseHTTPMiddleware):
             raw = request.headers.get("content-length")
             if raw is None:
                 if request.headers.get("transfer-encoding", "").lower() == "chunked":
-                    return PlainTextResponse("Length required.", status_code=411)
+                    response = PlainTextResponse("Length required.", status_code=411)
+                    for header, value in SECURITY_HEADERS.items():
+                        response.headers.setdefault(header, value)
+                    response.headers["Cache-Control"] = "no-store"
+                    return response
             else:
                 try:
                     length = int(raw)
                 except ValueError:
-                    return PlainTextResponse("Malformed length.", status_code=400)
+                    response = PlainTextResponse("Malformed length.", status_code=400)
+                    for header, value in SECURITY_HEADERS.items():
+                        response.headers.setdefault(header, value)
+                    response.headers["Cache-Control"] = "no-store"
+                    return response
                 if length > self._max_bytes:
-                    return PlainTextResponse("Body too large.", status_code=413)
+                    response = PlainTextResponse("Body too large.", status_code=413)
+                    for header, value in SECURITY_HEADERS.items():
+                        response.headers.setdefault(header, value)
+                    response.headers["Cache-Control"] = "no-store"
+                    return response
         return await call_next(request)
 
 
@@ -250,9 +269,13 @@ def json_refusal(status: int, code: str, correlation_id) -> JSONResponse:
     VM-20, expressed for the two routes that answer `application/json` because
     the WebAuthn API requires script-driven credential exchange.
     """
-    return JSONResponse(
+    response = JSONResponse(
         {"error": code, "correlation_id": str(correlation_id)}, status_code=status
     )
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 __all__ = [

@@ -1,266 +1,204 @@
-# Claude prompt — P3.4 Step 9 R-46 nonce-boundary remediation
+# Claude implementation prompt — P3.5 Phase integration and gate package
 
-Work in `/opt/discord-bots/freedom-bot`.
+Work in `/opt/discord-bots/freedom-bot` as the P3.5 backend/integration Technical Lead.
 
-You are Claude, the P3.4 Step 9 implementer. Remediate the remaining independent
-review finding at R-46 only. This is a bounded request-validation and
-idempotency-contract correction. It does not authorize Step 10 acceptance,
-template-digest changes, broader architecture cleanup, deployment, live-service
-contact, or later-phase work.
+Peter Duscha accepted P3.4, including Step 13, on 2026-08-23. P3.G4 is closed and P3.5 is released. Claude owns P3.5 backend/integration work; Gemini owns frontend-specific remediation if verified findings arise. Codex performs the independent implementation and distinct security reviews. Peter alone decides the Phase 3 gate.
 
-## Finding
+## Read first
 
-The Step 9 confirmation template renders the preview job UUID as R-46's stable
-apply nonce:
+Read completely before planning or changing anything:
 
-```html
-<input type="hidden" name="nonce" value="{{ view.job_id }}">
-```
+1. `AGENTS.md` and `.agents/AGENTS.md`
+2. `docs/implementation-plan.md`
+3. `docs/review/phase-3-delivery-plan.md`, especially P3.5, environment readiness, security policy, traceability and gates
+4. `docs/review/phase-3-p3-4-step-13-final-independent-reviews-and-acceptance.md`
+5. `docs/review/phase-3-p3-4-submission.md`
+6. `docs/project-management/status.md`, `raid-register.md` and `change-log.md`
+7. `docs/operations/topology.md` and `docs/operations/web-portal.md`
+8. every Phase 3 route, view-model, migration, threat-model, test-traceability, deployment and operational contract referenced by the delivery plan
 
-That is the accepted semantic: every confirmation of one completed preview — a
-double-click, retry, back-and-resubmit, or second browser — must carry the same
-request identity and converge on one apply.
+Check for more-specific `AGENTS.md` instructions. Preserve the dirty worktree and every unrelated/user-owned change. Never reset, clean, checkout, rebase, stash or overwrite unrelated work.
 
-The direct R-46 route currently does this instead:
+## Authority boundary
 
-```python
-nonce = (form.get("nonce") or "").strip()
-if not nonce:
-    return _validation(request, "nonce")
-```
+This prompt authorizes P3.5 planning, repository-scoped integration/gate work, safe local/disposable validation, and preparation of staging procedures/evidence. It does not by itself authorize:
 
-It therefore accepts arbitrary, malformed, duplicated, padded, oversized, or
-alternate nonces. A direct caller can generate different request keys for the
-same preview even though the rendered Step 9 contract defines one canonical
-identity. PostgreSQL's one-live-apply and applied-input constraints protect the
-durable effect, but they do not make the request boundary honest or bounded.
+- public staging exposure or production deployment;
+- real-host DNS, proxy, firewall, systemd or provider mutations;
+- creation/change of real Discord applications, guilds, roles or secrets;
+- reading, printing, copying or committing secrets or `.env` files;
+- real WebAuthn enrollment without Peter present and explicitly authorizing it;
+- contact with live Discord, Sheets, Foundry or production PostgreSQL;
+- production backups or real player data in staging;
+- closing I-06, A-05, A-06 or R-23 using local/simulated evidence;
+- closing the Phase 3 gate or starting Phase 4.
 
-## Required outcome
+For external-system, real-credential or target-host actions, prepare the guarded procedure and stop for Peter's explicit authorization. Never invent values or substitute synthetic results where real evidence is required.
 
-At R-46, require exactly one submitted `nonce` field whose text is exactly the
-canonical lowercase hyphenated UUID of the preview job named by the route path.
+## Objective
 
-Preserve all existing security and state-machine controls:
+Produce the complete P3.5 Phase integration and authentication/security gate package required by `phase-3-delivery-plan.md`:
 
-- authorization and CSRF are checked before nonce validation;
-- malformed/unreachable `job_id` remains the accepted non-enumerating `404`;
-- `preview_token` remains required and is compared in constant time by the
-  application service;
-- current Council authority, preview state/expiry, checksum, folder, profile,
-  aggregate versions and scope fingerprint remain server-owned and rechecked;
-- the one-live-apply database fence and applied-input uniqueness constraint
-  remain unchanged;
-- the apply stays asynchronous;
-- no raw nonce is persisted, logged, audited, or returned in an error; and
-- no new route, form field, credential, schema, migration, capability, or
-  browser authority is introduced.
+- remediate and re-review all blocking/important findings;
+- final requirements-to-evidence traceability;
+- narrow and full suites against disposable PostgreSQL, with explained skips;
+- available formatter/linter/type/migration/compile checks;
+- isolated-staging OAuth/member/Council/import flows;
+- headers, host/origin, CORS/CSRF, revocation and object-substitution evidence;
+- deployment, health, monitoring, backup, restore, rollback and recovery rehearsals;
+- representative resource/performance evidence for I-06/A-06;
+- browser, responsive, zoom, keyboard and assistive-technology evidence for R-23;
+- operational A-05 establishment/evidence; and
+- a final submission requesting, not making, the Phase 3 gate decision.
 
-## Read completely before editing
+## Step 1 — readiness audit and plan (first run)
 
-Read:
+Do not begin by deploying. Perform a read-only audit and create `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` containing:
 
-1. `AGENTS.md`, `.agents/AGENTS.md`, and `docs/implementation-plan.md`;
-2. `docs/review/phase-3-p3-4-step-09-remediation-handoff.md`;
-3. the current P3.4 authorization/conditions, execution plan, and baseline;
-4. `docs/contracts/phase-3-route-authorization-contract.md`, especially R-46
-   and its form/body, authorization, idempotency and concurrency requirements;
-5. `docs/contracts/phase-3-view-model-contract.md`, especially VM-15,
-   `ConfirmScope`, and the statement that R-46's nonce is a separate contract;
-6. `application/web/jobs.py`, especially `enqueue_apply` and `request_key`;
-7. `adapters/web/import_routes.py`, especially R-46 and request preambles;
-8. `adapters/web/templates/job_status_fragment.html`;
-9. `tests/web/test_p3_3_jobs.py` and
-   `tests/web/test_p3_4_job_status_views.py`; and
-10. the complete current diff and Git status.
+1. scope and exclusions;
+2. owners: Claude integration/backend, Gemini verified frontend remediations, Peter accountable operational/security/accessibility actions, Codex two independent reviews;
+3. optimistic/likely/pessimistic estimate and confidence reconciled with the accepted 3/5/8-day P3.5 range, plus explicit review/remediation contingency;
+4. environment/dependency readiness matrix;
+5. Peter authority/participation checkpoints;
+6. requirement-to-test/evidence matrix with literal commands or named manual procedures;
+7. staging topology/isolation and secret-redaction checklist;
+8. backup/restore/rollback/recovery design;
+9. browser/device/accessibility plan;
+10. performance/resource plan;
+11. artifacts, stop gates and acceptance criteria; and
+12. exact closure criteria for I-06, A-05, A-06 and R-23.
 
-Treat accepted contracts as authoritative. If they require a different R-46
-nonce semantic from the stable preview-job identity already rendered and tested,
-stop and report the exact conflict rather than inventing a new protocol.
+Update project status and change log to record P3.5 planning, actual readiness, forecast and blockers. Change RAID dispositions only when evidence changes them. After the plan, stop for Peter's approval before any external staging mutation or credential ceremony.
 
-All current changes belong to the user. Preserve unrelated and later-step work.
-Do not commit, push, deploy, contact Discord, Google Sheets, Foundry, or
-production PostgreSQL, or read secrets, `.env`, real snapshots, or player data.
+## I-06 — critical path
 
-## Boundary behavior to implement
+I-06 requires real isolated staging, not just documentation or local ASGI tests. Plan and later gather evidence for:
 
-After the existing mutation preamble and successful path UUID parsing:
+- separate staging DB/roles, web identity, Discord app/guild and credentials;
+- loopback app behind the accepted proxy boundary;
+- synthetic/anonymized data only, never a production backup;
+- environment markers and fail-closed cross-environment validation;
+- health, kill switch, startup refusal and monitoring;
+- TC-LIM-02, browser half of TC-SEC-07, TC-OPS-01…05 and TC-PERF-01…03;
+- browser OAuth/member/Council/import flows with Peter-approved staging identities;
+- representative 64 MiB refusal, real-shape synthetic load and 32-Actor-class preview/apply measurements;
+- `/healthz` and status responsiveness during work;
+- worker restart, lease expiry, lost response and recovery; and
+- backup, restore, rollback and rerun evidence.
 
-1. Read all submitted `nonce` form values, not only `form.get("nonce")`.
-2. Require exactly one value.
-3. Require that value to be a `str`.
-4. Do not strip, case-fold, normalize, coerce, or otherwise repair it.
-5. Require exact equality with `str(identifier)`, where `identifier` is the
-   parsed UUID from the R-46 path.
-6. On failure, return the accepted safe `422` validation response for `nonce`
-   before calling `enqueue_apply`.
+Record exact timestamps, versions, environment identity, commands and outputs without secrets or unnecessary identity data. Do not close I-06 on undeployed configuration, local tests or written procedures.
 
-This deliberately rejects:
+## A-05 — Peter-participated host ceremony
 
-- missing or empty nonce;
-- duplicate nonce keys, even if both values are identical;
-- another valid UUID;
-- uppercase UUID text;
-- UUID text without hyphens;
-- braces, URN prefixes or other UUID spellings Python could parse;
-- leading/trailing/internal whitespace;
-- padding or punctuation;
-- Unicode lookalikes and control characters;
-- upload/non-text form parts; and
-- oversized values within the global body limit.
+On the intended staging/target host, with Peter's explicit authorization and participation:
 
-Do not add randomness. Do not mint a new R-46 nonce per render. Do not accept a
-client-selected request identity. The preview job UUID is already the stable,
-server-owned identity for this confirmation.
+- establish the protected Server Administrator account through supported host-local tooling;
+- enroll at least two independent WebAuthn/passkey credentials;
+- prove retirement below two credentials is refused;
+- prove startup and `/healthz` readiness behavior;
+- exercise emergency login during simulated Discord unavailability;
+- prove break-glass grants Platform Administrator only, never Council/character/import authority by implication;
+- verify limiter, audit, correlation, session expiry and logout/revocation;
+- exercise the host-local hashed, single-use, ten-minute recovery grant without recording its token; and
+- document custody, replacement, loss and recovery without credential material.
 
-Prefer a focused helper at the HTTP adapter boundary because exact field
-multiplicity and equality with the parsed path UUID are transport facts. Do not
-generalize R-42's random preview-nonce parser into a misleading shared grammar:
-R-42 and R-46 intentionally have different nonce contracts.
+Do not choose authenticators for Peter, expose recovery tokens, or close A-05 using mocked authenticators.
 
-## Required regression tests
+## R-23 — accessibility residual
 
-Add direct HTTP tests that call R-46 without first fetching R-43 and exercise a
-real disposable PostgreSQL database.
+P3.4 automation passed, but TC-UI-01/02, TC-UI-08 and TC-UI-09 remain Not Run. In isolated staging cover:
 
-Prove at least:
+- keyboard-only operation, no traps, visible/logical focus and skip links;
+- semantics, headings, labels, descriptions and tables;
+- denied, empty, loading, stale, validation and error states;
+- HTMX-enhanced and JavaScript-disabled paths;
+- 320/768/1280 viewports and 200% zoom/reflow;
+- real-engine contrast and reduced motion; and
+- documented screen-reader traversal when qualified capacity exists.
 
-1. exactly one nonce equal to `str(job_id)` plus the correct preview token is
-   accepted and enqueues one apply;
-2. repeating the same canonical submission resolves to the accepted one-effect
-   outcome;
-3. two browsers/accounts confirming the same preview with the canonical nonce
-   converge on one live apply and one queued apply audit effect;
-4. missing, empty, duplicate-identical, duplicate-conflicting, other UUID,
-   uppercase, unhyphenated, whitespace-padded, punctuation, Unicode, control,
-   non-text and oversized nonce values return `422`;
-5. every nonce refusal creates no apply job and no
-   `reconciliation.job_queued` success audit event;
-6. malformed nonce is never echoed in HTML, JSON, headers, logs, audit facts or
-   a persisted request key;
-7. unauthorized/non-member/non-Council/continuity callers retain the accepted
-   denial status regardless of whether their nonce is canonical or malformed;
-8. missing/invalid CSRF remains `403` regardless of nonce shape;
-9. malformed/unreachable path UUID remains the accepted `404` and does not
-   become `422`; and
-10. stale, expired, changed-scope, blocked and already-running apply outcomes
-    retain their accepted semantics with the canonical nonce.
+Record browser, OS, viewport, zoom, AT and versions. Screenshots use synthetic data only. If real-device or screen-reader review remains unavailable, retain Not Run and R-23 and state the production-readiness consequence.
 
-Update older R-46 tests that deliberately submit `browser-a`, `browser-b`, or
-other hand-built nonce values. They must use the canonical `str(preview_id)` and
-continue to prove the concurrency/database fences rather than relying on an
-input shape the production form never emits.
+## A-06 and representative operation
 
-Do not weaken or delete uniqueness, concurrency, authorization, CSRF,
-non-enumeration, audit, digest, cleanup, or disclosure assertions to make the
-suite green.
+Measure PostgreSQL as the job-queue and cross-process-limiter substrate under representative staging conditions:
 
-## Scope allowlist
+- preview/apply duration;
+- worker peak RSS against the 1 GiB guard;
+- portal health/status responsiveness;
+- DB pool behavior;
+- cross-process limiter behavior;
+- lease heartbeat/commit-fence behavior; and
+- recovery after worker interruption/lease expiry.
 
-Expected files:
+Use realistically shaped, bounded synthetic data—never real Actor payloads.
 
-- `adapters/web/import_routes.py`;
-- `tests/web/test_p3_3_jobs.py`;
-- `tests/web/test_p3_4_job_status_views.py`; and
-- a narrowly relevant shared P3.3/P3.4 test helper only if needed.
+## Integration/security matrix
 
-Conditionally allowed:
+Map every Phase 3 acceptance/mandatory-test row to exact test node IDs, staging procedure IDs, outputs and status. Exercise at least:
 
-- `application/web/jobs.py` only if an application-level defense-in-depth check
-  is demonstrably required by an accepted contract. The HTTP boundary remains
-  responsible for multiplicity and canonical path equality.
-- directly governing Step 9 review/handoff documentation.
+- unauthenticated, non-member, member, Council, Administrator, combined and break-glass boundaries;
+- membership/role revocation and session rotation/revocation;
+- stable role IDs; object/job/character substitution denial;
+- CSRF, Origin, Host, CORS, cookies and safe redirects;
+- body/file limits, content type and malicious filenames;
+- escaping of Actor, warning, username/global-name and audit content;
+- safe correlation UUID and refusal/error bodies;
+- import staleness, idempotency, double-click and two-browser concurrency;
+- append-only audit and restricted-role mutation denial;
+- absence of character-game-state correction routes;
+- CSP/security headers on normal and early/error responses;
+- no-JS essential workflows; and
+- asset integrity, cache policy and traversal refusal.
 
-Do not modify:
+Security, authorization, identity, atomicity, data-integrity, recovery or reliability findings are blocking. Material coverage, maintenance, performance or operational weaknesses are important. Route frontend-only findings to Gemini; cross-contract changes require explicit review and Peter's decision.
 
-- `job_status_fragment.html` unless the current stable UUID field is proven to
-  contradict an accepted contract;
-- schemas or migrations;
-- R-42's separately accepted random nonce contract;
-- authorization, CSRF, session, audit-disclosure, worker or import semantics;
-- Step 10 templates or any template digest;
-- shared shell/assets or unrelated tests;
-- Phase 3 contracts without an explicit pre-existing authorization; or
-- P3.5 or later-phase scope.
+## Required validation
 
-The three Step 10 template digest failures remain a separate documented stop
-condition. Do not update expected hashes, restore those templates, or claim
-P3.G4 is green as part of this remediation.
-
-## Verification
-
-Use the configured web environment and disposable local PostgreSQL database.
-Do not install dependencies without Peter's approval.
-
-Run the focused Step 9 evidence:
+Run narrow tests during work and full suites before submission, using disposable/local or explicitly authorized isolated staging resources:
 
 ```bash
-TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' \
-  /opt/discord-bots/venv-web/bin/python -m pytest -q -rs \
-  tests/web/test_p3_3_jobs.py \
-  tests/web/test_p3_4_job_status_views.py
+TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
+TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/freedom-bot/venv/bin/python -m pytest -q -rs tests/test_*.py
+node --test "foundry-module/tests/*.test.mjs"
+sha256sum -c adapters/web/static/asset-integrity.sha256
+sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
+/opt/discord-bots/venv-web/bin/python -m compileall -q adapters application domain tests
+/opt/discord-bots/freedom-bot/venv/bin/python -m compileall -q adapters application domain tests
+git diff --check
 ```
 
-Run the prior remediation and structural evidence:
+Discover configured formatter/linter/type/package/migration checks. If absent, record them unavailable, not passed. Run migration consistency and upgrade/downgrade/upgrade against a guarded disposable DB. Explain every skip, warning and unavailable check. Do not run destructive DB/host procedures until the exact disposable/staging target is resolved and guarded.
 
-```bash
-TEST_DATABASE_URL='postgresql+psycopg:///freedom_test' \
-  /opt/discord-bots/venv-web/bin/python -m pytest -q -rs \
-  tests/web/test_account_identity_refusal_audit.py \
-  tests/web/test_p3_4_snapshot_views.py \
-  tests/web/test_structural_guards.py
-```
+## Required artifacts
 
-Then run the complete accepted P3.4 surface through Step 9. Report the known
-Step 10 digest failures separately and prove this remediation adds no new
-failure. Also run configured formatter, linter, type checker, `compileall`,
-`git diff --check`, and any dependency-direction check. State honestly when a
-tool is unavailable.
+Produce at least:
 
-PostgreSQL evidence is required for no-effect refusals, one-live-apply,
-duplicate/concurrent confirmation and audit effects. Skips do not close this
-finding.
+1. `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`
+2. `docs/review/phase-3-p3-5-test-and-evidence-traceability.md`
+3. `docs/review/phase-3-p3-5-staging-and-operations-evidence.md`
+4. `docs/review/phase-3-p3-5-accessibility-and-browser-evidence.md`
+5. `docs/review/phase-3-p3-5-submission.md`
+6. narrowly required operations-document updates
+7. current status, change log and evidence-backed RAID dispositions
 
-## Falsification
+Never pre-create passing evidence. Use Planned, Blocked, Not Run, Failed and Passed accurately. Keep secrets and unnecessary personal data out of artifacts.
 
-Demonstrate that the new tests fail when each defect is temporarily
-reintroduced:
+## Final gate submission
 
-- `.strip()` repairs a whitespace-padded nonce;
-- `form.get("nonce")` silently chooses one duplicate value;
-- another well-formed UUID is accepted for the same preview; and
-- two direct submissions choose different arbitrary request identities.
+Report scope/exclusions/changed files; complete traceability; literal commands/procedures/results; skips/warnings/unavailable checks; staging facts without secrets; I-06/A-05/A-06/R-23 dispositions; security/privacy/migration/operational/rollback effects; remaining risks; separately authorized external actions; and reviewer focus.
 
-Restore the exact original bytes after each probe, verify restoration by
-SHA-256, and rerun green. Leave no falsification mutation in the tree.
+Request Codex independent implementation and distinct security-focused reviews. Do not self-accept P3.5, close the Phase 3 gate, authorize production or begin Phase 4.
 
-## Stop conditions
+## First handoff to Peter
 
-Stop and report rather than broadening scope if:
+For the initial run, complete only the read-only readiness audit, readiness/execution plan, and truthful project-control updates. Report:
 
-- an accepted contract explicitly permits a caller-selected R-46 nonce;
-- canonical validation changes authorization, CSRF, non-enumeration, preview
-  token, concurrency, audit, or durable import semantics;
-- remediation requires a schema/migration or template change;
-- PostgreSQL evidence shows a duplicate apply, duplicate audit effect, partial
-  mutation, false success, or constraint bypass; or
-- resolving any failure would require touching Step 10 work or self-approving
-  its template bytes.
+- files inspected/changed;
+- current readiness facts and exact I-06/A-05/A-06/R-23 gaps;
+- sequence, owners, estimate and confidence;
+- safe local checks performed;
+- actions requiring Peter's authorization/participation;
+- blockers/decisions; and
+- the next bounded execution step.
 
-## Required handoff
-
-Return:
-
-- the finding and disposition;
-- files changed and why;
-- the final R-46 nonce grammar, multiplicity rule and validation precedence;
-- direct malformed/duplicate/alternate nonce outcomes with proof of no apply
-  job and no queued success audit effect;
-- duplicate and concurrent confirmation outcomes against PostgreSQL;
-- focused and combined commands with exact pass/fail/skip totals;
-- formatter, linter, type checker, `compileall` and `git diff --check` results;
-- falsification failures and restoration SHA-256 values;
-- explicit confirmation that R-42, templates, digests, schemas, migrations,
-  live services, secrets and real data were untouched; and
-- remaining blockers, including the unchanged Step 10 digest stop condition.
-
-Do not mark P3.G4 accepted. Stop for independent re-review and Peter's decision.
+Do not deploy staging or enroll WebAuthn credentials in the initial run without separate authorization after Peter reviews the plan.

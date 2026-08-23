@@ -1,72 +1,224 @@
 {#
-  VM-18, R-49 — and R-48's results table, included rather than duplicated.
+  VM-18, R-49 — and R-48's results body, included rather than duplicated.
+
+  Every HTMX partial is also reachable as a full page (view-model contract §9.1),
+  so this fragment is the whole of what R-48 renders below its filter form.
 
   **Structured facts only.** `AuditRow.facts` is a bounded projection of the
-  payload, not the payload: a key the projection does not recognize renders as a
-  redacted marker with **no value at all**, so a future writer that puts a new key
-  in a payload widens the audit table and does not widen this page.
+  payload, **not** the payload. A key the projection does not recognize renders
+  as its key plus a redacted marker and *no value at all* — not a truncated one,
+  not a type, not a length — so a future writer that puts a new key in a payload
+  widens the audit table and does not widen this page. Nothing here serializes an
+  object, an array or raw JSON into markup or into an attribute.
 
-  There is no export control, no correction control and no delete control,
-  because there is no route for any of them and the runtime role holds only
-  `SELECT, INSERT` on the table.
+  **There is no total, and that is the answer rather than a gap.** `COUNT(*)`
+  over an append-only log is the unbounded scan N-21 forbids, so the page says
+  there is no count instead of computing one. `total_is_unbounded` is permanently
+  true.
+
+  **There is no export, correction or delete control**, because there is no route
+  for any of them: the runtime role holds only `SELECT, INSERT` on the table and
+  migration 0002's trigger refuses `UPDATE` and `DELETE` even for the owner.
+
+  **The cursor is carried, never built.** It is opaque and HMAC-signed; the page
+  URL-encodes what the server minted and adds the active filters beside it, so
+  paging forward asks the same question of the next page rather than silently
+  becoming an unfiltered search.
 #}
-<section data-state="{{ view.state }}" data-total-unbounded="{{ 'true' if view.total_is_unbounded else 'false' }}">
-  <p data-notice="{{ view.immutability_notice_code }}">
-    Audit history is append-only. Corrections are recorded as new events.
-  </p>
+{#
+  The active filters, rebuilt as query pairs so the next-page link asks the same
+  question. Built from `view.filters` — the **parsed** filters the server
+  accepted — rather than from the incoming query string, so a value the backend
+  normalised is carried forward as the backend understood it.
+#}
+{%- set filter_pairs = [] -%}
+{%- if view.filters.action_prefix -%}
+  {%- set _ = filter_pairs.append(("action", view.filters.action_prefix.value)) -%}
+{%- endif -%}
+{%- if view.filters.entity_type -%}
+  {%- set _ = filter_pairs.append(("entity_type", view.filters.entity_type)) -%}
+{%- endif -%}
+{%- if view.filters.entity_id -%}
+  {%- set _ = filter_pairs.append(("entity_id", view.filters.entity_id.value)) -%}
+{%- endif -%}
+{%- if view.filters.capability -%}
+  {%- set _ = filter_pairs.append(("capability", view.filters.capability.value)) -%}
+{%- endif -%}
+{%- if view.filters.source -%}
+  {%- set _ = filter_pairs.append(("source", view.filters.source)) -%}
+{%- endif -%}
+{%- if view.filters.occurred_from -%}
+  {%- set _ = filter_pairs.append(("from", view.filters.occurred_from.iso_utc)) -%}
+{%- endif -%}
+{%- if view.filters.occurred_to -%}
+  {%- set _ = filter_pairs.append(("to", view.filters.occurred_to.iso_utc)) -%}
+{%- endif -%}
+{%- if view.filters.correlation_id -%}
+  {%- set _ = filter_pairs.append(("correlation_id", view.filters.correlation_id)) -%}
+{%- endif -%}
+
+<section id="audit-results"
+         class="detail-section"
+         data-state="{{ view.state }}"
+         data-total-unbounded="{{ 'true' if view.total_is_unbounded else 'false' }}"
+         data-row-count="{{ view.rows | length }}"
+         data-filter-count="{{ filter_pairs | length }}">
+
+  <div class="alert alert-info" data-notice="{{ view.immutability_notice_code }}">
+    <p>
+      Audit history is <strong>append-only</strong>. Nothing on this page edits,
+      exports or removes an event; a correction is recorded as a new event.
+    </p>
+    <p class="text-xs text-muted" data-note="no-total">
+      No total is shown. Counting an append-only log that grows forever is the
+      unbounded scan the platform will not perform, so this page reports the
+      events on it rather than how many exist.
+    </p>
+  </div>
+
   {% if view.state == "empty" %}
-    <p data-state="empty">No audit event matches these filters.</p>
+    <div class="empty-card" data-state="empty">
+      <div class="empty-icon" aria-hidden="true">&empty;</div>
+      <h2>No Matching Events</h2>
+      <p class="empty-text" data-state="empty">
+        No audit event matches these filters. The filters were applied as
+        submitted; none was dropped.
+      </p>
+    </div>
   {% else %}
-    <table data-field="audit-rows">
-      <thead>
-        <tr>
-          <th>When</th><th>Actor</th><th>Capability</th><th>Action</th>
-          <th>Entity</th><th>Source</th><th>Correlation</th><th>Facts</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in view.rows %}
-          <tr data-event-id="{{ row.event_id }}"
-              data-payload-truncated="{{ 'true' if row.payload_truncated else 'false' }}">
-            <td data-field="occurred-at">{{ row.occurred_at.display }}</td>
-            {#
-              `data-has-actor` states the *fact*, so a row with no person reads
-              as "there was no person" rather than as an empty cell a reader
-              would take for a defect. A system action — the reaper's terminal
-              event is the one in this package — genuinely has no actor.
-            #}
-            <td data-field="actor" data-has-actor="{{ 'true' if row.actor else 'false' }}">
-              {% if row.actor %}{{ row.actor.label.value }}{% else %}no person{% endif %}
-            </td>
-            <td data-field="capability">{{ row.actor_capability.value }}</td>
-            <td data-field="action">{{ row.action }}</td>
-            <td data-field="entity" data-entity-type="{{ row.entity_type }}">
-              {{ row.entity_type }} {{ row.entity_id.value }}
-            </td>
-            <td data-field="source">{{ row.source }}</td>
-            <td data-field="correlation">{{ row.correlation.id }}</td>
-            <td data-field="facts">
-              <ul>
-                {% for fact in row.facts %}
-                  <li data-fact-key="{{ fact.key }}"
-                      data-redacted="{{ 'true' if fact.redacted else 'false' }}">
-                    {% if fact.redacted %}
-                      {{ fact.key }}: (not rendered)
-                    {% else %}
-                      {{ fact.key }}:
-                      {% if fact.before %}{{ fact.before.value }} →{% endif %}
-                      {% if fact.after %}{{ fact.after.value }}{% endif %}
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ul>
-            </td>
+    <div class="table-container">
+      <table class="council-table" data-field="audit-rows" data-state="{{ view.state }}">
+        <caption class="sr-only">
+          Audit events matching the active filters, newest first. Totals are not
+          counted.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">When</th>
+            <th scope="col">Actor</th>
+            <th scope="col">Capability</th>
+            <th scope="col">Action</th>
+            <th scope="col">Entity</th>
+            <th scope="col">Source</th>
+            <th scope="col">Reference</th>
+            <th scope="col">Facts</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for row in view.rows %}
+            <tr data-event-id="{{ row.event_id }}"
+                data-payload-truncated="{{ 'true' if row.payload_truncated else 'false' }}"
+                data-fact-count="{{ row.facts | length }}">
+              <td data-field="occurred-at">
+                <span class="font-mono text-xs">{{ row.occurred_at.display }}</span>
+              </td>
+              {#
+                `data-has-actor` states the *fact*, so a row with no person reads
+                as "there was no person" rather than as an empty cell a reader
+                would take for a defect. A system action genuinely has none, and
+                a historical row resolves its actor through a retired identity —
+                which is why an identity is retired rather than deleted.
+              #}
+              <td data-field="actor" data-has-actor="{{ 'true' if row.actor else 'false' }}">
+                {% if row.actor %}
+                  {{ row.actor.label.value }}
+                {% else %}
+                  <span class="text-muted" data-state="no-person">no person &mdash; system action</span>
+                {% endif %}
+              </td>
+              <td data-field="capability">
+                <span class="badge badge-secondary badge-sm">{{ row.actor_capability.value }}</span>
+              </td>
+              <td data-field="action">
+                <code class="font-mono text-xs">{{ row.action }}</code>
+              </td>
+              <td data-field="entity" data-entity-type="{{ row.entity_type }}">
+                <span class="text-xs">{{ row.entity_type }}</span>
+                <code class="font-mono text-xs" data-field="entity-id">{{ row.entity_id.value }}</code>
+              </td>
+              <td data-field="source">
+                <span class="badge badge-info badge-sm">{{ row.source }}</span>
+              </td>
+              <td data-field="correlation">
+                <span class="reference-code">{{ row.correlation.id }}</span>
+              </td>
+              <td data-field="facts">
+                {% if row.facts %}
+                  <ul class="profile-item-list">
+                    {% for fact in row.facts %}
+                      {#
+                        Four renderings, and each says something different: a
+                        value that was set, a value that was cleared, a value
+                        that moved from one thing to another, and a key whose
+                        value is not rendered at all. Collapsing them would make
+                        "cleared" and "never had one" the same sentence.
+                      #}
+                      <li class="profile-entry-item"
+                          data-fact-key="{{ fact.key }}"
+                          data-redacted="{{ 'true' if fact.redacted else 'false' }}"
+                          data-change="{% if fact.redacted %}none{% elif fact.before and fact.after %}before-after{% elif fact.after %}after-only{% elif fact.before %}before-only{% else %}none{% endif %}">
+                        <div class="profile-entry-main">
+                          <code class="font-mono profile-key" data-field="fact-key">{{ fact.key }}</code>
+                          {% if fact.redacted %}
+                            <span class="badge badge-warning badge-sm" data-field="fact-redacted">value not rendered</span>
+                          {% elif fact.before and fact.after %}
+                            <span class="text-xs" data-field="fact-before">{{ fact.before.value }}</span>
+                            <span class="text-xs text-muted" aria-hidden="true">&rarr;</span>
+                            <span class="sr-only">changed to</span>
+                            <span class="text-xs" data-field="fact-after">{{ fact.after.value }}</span>
+                          {% elif fact.after %}
+                            <span class="sr-only">set to</span>
+                            <span class="text-xs" data-field="fact-after">{{ fact.after.value }}</span>
+                          {% elif fact.before %}
+                            <span class="sr-only">cleared, previously</span>
+                            <span class="text-xs" data-field="fact-before">{{ fact.before.value }}</span>
+                            <span class="badge badge-secondary badge-sm" data-field="fact-cleared">cleared</span>
+                          {% else %}
+                            <span class="text-xs text-muted" data-field="fact-empty">no value recorded</span>
+                          {% endif %}
+                        </div>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <span class="text-xs text-muted" data-field="facts-empty">no structured facts</span>
+                {% endif %}
+                {% if row.payload_truncated %}
+                  {#
+                    Stated, because a reader has to know the response carries
+                    less than the row does — whether the record held more facts
+                    than the bound or a single value was cut at it.
+                  #}
+                  <p class="text-xs text-muted" data-field="payload-truncated-notice">
+                    Some facts or values were omitted at the accepted bound. The
+                    stored event is unchanged.
+                  </p>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
     {% if view.cursor.has_more %}
-      <a rel="next" href="/v1/audit/results?cursor={{ view.cursor.token }}">Next</a>
+      {#
+        Two links, and both go somewhere useful. The ordinary one is a full-page
+        `/v1/audit` navigation that works with no JavaScript; the HTMX attributes
+        on the same anchor replace this results container in place when it is
+        available. Neither builds the cursor: it is carried opaque and
+        URL-encoded exactly as the server minted it.
+      #}
+      <nav class="cursor-nav" aria-label="Audit pagination">
+        <a rel="next"
+           class="btn btn-secondary"
+           href="/v1/audit?cursor={{ view.cursor.token | urlencode }}{% for name, value in filter_pairs %}&amp;{{ name }}={{ value | urlencode }}{% endfor %}&amp;size={{ view.page_size }}"
+           hx-get="/v1/audit/results?cursor={{ view.cursor.token | urlencode }}{% for name, value in filter_pairs %}&amp;{{ name }}={{ value | urlencode }}{% endfor %}&amp;size={{ view.page_size }}"
+           hx-target="#audit-results"
+           hx-swap="outerHTML">
+          Next Page &rarr;
+        </a>
+      </nav>
     {% endif %}
   {% endif %}
 </section>

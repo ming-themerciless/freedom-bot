@@ -226,6 +226,7 @@ class AuditSearchService:
             filters=filters,
             rows=rendered,
             cursor=page.cursor,
+            page_size=size,
         )
 
     # -- filters -----------------------------------------------------------

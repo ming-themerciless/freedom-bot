@@ -16,6 +16,7 @@ the import, job and audit surface**, and there are three of those:
 from __future__ import annotations
 
 import pytest
+from bs4 import BeautifulSoup
 from sqlalchemy import text
 
 from application.web.view_models import ACTOR_NAME_BOUND, AUDIT_VALUE_BOUND
@@ -57,47 +58,68 @@ HOSTILE = [
 
 
 def _assert_inert(body: str, hostile: str) -> None:
-    """The value rendered, and rendered **inert**.
-
-    The distinction from the P3.1 escaping cases matters. There the hostile value
-    never reaches the template at all — a caller-supplied failure code is mapped
-    into a closed vocabulary first — so the assertion is that the string is
-    absent. Here the value legitimately reaches the template: a blocked Actor's
-    name and a Council member's reason are things a Council member has to be able
-    to read. So the assertion is that it is **escaped**, which is the control that
-    actually applies.
+    """The value rendered, and rendered **inert** via structural DOM inspection.
 
     Three properties, and each is a different way the value could stop being data:
 
-    1. **no element from it.** The escaped text `onerror=alert(1)&gt;` is inert
-       and is expected to be present; what must not be present is `<img` or
-       `<script`, because that would mean the angle brackets survived as markup;
+    1. **no element or active content from it.** Proves the hostile value appears
+       only as text content inside its governed container, never as an element,
+       attribute, script/style content, comment, or injected sibling;
     2. **no template evaluation** — Jinja renders `{{7*7}}` as the seven
-       characters it is, because autoescaping escapes output and does not
-       re-parse it as source. Asserted by requiring the literal to survive, not
-       by requiring `49` to be absent from the whole document, which a clock
-       reading `02:49` would falsify by coincidence;
-    3. **the surrounding markup still balances**, so nothing closed a cell or a
-       row early and injected a sibling.
+       characters it is;
+    3. **surrounding markup still balances**, so nothing closed a cell, row or
+       list early.
     """
-    # No **element** from the value. The escaped text `onerror=alert(1)&gt;` is
-    # inert and is expected to be there — asserting its absence would be
-    # asserting that the value was dropped, which is not the control and would
-    # hide a template that had simply stopped rendering the field.
-    assert "<script" not in body.lower()
-    assert "<img" not in body.lower()
-    # The angle brackets from the value survived as entities, not as markup.
-    if "<" in hostile:
-        assert hostile not in body
-    if "{{7*7}}" in hostile:
-        # Jinja escapes output; it does not re-parse it as source. Asserted as
-        # the **presence of the literal** rather than the absence of `49`: the
-        # literal is the direct evidence that the value was rendered as data,
-        # and "49 is nowhere in the page" is a claim about the whole document
-        # that a timestamp can falsify by coincidence.
-        assert "{{7*7}}" in body
+    soup = BeautifulSoup(body, "html.parser")
+
+    # 1. Surrounding markup balance
     assert body.count("<tr") == body.count("</tr>")
     assert body.count("<td") == body.count("</td>")
+
+    # 2. Locate the governed container
+    container = (
+        soup.find(attrs={"data-field": "blocked-name"})
+        or soup.find(attrs={"data-field": "fact-after"})
+        or soup.find(attrs={"data-field": "fact-before"})
+    )
+    assert container is not None, "Could not locate payload container element in response"
+
+    # 3. Prove payload in container is ONLY text: no dangerous child elements, no on* attributes
+    dangerous_tags = {"script", "img", "iframe", "object", "embed", "svg", "style", "audio", "video", "link"}
+    for child in container.find_all(True):
+        assert child.name.lower() not in dangerous_tags, f"Hostile element <{child.name}> injected in container"
+        for attr_name, attr_val in child.attrs.items():
+            assert not attr_name.lower().startswith("on"), f"Event handler {attr_name} injected in container child"
+            if isinstance(attr_val, str):
+                assert not attr_val.lower().startswith("javascript:"), f"javascript: URL injected in container child attribute {attr_name}"
+
+    for attr_name, attr_val in container.attrs.items():
+        assert not attr_name.lower().startswith("on"), f"Event handler {attr_name} injected in container"
+        if isinstance(attr_val, str):
+            assert not attr_val.lower().startswith("javascript:"), f"javascript: URL injected in container attribute {attr_name}"
+
+    # 4. Outside container: only known same-origin fingerprinted htmx script and accepted token emblem
+    for s in soup.find_all("script"):
+        src = s.get("src", "")
+        assert src.startswith("/static/vendor/htmx-"), f"Unauthorized script src={src!r}"
+        assert not s.get_text(strip=True), "Script has inline content"
+
+    for img in soup.find_all("img"):
+        src = img.get("src", "")
+        assert src.startswith("/static/images/freedom-blades-token"), f"Unauthorized img src={src!r}"
+
+    # No element anywhere has inline event handlers or javascript: URLs
+    for el in soup.find_all(True):
+        for attr_name, attr_val in el.attrs.items():
+            assert not attr_name.lower().startswith("on"), f"Document contains unexpected event handler {attr_name}"
+            if isinstance(attr_val, str):
+                assert not attr_val.lower().startswith("javascript:"), f"Document contains unexpected javascript: URL in {attr_name}"
+
+    # 5. Escaping / non-evaluation
+    if "<" in hostile:
+        assert hostile not in body, "Raw unescaped markup found in response body"
+    if "{{7*7}}" in hostile:
+        assert "{{7*7}}" in body, "Jinja template literal {{7*7}} was evaluated instead of rendered as text"
 
 
 @pytest.fixture()
@@ -670,3 +692,56 @@ async def test_a_provider_failure_during_a_job_read_writes_no_absence(
         ).scalar_one()
     assert before is True
     assert after is True, "a failed refresh never wrote an absence"
+
+
+def test_assert_inert_semantics_and_falsification() -> None:
+    """Falsification: _assert_inert fails if active tags or on* attributes are injected into container."""
+    # 1. Safe baseline with escaped hostile payload passes
+    safe_html = """<!doctype html><html><head><script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script></head>
+    <body>
+      <img src="/static/images/freedom-blades-token.png">
+      <table><tr><td>
+        <span data-field="blocked-name">&lt;script&gt;alert(1)&lt;/script&gt;</span>
+      </td></tr></table>
+    </body></html>"""
+    _assert_inert(safe_html, "<script>alert(1)</script>")
+
+    # 2. Injected child script element inside container fails
+    injected_script_html = """<!doctype html><html><head><script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script></head>
+    <body>
+      <table><tr><td>
+        <span data-field="blocked-name"><script>alert(1)</script></span>
+      </td></tr></table>
+    </body></html>"""
+    with pytest.raises(AssertionError, match="Hostile element <script> injected in container"):
+        _assert_inert(injected_script_html, "<script>alert(1)</script>")
+
+    # 3. Injected event handler inside container fails
+    injected_attr_html = """<!doctype html><html><head><script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script></head>
+    <body>
+      <table><tr><td>
+        <span data-field="blocked-name" onerror="alert(1)">safe text</span>
+      </td></tr></table>
+    </body></html>"""
+    with pytest.raises(AssertionError, match="Event handler onerror injected in container"):
+        _assert_inert(injected_attr_html, "safe text")
+
+    # 4. Injected javascript: URL inside container fails
+    injected_js_url_html = """<!doctype html><html><head><script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script></head>
+    <body>
+      <table><tr><td>
+        <span data-field="blocked-name"><a href="javascript:alert(1)">click</a></span>
+      </td></tr></table>
+    </body></html>"""
+    with pytest.raises(AssertionError, match="javascript: URL injected"):
+        _assert_inert(injected_js_url_html, "click")
+
+    # 5. Missing Jinja literal {{7*7}} fails
+    missing_jinja_html = """<!doctype html><html><head><script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script></head>
+    <body>
+      <table><tr><td>
+        <span data-field="blocked-name">49</span>
+      </td></tr></table>
+    </body></html>"""
+    with pytest.raises(AssertionError, match="Jinja template literal"):
+        _assert_inert(missing_jinja_html, "{{7*7}}")

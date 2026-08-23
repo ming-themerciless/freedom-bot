@@ -6133,6 +6133,107 @@ off. It closes nothing.
   released. This does not close P3.G4 and does not authorize staging exposure,
   deployment, production use, live-service contact or real-player-data use.
 
+## C-P3.4-D — P3.4 Step 12 accepted; Step 13 verification & remediation submitted
+
+**Date:** 2026-08-23 · **Requester:** Peter / Acceptance Authority & Gemini · **Status:**
+**Submitted for Review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.4 (Production Frontend
+  Integration). Gate P3.G4 remains open; RAID I-06 and A-05 remain open; Milestone P3.5
+  remains held.
+- **Reason and alternatives considered:** Peter Duscha accepted Step 12 and authorized
+  Step 13 verification and submission under `docs/review/Handover information`. Initial
+  submission was reviewed by Codex, identifying findings R13-01..09 followed by R13-10..13.
+  Peter authorized bounded documentation remediation. Gemini remediated all findings: rebuilt
+  screen matrix (26 templates/fragments), rebuilt route and view-model traceability with exact
+  handler symbols (R13-06) and valid top-level test symbols (R13-07, R13-10), provided material behavioral
+  evidence for R-01 and R-10 (R13-11), individually listed all falsification probes F-SEC-01 through F-SEC-11
+  without range shorthand (R13-12), refined candidate inventory under a narrow presentation inclusion rule
+  (53 live candidate artifacts plus 1 rename-provenance row = 54 evidence rows, R13-08), restored authoritative
+  RAID definitions (R-22, R-23, RR-17..19, R13-04), implemented a reproducible AST-aware evidence validator
+  with three negative falsification demonstrations (R13-13), and narrowed the Codex focused check statement (R13-09).
+  Self-acceptance was rejected; advancing to P3.5 or closing P3.G4 was rejected
+  because independent Codex implementation and distinct security-focused reviews plus
+  Acceptance Authority decision are mandatory.
+- **Added/removed scope:** Documentation-only remediation across `docs/review/phase-3-p3-4-submission.md`,
+  `docs/project-management/status.md`, `docs/project-management/change-log.md`, and the external
+  walkthrough. Zero production code, test, fixture, template, CSS, image, vendored script,
+  manifest, migration, or dependency changes.
+- **Dependency and critical-path effect:** Milestone P3.4 frontend integration candidate
+  is frozen and submitted for independent Codex implementation and distinct security-focused
+  reviews. Gate P3.G4 still blocks acceptance; P3.5 remains held.
+- **Estimate/forecast and capacity effect:** none recorded.
+- **New or changed risks:** none. Authoritative RAID definitions derive solely from
+  `docs/project-management/raid-register.md`: R-22 (contract drift during integration),
+  R-23 (accessibility regression on production adaptation), RR-17 (commit fence row write
+  lock duration), RR-18 (recovery publication failure effect), and RR-19 (roll-forward-only
+  schema boundary). Character name 120-char display bounding, the single-provider linking
+  constraint, and direct static asset delivery are recorded as factual implementation bounds
+  without assigning RAID risk identifiers.
+- **Testing, migration, security and operational effect:**
+  - Codex review evidence: Codex bounded focused check (174 passed, 94 warnings in 8.75s, manifests OK) found no new implementation or focused-security blocker in the exercised surfaces; complete implementation and distinct security reviews remain pending.
+  - Complete historical web suite (`tests/web`): 2168 passed, 80 intentional matrix skips, 1063 warnings in 127.20s against disposable `TEST_DATABASE_URL=postgresql+psycopg:///freedom_test`.
+  - Bot / domain suite (`tests/test_*.py`): 2294 passed, 1 warning in 136.38s.
+  - Foundry VTT module suite (`foundry-module/tests/*.test.mjs`): 155 passed in 212.38ms.
+  - Asset integrity manifest: 3/3 OK (`adapters/web/static/asset-integrity.sha256`).
+  - Visual prototype freeze manifest: 14/14 OK (`docs/review/phase-3-visual-freeze-manifest.sha256`).
+  - Bytecode compilation: clean (0 errors) in both `venv-web` and `venv`.
+  - Whitespace / conflict markers: `git diff --check` clean (0 errors).
+  - Tooling discovery: 0 undefined CSS tokens in `check_css_tokens.py`; 48/48 evaluated pairs pass AA/AAA in `calc_contrast.py` (1 disabled exempt).
+  - Standalone documentation validator: verified 26 template matrix rows, 49 route/mount rows, 22 view models, exact handler symbols, 193 quoted and unquoted test references across 105 unique top-level test node IDs, 53 live candidate paths matching SHA-256, 1 rename row, direct verification of all 3 asset integrity manifest entries and 14 visual freeze manifest entries, and zero forbidden changes; verified 3 negative in-memory falsification demonstrations (false test path, false test symbol, prohibited shorthand) and unquoted reference coverage.
+  - Honest Not Run status recorded for TC-UI-01/02 (uninstalled browser binaries), TC-UI-08 (Peter/maintainer real-device acceptance), and TC-UI-09 (screen-reader review).
+  - Zero live services, secrets, staging systems, or production PostgreSQL touched.
+- **Product Owner recommendation:** proceed to independent Codex implementation review and distinct security-focused review of the remediated candidate.
+- **Technical Lead and specialist reviews:** independent Codex implementation review and distinct security-focused review are **requested and pending**.
+- **Acceptance Authority decision:** **none yet.** Stop gate P3.G4 remains open and Milestone P3.5 remains held.
+
+## C-P3.4-E — P3.4 and Step 13 accepted; P3.G4 closed; P3.5 released
+
+**Date:** 2026-08-23 · **Requester:** Peter / Acceptance Authority ·
+**Status:** **Accepted; P3.G4 closed; P3.5 released.**
+
+- **Affected requirement, milestone and release:** Milestone P3.4 production
+  frontend integration, Step 13 final verification, stop gate P3.G4, and the
+  authorization boundary for P3.5.
+- **Reason and decision:** after iterative remediation of R13-01 through R13-13,
+  Codex completed the independent implementation review and a distinct security-
+  focused review. Both found no remaining blocking or important issue. Peter
+  therefore accepts P3.4 in full, including Step 13, and closes P3.G4.
+- **Added/removed scope:** P3.5 planning and approved gate-evidence work may begin.
+  No feature scope is added, and this decision does not authorize staging,
+  deployment, public exposure, live-service contact, production PostgreSQL,
+  secrets access or real-player-data use.
+- **Dependency and critical-path effect:** P3.G4 no longer blocks P3.5. I-06 and
+  A-05 remain open and continue to block staging/public exposure and the later
+  production-readiness decision. P3.5 retains its own definition of ready,
+  evidence requirements and review gate.
+- **Estimate/forecast and capacity effect:** P3.5 may enter planning; no calendar
+  estimate or capacity commitment is created by this acceptance decision.
+- **New or changed risks:** R-23 becomes an explicitly accepted active residual
+  after P3.G4 closure. TC-UI-01/02, TC-UI-08 and TC-UI-09 remain Not Run and
+  move forward as P3.5/staging evidence rather than being treated as passed.
+  I-06 and A-05 are unchanged.
+- **Testing, migration, security and operational effect:** no code, schema,
+  migration, runtime, deployment or data change is made by this record. The
+  accepted evidence includes 2,168 web tests passed with 80 intentional matrix
+  skips; 2,294 bot/domain tests passed; 155 Foundry tests passed; 3/3 production
+  asset hashes and 14/14 visual-freeze hashes verified; clean bytecode compilation
+  and `git diff --check`; and a final Codex focused security/accessibility/auth
+  run of 228 passed with 99 non-blocking HTTPX deprecation warnings. The five
+  literal Step 13 validator demonstrations reproduced exactly: positive and
+  unquoted-extraction runs exited 0; the false-path, false-symbol and prohibited-
+  shorthand falsifications exited 1 with the recorded complete tracebacks.
+- **Product Owner recommendation:** accept P3.4, close P3.G4 and proceed to P3.5
+  within the approved plan while retaining all exposure prerequisites.
+- **Technical Lead and specialist reviews:** independent Codex implementation
+  review **PASS**; distinct Codex security-focused review **PASS**; no blocking
+  or important findings remain. The self-referential placeholder-search transcript
+  artifact was assessed as non-blocking because all five literal commands were
+  independently extracted and reproduced exactly.
+- **Acceptance Authority decision:** **Peter accepted P3.4, including Step 13,
+  closed P3.G4 and released P3.5 on 2026-08-23.** Formal evidence:
+  `docs/review/phase-3-p3-4-step-13-final-independent-reviews-and-acceptance.md`.
+
 ## Required fields for later entries
 
 Every material entry must identify:

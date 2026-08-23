@@ -147,6 +147,9 @@ async def test_the_cursor_pages_forward_without_repeating_or_dropping_a_row(
     a row added before the cursor shifts every later page by one and the reader
     either sees a row twice or never sees it. Proved by paging the whole set and
     asserting the union is exactly the seeded set, with no duplicate.
+
+    Proves both the full-page fallback `href` (`/v1/audit?...`) and the
+    progressive-enhancement fragment `hx-get` (`/v1/audit/results?...`).
     """
     with migrated_database.begin() as connection:
         seeded = seed_events(connection, account_id=callers["C"].account_id, count=25)
@@ -159,13 +162,19 @@ async def test_the_cursor_pages_forward_without_repeating_or_dropping_a_row(
         import re
 
         seen.extend(re.findall(r'data-event-id="([^"]+)"', response.text))
-        match = re.search(r'href="(/v1/audit/results\?cursor=[^"]+)"', response.text)
-        if match is None:
+        match_href = re.search(r'href="(/v1/audit\?cursor=[^"]+)"', response.text)
+        match_hx = re.search(r'hx-get="(/v1/audit/results\?cursor=[^"]+)"', response.text)
+        if match_hx is None:
+            assert match_href is None
             break
-        url = match.group(1)
+        assert match_href is not None, "full-page fallback href missing when hx-get present"
+        assert "size=10" in match_href.group(1)
+        assert "size=10" in match_hx.group(1)
+        url = match_hx.group(1)
 
     assert len(seen) == len(set(seen)), "a row was paged twice"
     assert set(seen) == {str(identifier) for identifier in seeded}
+
 
 
 async def test_a_tampered_or_unsigned_cursor_is_refused_never_reset(

@@ -1,43 +1,175 @@
 {% extends "base.html" %}
-{% block title %}Audit — Freedom Blades{% endblock %}
+{% block title %}Audit History — Freedom Blades{% endblock %}
 {% block content %}
   {#
     VM-18, R-48. The navigable page; its results are the same fragment R-49
     answers, included rather than copied.
 
-    The filter form offers exactly the accepted bounded filters (N-63) and no
-    free-text payload search: an append-only table that grows forever cannot
-    serve one within N-21's bound, and offering it would be offering a query that
-    gets slower every day until it stops working. The action filter is a
-    **prefix**, which is an index range rather than a scan.
+    **Exactly the accepted bounded filters (N-63), and nothing else is
+    queryable.** There is no payload search, no message search, no global
+    free-text box, no sort expression, no export flag and no mutation field —
+    because an append-only table that grows forever cannot serve a free-text
+    query within N-21's bound, and offering one would be offering a query that
+    gets slower every day until it stops working.
+
+    The action filter is a **prefix**, which is an index range. `%council%` would
+    be a scan of every row that has ever been written, so the label says prefix
+    and the backend treats it as one.
+
+    **No CSRF token.** This is a `GET` read; N-17 applies to cookie-authenticated
+    mutations, and a token on a read would imply this form changes something.
+
+    **The browser validates nothing.** An invalid capability, source, UUID or
+    instant is submitted and refused by N-63 server-side, with the accepted
+    refusal. Filtering the choices here is a courtesy that keeps a reader from
+    typing a value the server would reject; it is not the check, and no value is
+    silently dropped on either side.
+
+    **HTMX is optional.** `hx-get` on the form swaps the results container in
+    place; without JavaScript the same form is an ordinary `GET` to `/v1/audit`
+    that renders the whole page. There is no auto-polling, no inline handler and
+    no query string built by script.
   #}
-  <h1>Audit search</h1>
-  <form method="get" action="/v1/audit" data-control="filters">
-    {# A read. No CSRF token: N-17 applies to cookie-authenticated mutations. #}
-    <label for="action">Action prefix</label>
-    <input id="action" name="action" maxlength="120"
-           value="{{ view.filters.action_prefix.value if view.filters.action_prefix else '' }}">
-    <label for="entity_type">Entity type</label>
-    <input id="entity_type" name="entity_type" maxlength="120"
-           value="{{ view.filters.entity_type or '' }}">
-    <label for="entity_id">Entity id</label>
-    <input id="entity_id" name="entity_id" maxlength="120"
-           value="{{ view.filters.entity_id.value if view.filters.entity_id else '' }}">
-    <label for="capability">Capability</label>
-    <input id="capability" name="capability" maxlength="120"
-           value="{{ view.filters.capability.value if view.filters.capability else '' }}">
-    <label for="source">Source</label>
-    <input id="source" name="source" maxlength="120" value="{{ view.filters.source or '' }}">
-    <label for="from">From (UTC)</label>
-    <input id="from" name="from" maxlength="120"
-           value="{{ view.filters.occurred_from.iso_utc if view.filters.occurred_from else '' }}">
-    <label for="to">To (UTC)</label>
-    <input id="to" name="to" maxlength="120"
-           value="{{ view.filters.occurred_to.iso_utc if view.filters.occurred_to else '' }}">
-    <label for="correlation_id">Correlation id</label>
-    <input id="correlation_id" name="correlation_id" maxlength="120"
-           value="{{ view.filters.correlation_id or '' }}">
-    <button type="submit">Search</button>
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Audit History</h1>
+      <span class="badge badge-warning">Council &amp; Administrator</span>
+    </div>
+    <p class="page-description">
+      Append-only record of administrator-visible mutations, filtered by the
+      accepted bounded criteria. Reading changes nothing.
+    </p>
+  </header>
+
+  <form method="get" action="/v1/audit"
+        class="search-form"
+        data-control="filters"
+        hx-get="/v1/audit/results"
+        hx-target="#audit-results"
+        hx-swap="outerHTML">
+    <fieldset class="filter-bar">
+      <legend class="section-subtitle">Filters</legend>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="filter-action">Action prefix</label>
+          <input class="form-input" type="text" id="filter-action" name="action"
+                 maxlength="120"
+                 autocomplete="off"
+                 placeholder="reconciliation."
+                 aria-describedby="filter-action-help"
+                 value="{{ view.filters.action_prefix.value if view.filters.action_prefix else '' }}">
+          <p class="form-help" id="filter-action-help">
+            Matches the start of an action, not any part of it.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="filter-entity-type">Entity type</label>
+          <input class="form-input" type="text" id="filter-entity-type" name="entity_type"
+                 maxlength="120"
+                 autocomplete="off"
+                 placeholder="reconciliation_job"
+                 value="{{ view.filters.entity_type or '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="filter-entity-id">Entity id</label>
+          <input class="form-input" type="text" id="filter-entity-id" name="entity_id"
+                 maxlength="120"
+                 autocomplete="off"
+                 value="{{ view.filters.entity_id.value if view.filters.entity_id else '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          {#
+            A closed choice, because the vocabulary is closed: `ActorCapability`
+            has exactly these members and anything else is refused by N-63. The
+            blank option is "any", and it is the selected one when no capability
+            filter is active.
+          #}
+          <label class="form-label" for="filter-capability">Capability</label>
+          <select class="form-select" id="filter-capability" name="capability">
+            <option value=""{% if not view.filters.capability %} selected{% endif %}>Any capability</option>
+            {% for choice in ("guild_member", "character_owner", "dm", "guild_council", "platform_administrator", "service_principal", "system") %}
+              <option value="{{ choice }}"{% if view.filters.capability and view.filters.capability.value == choice %} selected{% endif %}>{{ choice }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="filter-source">Source</label>
+          <select class="form-select" id="filter-source" name="source">
+            <option value=""{% if not view.filters.source %} selected{% endif %}>Any source</option>
+            {% for choice in ("discord", "web", "foundry", "import", "system") %}
+              <option value="{{ choice }}"{% if view.filters.source == choice %} selected{% endif %}>{{ choice }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="filter-correlation-id">Correlation id</label>
+          <input class="form-input" type="text" id="filter-correlation-id" name="correlation_id"
+                 maxlength="120"
+                 autocomplete="off"
+                 placeholder="00000000-0000-0000-0000-000000000000"
+                 value="{{ view.filters.correlation_id or '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        {#
+          Text rather than `datetime-local`, deliberately.
+
+          The accepted parser is `datetime.fromisoformat`, and the value this
+          page has to put back into the field after a search is a full UTC
+          instant with an offset — which a `datetime-local` control cannot hold
+          and would silently truncate. A control that dropped part of the filter
+          a Council member had just applied would be the browser quietly
+          answering a different question, so the field keeps the exact string the
+          server parsed and says what shape it wants.
+        #}
+        <div class="form-group">
+          <label class="form-label" for="filter-from">From (UTC)</label>
+          <input class="form-input" type="text" id="filter-from" name="from"
+                 maxlength="120"
+                 autocomplete="off"
+                 inputmode="numeric"
+                 placeholder="2026-08-21T00:00:00+00:00"
+                 aria-describedby="filter-range-help"
+                 value="{{ view.filters.occurred_from.iso_utc if view.filters.occurred_from else '' }}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="filter-to">To (UTC)</label>
+          <input class="form-input" type="text" id="filter-to" name="to"
+                 maxlength="120"
+                 autocomplete="off"
+                 inputmode="numeric"
+                 placeholder="2026-08-21T23:59:59+00:00"
+                 aria-describedby="filter-range-help"
+                 value="{{ view.filters.occurred_to.iso_utc if view.filters.occurred_to else '' }}">
+          <p class="form-help" id="filter-range-help">
+            ISO-8601 UTC, for example <code class="font-mono">2026-08-21T00:00:00+00:00</code>.
+            A range spans at most 366 days.
+          </p>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Search</button>
+        <a href="/v1/audit" class="btn btn-secondary" data-control="clear-filters">Clear filters</a>
+      </div>
+
+      <p class="form-help" data-note="filter-bounds">
+        At most five filters may be combined, each at most 120 characters. An
+        invalid or over-long filter is refused rather than ignored, so the rows
+        shown are always the rows that match.
+      </p>
+    </fieldset>
   </form>
+
   {% include "audit_results.html" %}
 {% endblock %}

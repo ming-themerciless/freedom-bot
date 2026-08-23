@@ -877,6 +877,7 @@ AuditSearchView(
     filters: AuditFilters,
     rows: tuple[AuditRow, ...],     # N-21: default 50, max 100
     cursor: Cursor,
+    page_size: int,                 # N-21: server-accepted page size (default 50, max 100)
     total_is_unbounded: bool,       # always true; no COUNT(*) over an append-only log
     immutability_notice_code: Literal["append_only_no_correction_here"],
 )

@@ -47,7 +47,20 @@ import threading
 from uuid import UUID, uuid4
 
 import pytest
+from bs4 import BeautifulSoup
 from sqlalchemy import create_engine, text
+
+def assert_reconciliation_total(html: str, total_name: str, expected_value: int | str) -> None:
+    """Assert exactly one dd element with data-total=total_name exists and contains the expected numeric value."""
+    soup = BeautifulSoup(html, "html.parser")
+    nodes = soup.find_all("dd", attrs={"data-total": total_name})
+    assert len(nodes) == 1, (
+        f"Expected exactly one dd with data-total='{total_name}', found {len(nodes)}"
+    )
+    actual_text = nodes[0].get_text(strip=True)
+    assert actual_text == str(expected_value), (
+        f"Expected data-total='{total_name}' to be {expected_value}, got '{actual_text}'"
+    )
 
 import tools.identity_migration as command
 from adapters.sheets.identity_evidence import (
@@ -1118,7 +1131,7 @@ async def test_r28_renders_outstanding_confirmed_and_rejected_states(
     assert before.status_code == 200
     assert 'data-status="outstanding"' in before.text
     assert 'data-notice="confirmation-creates-the-link"' in before.text
-    assert '<dd data-total="confirmed">0</dd>' in before.text
+    assert_reconciliation_total(before.text, "confirmed", 0)
     # The confirm form states the character, the identity, the access kind and
     # the version before anything is created (VM-10).
     assert f'data-subject="{ADA_SUBJECT}"' in before.text
@@ -1143,7 +1156,7 @@ async def test_r28_renders_outstanding_confirmed_and_rejected_states(
     assert after.status_code == 200
     assert 'data-status="confirmed-and-active"' in after.text
     assert 'data-stage="decided"' in after.text
-    assert '<dd data-total="confirmed">1</dd>' in after.text
+    assert_reconciliation_total(after.text, "confirmed", 1)
     # The decided row's controls are gone; the three still-outstanding rows keep
     # their own reject control, one form per proposal, and no bulk control exists.
     assert after.text.count("/confirm") == 0
@@ -1165,8 +1178,8 @@ async def test_r28_totals_balance_and_report_no_apply_count(
     )
     assert response.status_code == 200
     assert 'data-balances="true"' in response.text
-    assert '<dd data-total="source_characters">4</dd>' in response.text
-    assert '<dd data-total="outstanding">4</dd>' in response.text
+    assert_reconciliation_total(response.text, "source_characters", 4)
+    assert_reconciliation_total(response.text, "outstanding", 4)
     for absent in ('data-total="granted"', 'data-total="adopted"'):
         assert absent not in response.text, absent
 
@@ -1210,8 +1223,8 @@ async def test_r28_never_calls_a_revoked_confirmation_active(
         "/v1/council/identity-migration", cookies=caller.cookies(settings)
     )
     assert 'data-status="confirmed-and-active"' in active_page.text
-    assert '<dd data-total="confirmed">1</dd>' in active_page.text
-    assert '<dd data-total="confirmed_revoked">0</dd>' in active_page.text
+    assert_reconciliation_total(active_page.text, "confirmed", 1)
+    assert_reconciliation_total(active_page.text, "confirmed_revoked", 0)
 
     revoke(
         migrated_database,
@@ -1232,9 +1245,9 @@ async def test_r28_never_calls_a_revoked_confirmation_active(
     assert 'data-link-state="revoked"' in page.text
     # 2. The active-confirmed total excludes it, and the balance still closes
     #    over every proposal — the revoked confirmation is counted, not dropped.
-    assert '<dd data-total="confirmed">0</dd>' in page.text
-    assert '<dd data-total="confirmed_revoked">1</dd>' in page.text
-    assert '<dd data-total="outstanding">3</dd>' in page.text
+    assert_reconciliation_total(page.text, "confirmed", 0)
+    assert_reconciliation_total(page.text, "confirmed_revoked", 1)
+    assert_reconciliation_total(page.text, "outstanding", 3)
     assert 'data-balances="true"' in page.text
     # 3. The decision itself is intact, and is not rewritten to `rejected` and
     #    not returned to `proposed`.
@@ -1324,8 +1337,8 @@ async def test_another_active_link_cannot_make_a_revoked_confirmation_look_activ
     assert 'data-status="confirmed-and-revoked"' in page.text
     assert 'data-status="confirmed-and-active"' not in page.text
     assert "is active now" not in page.text
-    assert '<dd data-total="confirmed">0</dd>' in page.text
-    assert '<dd data-total="confirmed_revoked">1</dd>' in page.text
+    assert_reconciliation_total(page.text, "confirmed", 0)
+    assert_reconciliation_total(page.text, "confirmed_revoked", 1)
     assert 'data-balances="true"' in page.text
 
 
@@ -1357,10 +1370,31 @@ async def test_a_rejected_proposal_carries_no_link_state_at_all(
     assert page.status_code == 200
     assert 'data-status="rejected"' in page.text
     assert "data-link-state" not in page.text
-    assert '<dd data-total="rejected">1</dd>' in page.text
-    assert '<dd data-total="confirmed">0</dd>' in page.text
-    assert '<dd data-total="confirmed_revoked">0</dd>' in page.text
+    assert_reconciliation_total(page.text, "rejected", 1)
+    assert_reconciliation_total(page.text, "confirmed", 0)
+    assert_reconciliation_total(page.text, "confirmed_revoked", 0)
     assert 'data-balances="true"' in page.text
+
+
+def test_assert_reconciliation_total_semantics_and_falsification() -> None:
+    """Falsification: assert_reconciliation_total rejects missing, duplicate, and wrong-valued nodes."""
+    valid_html = '<dl><dd class="totals-dd font-mono" data-total="confirmed">0</dd></dl>'
+    # Valid markup passes
+    assert_reconciliation_total(valid_html, "confirmed", 0)
+    assert_reconciliation_total(valid_html, "confirmed", "0")
+
+    # 1. Wrong value fails
+    with pytest.raises(AssertionError, match="Expected data-total='confirmed' to be 1, got '0'"):
+        assert_reconciliation_total(valid_html, "confirmed", 1)
+
+    # 2. Missing total fails
+    with pytest.raises(AssertionError, match="Expected exactly one dd with data-total='missing', found 0"):
+        assert_reconciliation_total(valid_html, "missing", 0)
+
+    # 3. Duplicate total nodes fail
+    dup_html = '<dl><dd data-total="confirmed">0</dd><dd data-total="confirmed">0</dd></dl>'
+    with pytest.raises(AssertionError, match="Expected exactly one dd with data-total='confirmed', found 2"):
+        assert_reconciliation_total(dup_html, "confirmed", 0)
 
 
 # ===========================================================================

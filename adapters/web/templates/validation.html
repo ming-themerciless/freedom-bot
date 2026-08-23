@@ -12,7 +12,7 @@
   <div class="auth-wrapper">
     <div class="auth-card">
       <h1 class="auth-title">That could not be accepted</h1>
-      <div class="validation-summary" tabindex="-1">
+      <div class="validation-summary" tabindex="-1" role="alert">
         <ul class="validation-list" data-state="invalid">
           {% for error in view.errors %}
             <li class="validation-item" data-field="{{ error.field }}" data-code="{{ error.code }}">

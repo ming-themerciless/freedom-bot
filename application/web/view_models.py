@@ -1455,6 +1455,7 @@ class AuditSearchView:
     filters: AuditFilters
     rows: tuple[AuditRow, ...]
     cursor: Cursor
+    page_size: int = PAGE_SIZE_DEFAULT
     total_is_unbounded: bool = True
     immutability_notice_code: Literal["append_only_no_correction_here"] = (
         "append_only_no_correction_here"

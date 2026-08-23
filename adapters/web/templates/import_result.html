@@ -1,47 +1,234 @@
 {% extends "base.html" %}
-{% block title %}Import {{ view.import_id }} — Freedom Blades{% endblock %}
+{% block title %}Import Receipt — Council — Freedom Blades{% endblock %}
 {% block content %}
   {#
-    VM-17, R-47. The immutable receipt, mirroring the append-only
+    VM-17, R-47. The immutable receipt, mirroring one append-only
     `snapshot_imports` row.
 
-    **There is no download control and no correction control**, because there is
-    no route for either. `duplicate_of` is rendered when it is set, so a retry
-    says it is a retry rather than implying a second import happened.
+    **A record, not a form.** There is no control on this page, no CSRF token and
+    no `<form>` element at all, because there is no accepted route that changes an
+    import. A correction is a compensating import, which is the plan's rule for
+    the whole platform — so a "correct this" button here would be a button for a
+    route that does not exist and must not.
+
+    **No artifact and no download.** No route in the accepted inventory serves an
+    artifact-derived byte. The checksum names a document a Council member cannot
+    download, deliberately: audit visibility does not by itself grant permission
+    to download the raw artifact.
+
+    **`refused` is rendered as loudly as `applied`.** A receipt that showed the
+    two the same way would let a reader take a refusal for a change, which is the
+    one misreading this page must make impossible.
+
+    **The title carries no import id.** A UUID in a tab title, a history entry or
+    a shared screenshot travels for no operator benefit; the stable reference is
+    on the page, where it can be read and quoted.
   #}
-  <h1>Import receipt</h1>
-  <dl data-import-id="{{ view.import_id }}"
-      data-status="{{ view.status }}"
-      data-mode="{{ view.mode }}">
-    <dt>Status</dt><dd data-field="status">{{ view.status }}</dd>
-    <dt>Applied by</dt>
-    <dd data-field="actor" data-capability="{{ view.capability.value }}">
-      {{ view.actor.label.value }}
-    </dd>
-    <dt>World</dt><dd data-field="world">{{ view.snapshot.world_id }}</dd>
-    <dt>Checksum</dt><dd data-field="checksum">{{ view.checksum_full }}</dd>
-    <dt>Folder</dt>
-    <dd data-field="folder" data-folder-id="{{ view.folder.folder_id }}">
-      {{ view.folder.folder_path.value }}
-    </dd>
-    <dt>Field profile</dt><dd data-field="profile-version">{{ view.profile_version }}</dd>
-    <dt>Created</dt><dd data-count="created">{{ view.created_count }}</dd>
-    <dt>Updated</dt><dd data-count="updated">{{ view.updated_count }}</dd>
-    <dt>Warnings</dt><dd data-count="warnings">{{ view.warning_count }}</dd>
-    <dt>Occurred</dt><dd data-field="occurred-at">{{ view.occurred_at.display }}</dd>
-    <dt>Correlation</dt><dd data-field="correlation">{{ view.correlation.id }}</dd>
-  </dl>
-  {% if view.issue_counts %}
-    <ul data-field="issues">
-      {% for issue in view.issue_counts %}
-        <li data-issue-code="{{ issue.code }}">{{ issue.code }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-  {% if view.duplicate_of %}
-    <p data-field="duplicate-of" data-job-id="{{ view.duplicate_of }}">
-      This confirmation returned an import that had already been applied. One
-      durable effect, one audit record.
+  <header class="page-header">
+    <div class="page-title-row">
+      <h1 class="page-title">Import Receipt</h1>
+      {% if view.status == "applied" %}
+        <span class="badge badge-success" data-field="status-badge">Applied</span>
+      {% else %}
+        <span class="badge badge-danger" data-field="status-badge">Refused</span>
+      {% endif %}
+      <span class="badge badge-secondary" data-field="mode-badge">{{ view.mode }}</span>
+    </div>
+    <p class="page-description">
+      An append-only record of one Foundry VTT snapshot import, as it was applied
+      or refused.
     </p>
+  </header>
+
+  <div class="alert alert-info" data-notice="append-only-record">
+    <p>
+      This receipt is history. It cannot be edited, corrected or withdrawn here,
+      and the snapshot it names cannot be downloaded. A correction is recorded as
+      a new, compensating import.
+    </p>
+  </div>
+
+  {#
+    The outcome, said in words and not only in a badge. Status is never carried
+    by colour alone: each branch states what did or did not happen to character
+    records.
+  #}
+  {% if view.status == "applied" %}
+    <div class="alert alert-success" role="status" data-field="outcome" data-status="applied">
+      <p>
+        <strong>Applied.</strong> This import committed the character records
+        counted below, in one transaction.
+      </p>
+    </div>
+  {% else %}
+    <div class="alert alert-danger" role="status" data-field="outcome" data-status="refused">
+      <p>
+        <strong>Refused. Nothing was applied.</strong> No character record was
+        created or changed by this import.
+      </p>
+    </div>
   {% endif %}
+
+  {% if view.duplicate_of %}
+    {#
+      A retry that resolved to an existing durable effect. It says so, rather
+      than implying a second import happened: one effect, one receipt, one audit
+      record. The value is the preview job the original confirmation came from.
+    #}
+    <div class="alert alert-warning" role="status"
+         data-field="duplicate-of" data-duplicate-of="{{ view.duplicate_of }}">
+      <p>
+        This confirmation returned an import that had <strong>already</strong>
+        been applied. One durable effect, one audit record — no second import
+        occurred. The confirmation it resolved to is
+        <span class="reference-code" data-field="duplicate-reference">{{ view.duplicate_of }}</span>.
+      </p>
+    </div>
+  {% endif %}
+
+  <section class="detail-section" data-section="record">
+    <h2 class="section-title">Record</h2>
+    <div class="card" data-import-id="{{ view.import_id }}"
+         data-state="{{ view.state }}"
+         data-status="{{ view.status }}"
+         data-mode="{{ view.mode }}">
+      <div class="data-grid">
+        <div class="data-item">
+          <span class="data-label">Import Reference</span>
+          <span class="data-value"><span class="reference-code" data-field="import-id">{{ view.import_id }}</span></span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Occurred</span>
+          <span class="data-value font-mono" data-field="occurred-at">{{ view.occurred_at.display }}</span>
+        </div>
+        <div class="data-item">
+          {#
+            The server-provided label. A supervised bootstrap has no interactive
+            user at all and is named as the platform — naming it as nobody would
+            render an empty cell a reader would take for a defect, and inventing
+            a person for it would be worse.
+          #}
+          <span class="data-label">Applied By</span>
+          <span class="data-value" data-field="actor" data-mode="{{ view.mode }}">
+            {{ view.actor.label.value }}
+          </span>
+        </div>
+        <div class="data-item">
+          <span class="data-label">Capability</span>
+          <span class="data-value">
+            <span class="badge badge-secondary badge-sm" data-field="capability">{{ view.capability.value }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="detail-section" data-section="scope">
+    <h2 class="section-title">Committed Scope</h2>
+    <div class="card">
+      <dl class="totals-dl" data-field="scope">
+        <div class="totals-item">
+          <dt class="totals-dt">world</dt>
+          <dd class="totals-dd font-mono" data-field="world-id">{{ view.snapshot.world_id }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">snapshot exported</dt>
+          <dd class="totals-dd font-mono" data-field="exported-at">{{ view.snapshot.exported_at.display }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">checksum (short)</dt>
+          <dd class="totals-dd font-mono" data-field="checksum-short">{{ view.snapshot.checksum_short }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">checksum (full)</dt>
+          <dd class="totals-dd font-mono" data-field="checksum-full">{{ view.checksum_full }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">actor folder</dt>
+          {#
+            Identity **and** path, and honest about which it has. A folder whose
+            path the platform never observed — or that was recorded without one —
+            renders as its stable identifier rather than as a manufactured
+            filesystem path.
+          #}
+          <dd class="totals-dd font-mono" data-field="folder"
+              data-folder-id="{{ view.folder.folder_id }}"
+              data-path-observed="{{ 'true' if view.folder.path_observed and view.folder.folder_path.value else 'false' }}">
+            {% if view.folder.path_observed and view.folder.folder_path.value %}
+              {{ view.folder.folder_path.value }}
+            {% else %}
+              {{ view.folder.folder_id }}
+              <span class="badge badge-warning badge-sm" data-state="unobserved">path not recorded</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">field profile</dt>
+          <dd class="totals-dd font-mono" data-field="profile-version">{{ view.profile_version }}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="detail-section" data-section="counts">
+    <h2 class="section-title">Character Records</h2>
+    <div class="card totals-card">
+      <dl class="totals-dl" data-field="counts">
+        <div class="totals-item">
+          <dt class="totals-dt">created</dt>
+          <dd class="totals-dd font-mono" data-count="created">{{ view.created_count }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">updated</dt>
+          <dd class="totals-dd font-mono" data-count="updated">{{ view.updated_count }}</dd>
+        </div>
+        <div class="totals-item">
+          <dt class="totals-dt">warnings</dt>
+          <dd class="totals-dd font-mono" data-count="warnings">{{ view.warning_count }}</dd>
+        </div>
+      </dl>
+      {% if view.status != "applied" %}
+        <p class="text-xs text-muted" data-note="refused-counts">
+          This import was refused, so these counts describe what it examined
+          rather than anything it changed.
+        </p>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if view.issue_counts %}
+    {#
+      Closed-vocabulary codes and counts. The reconciliation's own sentence is
+      never forwarded — `ISSUE_CODES` is closed precisely so the browser receives
+      a vocabulary the platform owns rather than text from an artifact.
+    #}
+    <section class="detail-section" data-section="issues">
+      <h2 class="section-title">Issues</h2>
+      <ul class="profile-item-list" data-field="issues">
+        {% for issue in view.issue_counts %}
+          <li class="profile-entry-item"
+              data-issue-code="{{ issue.code }}"
+              data-severity="{{ issue.severity }}">
+            <div class="profile-entry-main">
+              <code class="font-mono profile-key">{{ issue.code }}</code>
+              <span class="badge {% if issue.severity == 'error' %}badge-danger{% else %}badge-warning{% endif %} badge-sm" data-field="issue-severity">{{ issue.severity }}</span>
+              <span class="font-mono text-sm" data-field="issue-count">&times; {{ issue.count }}</span>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <section class="detail-section" data-section="reference">
+    <h2 class="section-title">Reference</h2>
+    <p class="text-sm">
+      Quote <span class="reference-code" data-field="correlation">{{ view.correlation.id }}</span>
+      when asking an operator about this import.
+    </p>
+  </section>
+
+  <nav class="cursor-nav" aria-label="Audit navigation">
+    <a href="/v1/audit" class="btn btn-secondary">View audit history &rarr;</a>
+  </nav>
 {% endblock %}

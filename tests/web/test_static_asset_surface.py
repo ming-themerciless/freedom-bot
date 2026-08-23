@@ -450,7 +450,7 @@ def test_the_static_root_contains_exact_authorized_corpus(asset):
     assert (STATIC_ROOT / "css").is_dir()
     assert (STATIC_ROOT / "images").is_dir()
     assert (STATIC_ROOT / "vendor").is_dir()
-    assert sorted(p.name for p in (STATIC_ROOT / "css").iterdir()) == ["freedom-blades.b0a1f3305683.css"]
+    assert sorted(p.name for p in (STATIC_ROOT / "css").iterdir()) == ["freedom-blades.58a9b9eed003.css"]
     assert sorted(p.name for p in (STATIC_ROOT / "images").iterdir()) == ["freedom-blades-token.eab0d13128f5.png"]
     assert sorted(p.name for p in (STATIC_ROOT / "vendor").iterdir()) == ["htmx-2.0.10.71ea67185bfa.min.js"]
     assert STATIC_ROOT == Path(__file__).resolve().parents[2] / "adapters" / "web" / "static"

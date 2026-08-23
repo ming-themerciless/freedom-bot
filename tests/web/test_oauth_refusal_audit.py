@@ -33,6 +33,7 @@ from typing import Callable
 from uuid import UUID
 
 import pytest
+from bs4 import BeautifulSoup
 from sqlalchemy import select, text
 
 from adapters.database.tables import (
@@ -47,6 +48,7 @@ from application.web.refusals import (
     UNBOUND_ENTITY_ID,
     UNBOUND_ENTITY_TYPE,
 )
+from tests.web.no_js_helpers import validate_exact_canonical_correlation_uuid
 from tests.web_fixtures import PUBLIC_ORIGIN
 
 pytestmark = pytest.mark.database
@@ -110,15 +112,17 @@ def _correlation_of(response) -> UUID:
         for pair in query.split("&"):
             key, _, value = pair.partition("=")
             if key == "correlation":
-                return UUID(value)
+                try:
+                    parsed = UUID(value)
+                except ValueError as exc:
+                    raise AssertionError(f"correlation query parameter {value!r} is not a valid UUID") from exc
+                if str(parsed) != value:
+                    raise AssertionError(f"correlation query parameter {value!r} is not in exact canonical UUID format")
+                return parsed
         raise AssertionError(f"no correlation id in {location!r}")
-    # The 403 branch renders VM-02, which prints the reference in the page.
-    for token in response.text.replace(".", " ").split():
-        try:
-            return UUID(token)
-        except ValueError:
-            continue
-    raise AssertionError("no correlation id in the rendered response")
+
+    # For rendered refusal pages (e.g. 403, 409, 503), delegate to shared strict validator
+    return validate_exact_canonical_correlation_uuid(response)
 
 
 # ---------------------------------------------------------------------------
@@ -580,3 +584,92 @@ async def test_a_refusal_that_cannot_be_recorded_does_not_become_a_login(
             ).scalar_one()
             == 0
         )
+
+
+def test_correlation_of_semantics_and_falsification() -> None:
+    """Falsification: _correlation_of strictly enforces exact canonical UUID text across redirects and refusal DOM."""
+    from unittest.mock import MagicMock
+
+    # 1. 303 Redirect extraction
+    r_redirect = MagicMock(status_code=303, headers={"location": "/v1/login?failure=auth_failed&correlation=11111111-1111-1111-1111-111111111111"})
+    assert _correlation_of(r_redirect) == UUID("11111111-1111-1111-1111-111111111111")
+
+    # Missing correlation query param on 303 fails
+    r_no_corr = MagicMock(status_code=303, headers={"location": "/v1/login?failure=auth_failed"})
+    with pytest.raises(AssertionError, match="no correlation id in"):
+        _correlation_of(r_no_corr)
+
+    # Uppercase / non-canonical UUID in query param fails
+    r_upper_query = MagicMock(status_code=303, headers={"location": "/v1/login?correlation=11111111-1111-1111-1111-11111111111A"})
+    with pytest.raises(AssertionError, match="not in exact canonical UUID format"):
+        _correlation_of(r_upper_query)
+
+    # 2. Rendered refusal page extraction (canonical lowercase hyphenated UUID)
+    r_html = MagicMock(
+        status_code=403,
+        text='<p>Reference <span class="reference-code">22222222-2222-2222-2222-222222222222</span>.</p>',
+    )
+    assert _correlation_of(r_html) == UUID("22222222-2222-2222-2222-222222222222")
+
+    # Missing .reference-code fails
+    r_missing = MagicMock(status_code=403, text='<p>Reference 22222222-2222-2222-2222-222222222222.</p>')
+    with pytest.raises(AssertionError, match="no correlation reference element"):
+        _correlation_of(r_missing)
+
+    # Duplicate .reference-code fails
+    r_duplicate = MagicMock(
+        status_code=403,
+        text='<span class="reference-code">22222222-2222-2222-2222-222222222222</span><span class="reference-code">33333333-3333-3333-3333-333333333333</span>',
+    )
+    with pytest.raises(AssertionError, match="expected exactly one correlation reference element"):
+        _correlation_of(r_duplicate)
+
+    # Leading whitespace fails
+    r_leading_space = MagicMock(status_code=403, text='<span class="reference-code"> 22222222-2222-2222-2222-222222222222</span>')
+    with pytest.raises(AssertionError):
+        _correlation_of(r_leading_space)
+
+    # Trailing whitespace fails
+    r_trailing_space = MagicMock(status_code=403, text='<span class="reference-code">22222222-2222-2222-2222-222222222222 </span>')
+    with pytest.raises(AssertionError):
+        _correlation_of(r_trailing_space)
+
+    # Uppercase UUID fails
+    r_uppercase = MagicMock(status_code=403, text='<span class="reference-code">22222222-2222-2222-2222-22222222222A</span>')
+    with pytest.raises(AssertionError, match="not in exact canonical UUID format"):
+        _correlation_of(r_uppercase)
+
+    # Unhyphenated UUID fails
+    r_unhyphenated = MagicMock(status_code=403, text='<span class="reference-code">22222222222222222222222222222222</span>')
+    with pytest.raises(AssertionError, match="not in exact canonical UUID format"):
+        _correlation_of(r_unhyphenated)
+
+    # Braced UUID fails
+    r_braces = MagicMock(status_code=403, text='<span class="reference-code">{22222222-2222-2222-2222-222222222222}</span>')
+    with pytest.raises(AssertionError, match="not in exact canonical UUID format"):
+        _correlation_of(r_braces)
+
+    # URN format fails
+    r_urn = MagicMock(status_code=403, text='<span class="reference-code">urn:uuid:22222222-2222-2222-2222-222222222222</span>')
+    with pytest.raises(AssertionError, match="not in exact canonical UUID format"):
+        _correlation_of(r_urn)
+
+    # Child markup / tags inside element fails
+    r_child_tag = MagicMock(status_code=403, text='<span class="reference-code"><b>22222222-2222-2222-2222-222222222222</b></span>')
+    with pytest.raises(AssertionError, match="child markup, comments, or mixed content"):
+        _correlation_of(r_child_tag)
+
+    # Comments inside element fails
+    r_comment = MagicMock(status_code=403, text='<span class="reference-code">22222222-2222-2222-2222-222222222222<!-- comment --></span>')
+    with pytest.raises(AssertionError, match="child markup, comments, or mixed content"):
+        _correlation_of(r_comment)
+
+    # Extra prose fails
+    r_prose = MagicMock(status_code=403, text='<span class="reference-code">Ref: 22222222-2222-2222-2222-222222222222</span>')
+    with pytest.raises(AssertionError, match="not a valid UUID"):
+        _correlation_of(r_prose)
+
+    # Malformed non-UUID text fails
+    r_malformed = MagicMock(status_code=403, text='<span class="reference-code">not-a-uuid</span>')
+    with pytest.raises(AssertionError, match="not a valid UUID"):
+        _correlation_of(r_malformed)

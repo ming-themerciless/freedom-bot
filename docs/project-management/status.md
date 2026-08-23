@@ -1,5 +1,289 @@
 # Project status
 
+Status date: 2026-08-23 (thirty-ninth update: Peter/Acceptance Authority accepted
+P3.4 in full, including Step 13, after the independent Codex implementation review
+and distinct security-focused review passed with no blocking or important findings.
+Stop gate P3.G4 is closed. P3.5 is released to begin its approved planning and gate-
+evidence work. This decision does not authorize staging, deployment, public exposure,
+live-service contact, production data, or real-player-data use: RAID I-06 and A-05 remain
+open and continue to block those actions. TC-UI-01/02, TC-UI-08 and TC-UI-09 remain
+honestly Not Run and are carried into P3.5/staging evidence and residual accessibility
+risk R-23.)
+
+Update 2026-08-23 (thirty-ninth) — P3.4 and Step 13 accepted; P3.G4 closed; P3.5 released.
+
+- **Acceptance decision:** Peter Duscha, Acceptance Authority, accepted Milestone P3.4
+  in full, including Step 13, on 2026-08-23 and closed stop gate P3.G4.
+- **Independent review:** Codex completed the independent implementation review and a
+  distinct security-focused review. Both passed with no blocking or important findings.
+  The final focused security/accessibility/authentication verification was 228 passed,
+  99 non-blocking HTTPX deprecation warnings, and zero failures. All five literal evidence-
+  validator commands reproduced their recorded exit statuses and complete output.
+- **Accepted evidence:** the complete historical suites remain 2,168 web tests passed
+  with 80 intentional matrix skips, 2,294 bot/domain tests passed, 155 Foundry tests
+  passed, three static-asset hashes verified, 14 visual-freeze hashes verified, bytecode
+  compilation clean, and `git diff --check` clean.
+- **Next package:** P3.5 may begin only within the approved Phase 3 plan and must produce
+  its own gate evidence. This acceptance is not a deployment or exposure decision.
+- **Open operational prerequisites:** I-06 remains open pending real isolated-staging,
+  browser, device and performance evidence. A-05 remains open pending establishment of
+  the protected administrator account and enrollment of at least two WebAuthn credentials
+  on the target host.
+- **Residual evidence:** TC-UI-01/02, TC-UI-08 and TC-UI-09 remain Not Run. Peter accepts
+  P3.4 with those limitations visible; they remain controlled by R-23 and the P3.5/staging
+  evidence package rather than being reclassified as passed.
+- **Formal record:** `docs/review/phase-3-p3-4-step-13-final-independent-reviews-and-acceptance.md`;
+  change-log entry `C-P3.4-E`.
+
+Update 2026-08-23 (thirty-eighth) — P3.4 Step 12 accepted; Step 13 complete verification & remediation submitted.
+
+- **Decision:** Peter Duscha (Acceptance Authority) accepted Step 12 and authorized Step 13
+  verification and submission. Following Codex independent review, Peter authorized bounded
+  documentation remediation for findings R13-01 through R13-13.
+- **Codex Review Evidence & Verification:**
+  - Codex bounded focused check: 174 passed, 94 warnings in 8.75s; manifests OK; found no new implementation or focused-security blocker in the exercised surfaces. Not a complete implementation or distinct security review.
+  - Complete Historical Verification: `tests/web` (2168 passed, 80 matrix skips, 1063 warnings in 127.20s),
+    bot suite (2294 passed in 136.38s), Foundry suite (155 passed in 212.38ms), asset integrity 3/3 OK,
+    visual freeze 14/14 OK, bytecode compilation clean in both venvs, `git diff --check` clean, CSS tokens
+    (0 undefined), contrast ratios (48/48 PASS AA/AAA, 1 exempt).
+- **Remediation Dispositions (R13-01 through R13-13):**
+  - **R13-01 (Screen Matrix Rebuild):** Reconstructed screen matrix mechanically from accepted route and
+    view-model contracts across all 26 production templates and fragments under `adapters/web/templates/`.
+  - **R13-02 & R13-06 (Exact Route & Handler Traceability):** Mapped every route (R-01..R-10, R-20..R-38, R-40..R-49, M-01)
+    to its exact handler symbol (`app.py`, `static_assets.py::StaticAssets`, `portal_routes.py`, `import_routes.py`).
+  - **R13-07 & R13-10 (Exact Valid Test Symbol Traceability):** Replaced all filename-only or invalid citations with
+    exact top-level test symbols in `path/to/test_file.py::test_symbol` notation (`test_oauth_flow.py`, `test_request_authority_and_lifecycle.py`,
+    `test_break_glass_login.py`, `test_oauth_refusal_audit.py`).
+  - **R13-11 (Material R-01 and R-10 Evidence):** Provided material behavioral test evidence for R-01 (`test_the_session_cookie_looked_up_and_cleared_is_still_graph_as`)
+    and R-10 (`test_health_evaluation_still_receives_graph_a`, `test_the_kill_switch_closes_the_portal_and_leaves_health_answering`).
+  - **R13-12 (Individual F-SEC-01..11 Traceability):** Individually listed F-SEC-01 through F-SEC-11 in the requirements matrix without range shorthand.
+  - **R13-03 & R13-08 (Narrow Presentation Candidate Inventory):** Defined truthful presentation candidate inclusion rule;
+    recorded exactly 53 live candidate artifacts plus 1 rename-provenance row (`freedom-blades.b0a1f3305683.css`) = 54 evidence rows,
+    with literal Git states, current SHA-256 digests, and explicit naming of excluded unchanged backend modules.
+  - **R13-04 (Authoritative RAID Meanings):** Restored authoritative RAID meanings for R-22 (contract drift),
+    R-23 (accessibility regression), RR-17 (commit fence lock), RR-18 (recovery publication), and RR-19
+    (roll-forward schema boundary); separated factual presentation bounds (character name 120-char bound,
+    single-provider linking constraint, static asset delivery) without assigning RAID IDs.
+  - **R13-05, R13-09 & R13-13 (Project Records, Literal Extraction Validator & In-Memory Falsification Suite):** Reconciled project records,
+    embedded copy/paste-ready standalone inline Python AST-aware validator command in submission (extracting 193 test references across 105 unique node IDs
+    and verifying both asset/freeze manifests directly), replaced all placeholder invocations with independently executable literal commands that extract the canonical validator block, verified 3 negative in-memory falsification tests
+    (capturing full stack tracebacks and exit status 1 for false test path, false test symbol, prohibited shorthand), verified unquoted-reference extraction coverage, and narrowed Codex review claims.
+- **Honest Not-Run Status:**
+  - TC-UI-01 & TC-UI-02: Not Run (no browser binary or automation framework installed on host).
+  - TC-UI-08: Not Run — Peter/maintainer real-device acceptance.
+  - TC-UI-09: Not Run — assistive-technology/screen-reader review.
+- **Submission Record:** Rebuilt `docs/review/phase-3-p3-4-submission.md` with complete 26-template screen
+  matrix, comprehensive handler/test traceability, verification transcript, 54-row inventory, and external digest design.
+- **Stop Condition & Gate State:** Gemini stops at Step 13 submission boundary. Independent Codex
+  implementation review and distinct security-focused review of the remediated submission are requested
+  and pending. Gate P3.G4 remains open, RAID I-06 and A-05 remain open, and Milestone P3.5 remains held.
+- **Boundaries Unchanged:** Zero live services, secrets, staging, deployment, production PostgreSQL, or real
+  player data were accessed.
+
+Update 2026-08-23 (thirty-seventh) — P3.4 Step 12 remediation completed (R12-08).
+
+- **Decision:** Peter Duscha (Acceptance Authority) released Step 12 remediation under
+  the accepted remediation release-policy clarification to resolve Codex review findings.
+- **Remediations Addressed:**
+  - **R12-08 (Real Username/Global-Name Presentation Boundary):**
+    - Retracted nonnumeric `external_identities.subject` test fixture.
+    - Verified `test_account_identity_subject_display_canonical_snowflake` on `GET /v1/account/identities` (R-35) with canonical decimal snowflake.
+    - Identified real production provider projection (`discord_users`, `discord_guild_memberships`), service (`identity_search`), view model (`IdentitySearchResultsView`), and template (`identity_search.html`) on route `GET /v1/council/identity-search` (R-24).
+    - Exercised all 7 in-bound hostile vectors across `span.candidate-username strong` and `span.candidate-global-name`, verifying inert DOM rendering, literal template non-evaluation, exact code-point sequence matching, and snowflake integrity.
+    - Tested over-bound behavior: exact 80-char in-bound representation preserved (`DISCORD_NAME_BOUND=80`), while over-bound 10,000-char strings are refused by database constraint `VARCHAR(80)`.
+    - Added falsification probe F-SEC-11 on real ASGI `GET /v1/council/identity-search` responses.
+- **Verification Results:**
+  - **Dedicated Step 12 Test Suite (`tests/web/test_p3_4_security_and_escaping.py`):** 70 passed, 83 warnings in 6.75s (run 3 times consecutively: 6.66s, 6.57s, 6.75s; all 70 passed).
+  - **Six Primary Step 12 Suites:** 298 passed, 0 skipped, 0 failures, 232 warnings in 12.47s (`test_p3_4_security_and_escaping.py`, `test_p3_4_identity_and_role_views.py`, `test_p3_2_request_boundary.py`, `test_security_controls.py`, `test_p3_4_accessibility.py`, `test_structural_guards.py`).
+  - **Complete Configured `tests/web` Suite:** 2168 passed, 80 intentional matrix skips, 0 failures, 1063 warnings in 125.38s (0:02:05).
+  - **Static Integrity Checks:** `asset-integrity.sha256` 3/3 OK, `phase-3-visual-freeze-manifest.sha256` 14/14 OK, `compileall` 0 errors, `git diff --check` clean.
+- **Stop condition:** Gemini stops at Step 12 boundary for independent Codex review and Peter's Step 12 acceptance decision. Gate P3.G4 remains open; Step 13 remains held.
+- **Boundaries unchanged:** No live services, secrets, staging, deployment, production PostgreSQL, or real player data were accessed.
+- **Record:** `docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`.
+
+Update 2026-08-23 (thirty-sixth) — P3.4 Step 12 remediation completed (R12-05 through R12-07).
+
+- **Decision:** Peter Duscha (Acceptance Authority) released Step 12 remediation under
+  the accepted remediation release-policy clarification to resolve Codex review findings.
+- **Remediations Addressed:**
+  - **R12-05 (Enforce exact governed text and exact bounds):** `assert_hostile_renders_inert`
+    enforces exact string equality (`assert governed_text == expected_text`), exact length
+    bounds (`len(governed_text) == len(expected_text)`), exact Unicode code-point sequence
+    matching (`[ord(c) for c in governed_text] == [ord(c) for c in expected_text]`), and
+    proves full over-bound strings are never leaked. Formatted assertion diagnostics avoid
+    echoing raw hostile payloads. Falsification proves failure on 201/199 len, extra suffix,
+    and NFD vs NFC code-point mismatch.
+  - **R12-06 (Strict Canonical Single Correlation UUID):** Implemented shared validator
+    `validate_exact_canonical_correlation_uuid` in `tests/web/no_js_helpers.py`, reused in
+    `test_oauth_refusal_audit.py` and `test_p3_4_security_and_escaping.py`. Rejects duplicate
+    elements, uppercase UUIDs, braced UUIDs, URN UUIDs, unhyphenated hex, whitespace, child
+    elements, comments, prose wrappers, malformed UUIDs, and internal exception leaks.
+  - **R12-07 (Real-Response Falsification & Identity-Display Contract Closure):** Refactored
+    probes F-SEC-03, F-SEC-06, F-SEC-07, F-SEC-08, F-SEC-09, and F-SEC-10 to use real ASGI
+    response baselines. Added `test_hostile_rendering_identity_subject_display` exercising
+    `external_identities.subject` against `code.identity-subject` on `GET /v1/account/identities`.
+    Documented identity-display disposition under Phase 3 contract §6.3.
+- **Verification Results:**
+  - **Dedicated Step 12 Test Suite (`tests/web/test_p3_4_security_and_escaping.py`):** 60 passed, 73 warnings in 5.77s (run 3 times consecutively: 6.19s, 6.07s, 5.77s; all 60 passed).
+  - **Six Primary Step 12 Suites:** 271 passed, 0 skipped, 0 failures, 135 warnings in 13.40s (`test_oauth_refusal_audit.py`, `test_security_controls.py`, `test_p3_4_security_and_escaping.py`, `test_p3_4_accessibility.py`, `test_p3_3_disclosure_and_bounds.py`, `test_structural_guards.py`).
+  - **Complete Configured `tests/web` Suite:** 2158 passed, 80 intentional matrix skips, 0 failures, 1053 warnings in 126.83s (0:02:06).
+  - **Static Integrity Checks:** `asset-integrity.sha256` 3/3 OK, `phase-3-visual-freeze-manifest.sha256` 14/14 OK, `compileall` 0 errors, `git diff --check` clean.
+- **Stop condition:** Gemini stops at Step 12 boundary for independent Codex review and Peter's Step 12 acceptance decision. Gate P3.G4 remains open; Step 13 remains held.
+- **Boundaries unchanged:** No live services, secrets, staging, deployment, production PostgreSQL, or real player data were accessed.
+- **Record:** `docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`.
+
+Update 2026-08-22 (thirty-fifth) — P3.4 Step 12 remediation completed (R12-01 through R12-04).
+
+- **Decision:** Peter Duscha (Acceptance Authority) released Step 12 remediation under
+  the accepted remediation release-policy clarification to resolve Codex review findings.
+- **Remediations Addressed:**
+  - **R12-01 (Deterministic & Value-Bound Hostile Rendering):** `assert_hostile_renders_inert`
+    refactored to require explicit container selector and exact expected cardinality. Evaluates
+    Jinja `{{7*7}}` non-evaluation strictly within the governed container rather than scanning
+    whole-page text/UUIDs. Non-no-op falsification probes verify failure on injected elements,
+    evaluated 49, missing value, wrong container, and over-bound mismatch.
+  - **R12-02 (Real Hostile Boundaries & Presentation Surfaces):** Governed real application
+    surfaces for character names (R-21 `a.char-title-link`, R-22 `h1.page-title`, R-31
+    `a.char-title-link strong`), audit event reasons (R-49 `[data-field="fact-after"]`),
+    and reconciliation candidate names (R-43 `[data-field="blocked-name"]`). Bounded over-bound
+    10,000-char vectors at real boundaries, proving exact truncation to `ACTOR_NAME_BOUND=120`
+    and `AUDIT_VALUE_BOUND=200`. Closed-vocabulary query parameters tested under refusal rules.
+  - **R12-03 (Consolidated Shared No-JS Validator):** Moved `FlowContract`, `FormContract`,
+    `strip_htmx_attributes`, and `validate_rendered_no_js_fallback` to `tests/web/no_js_helpers.py`,
+    shared by both `test_p3_4_accessibility.py` and `test_p3_4_security_and_escaping.py`.
+    Inventoried all 9 essential flows with exact action, method, CSRF, and hidden field checks.
+  - **R12-04 (Exact Safe-Body Contracts & Truthful Handoff):** Real ASGI body-contract evidence
+    and falsification implemented for denial (`denied.html`), validation (`validation.html`, 413/415),
+    stale (`degraded.html`), and safe error (`error.html` with canonical correlation UUID). Falsification
+    probes honestly numbered F-SEC-01 through F-SEC-10.
+- **Verification Results:**
+  - **Dedicated Step 12 Test Suite (`tests/web/test_p3_4_security_and_escaping.py`):** 53 passed, 61 warnings in 4.74s (run 3 times independently: 5.19s, 4.67s, 4.74s; all 53 passed).
+  - **Five Primary Step 12 Suites:** 237 passed, 0 skipped, 0 failures, 123 warnings in 11.14s (`test_security_controls.py`, `test_p3_4_security_and_escaping.py`, `test_p3_4_accessibility.py`, `test_p3_3_disclosure_and_bounds.py`, `test_structural_guards.py`).
+  - **Complete Configured `tests/web` Suite:** 2151 passed, 80 intentional matrix skips, 0 failures, 1041 warnings in 123.34s (0:02:03).
+  - **Static Integrity Checks:** `asset-integrity.sha256` 3/3 OK, `phase-3-visual-freeze-manifest.sha256` 14/14 OK, `compileall` (venv-web and venv) 0 errors, `git diff --check` clean.
+- **Stop condition:** Gemini stops at Step 12 boundary for independent Codex review and Peter's Step 12 acceptance decision. Gate P3.G4 remains open; Step 13 remains held.
+- **Boundaries unchanged:** No live services, secrets, staging, deployment, production PostgreSQL, or real player data were accessed.
+- **Record:** `docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`.
+
+- **Decision:** Peter Duscha (Acceptance Authority) released Step 12 whole-corpus security
+  and progressive-enhancement pass. Step 11.3 verification accepted and closed.
+- **Implementation & Verification Results:**
+  - **Dedicated Step 12 Test Suite (`tests/web/test_p3_4_security_and_escaping.py`):** 54 passed in 4.72s.
+  - **Five Primary Step 12 Suites:** 238 passed, 0 skipped, 0 failures, 110 warnings in 10.92s (`test_security_controls.py`, `test_p3_4_security_and_escaping.py`, `test_p3_4_accessibility.py`, `test_p3_3_disclosure_and_bounds.py`, `test_structural_guards.py`).
+  - **Complete Configured `tests/web` Suite:** 2152 passed, 80 intentional matrix skips, 0 failures, 1028 warnings in 125.21s (0:02:05).
+  - **Static Integrity Checks:** `asset-integrity.sha256` 3/3 OK, `phase-3-visual-freeze-manifest.sha256` 14/14 OK, `compileall` (venv-web and venv) 0 errors, `git diff --check` clean.
+- **Evidence Status:**
+  - TC-SEC-05 exact security headers (CSP N-26, nosniff, Referrer-Policy, COOP, CORP, Permissions-Policy, Cache-Control: no-store, 0 XFO, 0 CORS) verified across all 10 response families.
+  - TC-SEC-08 autoescaping enabled and 0 `|safe` / bypasses verified via AST and token inspection across all 26 production templates.
+  - TC-SEC-09 hostile input matrix verified inert and bounded across real presentation surfaces.
+  - TC-SEC-10 executable context guards verified across all 26 templates (0 `hx-on:`, 0 `on*`, 0 `javascript:`, 0 inline scripts, 0 remote origins).
+  - TC-SEC-11 script context invariants verified across all 26 templates.
+  - Safe response bodies verified for denial, validation, stale, and safe errors (0 leaks of stack traces, SQL, paths, or secrets).
+  - Essential no-JavaScript flow fallback integrity verified with `hx-*` stripped.
+  - Controlled falsification probes F-SEC-01 through F-SEC-10 verified against production validators.
+  - Host environment checked via read-only discovery: no browser binary or automation framework installed; browser-driven execution marked honestly as Not Run.
+- **Stop condition:** Gemini stops at Step 12 boundary for independent Codex review and Peter's Step 12 acceptance decision. Gate P3.G4 remains open; Step 13 remains held.
+- **Boundaries unchanged:** No live services, secrets, staging, deployment, production PostgreSQL, or real player data were accessed.
+- Record: `docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`.
+
+Status date: 2026-08-22 (thirty-third update: Peter/Acceptance Authority and Codex
+accepted P3.4 Step 11.2 final closure. Peter explicitly released Step 11.3
+verification-only. Gemini executed the complete 17-suite P3.4 regression surface,
+the complete tests/web suite, the bot/domain suite, the Foundry-module suite, and
+static integrity checks with zero failures and zero errors. P3.G4 remains open and
+Steps 12 and 13 remain held.)
+
+Update 2026-08-22 (thirty-third) — P3.4 Step 11.2 accepted, Step 11.3 verification completed.
+
+- **Decision:** Peter and Codex accepted Step 11.2 (findings R11.2-01 through R11.2-05
+  reconciled and verified). Peter released Step 11.3 as verification-only.
+- **Verification Results:**
+  - **17-Suite P3.4 Regression Surface:** Codex's independently retained result is 798 passed, 26 intentional matrix skips, 0 failures and 626 warnings in 36.04s. Gemini's earlier aggregate record reported the same pass/skip result but 638 warnings in 47.90s; that warning count conflicts with its per-module counts (626), and the original output was not retained sufficiently to resolve the discrepancy. The 47.90s value is the aggregate run time, not a per-module sum.
+  - **Complete Configured `tests/web` Suite:** 2098 passed, 80 intentional matrix skips, 0 failures, 980 warnings in 123.93s.
+  - **Bot / Domain Suite:** 2294 passed, 0 skipped, 0 failures, 1 warning in 134.74s.
+  - **Foundry-Module Node Suite:** 155 passed, 0 skipped, 0 failures in 207.71ms.
+  - **Static Integrity Checks:** `asset-integrity.sha256` OK, `phase-3-visual-freeze-manifest.sha256` OK, `compileall` (venv-web and venv) 0 errors, `git diff --check` clean.
+- **Evidence Status:** Browser capability discovery confirmed no browser binary or automation framework is installed on host; TC-UI-01/02 remain not run, TC-UI-08 remains held for Peter's real-device inspection, TC-UI-09 remains held for human screen-reader traversal.
+- **Stop condition:** Gemini stops at Step 11.3 boundary for independent Codex review and Peter's final Step 11 acceptance decision. Gate P3.G4 remains open; Steps 12 and 13 remain held.
+- **Boundaries unchanged:** No live services, secrets, staging, deployment, production PostgreSQL, or real player data were accessed.
+- Record: `docs/review/phase-3-p3-4-step-11-3-final-verification-handoff.md`.
+
+Status date: 2026-08-22 (thirty-second update: Peter/Acceptance Authority
+explicitly released P3.4 Step 11 after accepting Step 10. Gemini is authorized
+to perform the bounded whole-corpus accessibility and responsive pass, then must
+stop for independent review.)
+
+Update 2026-08-22 (thirty-second) — P3.4 Step 11 released.
+
+- **Decision:** Peter released Step 11 through his instruction to write its
+  implementation prompt. Step 10 remains accepted and closed.
+- **Scope:** whole-corpus semantic structure, keyboard operation, visible focus,
+  320/768/1280 layouts, 200% reflow, reduced motion, state consistency and
+  honest TC-UI-01…TC-UI-06 evidence only.
+- **Evidence boundary:** browser automation may run only with an already-installed
+  browser; no dependency or browser installation is authorized. TC-UI-07 retains
+  its supervised rendered-surface portion, TC-UI-08 remains Peter's real-device
+  check, and TC-UI-09 remains real screen-reader traversal. Unavailable evidence
+  must be reported as not run, never simulated.
+- **Stop condition:** Gemini must stop after Step 11 handoff for independent
+  Codex review and Peter's acceptance decision. Step 12 and Step 13 remain held.
+- **Boundaries unchanged:** P3.G4, I-06 and A-05 remain open. No staging,
+  deployment, public exposure, live-service contact, secret access or real-data
+  use is authorized.
+- Released prompt: `docs/review/Handover information`.
+
+Status date: 2026-08-22 (thirty-first update: Peter/Acceptance Authority accepted
+P3.4 Step 10 after independent Codex re-review found no remaining findings and
+the complete PostgreSQL-backed Step 10 surface passed. Step 10 is closed; P3.G4
+remains open and Step 11 remains held.)
+
+Update 2026-08-22 (thirty-first) — P3.4 Step 10 accepted.
+
+- **Decision:** Peter accepted P3.4 Step 10 and closed its bounded implementation
+  gate. The accepted scope is VM-17/R-47 immutable import receipts and
+  VM-18/R-48–R-49 bounded audit search/results.
+- **Independent review:** the final Codex re-review found no remaining finding.
+  The server-accepted page size is carried through VM-18, pagination assertions
+  compare exact parsed query values, fixture teardown proves zero tracked
+  PostgreSQL residue across the complete Step 10 synthetic topology, and the
+  digest registry separates the previously accepted Step 1–9 corpus from the
+  Step 10 review candidate until this recorded decision.
+- **Evidence:** focused Step 10/P3.3 audit evidence passed **104 tests with 0
+  failures and 0 skips**. The complete 16-suite P3.4 surface through Step 10
+  passed **815 tests, 26 intentional matrix skips and 0 failures** against
+  disposable PostgreSQL. `compileall` and `git diff --check` passed.
+- **Accepted Step 10 template hashes:** `audit_results.html`
+  `42883ac57fd38b342cb4471c46f001b549818e07faa7c772d8f2a2df09ba0e38`,
+  `audit_search.html`
+  `6453c99cd068918be029d7f592b8a934654b11f05e324400ef080d83e878ec23`,
+  and `import_result.html`
+  `15735d60fdb5a5b3c8435a7ee389af7e6ec027c2f386cdee55f3d109bd42c86e`.
+- **Next-step boundary:** this decision accepts Step 10 only. It does not close
+  P3.G4, release Step 11, authorize staging or deployment, permit live-service
+  contact, or authorize secrets, production data, real snapshots or player
+  data. I-06 and A-05 remain open.
+- Record:
+  `docs/review/phase-3-p3-4-step-10-final-independent-review-and-acceptance.md`.
+
+Status date: 2026-08-21 (thirtieth update: Peter/Acceptance Authority explicitly
+released P3.4 Step 10 after accepting Step 9. The preserved Step 10 template
+drafts were restored, and Gemini is instructed to complete VM-17/R-47 and
+VM-18/R-48–R-49 only, then stop for independent review.)
+
+Update 2026-08-21 (thirtieth) — P3.4 Step 10 released.
+
+- **Decision:** Peter released Step 10. Step 9 remains accepted and closed.
+- **Scope:** immutable import receipts and bounded audit search/results only
+  (VM-17/R-47 and VM-18/R-48–R-49).
+- **Restoration:** the three preserved Step 10 template drafts were restored from
+  the dedicated stash; that stash was dropped after successful restoration.
+- **Evidence required:** a new PostgreSQL-backed
+  `tests/web/test_p3_4_import_and_audit_views.py`, corrected full-page/fragment
+  cursor evidence, final template hashes, and independent Codex review.
+- **Boundaries unchanged:** Step 10 is released, not accepted. P3.G4, I-06 and
+  A-05 remain open. Deployment, public exposure, live-service contact and real
+  data remain unauthorized.
+
 Status date: 2026-08-21 (twenty-ninth update: Peter/Acceptance Authority accepted
 P3.4 Step 9 after the final independent review closed the R-37, R-42 and R-46
 findings and the complete PostgreSQL-backed Step 9 gate passed. Step 9 is closed;

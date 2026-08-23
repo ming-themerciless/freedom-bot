@@ -54,6 +54,7 @@ from adapters.web.import_routes import register as register_p3_3_routes
 from adapters.web.portal_routes import P3_2_ROUTE_INVENTORY
 from adapters.web.portal_routes import register as register_p3_2_routes
 from adapters.web.middleware import (
+    SECURITY_HEADERS,
     BodyBound,
     ClientAddressPolicy,
     HostGuard,
@@ -1320,12 +1321,16 @@ def _register_error_handlers(app: FastAPI, authority: RequestAuthority) -> None:
         )
         view = SafeErrorView(state="error", correlation=Correlation(correlation_id))
         try:
-            return authority.render(request, "error.html", view=view, status_code=500)
+            response = authority.render(request, "error.html", view=view, status_code=500)
         except Exception:  # noqa: BLE001 - the error page must never fail twice
-            return JSONResponse(
+            response = JSONResponse(
                 {"error": "unexpected_error", "correlation_id": str(correlation_id)},
                 status_code=500,
             )
+        for header, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 __all__ = [
