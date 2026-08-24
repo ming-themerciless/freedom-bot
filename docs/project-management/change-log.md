@@ -6683,6 +6683,87 @@ off. It closes nothing.
   outstanding test rows or the Phase 3 gate, and has not authorized public
   exposure or Phase 4.
 
+## C-P3.5-L — Supervised browser and authenticator session executed; SP-21 and SP-22 added; eight findings raised
+
+**Date:** 2026-08-24 · **Requester:** Peter Duscha / Operations Owner, under SG-3 ·
+**Status:** **§4 procedure complete. No RAID item closed; no gate decision requested.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05, I-06,
+  R-23; TC-BG-02, TC-UI-01, TC-UI-02; findings F-15 and F-17; the Phase 3 gate.
+- **Reason and alternatives considered:** the frontend repository implementation was
+  accepted by Codex on 2026-08-24 with the explicit caveat that no real browser or
+  authenticator had completed the workflow. Treating the green Node and pytest
+  suites as sufficient was rejected then and is rejected here. The bounded procedure
+  in `phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md` §4 was
+  executed instead, in two sittings, with the Operations Owner driving his own
+  browser and physical authenticators.
+- **Added/removed scope:** **no repository change of any kind.** No code, template,
+  asset, migration or configuration was modified during the session; the working
+  tree stayed clean at `0c95e72`. One evidence document was authored:
+  `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`.
+- **Dependency and critical-path effect:** F-15's operational half is discharged — a
+  human completed break-glass login in a real browser, twice, on two credentials,
+  under a verified Discord outage. TC-UI-01/02 are satisfied for one browser on one
+  platform. The critical path moves to SP-21/SP-22, the disposition of the six
+  findings below, and the untouched I-06 procedures.
+- **Estimate/forecast and capacity effect:** the session cost roughly 90 minutes of
+  Operations Owner time across two sittings, inside decision D-g's ~30-minute units.
+  No calendar date is committed.
+- **New or changed risks:** **eight findings, none caught by any test suite.**
+  **S-1 (resolved):** the deployed process was serving code 8½ hours older than the
+  commit under test; the page under test returned HTTP 500 while the full suite was
+  green and `/healthz` reported `ok`. Fixed by restart; the deploy/reload gap
+  remains. **S-4 (important):** `/healthz` reports `identity_provider: true`
+  unconditionally — a hardcoded literal, not a probe, so the portal cannot report a
+  Discord outage. **S-5 (important, security):** rate-limited break-glass refusals
+  write no audit record while showing the user a correlation reference that resolves
+  to nothing; the refusals that stop being recorded are the ones that indicate an
+  attack. **S-6 (important):** every logout is audited as `guild_member`, including a
+  break-glass administrator holding no guild membership. **S-7 (important,
+  operational):** the R-07 options call and the R-08 verify call share one limiter
+  bucket, so a completed ceremony costs two of five per-address units and a cancelled
+  one costs one. **S-9 (important, security):** a replayed recovery grant and an expired one produce
+  byte-identical audit payloads (`grant_not_live`) with no grant reference, so an
+  investigator cannot distinguish a possibly-leaked token from a slow operator; the
+  single-statement `consume` that causes it is itself correct and should stand.
+  **S-8 (cosmetic):** the Product Owner finds the post-sign-out page unpolished; it
+  passes every functional and accessibility check applied, and the visual baseline is
+  frozen, so any change is a scope decision. **S-2 (observation):**
+  `freedom-worker.service` is inactive while `/healthz` reports
+  `worker_heartbeat: true`. A usability risk is also recorded: the
+  operator cannot distinguish live from retired credentials in his authenticator,
+  which with S-7 is a genuine break-glass availability concern.
+- **Testing, migration, security and operational effect:** all seven required views
+  observed at 320/768/1280 CSS pixels and 200% zoom; keyboard-only traversal
+  including a keyboard-actuated POST sign-out; the no-JavaScript branch observed in a
+  scriptless browser with no dead control. Two ceremonies on two distinct enabled
+  credentials, both under an `iptables` provider outage scoped to the portal's service
+  account and verified in both directions (`000` after 1 ms blocked, `405` restored)
+  with the live bot unaffected (`200` throughout). A retired credential was presented
+  and refused as `unknown_credential`. Break-glass sign-out invalidated the session
+  server-side. No schema, migration or configuration change.
+- **Product Owner recommendation:** submit to Codex now. The one gap identified at
+  drafting — that the session had evidenced the continuity *navigation* withholding
+  Council, character and snapshot destinations but never the *routes* refusing them —
+  was closed immediately afterwards: R-20, R-22 and R-40 each answered the denial page
+  against a live break-glass session. The import-apply POST routes (R-41, R-46) remain
+  suite-level only, because driving them would require handling the operator's session
+  cookie. **SP-21 was also executed**: a recovery grant was issued host-locally, used
+  exactly once, then refused on replay and refused again after a deliberate 15-minute
+  wait that cleared both the 10-minute ceiling and the N-33 window, so the expiry
+  refusal could not be a limiter refusal in disguise. The token was never transmitted,
+  never recorded and never entered a shell history. **A false pass was avoided in the
+  process**: the first run of that check was
+  performed signed-out and returned the sign-in page, which is the sessionless `303`
+  path and not a refusal; it was caught by comparing the observation against the two
+  code paths rather than against expectation.
+- **Technical Lead and specialist reviews:** not yet requested. The findings are
+  recorded undispositioned and deliberately unfixed — no repository change belongs
+  inside an evidence session.
+- **Acceptance Authority decision:** **none requested.** A-05, I-06, A-06, R-23,
+  TC-BG-02, TC-UI-01/02 and the Phase 3 gate all remain open. Public exposure and
+  Phase 4 remain unauthorized.
+
 ## Required fields for later entries
 
 Every material entry must identify:
