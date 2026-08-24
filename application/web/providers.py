@@ -182,6 +182,29 @@ class IdentityProvider(Protocol):
         return an identity carrying this adapter's `provider_key`.
         """
 
+    async def probe(self) -> bool:
+        """Is the provider reachable and answering? One bounded, read-only call.
+
+        Added 2026-08-24 for finding S-4/S5. `/healthz` reported
+        `identity_provider: true` as a **literal** — the check that exists to
+        tell an operator whether Discord is up said "up" throughout the outage
+        the same session had deliberately created, which is worse than reporting
+        nothing at all.
+
+        The contract an implementation owes:
+
+        * **bounded** — its own short timeout, tighter than the request timeout,
+          so a hanging provider cannot hang the health endpoint;
+        * **side-effect free** — no token, no credential, no state change, and
+          no scope beyond what an anonymous caller has;
+        * **total** — it answers `True` or `False` and raises nothing, because a
+          probe that raised would turn a degraded dependency into a `500` from
+          the endpoint an operator reaches for during a degradation; and
+        * **silent** — the answer is a boolean. No status code, no body, no URL
+          and no exception text reaches the caller, because VM-16 carries check
+          names and booleans and has never carried anything else.
+        """
+
 
 __all__ = [
     "IdentityProvider",

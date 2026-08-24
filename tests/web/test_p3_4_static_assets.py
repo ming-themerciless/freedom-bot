@@ -355,6 +355,27 @@ PERMITTED_P3_5_BACKEND = {
     "application/web/startup.py",
     # C35-05: VM-23 registered in the view-model registry the guards read.
     "application/web/view_models.py",
+    # --- 2026-08-24 supervised-session remediation. One entry per finding from
+    # `docs/review/phase-3-p3-5-supervised-session-codex-review.md` and its
+    # security companion, so the guard names why each file was opened rather
+    # than growing a general backend exemption.
+    #
+    # S-5/S1: every counted emergency refusal writes one durable audit event.
+    "application/web/refusals.py",
+    "application/web/errors.py",
+    "application/web/oauth.py",
+    # S-6/S2: logout attribution derived from the persisted authentication method.
+    "application/web/capabilities.py",
+    "application/web/sessions.py",
+    # S-7/S3: N-32's issuance and assertion budgets separated.
+    "application/web/rate_limit.py",
+    "application/web/config.py",
+    # S-9/S4: a failed redemption is classified for the audit, not for the caller.
+    "application/web/breakglass.py",
+    "adapters/web/repositories.py",
+    # S-4/S5: `identity_provider` is a bounded probe rather than a literal.
+    "application/web/providers.py",
+    "adapters/web/discord_provider.py",
 }
 
 

@@ -428,7 +428,7 @@ implementation.
 | `WEB_DISCORD_REDIRECT_URI` | URL | Must equal N-02 in production; must share `WEB_PUBLIC_ORIGIN`'s origin |
 | `WEB_DISCORD_SCOPES` | list | Must equal N-03 exactly. A wider scope is a startup refusal, not a warning |
 | `WEB_DISCORD_GUILD_ID` | snowflake | `1052698198180892733` in production |
-| `WEB_DISCORD_API_TIMEOUT_SECONDS` | float | Bounded outbound call |
+| `WEB_DISCORD_API_TIMEOUT_SECONDS` | float | Bounded outbound call. From 2026-08-24 it is also the ceiling's ceiling for `/healthz`'s provider probe (finding S-4/S5): the probe uses its own 2-second bound, or this value when it is tighter, so configuration can narrow the health probe and never widen it |
 | `WEB_BOOTSTRAP_ADMIN_ROLE_ID` | snowflake | The protected mapping's role. Read **only** by the migration that inserts it |
 
 Council and DM role snowflakes are deliberately **not** configuration: OD-18 puts
@@ -476,7 +476,8 @@ cannot be read.
 |---|---|
 | `WEB_MEMBERSHIP_CACHE_SECONDS` | N-09 ceiling 300 |
 | `WEB_MEMBERSHIP_GRACE_SECONDS` | N-10 ceiling 900 |
-| `WEB_RATE_LIMIT_*` | N-18, N-32, N-33 ceilings |
+| `WEB_RATE_LIMIT_*` | N-18, N-32, N-32a, N-33 ceilings |
+| `WEB_RATE_LIMIT_WEBAUTHN_CHALLENGES_PER_IP` | N-32a ceiling 10. **Added 2026-08-24** (finding S-7/S3), separating challenge issuance from assertion verification. Unset means the accepted value, as every registered number does |
 | `WEB_MAX_REQUEST_BYTES` | N-19 ceiling 1 MiB |
 | `WEB_TRUSTED_PROXY_HOPS` | Exactly `1`; combined with the loopback peer requirement (N-34) |
 | `WEB_AUDIT_PAGE_SIZE_DEFAULT` / `_MAX` | N-21 |

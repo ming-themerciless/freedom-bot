@@ -952,6 +952,12 @@ RATE_LIMIT_BOUNDS: "Mapping[str, PolicyBound]" = MappingProxyType(
         "window_minutes": PolicyBound(minimum=1, maximum=10, policy="N-18/N-30"),
         "oauth_starts_per_ip": PolicyBound(minimum=1, maximum=10, policy="N-18"),
         "oauth_callbacks_per_ip": PolicyBound(minimum=1, maximum=20, policy="N-18"),
+        #: N-32's issuance half, separated from the assertion half on 2026-08-24
+        #: (finding S-7/S3). Ten, because a challenge is one short-lived row that
+        #: N-31 sweeps and it verifies nothing — the number that has to stay
+        #: tight is the guess below, and while the two shared a bucket a
+        #: cancelled prompt spent the guessing budget.
+        "webauthn_challenges_per_ip": PolicyBound(minimum=1, maximum=10, policy="N-32a"),
         "webauthn_assertions_per_ip": PolicyBound(minimum=1, maximum=5, policy="N-32"),
         "webauthn_assertions_per_account": PolicyBound(
             minimum=1, maximum=10, policy="N-32"
@@ -970,7 +976,7 @@ RATE_LIMIT_BOUNDS: "Mapping[str, PolicyBound]" = MappingProxyType(
 class RateLimitSettings:
     """N-18, N-32, N-33 and their shared N-30 window — valid by construction.
 
-    **Validated in `__post_init__` since 2026-08-15** (I-10). These nine numbers
+    **Validated in `__post_init__` since 2026-08-15** (I-10). These ten numbers
     are the authentication and recovery throttles. Until this constructor
     enforced the register, `RateLimitSettings(window_minutes=1,
     oauth_starts_per_ip=10_000, ...)` was an accepted object and the limiter
@@ -983,6 +989,7 @@ class RateLimitSettings:
     window_minutes: int
     oauth_starts_per_ip: int
     oauth_callbacks_per_ip: int
+    webauthn_challenges_per_ip: int
     webauthn_assertions_per_ip: int
     webauthn_assertions_per_account: int
     webauthn_account_window_minutes: int
@@ -2140,6 +2147,9 @@ def _read_rate_limits(reader: _Reader) -> RateLimitSettings:
         ),
         oauth_callbacks_per_ip=bounded(
             "WEB_RATE_LIMIT_OAUTH_CALLBACKS", "oauth_callbacks_per_ip"
+        ),
+        webauthn_challenges_per_ip=bounded(
+            "WEB_RATE_LIMIT_WEBAUTHN_CHALLENGES_PER_IP", "webauthn_challenges_per_ip"
         ),
         webauthn_assertions_per_ip=bounded(
             "WEB_RATE_LIMIT_WEBAUTHN_PER_IP", "webauthn_assertions_per_ip"

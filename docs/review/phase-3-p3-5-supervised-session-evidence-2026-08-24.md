@@ -2,10 +2,23 @@
 
 **Repository:** `/opt/discord-bots/freedom-bot`
 **Procedure:** `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md` §4
-**Status:** **In progress. No RAID item closed. No gate decision requested.**
+**Status:** **Complete for what it covers. No RAID item closed. No gate decision
+requested.** The §4 procedure ran in full, and SP-21 and the observable part of
+SP-22 were added after it closed.
 
 This document is filled only by checks that actually ran. Every row that has not
 been executed says **Not Run** and stays that way until it is.
+
+**Reconciled 2026-08-24 (independent review finding F4).** The document was
+written progressively and kept several pre-completion states after the work they
+described had finished: §1 left the browser and authenticators Not Run while §3
+and the A-6 table named both, §4 still opened "Not started" above a table of
+Passed rows, §8.2 listed criterion 8 as Not Run after SP-21 evidenced it, and
+§8.4 tallied six findings after nine had been raised. None of that invalidated a
+single timestamped observation, and none of it is corrected by *changing* one:
+every fact below is drawn from elsewhere in this same document, and the two
+things that could only come from the host — an exact session-end timestamp and
+the SP-21 grant record UUIDs — are marked **outstanding** rather than filled in.
 
 ---
 
@@ -14,7 +27,7 @@ been executed says **Not Run** and stays that way until it is.
 | Field | Value |
 |---|---|
 | Session start (UTC) | 2026-08-24T08:29:24Z |
-| Session end (UTC) | 2026-08-24 — §4.2 and §4.3 completed in two sittings, suspended 09:33Z and resumed the same day |
+| Session end (UTC) | 2026-08-24 — **exact end time outstanding.** §4.2 and §4.3 ran in two sittings, suspended 09:33Z and resumed the same day; the latest timestamp this document records is SP-21's expiry refusal at **21:02:45Z**, which is a lower bound on the end and not the end itself. The accepted evidence rules ask for exact timestamps, and only the Operations Owner can supply this one |
 | Commit under test | `0c95e72bc9a3c274b5683161b17ceb0fe53f8902` ("Complete Phase 3.5 portal remediation package", 2026-08-24T01:31:54Z) |
 | Branch | `docs/platform-plan` |
 | Working tree | clean (`git status --short` empty) |
@@ -23,8 +36,8 @@ been executed says **Not Run** and stays that way until it is.
 | `WEB_WEBAUTHN_RP_ID` | **Not confirmed** — held in `/etc/freedom-web/portal.env`, not readable by the review account and not read |
 | Operator | Peter Duscha (Operations Owner) |
 | Reviewer | Claude (working Technical Lead) |
-| Browser / OS | *(Not Run — to be recorded by the operator)* |
-| Authenticator(s) | *(Not Run — to be recorded at a non-sensitive level)* |
+| Browser / OS | **Chrome on macOS 26**, for every observation in §3, §4, SP-21 and SP-22. Taken from §3's and §4's own records rather than newly reported. This is a single browser on a single platform, which is why R-23 stays active (§8.2) |
+| Authenticator(s) | **Two enabled platform authenticators**, nicknamed `puppetmaster` and `puppetphone`, plus the retired pair `macbook` and `iphone` presented once and refused. Nicknames only, which §9.2's A-1 row permits; no credential id, public key or COSE material was ever selected by any query in this session. See the A-6 evidence table |
 
 ---
 
@@ -104,7 +117,10 @@ unreadable navigation was reported at any width.
 
 ## 4. §4.3 A-05 / TC-BG-02 — break-glass ceremony
 
-**Not started.** Requires SG-3 (Peter present) and depends on S-1.
+**Executed in full 2026-08-24**, operator Peter Duscha present (SG-3), after the
+S-1 restart that B-6 records. Every row below is Passed; none Failed; none was
+skipped. The "Not started" note that stood here until the F4 reconciliation was
+written before the sitting and never revised.
 
 | # | Check | Result |
 |---|---|---|
@@ -234,6 +250,14 @@ attempt cap. S-5 is therefore specific to the two limiter short-circuits at
 `:1092-1113`, and is not a general property of break-glass refusals. Note however
 that this route repeats the same shape at `:1154` (empty token) and `:1159-1163`
 (per-address limiter), both of which return without auditing.
+
+**Outstanding against the readiness plan's own evidence contract (F4).** §9.2's
+A-9 row asks SP-21 to record the **grant record ID** of each grant, and the table
+above does not. The two ids are non-secret 128-bit references to rows — not
+tokens, and not derivable from one — and they are readable host-locally from
+`recovery_grants` alongside the timestamps already transcribed. Either they are
+added by the Operations Owner, or a deviation from A-9 is documented and
+approved; this document does not invent them.
 
 **Still Not Run for criterion 8's neighbours:** the `revoke` subcommand and its
 `invalidate_all` path were not exercised, and criterion 9 (custody, replacement,
@@ -664,16 +688,21 @@ at 09:33Z and resumed the same day.
 
 ### 8.2 What remains open, and why the gate does not move
 
-**A-05 does not close on this session.** Criteria 1, 2, 2a, 5 and 6 are now
-evidenced; **criteria 3 (retiring below two is refused), 4 (startup and `/healthz`
-below and at the threshold), 8 (recovery grant issued, used once, replay and
-expiry refused), 9 (custody, replacement, loss) and 10 (Security Reviewer
-confirmation) are Not Run** — they are SP-21 and SP-22, separate procedures this
-plan's §4 never contained.
+**A-05 does not close on this session.** Criteria 1, 2, 2a and 5 are evidenced by
+§4. **Criterion 8** (recovery grant issued, used once, replay and expiry refused)
+**is evidenced by SP-21**, with the `revoke` / `invalidate_all` path still Not
+Run. **Criterion 6** is evidenced in full for presentation and for the three GET
+routes SP-22 observed; its two POST routes (R-41, R-46) remain suite-only, which
+the independent review records as F3 and asks to be observed on the deployed
+build before criterion 6 is used for closure. **Criteria 3 (retiring below two is
+refused), 4 (startup and `/healthz` below and at the threshold), 9 (custody,
+replacement, loss) and 10 (Security Reviewer confirmation) are Not Run.**
 
-**Four findings from this session bear on A-05 and are undispositioned:** S-4,
-S-5, S-6, S-7. S-5 and S-6 go to criterion 7 (limiter, audit, correlation,
-logout/revocation) directly.
+**Six findings from this session bear on A-05 and are undispositioned:** S-4,
+S-5, S-6, S-7, S-9 and — for criterion 6's remaining half — the SP-22 gap. S-5 and
+S-6 go to criterion 7 (limiter, audit, correlation, logout/revocation) directly,
+and the independent review holds both **blocking** for it; S-9 goes to criterion
+8's forensic quality without disturbing SP-21's behavioural proof.
 
 **I-06 is untouched.** Its ten criteria include TC-OPS-01…05, TC-PERF-01…03,
 TC-LIM-02, TC-SEC-07's browser half and observed startup refusals. This session
@@ -705,6 +734,13 @@ traversal is permanently Not Run under decision D-f.
 | S-5 | Rate-limited break-glass refusals write **no** audit record, while showing the user a correlation reference that resolves to nothing | **A-05 criterion 7**, SM-03, N-32 |
 | S-6 | Every logout is audited as `guild_member`, including a break-glass administrator who holds no guild membership | **A-05 criterion 7**, SM-03 |
 | S-7 | Options and verify share one limiter bucket: a completed ceremony costs two units of five, a cancelled one costs one | **A-05 criteria 5 and 7**, break-glass availability |
+| S-3 | No `Strict-Transport-Security` anywhere | Observation, out of today's scope — see §6 |
+| S-8 | The sign-out destination is unpolished | Cosmetic, Product Owner observation. The visual baseline is frozen, so any change needs the stated authority |
+| S-9 | A replayed recovery grant and an expired one produce byte-identical audit payloads, with no grant reference in either | **A-05 criterion 8**, SM-03, N-14 |
+
+The table above lists **nine** findings, reconciled 2026-08-24 (F4). It listed six
+until then, omitting S-3, S-8 and S-9 — which §6 had recorded all along, and which
+the review request had already carried for disposition.
 
 **Not one of these was found by a test suite.** All were found by observing the
 running system: S-1 by fetching the page, S-4 and S-7 by reading the code behind a

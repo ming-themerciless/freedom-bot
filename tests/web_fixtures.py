@@ -120,6 +120,18 @@ class FakeDiscordProvider:
     #: difference between "never asked" and "asked and was refused".
     verify_calls: list[ProviderTokens] = field(default_factory=list)
 
+    #: Every `probe()` call. `/healthz` asks the provider whether it is
+    #: reachable (S-4/S5), and a test that asserts `identity_provider: false`
+    #: during an outage has to be able to see that the question was asked rather
+    #: than inferring it from the answer.
+    probe_calls: list[bool] = field(default_factory=list)
+
+    async def probe(self) -> bool:
+        """Reachable unless this double is faulted — the health half of `unavailable`."""
+        reachable = not self.unavailable
+        self.probe_calls.append(reachable)
+        return reachable
+
     def authorization_url(self, *, state: str, code_challenge: str) -> str:
         self.authorization_calls.append((state, code_challenge))
         return (

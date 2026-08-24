@@ -405,6 +405,15 @@ cookie, and audits `auth.logout`. A logout with a missing or stale CSRF token is
 refused `403` — a forced logout is a real, if minor, nuisance attack, and the
 uniform rule is easier to review than an exception.
 
+The audit's `actor_capability` is **derived from the persisted
+`sessions.auth_method`**, not assumed (corrected 2026-08-24, finding S-6/S2):
+`guild_member` for `discord_oauth`, matching what `auth.login.succeeded` recorded
+for the same session, and `platform_administrator` for both break-glass methods,
+whose actor holds exactly that and no proven guild membership (N-12). Until the
+correction every logout was recorded as `guild_member`, so the primary capability
+column of the one event that establishes when emergency access ended named an
+authority the actor did not hold.
+
 **R-06 `emergency_login_page`.** Unauthenticated HTML, VM-04. Renders the WebAuthn
 entry point and the recovery-grant form. It reveals **no** account existence: the
 page is identical whether or not a credential is enrolled. It is reachable when
@@ -412,12 +421,25 @@ Discord is down — that is its purpose — and it is `noindex`.
 
 **R-07/R-08 `emergency_webauthn_*`.** `application/json` over `fetch`, because the
 WebAuthn API requires script-driven credential exchange. Both are unauthenticated
-and rate-limited by N-32. Options are bound to a server-side challenge row with an
+and rate-limited: R-07 by **N-32a**'s issuance budget and R-08 by N-32's assertion
+budgets (separated 2026-08-24, finding S-7/S3 — while they shared one bucket a
+cancelled authenticator prompt spent the budget the next real attempt needed). Options are bound to a server-side challenge row with an
 N-04 lifetime; the verify step checks challenge, RP ID and origin (N-60), user
 verification, and the signature counter. A successful verification creates a
 break-glass session (N-15, `auth_method = webauthn`). Both audit
 `auth.emergency.webauthn.*` with the credential **record id**, never the public
 key, never the raw assertion (§9.7 of the delivery plan).
+
+**Every counted refusal on R-07, R-08 and R-09 writes exactly one
+`auth.emergency.refused` event** carrying the correlation reference the caller
+was shown (added 2026-08-24, finding S-5/S1). That includes the limiter
+boundaries themselves, which previously answered `429` with a reference that
+resolved to no row — so the emergency audit fell silent at exactly the point the
+defensive control activated. The payload carries a closed reason and, where one
+was resolved, an id of **our** rows; never an address, a user-agent, a token, an
+assertion or a presented credential id. Refusals that are *not* counted — origin
+and host checks — are governed by §2.1 and deliberately write nothing, because
+auditing an unbounded path would hand an attacker an audit-growth lever.
 
 **R-09 `emergency_recovery_login`.** Consumes a host-issued grant (N-14). The
 submitted token is hashed and looked up; consumption is the same
@@ -428,8 +450,20 @@ break-glass session (N-15, `auth_method = recovery_grant`). Audits
 `auth.emergency.recovery.consumed` naming the grant record id — never the token.
 Rate limit N-33.
 
+A redemption that matches zero rows is **classified for the audit and not for the
+caller** (added 2026-08-24, finding S-9/S4). A read-only lookup in the same
+transaction records `consumed`, `expired`, `invalidated` or `unknown` with the
+grant record id, while the caller continues to receive the identical neutral
+`invalid` for all four: a replay is a compromise signal and an expiry is a delay,
+and those must be two sentences to an investigator and one to everybody else.
+Consumption is unchanged — still the single conditional statement, which alone
+decides whether a grant is spent.
+
 **R-10 `health`.** `application/json`: `{"status": "ok"|"degraded",
-"checks": {...}, "version": "..."}`. Contains **no** secrets, no player data, no
+"checks": {...}, "version": "..."}`. `identity_provider` is the answer of a
+bounded, unauthenticated, side-effect-free probe (corrected 2026-08-24, finding
+S-4/S5 — it was a literal `true`, and reported the provider healthy throughout a
+verified outage). Contains **no** secrets, no player data, no
 identity, no database URL, no configuration values — only check names and
 pass/fail (VM-16). It is **not published by Caddy**: it is reachable on the
 loopback bind only (N-50). That is why it needs no authentication and why the
@@ -913,7 +947,7 @@ rule in two syntaxes is how they drift apart.
 |---|---|---|---|
 | Login/callback | Creates and rotates (N-08) | Populates the membership projection | `auth.login.*` |
 | Break-glass | Creates a restricted session (N-15, N-65) | **None** — break-glass never touches the Discord projection | `auth.emergency.*` |
-| Logout | Revokes; deletes OAuth tokens (N-11) | None | `auth.logout` |
+| Logout | Revokes; deletes OAuth tokens (N-11) | None | `auth.logout`, attributed from the persisted `auth_method` |
 | Protected read | Extends idle expiry; rotates on detected privilege change (N-08) | Refreshes when older than N-09, subject to N-10 | None |
 | Council/admin mutation | Rotates on privilege change only | Forces a fresh resolution before the service runs | One append-only event per attempt, success or refusal |
 | Job poll | Extends idle expiry | Refreshes per N-09 | None |

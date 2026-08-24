@@ -1,4 +1,4 @@
-"""The one place a terminal OAuth callback refusal becomes an audit row.
+"""The one place a terminal login refusal — OAuth or emergency — becomes an audit row.
 
 TC-AUTH-11 requires that a login **and** a login refusal each write *exactly one*
 append-only audit event, carrying the correlation id the caller was shown and no
@@ -13,6 +13,14 @@ attempt, whichever branch reaches it. "At most one" is a property of the object,
 not a rule a future editor has to remember: `record` is a no-op after the first
 write, so a branch that both raises and passes through the recorder still produces
 one row.
+
+`EmergencyRefusalRecorder` is the same boundary for the break-glass routes R-07,
+R-08 and R-09, added 2026-08-24 for finding S-5/S1. The defect there was the same
+shape and worse in effect: the limiter refusals returned a `429` or a redirect
+carrying a correlation reference and wrote nothing, so an attacker could make the
+emergency audit stream fall silent at precisely the boundary the defensive
+control activates — while SM-03's accepted statement is that *every* emergency
+attempt and outcome is audited.
 
 ## What may appear in a refusal payload
 
@@ -212,7 +220,158 @@ class OAuthRefusalRecorder:
             WebAuditRepository(connection).record(event)
 
 
+#: The audit action every terminal break-glass refusal writes. It is the action
+#: `BreakGlassService._refuse()` already described, restated here so a route
+#: branch and a service branch cannot drift into two words for one outcome.
+EMERGENCY_REFUSED_ACTION = "auth.emergency.refused"
+
+#: The entity category a break-glass refusal names when no credential record was
+#: resolved. Stable and non-secret, exactly as `unbound` is for a callback.
+EMERGENCY_ENTITY_TYPE = "emergency_login"
+EMERGENCY_UNBOUND_ENTITY_ID = "unknown"
+
+
+class EmergencyRefusalReason(Enum):
+    """The closed, non-secret vocabulary of terminal break-glass refusals.
+
+    Finer than the code the caller is shown, for the same reason
+    `LoginRefusalReason` is: `rate_limited` is one sentence to the browser and
+    four different sentences to an operator deciding whether one address is
+    hammering the emergency page, whether one enrolled account is under attack,
+    or whether somebody is walking a list of invented credential ids.
+
+    **Nothing here identifies the caller.** No address, no user-agent, no token,
+    no credential id, no assertion. The reason names the boundary that refused;
+    the correlation id is what ties the row to the reference the caller was
+    shown, and `actor_platform_account_id` — when the presented credential
+    resolved to an enrolled account — names a row of ours rather than anything
+    the caller supplied.
+    """
+
+    #: N-32's per-address budget, spent by R-07's challenge issuance.
+    CHALLENGE_RATE_LIMITED_IP = "challenge_rate_limited_ip"
+    #: N-32's per-address budget, spent by R-08's assertion verification.
+    ASSERTION_RATE_LIMITED_IP = "assertion_rate_limited_ip"
+    #: N-32's per-account budget, for a credential that resolved to an account.
+    ASSERTION_RATE_LIMITED_ACCOUNT = "assertion_rate_limited_account"
+    #: The equivalent per-credential budget, for a credential id that resolved to
+    #: no account. Distinct in the audit and **indistinguishable to the caller**,
+    #: which is the account-existence property `check_credential` exists for.
+    ASSERTION_RATE_LIMITED_CREDENTIAL = "assertion_rate_limited_credential"
+    #: R-08 was given a body that is not JSON. The body itself is never recorded.
+    MALFORMED_REQUEST_BODY = "malformed_request_body"
+    #: N-33's per-address budget, spent by R-09's recovery redemption.
+    RECOVERY_RATE_LIMITED_IP = "recovery_rate_limited_ip"
+    #: R-09 was posted with an empty `token` field.
+    RECOVERY_TOKEN_ABSENT = "recovery_token_absent"
+
+
+class EmergencyRefusalRecorder:
+    """One break-glass attempt's refusal record. Constructed per request.
+
+    The same object as `OAuthRefusalRecorder`, for the path that must work when
+    Discord does not, and it exists for the same reason: before it, the branches
+    that raised `AuthenticationFailure` were audited and the branches that
+    returned a `429` or a redirect were not — so an attacker who reached a
+    limiter boundary made the emergency audit stream stop at exactly the point
+    the defensive control activated, while the interface went on issuing
+    correlation references that resolved to nothing (2026-08-24, S-5/S1).
+
+    "At most one event per attempt" is a property of the object rather than a
+    rule a future editor has to remember, and it holds across the two kinds of
+    write: a branch that records a reason and then raises a described failure
+    still produces one row.
+
+    Holds the engine rather than a connection, because every write it makes is
+    its own transaction — the transaction whose refusal it is recording has
+    already rolled back.
+    """
+
+    __slots__ = ("_engine", "_correlation_id", "_recorded")
+
+    def __init__(self, engine, *, correlation_id: UUID) -> None:
+        self._engine = engine
+        self._correlation_id = correlation_id
+        self._recorded = False
+
+    @property
+    def correlation_id(self) -> UUID:
+        return self._correlation_id
+
+    @property
+    def recorded(self) -> bool:
+        """Whether this attempt has already written its one refusal event."""
+        return self._recorded
+
+    def record(
+        self,
+        reason: EmergencyRefusalReason,
+        *,
+        account_id: UUID | None = None,
+    ) -> None:
+        """Write this attempt's refusal event, once.
+
+        `account_id` is included only when the presented credential resolved to
+        an enrolled record — a stable reference to one of our own rows, never a
+        value the caller supplied. It is what lets an operator see that the
+        account under attack is the protected one rather than that *an* address
+        was throttled.
+        """
+        if self._recorded:
+            return
+        self._write(
+            AuditEvent(
+                action=EMERGENCY_REFUSED_ACTION,
+                entity_type=EMERGENCY_ENTITY_TYPE,
+                entity_id=EMERGENCY_UNBOUND_ENTITY_ID,
+                source=AuditSource.WEB,
+                actor_capability=ActorCapability.SYSTEM,
+                correlation_id=self._correlation_id,
+                actor_platform_account_id=account_id,
+                payload={"reason": reason.value},
+            )
+        )
+        self._recorded = True
+
+    def record_failure(self, failure: AuthenticationFailure) -> None:
+        """Write the event `BreakGlassService` already described, once.
+
+        The service builds the `FailureAudit` because it is the only layer that
+        knows *which* row refused; the recorder commits it because it is the only
+        layer that knows the service's transaction is over.
+        """
+        if self._recorded:
+            return
+        self._recorded = True
+        described = failure.audit
+        if described is None:
+            return
+        self._write(
+            AuditEvent(
+                action=described.action,
+                entity_type=described.entity_type,
+                entity_id=described.entity_id,
+                source=AuditSource.WEB,
+                actor_capability=described.capability,
+                correlation_id=failure.correlation_id,
+                actor_platform_account_id=described.account_id,
+                payload=described.payload,
+            )
+        )
+
+    def _write(self, event: AuditEvent) -> None:
+        from adapters.web.repositories import WebAuditRepository
+
+        with self._engine.begin() as connection:
+            WebAuditRepository(connection).record(event)
+
+
 __all__ = [
+    "EMERGENCY_ENTITY_TYPE",
+    "EMERGENCY_REFUSED_ACTION",
+    "EMERGENCY_UNBOUND_ENTITY_ID",
+    "EmergencyRefusalReason",
+    "EmergencyRefusalRecorder",
     "LOGIN_REFUSED_ACTION",
     "LoginRefusalReason",
     "OAuthRefusalRecorder",

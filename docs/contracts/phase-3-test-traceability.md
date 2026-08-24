@@ -162,6 +162,26 @@ is unchanged and now names TC-BG-16 as its route-consumer evidence. No row was
 rewritten or removed and no accepted numeric value changed. Both are evidence for
 P3.G1, which remains open.
 
+Amended 2026-08-24 by the **P3.5 supervised-session remediation**, by **addition
+only**: TC-BG-18 (every *counted* break-glass refusal writes exactly one
+`auth.emergency.refused` event carrying the correlation reference the caller was
+shown), TC-BG-19 (N-32's issuance and assertion budgets are separate, and a
+cancelled ceremony no longer spends the verification budget), TC-BG-20
+(`auth.logout` records the authority derived from the persisted authentication
+method, for every session class the platform can create) and TC-BG-21 (a refused
+redemption is classified `consumed` / `expired` / `invalidated` / `unknown` with
+the grant record id, while the four remain one indistinguishable answer to the
+caller) are new rows in §4; TC-OPS-18 (`/healthz` reports the identity provider
+from a bounded, unauthenticated, side-effect-free probe rather than a literal) is
+a new row in §21. Every one of them answers a finding the supervised session
+raised — S-5, S-7, S-6, S-9 and S-4 respectively — and **not one was found by the
+existing suite**, which is why each is written against the real routes and the
+real adapter rather than against the service alone. TC-BG-11's per-address scope
+is unchanged in substance and now exercises R-08 rather than R-07, because after
+the N-32a split R-07 no longer spends the assertion budget it was asserting on.
+No row was rewritten or removed; one accepted numeric register gains N-32a, which
+is recorded in the numeric policy register and **pending maintainer acceptance**.
+
 Amended 2026-08-16 by the **test clock-authority remediation**, by **addition
 only**: TC-STRUCT-08 gains a clause requiring the cases that write
 `oauth_transactions` and `webauthn_challenges` rows to derive the row's creation
@@ -331,6 +351,10 @@ route that drifts apart from the rule fails a test rather than passing a reading
 | TC-BG-14 | C-03 refuses to retire a credential that would leave the protected account with fewer than two (N-13) | CLI | automated (database) |
 | TC-BG-16 | **Added 2026-08-16 (security-review remediation; evidence wording corrected at P3.G1 acceptance).** N-32's *per-account* half at the route: ten refused assertions for one enrolled credential, each from a different source address so the per-address budget never decides, are all `403 invalid`; the eleventh is `429 rate_limited` with `Retry-After`; the table holds exactly one account bucket carrying all eleven and no session exists. The budget is therefore consumed in a transaction the refusal does not roll back. **And it is not an oracle:** the same sequence against an invented credential id produces the same statuses and coarse error codes at the same attempts, spending an equivalent per-credential budget whose bucket carries a keyed digest rather than the credential id. Correlation identifiers intentionally differ per request, and literal response-body or `Retry-After` equality is not claimed | direct HTTP | automated (database) |
 | TC-BG-17 | **Added 2026-08-16 (security-review remediation).** N-33's *per-grant* half, against a grant the token **matches** but that is no longer live: five attempts from five different source addresses each advance the stored `attempt_count` durably after their refusal rolled back, the sixth is refused `rate_limited` with the cap's refusal audited and no session created, and a successful redemption spends one attempt of the same counter | direct HTTP | automated (database) |
+| TC-BG-18 | **Added 2026-08-24 (supervised-session finding S-5 / security finding S1).** Every *counted* break-glass refusal writes exactly one `auth.emergency.refused` event whose correlation id is the reference the caller was shown: R-07's issuance limiter, R-08's per-address limiter, R-08's per-account and per-credential budgets, R-08's malformed body, R-09's per-address limiter, R-09's empty token, and R-09's per-grant cap. The per-account refusal names the protected account; the per-credential refusal names neither an account nor the presented id. One attempt produces one row whether the reason was recorded by the route or described by the service. The malformed-body and empty-token refusals are moved **after** their limiter so that they are counted before they are recorded, which is what makes recording them safe | direct HTTP | automated (database) |
+| TC-BG-19 | **Added 2026-08-24 (supervised-session finding S-7 / security finding S3).** N-32a: challenge issuance and assertion verification hold separate per-address budgets. The eleventh issuance from one address is `429`; the sixth verification from one address is `429`; and ten complete issue-then-verify pairs from one address show every issuance served with the *assertion* budget deciding — so a cancelled authenticator prompt no longer spends the budget the next real attempt needs | direct HTTP | automated (database) |
+| TC-BG-20 | **Added 2026-08-24 (supervised-session finding S-6 / security finding S2).** `auth.logout` records `platform_administrator` for both break-glass methods, named separately, with the platform account attributed and no Discord user — the shape migration 0006's constraint swap exists to permit — and still records `guild_member` for an ordinary Discord session whether that person also holds Council or administrator capability. The attribution is looked up from an explicit table keyed on the **persisted** `sessions.auth_method`; a method absent from that table fails at import, proven over a synthetic enum because `AuthMethod` is closed | service + database | automated (database) |
+| TC-BG-21 | **Added 2026-08-24 (supervised-session finding S-9 / security finding S4).** A redemption the single conditional `UPDATE` refuses is classified read-only, in the same transaction, into `consumed`, `expired`, `invalidated` or `unknown`, with the non-secret grant record id on the first three and no reference on the last. All four produce a byte-identical caller response — same status, same failure code, differing only in the per-request correlation reference. The classification consumes nothing, writes nothing and does not advance the attempt counter, and neither the token nor its hash reaches the payload | direct HTTP + service | automated (database) |
 
 ## 5. Identity, accounts and linking — P3.1/P3.2
 
@@ -761,6 +785,7 @@ one:
 | TC-OPS-15 | Report mode writes nothing and audits nothing | same file (both the sweep object and the command) |
 | TC-OPS-16 | An injected audit failure — a real `BEFORE INSERT` trigger — rolls back every deletion | same file |
 | TC-OPS-17 | Immutable rows are unchanged but for the sweep's own bounded event; a repeated sweep removes zero; zero, negative and excessive `--limit` values are refused **before** a connection is opened | same file |
+| TC-OPS-18 | **Added 2026-08-24 (supervised-session finding S-4 / security finding S5).** `/healthz` reports `identity_provider` from a probe, not a literal. The adapter issues one `GET` to the least-privileged documented endpoint with no `Authorization` header, no client id, no client secret and no scope; classifies 5xx and 429 as unavailable and any other answer as reachable, matching the rule the rest of the adapter uses; answers `False` rather than raising for a transport failure, a timeout or any unexpected error, so a degraded provider cannot turn the health endpoint into a `500`; and bounds the request by its own ceiling, tighter than the configured API timeout. The route carries the boolean into the report, so an unreachable provider yields `503`/`degraded` with `identity_provider: false` while every other check still answers for itself. No socket is opened by the test | `tests/web/test_provider_health_probe.py` |
 
 ### 21.4b Effect-publication recovery (added 2026-08-18)
 

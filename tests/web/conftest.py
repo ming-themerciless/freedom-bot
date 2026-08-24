@@ -367,8 +367,17 @@ def issue_grant(
     *,
     token_hash: bytes,
     expires_in_minutes: int = 10,
-    consumed: bool = False,
 ) -> UUID:
+    """A live, unconsumed grant.
+
+    **`consumed=` removed 2026-08-24.** It was accepted and then ignored — the
+    insert never read it — so a test asking for a consumed grant silently got a
+    live one, and a test written against the S-9 classification would have
+    passed while proving the opposite of its name. A consumed grant cannot be
+    seeded here anyway: `consumption_names_its_session` requires a real session
+    row, so the honest way to obtain one is to redeem a grant, which is what
+    `tests/web/test_recovery_grant_forensics.py` does.
+    """
     grant_id = uuid4()
     now = utcnow()
     connection.execute(

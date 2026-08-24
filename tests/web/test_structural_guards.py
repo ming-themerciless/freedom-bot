@@ -374,10 +374,16 @@ def test_the_web_module_graph_never_reaches_the_bot_config():
 #: list — the P3.4 Step 9 unlink runner put it there — and came back off when that
 #: runner moved to `adapters/web/portal_routes.py`, which is what the first test
 #: below pins.
+#:
+#: `errors.py` came off on 2026-08-24. Its one outward import lived in
+#: `record_authentication_failure`, the free audit writer the S-5/S1 remediation
+#: replaced with `EmergencyRefusalRecorder`; with the function gone the module
+#: holds typed refusals and nothing else. That is the ratchet working as
+#: intended — the list shrank because a violation was removed rather than
+#: excused, and the next one cannot hide behind it.
 APPLICATION_WEB_ADAPTER_IMPORTS_STILL_OPEN = frozenset(
     {
         "application/web/config.py",
-        "application/web/errors.py",
         "application/web/rate_limit.py",
         "application/web/refusals.py",
         "application/web/role_mappings.py",

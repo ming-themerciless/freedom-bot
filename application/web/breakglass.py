@@ -420,7 +420,19 @@ class BreakGlassService:
             token_hash=hashed, session_id=issued.session_id, now=now
         )
         if grant is None:
-            raise self._refuse("invalid", correlation_id, reason="grant_not_live")
+            # **Classified, not flattened** (2026-08-24, S-9/S4). The caller sees
+            # the same neutral `invalid` it always saw — a replay and an expiry
+            # must not be distinguishable from outside — while the audit says
+            # which of the two happened and names the row it happened to. The
+            # read is read-only, uses the consume statement's own predicate, and
+            # changes nothing about the atomic consumption above.
+            refusal = self._grants.classify_refusal(token_hash=hashed, now=now)
+            raise self._refuse(
+                "invalid",
+                correlation_id,
+                reason=refusal.reason,
+                grant_record_id=refusal.grant_id,
+            )
         if grant.platform_account_id != account.id:
             raise self._refuse(
                 "invalid", correlation_id, reason="grant_names_another_account"
@@ -502,16 +514,24 @@ class BreakGlassService:
         *,
         reason: str,
         credential_record_id: UUID | None = None,
+        grant_record_id: UUID | None = None,
     ) -> AuthenticationFailure:
         """Build the refusal **and** record it. Returned so callers can `raise` it.
 
         The audit payload carries the specific reason; the exception carries the
         coarse code the browser sees. Neither carries a secret: no assertion
         bytes, no public key, no token.
+
+        `credential_record_id` and `grant_record_id` are ids of **our** rows —
+        128-bit references an operator can look up, not anything the caller
+        supplied and not derived from the token, whose hash appears in no
+        payload either.
         """
         payload: dict[str, object] = {"reason": reason}
         if credential_record_id is not None:
             payload["credential_record_id"] = str(credential_record_id)
+        if grant_record_id is not None:
+            payload["grant_record_id"] = str(grant_record_id)
         # Described, not written. A refused emergency login rolls its transaction
         # back — that is what "no session was created" means — so the record has
         # to be committed afterwards, by the route, in a fresh transaction. SM-03

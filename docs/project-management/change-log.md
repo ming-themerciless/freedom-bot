@@ -6764,6 +6764,71 @@ off. It closes nothing.
   TC-BG-02, TC-UI-01/02 and the Phase 3 gate all remain open. Public exposure and
   Phase 4 remain unauthorized.
 
+## C-P3.5-M — Codex review findings remediated: emergency refusal audit, logout attribution, limiter split, grant classification, provider probe
+
+**Date:** 2026-08-24 · **Requester:** Claude, P3.5 working Technical Lead ·
+**Status:** **Repository remediation accepted by independent and security
+re-review. N-32a accepted by the Acceptance Authority. No RAID item or gate
+closed.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05
+  (criteria 6, 7, 8), I-06 (criterion 9, TC-OPS-05); SM-03; N-14, N-32, N-33,
+  VM-16; the Phase 3 gate. Answers
+  `docs/review/phase-3-p3-5-supervised-session-codex-review.md` and
+  `docs/review/phase-3-p3-5-supervised-session-codex-security-review.md`.
+- **Reason and alternatives considered:** the independent review held S-5 and S-6
+  **blocking** for A-05 criterion 7 and the security review made the Security
+  Reviewer's criterion-10 confirmation conditional on both being remediated and
+  re-reviewed, with S-3/S-4 (its numbering) requiring accepted dispositions.
+  Deferring them to a later package was rejected: they are defects in the audit
+  trail of the emergency path itself, and every day they stand is a day of
+  incident evidence that cannot be reconstructed. For S-7 the review explicitly
+  rejected raising the coupled limiter number in favour of splitting the buckets,
+  and that is what was implemented.
+- **Added/removed scope:** six code changes and their tests, each tied to one
+  named finding, plus the F4 reconciliation of the evidence record. No new route,
+  no new dependency, no migration, and no schema change — the audit table already
+  expressed everything these corrections needed, which is why none of them needs
+  one. Full detail in
+  `docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`.
+- **Dependency and critical-path effect:** A-05 criterion 7's two blocking
+  findings are answered and were accepted by independent and security re-review
+  on 2026-08-24. Criterion 6's remaining half (F3:
+  R-41 and R-46 observed on the deployed build) is **not** discharged — it needs
+  the Operations Owner and a live session, and cannot be done from the
+  repository. I-06's TC-OPS-05 gains a real provider check. S-1 and S-2 remain
+  open operational items with no repository change proposed for either.
+- **Estimate/forecast and capacity effect:** repository work only. The two
+  outstanding items that need the Operations Owner — F3's two POST observations
+  and F4's exact session-end timestamp plus the SP-21 grant record ids — are
+  small and are listed explicitly rather than absorbed.
+- **New or changed risks:** one accepted numeric policy gains an entry. **N-32a**
+  bounds WebAuthn challenge issuance at 10 per source address per 10 minutes,
+  separating it from N-32's assertion budget, which is unchanged. The residual
+  risk it accepts is a slightly larger bound on short-lived challenge rows, which
+  N-31's sweep already governs; the risk it removes is emergency lockout from an
+  ordinary operator mistake during the outage break-glass exists to survive. This
+  required §5 change control and was accepted by Peter Duscha, Acceptance
+  Authority, on 2026-08-24 after the independent and security re-reviews found
+  the implementation coherent and no new Important or Blocking code defect.
+- **Testing, migration, security and operational effect:** 44 new tests across
+  five new traceability rows (TC-BG-18…21, TC-OPS-18). Full portal suite 2330
+  passed / 80 skipped, bot suite 2079 passed / 267 skipped, `node --test` 50
+  passed, asset integrity 4/4 OK. No migration. Operationally, `/healthz` now
+  makes one bounded unauthenticated outbound request per poll, and an unreachable
+  Discord makes the endpoint report `degraded` with `503` — which is the intended
+  behaviour and a change monitors will see.
+- **Product Owner recommendation:** none sought; this is remediation of accepted
+  findings rather than a scope proposal.
+- **Technical Lead and specialist reviews:** Codex independent and distinct
+  security re-reviews accepted the repository remediation on 2026-08-24. The
+  remaining evidence and operational conditions are recorded in those reviews.
+- **Acceptance Authority decision:** **Peter Duscha accepted N-32a on
+  2026-08-24:** 10 WebAuthn challenge issuances per source IP per 10 minutes,
+  separate from unchanged N-32 assertion budgets. This accepts only the numeric
+  addition. A-05, I-06, R-23 and the Phase 3 gate all remain open; public exposure
+  and Phase 4 remain unauthorized.
+
 ## Required fields for later entries
 
 Every material entry must identify:

@@ -1,190 +1,309 @@
-# Results Handoff: Phase 3.5 Frontend Remediation (G36-01, G36-02, G36-03)
+# Claude handover — P3.5 supervised-session follow-up
 
-**Author**: Gemini (Production Frontend Implementer)
-**Recipient**: Codex (Lead Software Engineer & Gatekeeper)
-**Date**: 2026-08-24
-**Status**: `SUBMITTED FOR CODEX INDEPENDENT IMPLEMENTATION & SECURITY-FOCUSED REVIEW`
-**Blockers**: None internal to frontend remediation. F-15, F-17, A-05, TC-BG-02, TC-UI-01, TC-UI-02, RAID items, and the Phase 3 Gate remain open pending Codex review and supervised real-browser/physical-authenticator verification.
+**Date:** 2026-08-24
+**Repository:** `/opt/discord-bots/freedom-bot`
+**Recipient:** Claude, P3.5 working Technical Lead
+**Prepared by:** Codex, Independent Reviewer
+**Current baseline:** `52ea1624bcde726abb9dc4349e104a0d1af910fa` plus the uncommitted supervised-session remediation and review records in the shared working tree
 
----
+## 1. Current decision state
 
-## 1. Executive Status & Governance Claims
+Codex completed an independent re-review and a distinct security-focused
+re-review of:
 
-In accordance with G36 findings, architectural boundaries, and gatekeeper authority:
-- **No Self-Acceptance**: Gemini has not self-accepted or closed F-15, F-17, A-05, TC-BG-02, TC-UI-01/02, any RAID item, or the Phase 3 gate.
-- **Scope Restriction**: Zero backend code, Python routes, view models, database migrations, configuration, session logic, CSRF handlers, CSP policies, live-host configurations, or deployment infrastructure were modified in this remediation.
-- **Worktree Disclosure**: The worktree is not clean from origin/main due to pre-existing P3.5 deliverables; this remediation diff is strictly localized to the WebAuthn client script, static asset manifest/digests, and frontend test suites.
-- **Verification Integrity**: All reported tests, static analyses, and falsifications were executed directly in the repository environment. Interactive browser and hardware authenticator verifications are explicitly reported as **Not Run**.
+`docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`
 
----
+Review records:
 
-## 2. Inventory of Remediation Changes & Fingerprints
+- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-re-review.md`
+- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-security-re-review.md`
 
-### 2.1. Static Assets & Manifests
-- **WebAuthn Client Script (G36-01 & G36-02)**:
-  - **Previous Fingerprint / File**: `d019e86fecf6` (`webauthn-emergency.d019e86fecf6.js`)
-  - **New Fingerprint / File**: `9e0c073e9e6c` (`webauthn-emergency.9e0c073e9e6c.js`)
-  - **Full SHA-256**: `9e0c073e9e6c797638f2c69a5702faa99f4410894ee84ce7f8025c7f59c54dcf`
-  - **Asset Directory Count**: Exactly 1 file in `adapters/web/static/js/` (superseded asset removed).
-- **Static Asset Integrity Manifest**:
-  - **Path**: `adapters/web/static/asset-integrity.sha256`
-  - **Full SHA-256**: `be51d1c99b0ad65d7d7b0b9f7c1f28ab29c468a02cdfe34f6c3b79fd6046737c`
-  - **Asset Count**: Exactly 4 fingerprinted assets (`css`, `images`, `js`, `vendor`).
+The repository remediation for S-4, S-5, S-6, S-7 and S-9 is accepted. The two
+previously Blocking code findings, S-5 and S-6, are closed in the repository. No
+new Blocking or Important security code defect was found.
 
-### 2.2. HTML Templates
-- **Base Page Shell (`adapters/web/templates/base.html`)**:
-  - **Digest**: `a7ff85b659b77b9fc496d5d3afdf0499b70cb7cdd43afde403c2d4686e892770`
-  - **Change**: Updated `<script>` reference from `webauthn-emergency.d019e86fecf6.js` to `webauthn-emergency.9e0c073e9e6c.js`.
-- **Emergency Login Page (`adapters/web/templates/emergency.html`)**:
-  - **Digest**: `3ed40f3c5fa6e8a0a161cf4c9182a6f10a2d98058d65a341aad6e41fa2b386d9` (Unchanged, truthful initial progressive enhancement).
+Peter Duscha, Acceptance Authority, subsequently approved **N-32a** on
+2026-08-24:
 
----
+- WebAuthn challenge issuance: **10 per source IP per 10 minutes**.
+- Existing N-32 assertion verification: **5 per source IP per 10 minutes**.
+- Existing N-32 account verification: **10 per platform account per 60 minutes**.
 
-## 3. Technical Remediation Analysis
+Challenge issuance and assertion verification now have separate buckets. A
+cancelled authenticator prompt no longer consumes assertion-verification budget.
 
-### 3.1. Finding G36-01: Enforced Closed R-07/R-08 Refusal Vocabulary & Canonical UUID
-- **Backend Code Paths Proving Vocabulary**:
-  - **R-07 (`POST /v1/auth/emergency/webauthn/options`)**:
-    - `adapters/web/app.py`: returns `origin_invalid` (403), `rate_limited` (429).
-  - **R-08 (`POST /v1/auth/emergency/webauthn/verify`)**:
-    - `adapters/web/app.py`: returns `origin_invalid` (403), `rate_limited` (429), `invalid` (400 or 403 via `AuthenticationFailure`), `expired` (403 via `AuthenticationFailure`).
-    - `application/web/breakglass.py`: `_challenge_from` raises `invalid`; `find_by_credential_id` raises `invalid`; `consume_challenge` raises `expired`; `verify_authentication_response` raises `invalid`; `advance_sign_count` raises `invalid`.
-  - **Exact Closed Vocabulary**: `ACCEPTED_REFUSAL_CODES = { 'origin_invalid': true, 'rate_limited': true, 'invalid': true, 'expired': true }`.
-  - **Removed Overbroad Codes**: Excluded `credential_invalid`, `not_available`, `consumed`, `revoked`, `suspended`, `denied` (which belong to recovery grant or admin user flows).
-- **Exact Canonical UUID Rule**:
-  - Validated with `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` on the raw string.
-  - No trimming or whitespace normalization (`correlation_id.trim()` is strictly avoided).
-  - Leading/trailing/internal whitespace and uppercase characters are rejected as non-canonical.
-- **Enforcement Logic in `formatGenericRefusal`**:
-  - Must be a non-array object (`!data || typeof data !== 'object' || Array.isArray(data)` falls back).
-  - `typeof data.error === 'string'` and `ACCEPTED_REFUSAL_CODES[data.error] === true`.
-  - `typeof data.correlation_id === 'string'` and `CANONICAL_UUID_RE.test(data.correlation_id) === true`.
-  - If all satisfied: `"Emergency sign-in did not complete. Reference " + data.correlation_id + "."`
-  - If any check fails: `"Emergency sign-in did not complete."` (no code, no invalid UUID, no server prose).
+The approval is recorded in:
 
-### 3.2. Finding G36-02: Strict RFC 4648 §5 Base64URL Grammar & Padding Validation
-- **Decoder Grammar Invariants (`base64urlToBytes`)**:
-  - Non-string values throw `TypeError`.
-  - Empty string (`""`) explicitly throws `Error('empty input')`.
-  - Whitespace prohibited anywhere (leading, trailing, internal, `\n`, `\r`, `\t`).
-  - Standard Base64 `+` and `/` characters throw `Error('standard base64 prohibited')`.
-  - Prohibited punctuation and non-base64url characters throw `Error('invalid character')`.
-  - **Strict Padding Structure**:
-    - `=` is permitted only at terminal positions (embedded `=` throws `Error('embedded padding character')`).
-    - More than two `=` throws `Error('excessive padding')` (e.g. `A===`, `AA====`).
-    - If padded, total string length must be a multiple of 4 (`b64url.length % 4 === 0`).
-    - Single padding `=` requires `(b64url.length - 1) % 4 === 3`.
-    - Double padding `==` requires `(b64url.length - 2) % 4 === 2`.
-  - **Canonical Bit Alignment Check**:
-    - Calculates bit accumulation manually without relying on permissive platform `atob` or `Buffer`.
-    - Inspects unused trailing quantum bits (`quantum & ((1 << bits) - 1)`): if non-zero, throws `Error('non-zero padding bits')` (e.g. `AB==` or `AAB=` where unused bits are set).
-- **Workflow Protection**:
-  - Malformed server challenge or credential descriptor ID throws inside `preparePublicKeyOptions` before `navigator.credentials.get()` is invoked, catching the error and displaying generic refusal without calling the authenticator.
+- `docs/contracts/phase-3-numeric-policy-register.md`
+- `docs/project-management/change-log.md`
+- `docs/project-management/raid-register.md`
+- `docs/project-management/status.md`
+- both Codex remediation re-review records
 
----
+This approval closes only the N-32a numeric-policy decision. It does not close
+A-05, I-06, a RAID item or any gate.
 
-## 4. Test Suite Counts & Falsification Evidence
+## 2. Repository remediation accepted by Codex
 
-### 4.1. Executable Test Breakdown (`tests/web/webauthn_client.test.mjs`)
-- **Total Tests**: **50 passed, 0 failed**
-- **Helper Unit Tests (28 passed)**:
-  - *Base64URL Decoder Suite (12 tests)*: 2/3/4-character quantums, URL-safe `-`/`_`, padded vs unpadded equivalences, round-trip canonical vector encoding, empty input rejection, non-string type rejection, standard `+`/`/` rejection, whitespace in all positions rejection, punctuation rejection, malformed/excessive padding (`A`, `A=`, `A===`, `AA===`, `AA====`, `=AAA`, `AA=A`, `AA==A`), modulo 2/3 incorrect padding rejection, non-zero unused padding bits rejection.
-  - *Closed Refusal Vocabulary & Canonical UUID Suite (9 tests)*: All 4 accepted R-07/R-08 codes with canonical UUID, unknown code fallback, all 6 removed overbroad codes fallback, missing/non-string error fallback, missing/non-string correlation fallback, leading/trailing/internal whitespace rejection without trimming, uppercase UUID rejection, malformed group lengths/braces/URN prefixes/nil strings/suffixes rejection, non-object/array body fallback.
-  - *Other Pure Helpers Suite (7 tests)*: Same-origin redirect restriction to `/v1/admin/role-capabilities`, malicious redirect rejection, assertion serialization with `userHandle: null`, assertion serialization with binary `userHandle`, missing required assertion buffer rejection, `preparePublicKeyOptions` binary conversion, missing challenge/malformed descriptor rejection.
-- **Full Ceremony Workflow Proofs (22 passed)**:
-  1. Supported initialization reveals/enables button and hides fallback using `hidden` attribute.
-  2. Unsupported initialization leaves no actionable button and shows unsupported message.
-  3. No-JS initial markup contains no usable dead action.
-  4. One click sends exactly one same-origin POST to R-07 (`application/json`, `same-origin`).
-  5. Returned challenge and credential descriptor IDs are converted before `navigator.credentials.get()`.
-  6. `navigator.credentials.get({publicKey})` receives exact prepared options.
-  7. Successful assertion sends exactly one POST to R-08 with exact serialized payload.
-  8. `userHandle: null` and binary user handles both serialize correctly in ceremony.
-  9. Success navigates only to accepted same-origin absolute path.
-  10. Protocol-relative, external, backslash, control, whitespace, malformed, wrong-typed redirects are refused.
-  11. Two rapid clicks cannot start two ceremonies or duplicate either request (busy lock).
-  12. `NotAllowedError` and `AbortError` restore button, clear busy state, do not retry, and show neutral text.
-  13. Network failure restores control and exposes no exception detail.
-  14. R-07 refusal uses only validated closed code/UUID presentation.
-  15. R-08 refusal uses only validated closed code/UUID presentation.
-  16. Malformed JSON and unexpected response shapes fall back generically.
-  17. Unsupported-browser initialization makes no network or credential call.
-  18. Busy state uses `disabled` and `aria-busy`, and always clears on non-navigation completion.
-  19. The workflow never writes to Web Storage.
-  20. The client references no network endpoint other than R-07 and R-08.
-  21. Malformed challenge in server options fails generically before authenticator call.
-  22. Malformed credential descriptor ID in options fails generically before authenticator call.
+### S-5 — emergency refusal audit
 
-### 4.2. Durable Falsification Evidence
-Evidence is categorized by verification method:
-- **Structural Source Guards (`tests/web/test_p3_5_webauthn_and_shell_presentation.py`)**:
-  - Asserts zero `document.cookie` reads/writes in JS client.
-  - Asserts zero `localStorage` or `sessionStorage` in JS client.
-  - Asserts zero `console.` logging primitives in JS client.
-  - Asserts zero `.dataset` or `data-*` attribute writes in JS client.
-  - Asserts zero `.style`, `cssText`, or `setAttribute("style", ...)` mutations in JS client.
-  - Asserts only `/v1/auth/emergency/webauthn/options` and `/v1/auth/emergency/webauthn/verify` endpoints are referenced.
-- **Runtime Mock Proofs (`tests/web/webauthn_client.test.mjs`)**:
-  - Validates full state machine transitions, event handler cleanup, and re-entrancy blocking.
-- **Executed Mutation Tests (`scratch/test_falsifications.py`)**:
-  | Mutation Applied | Test Targeted | Expected Failure Observed |
-  |---|---|---|
-  | Button `hidden` removed from initial template | `test_emergency_template_contains_truthful_progressive_enhancement_elements` | `AssertionError: Initial markup must have hidden attribute` |
-  | Inline `style` injected into template | `test_emergency_template_contains_truthful_progressive_enhancement_elements` | `AssertionError: Found CSP-violating style attributes` |
-  | Correlation ID normalized with `.trim()` | `leading, trailing, or internal whitespace around a UUID is rejected without normalization` | `AssertionError: expected 'Emergency sign-in did not complete.'` |
-  | Vocabulary check omitted in refusal formatter | `an unknown refusal code with a canonical UUID falls back generically` | `AssertionError: expected 'Emergency sign-in did not complete.'` |
-  | Excessive padding check loosened (`padCount > 99`) | `rejects malformed padding: A, A=, A===, AA===, AA====, ...` | `AssertionError: Missing expected exception /excessive padding/` |
-  | Injected `.style.display = 'block'` in JS | `test_javascript_client_contains_zero_inline_style_or_eval_mutations` | `AssertionError: Found .style mutation in client script` |
-  | Accepted arbitrary redirect URL | `isSafeSameOriginRedirect strictly rejects external, ...` | `AssertionError: Expected false to equal true` |
-  | Disabled `isCeremonyBusy` guard | `Two rapid clicks cannot start two ceremonies or duplicate either request` | `AssertionError: Expected calls.fetch.length == 2` |
-  | Logout form method changed to `GET` | `test_shell_header_logout_form_presentation_and_accessibility` | `AssertionError: form.get("method") == "post"` |
-  | Logout CSRF token removed | `test_shell_header_logout_form_presentation_and_accessibility` | `AssertionError: csrf_token input missing from logout form` |
+`EmergencyRefusalRecorder` now provides one request-scoped, exactly-once audit
+boundary for counted emergency refusals. The following real route boundaries are
+covered by PostgreSQL-backed tests:
 
----
+- R-07 challenge per-address limiter;
+- R-08 assertion per-address limiter;
+- R-08 per-account and equivalent unknown-credential limiter;
+- R-08 malformed JSON after its limiter is spent;
+- R-09 recovery per-address limiter;
+- R-09 empty token after its limiter is spent; and
+- R-09 per-grant attempt cap.
 
-## 5. Verification Commands and Results
+The audit carries the correlation shown to the caller and a closed internal
+reason. It does not carry a raw address, user agent, token, token hash, assertion,
+public key or caller-supplied credential identifier.
 
-Executed sequentially in a single process flow:
+### S-6 — logout attribution
+
+Logout attribution is derived from the persisted session authentication method:
+
+- `discord_oauth` → `guild_member`;
+- `webauthn` → `platform_administrator`;
+- `recovery_grant` → `platform_administrator`.
+
+The mapping is explicit and completeness-checked. A future authentication method
+must receive a deliberate attribution rather than inheriting a default.
+
+### S-7 — limiter split
+
+R-07 uses the accepted N-32a challenge bucket. R-08 continues to use N-32's
+assertion buckets. Per-account and unknown-credential-equivalent controls remain
+independent.
+
+### S-9 — recovery-grant forensics
+
+The single conditional `UPDATE` remains the only consumption decision. After a
+zero-row result, a read-only lookup in the same transaction classifies the audit
+outcome as:
+
+- `consumed`;
+- `expired`;
+- `invalidated`; or
+- `unknown`.
+
+The non-secret grant row UUID is recorded for the first three. Caller responses
+remain neutral and equivalent; no token or token hash is audited.
+
+### S-4 — identity-provider health
+
+`/healthz` now awaits a bounded anonymous Discord reachability probe instead of
+passing literal `True`. The adapter performs unauthenticated `GET /gateway`, sends
+no application credential or OAuth token, reads no body, and uses a maximum
+two-second timeout or the tighter configured timeout. Failure yields
+`identity_provider: false`, `degraded` and HTTP 503.
+
+Monitor cadence must be conservative and should be observed under TC-OPS-05 so
+the anonymous probe does not create avoidable Discord rate-limit noise.
+
+## 3. Verification already completed
+
+Codex independently ran:
 
 ```text
-1. node --test tests/web/webauthn_client.test.mjs
-   Result: 50 passed, 0 failed (81.7ms)
-
-2. TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
-   Result: 2286 passed, 80 skipped, 0 failed (128.80s)
-   [Skips: 54 permitted cells in test_p3_2_matrix.py, 26 permitted cells in test_p3_3_matrix.py asserted by per-route success suites]
-
-3. TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/freedom-bot/venv/bin/python -m pytest -q -rs tests/test_*.py
-   Result: 2346 passed, 0 failed (134.50s)
-
-4. node --test "foundry-module/tests/*.test.mjs"
-   Result: 155 passed, 0 failed (214.9ms)
-
-5. sha256sum -c adapters/web/static/asset-integrity.sha256
-   Result: 4/4 OK
-
-6. sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
-   Result: 14/14 OK
-
-7. /opt/discord-bots/venv-web/bin/python -m compileall -q adapters application domain tests
-   Result: Clean (exit code 0)
-
-8. /opt/discord-bots/freedom-bot/venv/bin/python -m compileall -q adapters application domain tests
-   Result: Clean (exit code 0)
-
-9. git diff --check
-   Result: Clean (exit code 0, zero whitespace errors)
+Focused remediation/regression selection: 320 passed in 4.48s
+Full portal suite:                       2330 passed, 80 skipped in 131.17s
+git diff --check:                        clean
 ```
 
----
+The focused selection covered the four new regression modules plus existing
+limiter/outage, break-glass, settings-construction, structural and frontend-freeze
+tests. The 80 full-suite skips are the documented permitted caller-matrix cells.
 
-## 6. Live / Browser Verification Status
+Claude reported, but Codex did not independently repeat in the latest re-review:
 
-- **TC-UI-01 & TC-UI-02 (Interactive Browser Verification)**: `Not Run` (Requires supervised manual browser session).
-- **TC-BG-02 & A-05 (Physical Authenticator Verification)**: `Not Run` (Requires physical WebAuthn hardware security key ceremony supervised by operator/Peter).
+```text
+Bot/general suite: 2079 passed, 267 skipped
+Node WebAuthn client: 50 passed
+Static asset integrity: 4/4 OK
+```
 
----
+Do not replace these exact evidence statements with a generic “all tests pass.”
 
-## 7. Request for Review
+## 4. Work that remains — execute in this order
 
-Gemini submits this remediation for independent implementation and security-focused review by Codex.
+### Step 1 — preserve and commit the reviewed repository state
+
+Before deployment:
+
+1. Inspect `git status` and the complete diff. The working tree intentionally
+   contains Claude's remediation, Codex's original reviews, Codex's re-reviews,
+   the remediation submission and the N-32a approval records.
+2. Confirm no unrelated or secret-bearing file is present.
+3. Run the agreed serial verification set and `git diff --check`.
+4. Commit the complete reviewed package with an explicit P3.5 supervised-session
+   remediation message.
+5. Record the resulting commit SHA. Do not deploy an uncommitted or ambiguous
+   tree.
+
+Do not amend or discard user/Codex work. Do not close A-05 or I-06 in this commit.
+
+### Step 2 — deploy and prove process/build identity
+
+S-1 remains open operationally. The earlier staging process served Python from a
+build 8.5 hours older than the commit while new templates were read from disk,
+producing a 500 even though `/healthz` and the suites were green.
+
+For the next staging run:
+
+1. Deploy the recorded commit.
+2. Restart `freedom-web.service`; deployment alone is insufficient.
+3. Record deployment UTC time, restart UTC time, PID/start time and commit SHA.
+4. Confirm the running process postdates the deployed commit.
+5. Fetch `/v1/auth/emergency` and the corrected `/healthz` before accepting any
+   browser observation.
+6. Confirm the corrected static assets match the integrity manifest.
+
+No evidence may rest on a process whose identity was not verified after restart.
+
+### Step 3 — complete SP-22 on deployed R-41 and R-46
+
+A-05 criterion 6 remains incomplete until these live denials are observed under a
+genuine break-glass session:
+
+- R-41: `POST /v1/admin/snapshots/{snapshot_id}/folder`
+- R-46: `POST /v1/council/jobs/{job_id}/apply`
+
+Required method:
+
+1. Establish a live break-glass session and prove it is live by reaching
+   `/v1/admin/role-capabilities`.
+2. From an allowed same-origin page, obtain the already-rendered CSRF value in the
+   browser. Do not record it.
+3. Use a same-origin browser request. The browser attaches the HttpOnly session
+   cookie; never read, copy, print or record that cookie.
+4. Submit synthetic well-formed UUID path values and minimal form bodies with the
+   valid CSRF value.
+5. Record only route, UTC time, HTTP status and coarse response body/code.
+
+Expected result for each: authorization `403` produced by the continuity-scope
+capability decision. A `403 csrf_invalid`, origin refusal, unsupported media type,
+missing length or sessionless redirect is **not a pass**. The request preamble
+must reach authorization so it refuses before handler object lookup or mutation.
+
+No real snapshot/job identifier, preview token or mutation is needed. Stop if any
+route reaches object lookup or returns a success/redirect consistent with mutation.
+
+### Step 4 — finish evidence-record fields with the Operations Owner
+
+Update:
+
+`docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`
+
+Outstanding fields:
+
+1. Exact session-end timestamp. The current `21:02:45Z` value is explicitly only
+   a lower bound.
+2. The two SP-21 recovery-grant record UUIDs. They are non-secret database row
+   references, not tokens. Read only the required host-local columns beside the
+   already-recorded timestamps. Never select or record token hashes.
+3. A truthful non-sensitive authenticator description supplied by the Operations
+   Owner, such as built-in platform authenticator plus device class. If it was not
+   recorded, write **Not Recorded**.
+
+Do not use `puppetmaster`, `puppetphone`, `macbook` or `iphone` as authenticator
+descriptions. They are portal credential-record nicknames, and the evidence itself
+states that they are not what the platform authenticator UI displays. Do not infer
+an authenticator model or device from them. SP-21 used recovery grants, not an
+authenticator.
+
+### Step 5 — complete remaining A-05 procedures
+
+The following remain open:
+
+- Criterion 3: observe that retiring a credential when doing so would leave fewer
+  than two enabled credentials is refused. Presenting an already retired
+  credential and seeing login refusal proves a different property.
+- Criterion 4: observe startup and `/healthz` below the two-credential threshold,
+  then at the threshold. Use the approved bounded procedure and restore the safe
+  state. Do not jeopardize actual recovery access.
+- Criterion 9: write and obtain Operations Owner acceptance of custody,
+  replacement, loss and recovery procedures without credential material. Include
+  the observed usability issue: portal nicknames do not distinguish retired and
+  current passkeys in the platform UI, and wrong selections consume limiter
+  budget.
+- Criterion 10: designated Security Reviewer confirmation, only after all required
+  evidence and dispositions are complete.
+
+Also re-observe on staging, proportionately:
+
+- separated N-32a/N-32 limiter behavior;
+- limiter-refusal audit rows resolving by displayed correlation;
+- WebAuthn and recovery-grant logout attribution;
+- recovery replay/expiry internal audit classification; and
+- provider outage making `/healthz` report `identity_provider: false` and 503.
+
+Do not record credentials, assertions, challenges, cookies, tokens, token hashes,
+CSRF values, public keys, raw IP addresses or unnecessary identity data.
+
+### Step 6 — begin I-06 separately
+
+The supervised session did not execute I-06. Before its worker procedures:
+
+1. Resolve why `freedom-worker.service` is inactive.
+2. Activate and verify the intended worker unit on staging.
+3. Remember that `worker_heartbeat: true` with an empty queue is documented
+   behavior: the database health check detects a queue that is not draining, not
+   idle systemd-unit liveness. Use systemd monitoring for the latter.
+4. Execute the named I-06 procedures for TC-OPS, TC-PERF, TC-LIM-02 and the browser
+   half of TC-SEC-07. Do not treat the A-05 browser session as evidence for them.
+
+## 5. Required governance sequence
+
+After the steps above:
+
+1. Produce a dated operational/evidence addendum with exact commands, timestamps,
+   statuses and sanitized outputs.
+2. Submit repository and deployed evidence for another independent review where
+   required.
+3. Obtain the designated Security Reviewer's A-05 readiness recommendation.
+4. Ask Peter separately for any A-05 disposition or gate decision.
+
+Only Peter, as Acceptance Authority, may record the gate decision. A successful
+session, green suite, accepted code remediation or approved N-32a value does not
+close A-05, I-06, R-23 or the Phase 3 gate.
+
+## 6. Current open-state summary
+
+- **N-32a:** accepted 2026-08-24.
+- **S-5/S-6 repository blockers:** closed by Codex re-review.
+- **S-4/S-7/S-9 repository remediation:** accepted by Codex re-review.
+- **F3 / SP-22 R-41 and R-46:** open, deployed observation required.
+- **F4 evidence hygiene:** partially open; exact end, grant UUIDs and truthful
+  authenticator description remain.
+- **S-1:** open operational deploy/restart/build-identity control.
+- **S-2:** open operational worker prerequisite.
+- **S-8:** no action unless Product Owner reopens frozen visual scope.
+- **A-05:** open.
+- **I-06:** open.
+- **A-06:** open.
+- **R-23:** active.
+- **Phase 3 gate:** open.
+- **Public exposure and Phase 4:** unauthorized.
+
+## 7. Files Claude must read before acting
+
+In addition to `.agents/AGENTS.md` and `docs/implementation-plan.md`, read:
+
+- `docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`
+- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-re-review.md`
+- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-security-re-review.md`
+- `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`
+- `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` §9 and §13
+- `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md`
+- `docs/contracts/phase-3-numeric-policy-register.md` N-32/N-32a/N-33
+- `docs/project-management/status.md`
+- `docs/project-management/raid-register.md`
+- `docs/project-management/change-log.md` C-P3.5-M
+
+Preserve the separation between repository acceptance, observed deployed evidence,
+specialist recommendation and Acceptance Authority decision in every update.

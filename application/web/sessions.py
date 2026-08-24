@@ -52,6 +52,7 @@ from application.web.capabilities import (
     AuthMethod,
     SessionClass,
     WebAuthorizationContext,
+    audit_capability_of,
     session_class_of,
 )
 from application.web.config import SessionSettings, validate_session_policy_values
@@ -650,6 +651,20 @@ class SessionService:
         The audit event shares the transaction deliberately: an unrecorded
         revocation is exactly the record an incident investigation needs, so a
         logout that cannot be recorded fails and the user is told to retry.
+
+        **The authority is derived, not assumed** (2026-08-24, S-6/S2). This wrote
+        a literal `guild_member` for every session it revoked, including the
+        break-glass administrator who holds `{platform_administrator}` and no
+        proven guild membership at all — so the audit's primary capability column
+        stated an authority the actor demonstrably did not hold, on the one event
+        an incident review reads to establish when emergency access ended. The
+        `auth_method` in the payload made the row *correctable by a reader who
+        knew to look*, which is not the same as correct.
+
+        `record.auth_method` is the persisted `sessions.auth_method` the resolve
+        statement already matched on: trusted provenance, never a request value,
+        and `audit_capability_of` refuses rather than defaulting for a method
+        nobody has decided an authority for.
         """
         self._sessions.revoke(record.id, reason="logout", at=now)
         self._tokens.delete_for_account(account_id)
@@ -659,7 +674,7 @@ class SessionService:
                 entity_type="session",
                 entity_id=str(record.id),
                 source=AuditSource.WEB,
-                actor_capability=ActorCapability.GUILD_MEMBER,
+                actor_capability=audit_capability_of(record.auth_method),
                 correlation_id=correlation_id,
                 actor_platform_account_id=account_id,
                 payload={"auth_method": record.auth_method.value},

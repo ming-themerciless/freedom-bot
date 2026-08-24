@@ -40,7 +40,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import AsyncIterator, Callable
+from typing import TYPE_CHECKING, AsyncIterator, Callable
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request, Response
@@ -81,7 +81,6 @@ from application.web.shell import (
 from application.web.errors import (
     AuthenticationFailure,
     ServiceDegraded,
-    record_authentication_failure,
 )
 from application.web.oauth import safe_return_path
 from application.web.providers import (
@@ -89,7 +88,12 @@ from application.web.providers import (
     ProviderUnavailable,
     VerifiedCompletion,
 )
-from application.web.refusals import LoginRefusalReason, OAuthRefusalRecorder
+from application.web.refusals import (
+    EmergencyRefusalReason,
+    EmergencyRefusalRecorder,
+    LoginRefusalReason,
+    OAuthRefusalRecorder,
+)
 from application.web.startup import build_health_view, run_resource_checks
 from application.web.view_models import (
     Correlation,
@@ -105,6 +109,13 @@ from application.web.view_models import (
     ServiceDegradedView,
     Instant,
 )
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Imported for annotation alone. The runtime imports of `LimitedAction` and
+    # its neighbours stay inside the functions that use them, as they have since
+    # P3.1; this adds a name for a type checker without adding an import edge.
+    from application.web.rate_limit import LimitDecision
+
 
 #: The closed inventory this package registers, by contract identifier. Asserted
 #: against the parsed route contract by `TC-STRUCT-01`, so a route added without
@@ -1052,17 +1063,34 @@ def _register_routes(
 
     @app.post("/v1/auth/emergency/webauthn/options", name="emergency_webauthn_options")
     async def emergency_webauthn_options(request: Request) -> Response:
-        """R-07. `application/json`, because the WebAuthn API requires script."""
+        """R-07. `application/json`, because the WebAuthn API requires script.
+
+        Its budget is N-32's **issuance** half, not the assertion half (2026-08-24,
+        S-7/S3). Minting a challenge and verifying an assertion protect different
+        resources and cost different things, and while they shared one five-unit
+        address bucket a completed ceremony spent two of the five and a cancelled
+        one spent one — so an operator who fumbled a passkey twice during an
+        outage could lock themselves out of the path that exists for outages.
+        """
         correlation_id = uuid4()
         if not authority.origin_is_ours(request):
             return json_refusal(403, "origin_invalid", correlation_id)
         address = authority.client_address(request)
         digest = authority.client_digest(request)
+        recorder = EmergencyRefusalRecorder(
+            composition.engine, correlation_id=correlation_id
+        )
 
         decision = await run_in_threadpool(
-            _consume_rate_limit, composition, _webauthn_action(), client_ip=address
+            _consume_rate_limit,
+            composition,
+            _webauthn_challenge_action(),
+            client_ip=address,
         )
         if not decision.allowed:
+            await _record_emergency_refusal(
+                recorder, EmergencyRefusalReason.CHALLENGE_RATE_LIMITED_IP
+            )
             response = json_refusal(429, "rate_limited", correlation_id)
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
             return response
@@ -1077,25 +1105,46 @@ def _register_routes(
 
     @app.post("/v1/auth/emergency/webauthn/verify", name="emergency_webauthn_verify")
     async def emergency_webauthn_verify(request: Request) -> Response:
-        """R-08. A successful verification creates a break-glass session (N-15)."""
+        """R-08. A successful verification creates a break-glass session (N-15).
+
+        **Every counted refusal below is audited** (2026-08-24, S-5/S1). Before
+        that, the two limiter boundaries answered `429` with a correlation
+        reference and wrote nothing, so the emergency audit stream fell silent at
+        exactly the point the defensive control activated and the reference the
+        operator was shown resolved to no row at all.
+        """
         correlation_id = uuid4()
         if not authority.origin_is_ours(request):
             return json_refusal(403, "origin_invalid", correlation_id)
         address = authority.client_address(request)
         digest = authority.client_digest(request)
         agent = authority.user_agent_digest(request)
-        try:
-            payload = await request.json()
-        except Exception:  # noqa: BLE001 - malformed JSON is one outcome
-            return json_refusal(400, "invalid", correlation_id)
+        recorder = EmergencyRefusalRecorder(
+            composition.engine, correlation_id=correlation_id
+        )
 
+        # **Before the body is read**, since 2026-08-24. It used to be spent
+        # after, which made a malformed body the one emergency refusal that cost
+        # an attacker nothing: uncounted by N-32 and, being uncounted, not safe
+        # to audit either. Spending the budget first makes it both.
         decision = await run_in_threadpool(
             _consume_rate_limit, composition, _webauthn_action(), client_ip=address
         )
         if not decision.allowed:
+            await _record_emergency_refusal(
+                recorder, EmergencyRefusalReason.ASSERTION_RATE_LIMITED_IP
+            )
             response = json_refusal(429, "rate_limited", correlation_id)
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
             return response
+
+        try:
+            payload = await request.json()
+        except Exception:  # noqa: BLE001 - malformed JSON is one outcome
+            await _record_emergency_refusal(
+                recorder, EmergencyRefusalReason.MALFORMED_REQUEST_BODY
+            )
+            return json_refusal(400, "invalid", correlation_id)
 
         # N-32's **second** budget, which the per-address one above does not
         # cover: ten assertions per platform account per sixty minutes, whatever
@@ -1103,13 +1152,16 @@ def _register_routes(
         # credential has been resolved and before anything is verified, in its
         # own committed transaction — the refusal below rolls its transaction
         # back, and a budget that rolled back with it would bound nothing.
-        account_decision = await run_in_threadpool(
+        budget = await run_in_threadpool(
             _consume_assertion_account_budget, composition, payload
         )
-        if account_decision is not None and not account_decision.allowed:
+        if budget.refused:
+            await _record_emergency_refusal(
+                recorder, budget.reason, account_id=budget.account_id
+            )
             response = json_refusal(429, "rate_limited", correlation_id)
             response.headers["Retry-After"] = str(
-                account_decision.retry_after_seconds
+                budget.decision.retry_after_seconds
             )
             return response
 
@@ -1127,9 +1179,7 @@ def _register_routes(
                 _in_transaction, composition.engine, unit
             )
         except AuthenticationFailure as failure:
-            await run_in_threadpool(
-                record_authentication_failure, composition.engine, failure
-            )
+            await run_in_threadpool(recorder.record_failure, failure)
             return json_refusal(403, failure.code, failure.correlation_id)
 
         response = JSONResponse(
@@ -1149,18 +1199,36 @@ def _register_routes(
         address = authority.client_address(request)
         digest = authority.client_digest(request)
         agent = authority.user_agent_digest(request)
+        recorder = EmergencyRefusalRecorder(
+            composition.engine, correlation_id=correlation_id
+        )
         form = await request.form()
         token = (form.get("token") or "").strip()
-        if not token:
-            return _redirect_to_emergency("invalid", correlation_id)
 
         decision = await run_in_threadpool(
             _consume_rate_limit, composition, _recovery_action(), client_ip=address
         )
         if not decision.allowed:
+            await _record_emergency_refusal(
+                recorder, EmergencyRefusalReason.RECOVERY_RATE_LIMITED_IP
+            )
             response = _redirect_to_emergency("rate_limited", correlation_id)
             response.headers["Retry-After"] = str(decision.retry_after_seconds)
             return response
+
+        # The empty-token refusal is spent **after** the per-address budget,
+        # since 2026-08-24 (S-5/S1). It used to run first, which made an empty
+        # `token` field a free, uncounted, unaudited probe of this route — and
+        # made it the one break-glass refusal whose correlation reference could
+        # never resolve, because auditing an unbounded path would have handed an
+        # attacker an audit-growth lever instead. Counted first, it is safe to
+        # record, and N-33's three-per-address budget bounds how many rows an
+        # attacker can cause.
+        if not token:
+            await _record_emergency_refusal(
+                recorder, EmergencyRefusalReason.RECOVERY_TOKEN_ABSENT
+            )
+            return _redirect_to_emergency("invalid", correlation_id)
 
         # N-33's per-grant cap, spent in its own transaction for the same reason
         # the per-address one is: the redemption below rolls back on every
@@ -1171,9 +1239,7 @@ def _register_routes(
             _consume_grant_attempt, composition, token, correlation_id
         )
         if attempt_refusal is not None:
-            await run_in_threadpool(
-                record_authentication_failure, composition.engine, attempt_refusal
-            )
+            await run_in_threadpool(recorder.record_failure, attempt_refusal)
             return _redirect_to_emergency(
                 attempt_refusal.code, attempt_refusal.correlation_id
             )
@@ -1192,9 +1258,7 @@ def _register_routes(
                 _in_transaction, composition.engine, unit
             )
         except AuthenticationFailure as failure:
-            await run_in_threadpool(
-                record_authentication_failure, composition.engine, failure
-            )
+            await run_in_threadpool(recorder.record_failure, failure)
             return _redirect_to_emergency(failure.code, failure.correlation_id)
 
         response = RedirectResponse("/v1/admin/role-capabilities", status_code=303)
@@ -1207,9 +1271,18 @@ def _register_routes(
 
         Contains no secret, no player data, no identity, no database URL and no
         configuration value — only check names and pass/fail (VM-16).
+
+        `identity_provider` is a **probe**, since 2026-08-24 (S-4/S5). It was
+        `provider_ok=True`, a literal, so the check that exists to tell an
+        operator whether Discord is reachable answered "yes" throughout a real
+        outage. The probe is awaited here rather than inside `build_health_view`
+        because it is the one check that is network work: provider I/O is async
+        over `httpx` and database work crosses the threadpool, and this file's
+        rule is that the seam stays visible at the call site.
         """
+        provider_ok = await composition.provider.probe()
         view = await run_in_threadpool(
-            build_health_view, settings, composition.engine, provider_ok=True
+            build_health_view, settings, composition.engine, provider_ok=provider_ok
         )
         return JSONResponse(
             view.as_payload(), status_code=200 if view.status == "ok" else 503
@@ -1243,6 +1316,47 @@ async def _record_refusal(
     await run_in_threadpool(recorder.record, reason, transaction_id=transaction_id)
 
 
+async def _record_emergency_refusal(
+    recorder: EmergencyRefusalRecorder,
+    reason: EmergencyRefusalReason,
+    *,
+    account_id: UUID | None = None,
+) -> None:
+    """The break-glass twin of `_record_refusal`, across the same thread seam.
+
+    Not wrapped in a `try`, for the reason stated there: a refusal that cannot be
+    recorded becomes a safe error rather than a silent refusal, and no session
+    exists on any of these paths, so this can never turn a refusal into a login.
+    """
+    await run_in_threadpool(recorder.record, reason, account_id=account_id)
+
+
+@dataclass(frozen=True, slots=True)
+class _AssertionBudget:
+    """N-32's second budget, and **which** bucket paid for it.
+
+    The route needs three facts and used to get one. `decision` answers whether
+    the attempt is within budget; `reason` and `account_id` are what the refusal
+    audit needs to say *account* rather than *credential* — a distinction that
+    exists in the audit and, deliberately, nowhere the caller can see it
+    (`RateLimiter.check_credential`).
+    """
+
+    decision: "LimitDecision | None"
+    reason: EmergencyRefusalReason | None
+    account_id: UUID | None
+
+    @property
+    def refused(self) -> bool:
+        return self.decision is not None and not self.decision.allowed
+
+
+#: The attempt carried no usable credential id, so neither bucket applies. The
+#: per-address budget has already counted it and the assertion refuses it a
+#: moment later.
+_NO_ASSERTION_BUDGET = _AssertionBudget(decision=None, reason=None, account_id=None)
+
+
 def _consume_rate_limit(composition, action, *, client_ip: str):
     """Count the attempt in its **own** transaction, before the work begins.
 
@@ -1270,9 +1384,9 @@ def _consume_assertion_account_budget(composition, payload):
     A credential that resolves to no account spends an equivalent per-credential
     budget instead, so the caller cannot tell an enrolled credential from an
     invented one by which attempt starts answering `rate_limited`. A payload
-    carrying no credential id at all spends neither and returns `None`: the
-    per-address budget above already counted it, and the assertion refuses it a
-    moment later.
+    carrying no credential id at all spends neither and returns
+    `_NO_ASSERTION_BUDGET`: the per-address budget above already counted it, and
+    the assertion refuses it a moment later.
     """
     from application.web.rate_limit import LimitedAction
 
@@ -1281,18 +1395,29 @@ def _consume_assertion_account_budget(composition, payload):
         services = composition.services(connection)
         subject = services.break_glass.assertion_subject(credential_payload=payload)
         if subject.account_id is not None:
-            return services.rate_limiter.check_account(
-                LimitedAction.WEBAUTHN_ASSERTION,
+            return _AssertionBudget(
+                decision=services.rate_limiter.check_account(
+                    LimitedAction.WEBAUTHN_ASSERTION,
+                    account_id=subject.account_id,
+                    now=now,
+                ),
+                reason=EmergencyRefusalReason.ASSERTION_RATE_LIMITED_ACCOUNT,
                 account_id=subject.account_id,
-                now=now,
             )
         if subject.credential_id is not None:
-            return services.rate_limiter.check_credential(
-                LimitedAction.WEBAUTHN_ASSERTION,
-                credential_id=subject.credential_id,
-                now=now,
+            return _AssertionBudget(
+                decision=services.rate_limiter.check_credential(
+                    LimitedAction.WEBAUTHN_ASSERTION,
+                    credential_id=subject.credential_id,
+                    now=now,
+                ),
+                reason=EmergencyRefusalReason.ASSERTION_RATE_LIMITED_CREDENTIAL,
+                # **Deliberately none.** The credential resolved to no account,
+                # and the presented id is the caller's bytes — it belongs in no
+                # audit row.
+                account_id=None,
             )
-        return None
+        return _NO_ASSERTION_BUDGET
 
 
 def _consume_grant_attempt(composition, token: str, correlation_id: UUID):
@@ -1373,6 +1498,12 @@ def _oauth_callback_action():
     from application.web.rate_limit import LimitedAction
 
     return LimitedAction.OAUTH_CALLBACK
+
+
+def _webauthn_challenge_action():
+    from application.web.rate_limit import LimitedAction
+
+    return LimitedAction.WEBAUTHN_CHALLENGE
 
 
 def _webauthn_action():

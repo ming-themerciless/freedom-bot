@@ -159,12 +159,48 @@ def test_the_sweep_removes_windows_older_than_the_retention(
 
 
 async def test_the_sixth_webauthn_assertion_from_one_address_is_refused(client):
-    """TC-BG-11, N-32's per-address half.
+    """TC-BG-11, N-32's per-address assertion half.
 
     Deliberately lower than N-18: the credential set is two keys held by one
     person, so five attempts in ten minutes from one address is already unusual.
+
+    It is driven through **R-08**, since 2026-08-24 (finding S-7/S3). It used to
+    be driven through R-07, which was possible only because both routes shared
+    one bucket — so the test that was supposed to prove the assertion budget
+    proved it by never making an assertion. Now that the two are separate,
+    counting to five here means counting five verification attempts.
     """
     for attempt in range(5):
+        response = await client.post(
+            "/v1/auth/emergency/webauthn/verify",
+            json={},
+            headers={"origin": PUBLIC_ORIGIN},
+        )
+        # A payload with no credential id is refused `invalid` — the point is
+        # that the attempt was *counted*, not that it got anywhere.
+        assert response.status_code == 403, attempt
+
+    sixth = await client.post(
+        "/v1/auth/emergency/webauthn/verify",
+        json={},
+        headers={"origin": PUBLIC_ORIGIN},
+    )
+    assert sixth.status_code == 429
+    assert sixth.json()["error"] == "rate_limited"
+    assert "retry-after" in sixth.headers
+
+
+async def test_the_eleventh_challenge_from_one_address_is_refused(client):
+    """N-32's issuance half, separate from the assertion half (S-7/S3).
+
+    Ten rather than five, and the difference is the finding: minting a challenge
+    inserts one short-lived row and verifies nothing, so it is bounded for
+    availability and storage while the guess below it is bounded for security.
+    While they shared five units, a cancelled prompt spent the guessing budget
+    and a completed ceremony spent two of it — about two ceremonies per window
+    on the path that exists for the outage.
+    """
+    for attempt in range(10):
         response = await client.post(
             "/v1/auth/emergency/webauthn/options",
             json={},
@@ -172,14 +208,45 @@ async def test_the_sixth_webauthn_assertion_from_one_address_is_refused(client):
         )
         assert response.status_code == 200, attempt
 
-    sixth = await client.post(
+    eleventh = await client.post(
         "/v1/auth/emergency/webauthn/options",
         json={},
         headers={"origin": PUBLIC_ORIGIN},
     )
-    assert sixth.status_code == 429
-    assert sixth.json()["error"] == "rate_limited"
-    assert "retry-after" in sixth.headers
+    assert eleventh.status_code == 429
+    assert eleventh.json()["error"] == "rate_limited"
+    assert "retry-after" in eleventh.headers
+
+
+async def test_a_full_ceremony_spends_one_unit_of_each_budget(client):
+    """The arithmetic S-7 was about, asserted rather than reasoned.
+
+    Ten complete issue-then-verify pairs from one address: every issuance is
+    served, and the assertion budget — not the issuance budget — is what stops
+    the sixth verification. A cancelled ceremony (an issuance with no
+    verification) therefore costs the operator nothing they need for the next
+    attempt, which is the availability property the finding asked for.
+    """
+    issued = 0
+    verified = 0
+    for _ in range(10):
+        options = await client.post(
+            "/v1/auth/emergency/webauthn/options",
+            json={},
+            headers={"origin": PUBLIC_ORIGIN},
+        )
+        if options.status_code == 200:
+            issued += 1
+        verify = await client.post(
+            "/v1/auth/emergency/webauthn/verify",
+            json={},
+            headers={"origin": PUBLIC_ORIGIN},
+        )
+        if verify.status_code != 429:
+            verified += 1
+
+    assert issued == 10
+    assert verified == 5
 
 
 async def test_the_fourth_recovery_attempt_from_one_address_is_refused(client):

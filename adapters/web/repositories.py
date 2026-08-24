@@ -1383,6 +1383,29 @@ class GrantRecord:
     platform_account_id: UUID
 
 
+#: The closed vocabulary a failed redemption is classified into (2026-08-24,
+#: S-9/S4). Four words, none of which is ever shown to a caller: replay and
+#: expiry stay one `invalid` in the response and become two different sentences
+#: in the audit, which is the whole distinction the finding was about.
+GRANT_CONSUMED = "consumed"
+GRANT_EXPIRED = "expired"
+GRANT_INVALIDATED = "invalidated"
+GRANT_UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class GrantRefusal:
+    """Why a conditional consume matched zero rows, and which row it was.
+
+    `grant_id` is `None` exactly when the reason is `unknown` — there is no row
+    to name. The token, its hash and any fragment of either appear in neither
+    field and in no audit payload built from them.
+    """
+
+    reason: str
+    grant_id: UUID | None
+
+
 class RecoveryGrantRepository:
     """Host-issued, hashed, single-use, ten-minute grants (N-14, N-61)."""
 
@@ -1502,6 +1525,63 @@ class RecoveryGrantRepository:
         if row is None:
             return None
         return GrantRecord(id=row["id"], platform_account_id=row["platform_account_id"])
+
+    def classify_refusal(
+        self, *, token_hash: bytes, now: datetime
+    ) -> GrantRefusal:
+        """Why the statement above matched zero rows. **Read-only, same predicate.**
+
+        Added 2026-08-24 for finding S-9/S4. A replayed grant and an expired one
+        produced byte-identical audit payloads (`grant_not_live`) with no
+        reference to the row at all, so the audit could not tell a compromise
+        signal — somebody is presenting a token that has already been used —
+        from an operator who was simply slow. Both must stay indistinguishable
+        to the *caller*; neither should be indistinguishable to an investigator.
+
+        This does **not** weaken consumption. The single conditional `UPDATE`
+        remains the only thing that decides whether a grant is spent, and this
+        runs only after it has already matched zero rows, inside the same
+        transaction — which the refusal then rolls back, taking this read with
+        it. What survives is the described `FailureAudit` the route commits.
+
+        Precedence when more than one condition holds is `consumed`, then
+        `invalidated`, then `expired`. Consumption and invalidation are mutually
+        exclusive by construction (both `issue` and `invalidate_all` match only
+        unconsumed rows), and a consumed grant that has since passed its
+        ten-minute ceiling is still, first and foremost, a replay.
+
+        The predicate is the consume statement's own — `purpose =
+        'emergency_login'` included — so a hash that matches some other purpose
+        is `unknown` here exactly as it is there, rather than being described by
+        a row the redemption never considered.
+        """
+        row = (
+            self._connection.execute(
+                select(
+                    recovery_grants.c.id,
+                    recovery_grants.c.consumed_at,
+                    recovery_grants.c.invalidated_at,
+                    recovery_grants.c.expires_at,
+                ).where(
+                    recovery_grants.c.token_hash == token_hash,
+                    recovery_grants.c.purpose == "emergency_login",
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return GrantRefusal(reason=GRANT_UNKNOWN, grant_id=None)
+        if row["consumed_at"] is not None:
+            return GrantRefusal(reason=GRANT_CONSUMED, grant_id=row["id"])
+        if row["invalidated_at"] is not None:
+            return GrantRefusal(reason=GRANT_INVALIDATED, grant_id=row["id"])
+        if row["expires_at"] <= now:
+            return GrantRefusal(reason=GRANT_EXPIRED, grant_id=row["id"])
+        # Live by every column and still refused: the only way here is a
+        # concurrent redemption that won the race between the `UPDATE` and this
+        # read. The winner consumed it, so that is what happened.
+        return GrantRefusal(reason=GRANT_CONSUMED, grant_id=row["id"])
 
 
 # ---------------------------------------------------------------------------

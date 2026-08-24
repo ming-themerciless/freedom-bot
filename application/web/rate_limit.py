@@ -31,10 +31,24 @@ from application.web.crypto import keyed_digest
 
 
 class LimitedAction(Enum):
-    """The four limited actions, each with its own budget."""
+    """The five limited actions, each with its own budget.
+
+    `WEBAUTHN_CHALLENGE` and `WEBAUTHN_ASSERTION` were **one** action until
+    2026-08-24 (finding S-7/S3). Sharing a bucket made the two halves of one
+    ceremony compete for the same five per-address units: a completed sign-in
+    spent two of them and a cancelled prompt spent one, so three ordinary
+    fumbles during a Discord outage exhausted the path that exists for outages.
+
+    They are separate because they bound different things. Issuing a challenge
+    inserts one short-lived row and reveals nothing — its budget is an
+    availability and storage bound. Verifying an assertion is the guess: it is
+    the operation N-32 exists to make tedious, and its budget is a security
+    bound. One number cannot be set correctly for both.
+    """
 
     OAUTH_START = "oauth_start"
     OAUTH_CALLBACK = "oauth_callback"
+    WEBAUTHN_CHALLENGE = "webauthn_challenge"
     WEBAUTHN_ASSERTION = "webauthn_assertion"
     RECOVERY_LOGIN = "recovery_login"
 
@@ -65,7 +79,7 @@ class RateLimiter:
     ) -> None:
         """The budgets are read **once, here**, and checked before they are held.
 
-        `canonical_settings` reads each of the nine numbers exactly once and
+        `canonical_settings` reads each of the ten numbers exactly once and
         rebuilds an ordinary `RateLimitSettings` from those locals, whose
         constructor holds them to the accepted register (2026-08-15, I-10).
         Without it, this object kept whatever was handed to it and re-read a
@@ -141,6 +155,8 @@ class RateLimiter:
             return settings.oauth_starts_per_ip, window
         if action is LimitedAction.OAUTH_CALLBACK:
             return settings.oauth_callbacks_per_ip, window
+        if action is LimitedAction.WEBAUTHN_CHALLENGE:
+            return settings.webauthn_challenges_per_ip, window
         if action is LimitedAction.WEBAUTHN_ASSERTION:
             return settings.webauthn_assertions_per_ip, window
         return settings.recovery_attempts_per_ip, window

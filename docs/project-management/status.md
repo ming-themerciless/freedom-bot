@@ -1,12 +1,80 @@
 # Project status
 
-Status date: 2026-08-24 (fifty-first update: Codex accepted the completed P3.5
-frontend repository remediation for F-15/F-17 after independent implementation
+Status date: 2026-08-24 (fifty-third update: Codex independent and security
+re-reviews accepted the supervised-session repository remediation, and Peter
+Duscha, Acceptance Authority, accepted N-32a at 10 WebAuthn challenge issuances
+per source IP per 10 minutes. The accepted challenge budget is separate from
+N-32's unchanged assertion budgets. Remaining live evidence and operational work
+keeps A-05, I-06, A-06, R-23 and the Phase 3 gate open. No public exposure or
+Phase 4 start is authorized.)
+
+Update 2026-08-24 (fifty-third) — remediation re-reviewed; N-32a accepted.
+
+- **Repository remediation accepted.** Codex's independent and distinct security
+  re-reviews closed the prior S-5/S-6 code blockers and accepted the repository
+  corrections for S-4, S-7 and S-9. No new Important or Blocking code defect was
+  found. The full portal suite independently passed 2,330 tests with 80 documented
+  caller-matrix skips.
+- **N-32a accepted.** Peter Duscha, Acceptance Authority, accepted 10 WebAuthn
+  challenge issuances per source IP per 10 minutes. Challenge issuance no longer
+  spends N-32's stricter verification budget; N-32 remains 5 assertions per
+  source IP per 10 minutes and 10 per platform account per 60 minutes.
+- **No gate moved.** Live R-41/R-46 denial observations, evidence-record operator
+  fields, S-1/S-2 operational work and the remaining A-05/I-06 criteria are still
+  open. Public exposure and Phase 4 remain unauthorized.
+
+Previous status date: 2026-08-24 (fifty-second update: the supervised browser and
+authenticator session ran in full and raised nine findings, **none of which any
+test suite had caught**. Codex's independent and security reviews held two of
+them blocking for A-05 criterion 7. All six code findings were remediated with 44
+new tests and awaited re-review. F-15/F-17's operational half was discharged;
+TC-UI-01/02 held for one browser on one platform. A-05, I-06, A-06, R-23 and the
+Phase 3 gate remained open. No public exposure or Phase 4 start was authorized.)
+
+Update 2026-08-24 (fifty-second) — supervised session executed; its findings remediated.
+
+- **The session ran.** Two real WebAuthn ceremonies on two distinct enabled
+  credentials, in Chrome on macOS 26, against the deployed staging origin, under
+  a Discord outage verified in both directions and isolated to the portal's
+  service account. Sign-out invalidated server-side; a retired credential was
+  refused; cancellation was neutral. SP-21 issued a recovery grant, used it once,
+  and had it refused on replay and again after expiry. SP-22 observed three
+  withheld routes refusing at the route rather than only in the frame. Evidence:
+  `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`.
+- **Nine findings, none found by a test.** All were found by observing the
+  running system — by fetching a page, by reading the audit rows a real ceremony
+  wrote, by checking a service the health endpoint had already called healthy.
+  That is the argument for this kind of session existing at all.
+- **Codex reviewed both the evidence and its security posture** and held **S-5**
+  (rate-limited emergency refusals write no audit record while showing a
+  correlation reference that resolves to nothing) and **S-6** (every logout
+  audited as `guild_member`, including a break-glass administrator with no guild
+  membership) **blocking for A-05 criterion 7**.
+- **All six code findings are remediated**, with 44 new tests across five new
+  traceability rows: the emergency refusal audit boundary (S-5), logout
+  attribution derived from the persisted authentication method (S-6), N-32's
+  issuance and assertion budgets separated (S-7), failed recovery redemptions
+  classified for the audit and not for the caller (S-9), and `/healthz` probing
+  the identity provider rather than asserting it (S-4). Submission:
+  `docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`.
+- **What the repository cannot close.** The two POST routes of A-05 criterion 6
+  (R-41, R-46) need the Operations Owner and a live break-glass session. The
+  evidence record's exact end timestamp and the SP-21 grant record ids need the
+  host. S-1's deploy/reload gap and S-2's inactive worker are operational.
+- **At this update, one decision was before the Acceptance Authority:** N-32a, a
+  separate budget for WebAuthn challenge issuance. It was subsequently accepted
+  in the fifty-third update above.
+- **Governance:** remediation does not close a finding. Independent and security
+  re-review are required. A-05, I-06, A-06 and the Phase 3 gate remain open;
+  R-23 remains active; public exposure and Phase 4 remain unauthorized.
+
+Previous status date: 2026-08-24 (fifty-first update: Codex accepted the completed
+P3.5 frontend repository remediation for F-15/F-17 after independent implementation
 and security-focused review. Strict refusal/UUID and Base64URL counterexamples
 were corrected and independently probed. The real-browser and physical-
-authenticator session is planned for later on 2026-08-24 but remains Not Run;
-therefore F-15/F-17, TC-UI-01/02, TC-BG-02, A-05, R-23 and the Phase 3 gate remain
-open. No public exposure or Phase 4 start is authorized.)
+authenticator session was planned for later on 2026-08-24 and was Not Run at that
+time; therefore F-15/F-17, TC-UI-01/02, TC-BG-02, A-05, R-23 and the Phase 3 gate
+remained open. No public exposure or Phase 4 start was authorized.)
 
 Update 2026-08-24 (fifty-first) — frontend code accepted; supervised evidence queued.
 

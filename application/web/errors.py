@@ -211,9 +211,19 @@ class AuthenticationFailure(Exception):
     rolls its transaction back — that is what "no session was created" means — so
     an audit event written inside it would be discarded exactly when the refusal
     happened. SM-01 and SM-03 require the opposite: every attempt and outcome is
-    audited. The event is therefore described here and committed by
-    `record_authentication_failure` in a **fresh** transaction, carrying the same
-    correlation id.
+    audited. The event is therefore described here and committed **by the route**
+    in a fresh transaction, carrying the same correlation id — through
+    `OAuthRefusalRecorder` or `EmergencyRefusalRecorder` in
+    `application/web/refusals.py`, whichever path raised it.
+
+    The free function `record_authentication_failure` that used to do this was
+    removed on 2026-08-24 (S-5/S1 remediation). It committed a described audit
+    and nothing else, so a route using it had no way to state *"this attempt has
+    already been recorded"* — and the break-glass routes need exactly that, since
+    one attempt there can reach both a route-recorded refusal and a
+    service-described one. The recorders own that property; a second, weaker
+    writer beside them would have been a second answer to "how many rows does one
+    refused attempt write".
     """
 
     __slots__ = ("code", "correlation_id", "audit")
@@ -243,33 +253,6 @@ class FailureAudit:
     account_id: UUID | None = None
 
 
-def record_authentication_failure(engine, failure: AuthenticationFailure) -> None:
-    """Commit a refusal's audit event, after the transaction that failed rolled back.
-
-    Called by the route rather than by the service, because only the route knows
-    that the service's transaction is over. A refusal that leaves no trace is
-    indistinguishable afterwards from an attempt that never happened.
-    """
-    if failure.audit is None:
-        return
-    from adapters.web.repositories import WebAuditRepository
-    from application.audit import AuditEvent, AuditSource
-
-    with engine.begin() as connection:
-        WebAuditRepository(connection).record(
-            AuditEvent(
-                action=failure.audit.action,
-                entity_type=failure.audit.entity_type,
-                entity_id=failure.audit.entity_id,
-                source=AuditSource.WEB,
-                actor_capability=failure.audit.capability,
-                correlation_id=failure.correlation_id,
-                actor_platform_account_id=failure.audit.account_id,
-                payload=failure.audit.payload,
-            )
-        )
-
-
 __all__ = [
     "AmbiguousProviderIdentity",
     "AuthenticationFailure",
@@ -284,5 +267,4 @@ __all__ = [
     "RefusalCode",
     "ServiceDegraded",
     "WebRefusal",
-    "record_authentication_failure",
 ]

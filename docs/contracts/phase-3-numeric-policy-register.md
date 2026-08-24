@@ -16,6 +16,19 @@ Changed by the P3.0 remediation of the same date and accepted at the re-review:
 No other provisionally accepted value is changed, tightened or reinterpreted by
 the remediation.
 
+### Addition of N-32a (2026-08-24, P3.5 supervised-session remediation)
+
+**Accepted 2026-08-24 by Peter Duscha, Acceptance Authority.** One value is added
+and none is changed:
+N-32a bounds WebAuthn *challenge issuance* per source address, which N-32's
+assertion budget was silently paying for. §5 change control applies to the
+addition; the accepted N-32 numbers are untouched, and the split can only make
+the accepted assertion budget stricter in practice — five verifications now buy
+five verifications rather than two-and-a-half ceremonies.
+
+The full reasoning, the finding it answers and the alternative that was rejected
+(raising the coupled number) are in the N-32a row of §3.
+
 ### Clarification of N-07, N-08 and N-15 (2026-08-15, OD-44 session-lifetime remediation)
 
 **No numeric value changes.** These notes record what the accepted values already
@@ -124,7 +137,7 @@ type *and* range for every number in this register. Six tables cite it:
 | Table | Numbers it holds |
 |---|---|
 | `SESSION_CEILINGS` / `SESSION_BOUNDS` | N-04, N-06, N-07, N-15, N-66 |
-| `RATE_LIMIT_BOUNDS` | N-18, N-30, N-31, N-32, N-33 |
+| `RATE_LIMIT_BOUNDS` | N-18, N-30, N-31, N-32, N-32a, N-33 |
 | `REQUEST_BOUNDS` | N-09, N-10, N-19, N-21, N-22, N-34 |
 | `WEBAUTHN_BOUNDS` | N-14 |
 | `DATABASE_POOL_BOUNDS` | N-53 |
@@ -287,6 +300,7 @@ P3.0 found were missing. Peter accepted each at P3.G0.
 | N-30 | Rate-limiter storage and algorithm | PostgreSQL table `auth_rate_limits`, fixed 10-minute window keyed by `(bucket, window_start)`, incremented by one `INSERT … ON CONFLICT DO UPDATE … RETURNING` statement | §7 states an in-process limiter is insufficient across processes. PostgreSQL is already a required, shared, transactional dependency; adding Redis for one counter is not the smallest justified dependency set. The known cost of a fixed window is a 2× burst at the boundary, recorded as residual risk RR-03 |
 | N-31 | Rate-limit window cleanup | rows with `window_start` older than 60 minutes are deleted opportunistically, at most once per minute per process | Bounds table growth without a scheduler |
 | N-32 | WebAuthn assertion attempts | 5 per source IP per 10 minutes, and 10 per platform account per 60 minutes | §7 sets no break-glass limit; §9.7 requires break-glass attempts to be rate limited. Deliberately lower than N-18: the credential set is two keys held by one person |
+| N-32a | WebAuthn **challenge issuance** attempts | 10 per source IP per 10 minutes | **Amended and accepted 2026-08-24 by Peter Duscha, Acceptance Authority** (supervised-session finding S-7, security finding S3). R-07 and R-08 shared N-32's single five-unit address bucket, so the two halves of one ceremony competed for it: a completed sign-in spent two units and a cancelled authenticator prompt spent one, leaving roughly two complete ceremonies per window on the path that exists for a Discord outage. Coupled with an operator who cannot tell a live passkey from a retired one in the platform UI, that is an emergency-lockout risk arising from an ordinary mistake. The two budgets are separated rather than the coupled number raised, because they bound different things: issuing a challenge inserts one short-lived row swept by N-31 and verifies nothing, so it is an availability and storage bound, while verifying an assertion is the guess N-32 exists to make tedious. **N-32's assertion budgets are unchanged**; this is an addition, and it tightens nothing that was accepted |
 | N-33 | Recovery-grant login attempts | 3 per source IP per 10 minutes, and 5 per grant record for all time | The grant is single-use, so more than a handful of attempts against one grant is an attack, not a retry |
 | N-34 | Client address determination | exactly one proxy hop, trusted only when the transport peer is `127.0.0.1`; the right-most `X-Forwarded-For` entry is used; a request that reaches the app port from any other peer is refused | Bounds header spoofing; matches the loopback-only bind in OD-20 |
 

@@ -201,6 +201,102 @@ def session_class_of(auth_method: AuthMethod) -> SessionClass:
         ) from None
 
 
+class UnattributedAuthMethod(Exception):
+    """An authentication method whose audit attribution nobody decided.
+
+    The sibling of `UnclassifiedAuthMethod`, and it exists for the same reason:
+    the value it guards is one a future editor could plausibly leave to a
+    default, and the default would be wrong in silence.
+    """
+
+
+#: **Every** authentication method's audit attribution: the authority a session
+#: authenticated that way acts under, for the events that describe the session
+#: itself rather than the thing it went on to do.
+#:
+#: Written out for the same reason `_SESSION_CLASSES` is, and added on 2026-08-24
+#: for finding S-6/S2. Until then `SessionService.logout()` wrote a literal
+#: `guild_member` for every session it revoked. For an ordinary Discord login
+#: that is the right word — it is what `auth.login.succeeded` records for the
+#: same session. For a break-glass administrator signing out during a Discord
+#: outage it is false: that actor holds `{platform_administrator}` and *no*
+#: proven guild membership at all (N-12), so the audit's primary capability
+#: column named an authority the actor demonstrably did not hold, on the one
+#: event an incident review reads to find out when emergency access ended.
+#:
+#: The value is derived from `sessions.auth_method` — the **persisted** row,
+#: which the conditional resolve statement already matched on — and never from
+#: anything the request supplied.
+#:
+#: Adding a member to `AuthMethod` without adding it here fails at import,
+#: naming the method. Deciding what authority a new method acts under is the
+#: point of the entry.
+_AUDIT_ATTRIBUTION: Mapping[AuthMethod, ActorCapability] = MappingProxyType(
+    {
+        AuthMethod.DISCORD_OAUTH: ActorCapability.GUILD_MEMBER,
+        AuthMethod.WEBAUTHN: ActorCapability.PLATFORM_ADMINISTRATOR,
+        AuthMethod.RECOVERY_GRANT: ActorCapability.PLATFORM_ADMINISTRATOR,
+    }
+)
+
+
+def unattributed_methods(
+    methods: Iterable[Enum], attribution: Mapping[Enum, ActorCapability]
+) -> tuple[str, ...]:
+    """The members of `methods` that `attribution` does not govern, by value.
+
+    Generic over the enum for the same testability reason
+    `unclassified_methods` is: a test cannot add a member to a closed enum, so
+    proving "a future method is refused" needs a synthetic one running through
+    this same function rather than an assertion about the source.
+    """
+    return tuple(
+        sorted(str(method.value) for method in methods if method not in attribution)
+    )
+
+
+def require_complete_attribution(
+    methods: Iterable[Enum], attribution: Mapping[Enum, ActorCapability]
+) -> None:
+    """Refuse an attribution table that does not govern every method."""
+    missing = unattributed_methods(methods, attribution)
+    if missing:
+        raise UnattributedAuthMethod(
+            "every authentication method must state the authority its sessions "
+            "act under before it can be audited; unattributed: "
+            f"{', '.join(missing)}. Add it to _AUDIT_ATTRIBUTION in "
+            "application/web/capabilities.py — deciding the authority is the "
+            "point of the entry, not a formality."
+        )
+
+
+require_complete_attribution(AuthMethod, _AUDIT_ATTRIBUTION)
+
+
+def audit_capability_of(auth_method: AuthMethod) -> ActorCapability:
+    """The authority a session authenticated this way acts under. Never a default.
+
+    The type check is the one `session_class_of` makes, and for the same reason:
+    the persisted string `"webauthn"` is not a key of the table, and a lookup
+    that fell back on `KeyError` would hand it whichever capability the fallback
+    named — which is precisely the false attribution this function exists to
+    end.
+    """
+    if not isinstance(auth_method, AuthMethod):
+        raise TypeError(
+            "an audit attribution is defined for AuthMethod members, not "
+            f"{auth_method!r}"
+        )
+    try:
+        return _AUDIT_ATTRIBUTION[auth_method]
+    except KeyError:
+        raise UnattributedAuthMethod(
+            f"{auth_method.value} has no explicit audit attribution; a session "
+            "authenticated that way cannot be audited until one is decided in "
+            "application/web/capabilities.py"
+        ) from None
+
+
 class AdministratorScope(Enum):
     """Whether administrator authority is ordinary or emergency-derived."""
 
@@ -494,10 +590,14 @@ __all__ = [
     "MembershipProjection",
     "RoleCapabilityMapping",
     "SessionClass",
+    "UnattributedAuthMethod",
     "UnclassifiedAuthMethod",
     "WebAuthorizationContext",
+    "audit_capability_of",
+    "require_complete_attribution",
     "require_complete_classification",
     "resolve_capabilities",
     "session_class_of",
+    "unattributed_methods",
     "unclassified_methods",
 ]

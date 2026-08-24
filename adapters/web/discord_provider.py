@@ -48,6 +48,24 @@ from application.web.providers import (
 #: defect waiting for a slow provider.
 _LIMITS = httpx.Limits(max_connections=10, max_keepalive_connections=5)
 
+#: The health probe's own ceiling, in seconds, and it is a **ceiling**: the
+#: configured `WEB_DISCORD_API_TIMEOUT_SECONDS` is used instead whenever it is
+#: tighter, so configuration can only narrow this and never widen it (S-10).
+#:
+#: Two seconds because `/healthz` is what an operator polls *during* a
+#: degradation. A probe that inherited the request timeout would let a hanging
+#: Discord hold the health endpoint open for as long as an ordinary login is
+#: allowed to wait, which is exactly backwards: the login is worth waiting for
+#: and the health answer is worth having quickly.
+HEALTH_PROBE_TIMEOUT_SECONDS = 2.0
+
+#: The least-privileged documented endpoint Discord publishes: unauthenticated,
+#: read-only, and it returns a gateway URL rather than anything about the
+#: application, the guild or a person. **No client id, no client secret, no
+#: token and no scope are presented**, so a probe cannot leak a credential and
+#: cannot spend a privileged quota. Its body is never read.
+_PROBE_PATH = "/gateway"
+
 
 class DiscordIdentityProvider:
     """`provider_key = "discord"`. Holds one `AsyncClient` for the process."""
@@ -241,6 +259,37 @@ class DiscordIdentityProvider:
             role_ids=_role_ids(body.get("roles")),
             observed_at=observed_at,
         )
+
+    async def probe(self) -> bool:
+        """Is Discord reachable and answering? `IdentityProvider.probe`'s contract.
+
+        Classified with the **same** rule `_get` uses, so "the provider is
+        unavailable" means one thing across this adapter: a transport failure, a
+        5xx or a 429 is unavailable, and anything else is an answer. A 4xx here
+        would mean Discord replied — the platform is not degraded merely because
+        an unauthenticated endpoint changed shape — so it counts as reachable.
+
+        Nothing about the response escapes: not its status, not its body, not
+        the URL, not the exception. The caller gets a boolean, which is all VM-16
+        may carry.
+
+        `except Exception` rather than `except httpx.HTTPError`, and deliberately
+        — the one broad catch in this module. Every other path in this adapter is
+        allowed to surface a defect of ours as a `500`, because a caller is
+        waiting for an answer that a defect makes impossible. Here the caller is
+        an operator asking whether the platform is healthy during an incident,
+        and the honest answer to "this check could not be completed" is `False`,
+        not a crashed health endpoint.
+        """
+        timeout = min(HEALTH_PROBE_TIMEOUT_SECONDS, self._settings.api_timeout_seconds)
+        try:
+            response = await self._client.get(
+                f"{self._settings.api_base_url}{_PROBE_PATH}",
+                timeout=httpx.Timeout(timeout),
+            )
+        except Exception:  # noqa: BLE001 - a probe answers, it does not raise
+            return False
+        return not (response.status_code >= 500 or response.status_code == 429)
 
     async def _get(self, path: str, headers: dict[str, str]) -> dict[str, Any]:
         try:

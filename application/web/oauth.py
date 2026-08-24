@@ -396,7 +396,7 @@ class OAuthLoginService:
             # The refusal is **described**, not written: this transaction is
             # about to roll back, and an audit row written inside it would be
             # discarded exactly when the refusal happened. The route commits it
-            # afterwards through `record_authentication_failure`.
+            # afterwards through the route's `OAuthRefusalRecorder`.
             raise AuthenticationFailure(
                 code="not_a_member",
                 correlation_id=correlation_id,

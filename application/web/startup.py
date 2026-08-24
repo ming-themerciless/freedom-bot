@@ -264,6 +264,12 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
     worker_ok, leases_ok = _worker_liveness(engine, database_ok)
     checks.append(HealthCheck(name="worker_heartbeat", ok=worker_ok))
     checks.append(HealthCheck(name="expired_leases", ok=leases_ok))
+    # **A probe's answer, not a literal** (2026-08-24, S-4/S5). The caller
+    # performs the bounded, unauthenticated reachability check — it is network
+    # work and this function is synchronous — and hands the boolean here. This
+    # function has never decided the value and still does not; what changed is
+    # that R-10 stopped passing `True` unconditionally, which made the one check
+    # an operator consults during a Discord outage report `ok` throughout it.
     checks.append(HealthCheck(name="identity_provider", ok=provider_ok))
     checks.append(
         HealthCheck(name="kill_switch", ok=_kill_switch_absent(settings.kill_switch_file))

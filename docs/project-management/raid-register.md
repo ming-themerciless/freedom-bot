@@ -1,6 +1,42 @@
 # RAID register
 
-Status date: 2026-08-18
+Status date: 2026-08-24
+
+## P3.5 supervised-session remediation amendment — 2026-08-24
+
+Recorded after the supervised session
+(`phase-3-p3-5-supervised-session-evidence-2026-08-24.md`), Codex's two review
+passes, and the remediation submitted as
+`phase-3-p3-5-supervised-session-remediation-submission.md`.
+
+- **A-05 remains Open, and moved.** Criteria 1, 2, 2a and 5 are evidenced by the
+  session; criterion 8 by SP-21; criterion 6's presentation half and its three
+  GET routes by SP-22. **Criterion 7's two blocking findings — S-5 (limiter
+  refusals unaudited) and S-6 (logout attributed to `guild_member` for a
+  break-glass administrator) — were remediated and accepted by independent and
+  security re-review on 2026-08-24.** Criterion 6's remaining half is the two POST routes R-41 and R-46,
+  which need the Operations Owner and a live break-glass session; criteria 3, 4,
+  9 and 10 remain Not Run. The Security Reviewer's criterion-10 confirmation is
+  explicitly conditional on the re-review.
+- **I-06 remains Open.** S-4 is remediated — `/healthz` now probes the identity
+  provider instead of asserting it — which unblocks TC-OPS-05's premise but
+  evidences none of I-06's procedures. **S-2 stands:** `freedom-worker.service`
+  is inactive, and it is an operational prerequisite for the worker procedures.
+  **S-1 stands** as a deployment/reload gap: the deployed process served code
+  8½ hours older than the commit under test while every suite was green, and
+  build identity must be verified after deployment before any later evidence run
+  is trustworthy. No repository change is proposed for either.
+- **R-23 remains Active.** TC-UI-01/02 are satisfied for **one** browser on one
+  platform (Chrome, macOS 26). TC-UI-08's device matrix is uncovered and
+  TC-UI-09 is permanently Not Run under decision D-f.
+- **N-32a accepted 2026-08-24.** Peter Duscha, Acceptance Authority, accepted 10
+  WebAuthn challenge issuances per source IP per 10 minutes, separately from
+  N-32's unchanged assertion budget. It answers a break-glass **availability**
+  finding: while the two shared a bucket, an ordinary operator mistake could
+  exhaust the emergency path during the outage that path exists for. This
+  numeric decision closes no RAID item or gate.
+- **No Phase 3 gate or exposure decision is made**, and none is requested. Public
+  exposure and Phase 4 remain unauthorized.
 
 ## P3.5 frontend acceptance amendment — 2026-08-24
 
