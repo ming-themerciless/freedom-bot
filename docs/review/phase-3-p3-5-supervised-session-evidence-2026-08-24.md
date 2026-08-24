@@ -27,7 +27,7 @@ the SP-21 grant record UUIDs — are marked **outstanding** rather than filled i
 | Field | Value |
 |---|---|
 | Session start (UTC) | 2026-08-24T08:29:24Z |
-| Session end (UTC) | 2026-08-24 — **exact end time outstanding.** §4.2 and §4.3 ran in two sittings, suspended 09:33Z and resumed the same day; the latest timestamp this document records is SP-21's expiry refusal at **21:02:45Z**, which is a lower bound on the end and not the end itself. The accepted evidence rules ask for exact timestamps, and only the Operations Owner can supply this one |
+| Session end (UTC) | 2026-08-24 — **exact end time still outstanding**, with a raised lower bound. §4.2 and §4.3 ran in two sittings, suspended 09:33Z and resumed the same day. SP-21's expiry refusal at 21:02:45Z was the latest timestamp this document recorded; a host-local read of `audit_events` on 2026-08-24 (below) shows four later rows — two ordinary `discord_oauth` login/logout pairs at **21:30:04Z, 21:30:07Z, 21:30:18Z and 21:30:43Z**, after the deliberate provider outage had been restored — so the lower bound is now **21:30:43.196749Z**. Whether those four rows are the session's closing normal-login check or unrelated later use is not something the audit stream states, so this remains a **lower bound and not the end**. The accepted evidence rules ask for exact timestamps, and only the Operations Owner can supply this one |
 | Commit under test | `0c95e72bc9a3c274b5683161b17ceb0fe53f8902` ("Complete Phase 3.5 portal remediation package", 2026-08-24T01:31:54Z) |
 | Branch | `docs/platform-plan` |
 | Working tree | clean (`git status --short` empty) |
@@ -37,7 +37,8 @@ the SP-21 grant record UUIDs — are marked **outstanding** rather than filled i
 | Operator | Peter Duscha (Operations Owner) |
 | Reviewer | Claude (working Technical Lead) |
 | Browser / OS | **Chrome on macOS 26**, for every observation in §3, §4, SP-21 and SP-22. Taken from §3's and §4's own records rather than newly reported. This is a single browser on a single platform, which is why R-23 stays active (§8.2) |
-| Authenticator(s) | **Two enabled platform authenticators**, nicknamed `puppetmaster` and `puppetphone`, plus the retired pair `macbook` and `iphone` presented once and refused. Nicknames only, which §9.2's A-1 row permits; no credential id, public key or COSE material was ever selected by any query in this session. See the A-6 evidence table |
+| Authenticator(s) | **Two enabled platform authenticators.** The portal's **credential-record nicknames** are `puppetmaster` and `puppetphone`, plus the retired pair `macbook` and `iphone` presented once and refused. Nicknames only, which §9.2's A-1 row permits; no credential id, public key or COSE material was ever selected by any query in this session. See the A-6 evidence table |
+| Authenticator description | **Not Recorded.** A truthful non-sensitive description — built-in platform authenticator plus device class — can only come from the Operations Owner, and it was not captured while the session ran. The four nicknames above are **not** it: §8.4 of this document records that they are not what the platform passkey UI displays, so no authenticator model or device may be inferred from them. This row stays **Not Recorded** until the Operations Owner supplies one |
 
 ---
 
@@ -131,7 +132,7 @@ written before the sitting and never revised.
 | A-5 | POST sign-out control works; session no longer reaches protected routes | **Passed** — first credential. Sign-out returned the operator to the sign-in page. Re-navigating directly to `https://freedom-blades-test.rpgworld.org/v1/admin/role-capabilities` also returned the sign-in page rather than the protected content, so the session was invalidated server-side and not merely cleared from view |
 | A-6 | Second enrolled credential authenticates, then signs out | **Passed, re-run under a genuine outage.** The 09:36:26Z ceremony had run *after* the provider was restored, so it was repeated with the `iptables` rule re-applied. The second enrolled credential (`puppetmaster`) authenticated, landed on `/v1/admin/role-capabilities`, and the operator then signed out — reaching the control by keyboard and actuating it with Enter, no mouse. Both ceremonies are now evidenced under provider unavailability |
 | A-7 | Neutral user cancellation leaves the control usable, no technical disclosure, no auto-retry | **Passed.** The operator pressed **Use security key**, then dismissed the macOS passkey prompt. The page displayed exactly **"Security key operation was cancelled or timed out."** — `webauthn-emergency.9e0c073e9e6c.js:423`, a client-side status write. No closed-vocabulary code (`origin_invalid`, `rate_limited`, `invalid`, `expired`) reached the interface; cancellation and timeout are deliberately not distinguished. The control remained usable and unchanged, and no second prompt appeared unprompted |
-| A-8 | No assertion, credential ID, challenge, cookie or recovery token in captured evidence | **Passed, verified by scanning this document rather than asserted.** No string of 40+ base64url/hex characters appears anywhere in it except the commit SHA `0c95e72…` and a test filename. No cookie value, bearer token, recovery token, challenge or assertion appears. The only UUID recorded is the correlation reference `cd2275e1-…`, which §9.2's A-6 row explicitly requires. Credential **nicknames** (`macbook`, `iphone`, `puppetmaster`, `puppetphone`) are recorded, which §9.2's A-1 row explicitly permits; credential ids, public keys and COSE material were never selected by any query run in this session — the `webauthn_credentials` read named only `nickname`, `created_at`, `disabled_at`, `last_used_at`. No screenshot was captured |
+| A-8 | No assertion, credential ID, challenge, cookie or recovery token in captured evidence | **Passed, verified by scanning this document rather than asserted.** No string of 40+ base64url/hex characters appears anywhere in it except the commit SHA `0c95e72…` and a test filename. No cookie value, bearer token, recovery token, challenge or assertion appears. The UUIDs recorded are the correlation references shown to the caller (`cd2275e1-…`, `a4890d68-…`, `341a2706-…`), which §9.2's A-6 row explicitly requires, and — added 2026-08-24 — SP-21's two **grant record ids** (`233b8199-…`, `b8437d11-…`), which §9.2's A-9 row explicitly requires. A grant record id is a reference to a row of ours; it is not the token, is not derived from the token, and does not yield it. Credential **nicknames** (`macbook`, `iphone`, `puppetmaster`, `puppetphone`) are recorded, which §9.2's A-1 row explicitly permits; credential ids, public keys and COSE material were never selected by any query run in this session — the `webauthn_credentials` read named only `nickname`, `created_at`, `disabled_at`, `last_used_at`. No screenshot was captured |
 | A-9 | Provider dependency restored; ordinary staging login and health verified | **Passed.** Egress restored and verified: `sudo -u freedomweb curl … https://discord.com/api/v10/oauth2/token` → **`405`**, Discord's own answer to a GET on a POST-only endpoint, i.e. a real HTTP response rather than a connection failure. Compare the blocked state's `curl: (7) … after 1 ms` / code `000` (A-2). **Passed in full.** An ordinary Discord staging login was then performed in the browser and succeeded, returning the complete member/Council/administrator navigation |
 
 ### Incident I-1 — second-credential attempts refused (2026-08-24, during A-6)
@@ -206,10 +207,10 @@ prints the token from inside the program rather than taking it as an argument.
 
 | Step | Action | Result |
 |---|---|---|
-| 1 | Grant issued host-locally via `portal-run.sh -m tools.emergency_recovery issue` | Issued; token displayed once and stored only as a hash |
+| 1 | Grant issued host-locally via `portal-run.sh -m tools.emergency_recovery issue` | Issued; token displayed once and stored only as a hash. Grant record **`233b8199-2371-4ee6-88b9-a8e134bdd9a5`** (`created_at` 20:44:12.738527Z, `expires_at` 20:54:12.738468Z, `consumed_at` 20:44:49.396104Z) |
 | 2 | Token submitted to the R-09 recovery form | **Accepted** — session established, landing on `/v1/admin/role-capabilities` |
 | 3 | **The same token submitted again** after sign-out | **Refused.** "Emergency sign-in did not complete. Reference `a4890d68-835b-4ce3-bb1a-007274efe2c5`." The page did not change; the message appeared in place |
-| 4 | A second grant issued, then left **unused for 15 minutes** (ceiling is `GRANT_MINUTES = 10`) | — |
+| 4 | A second grant issued, then left **unused for 15 minutes** (ceiling is `GRANT_MINUTES = 10`) | Grant record **`b8437d11-2ae0-4ef9-83e4-02f5325736d9`** (`created_at` 20:47:07.711073Z, `expires_at` 20:57:07.711019Z, `consumed_at` null) |
 | 5 | The expired token submitted | **Refused.** Reference `341a2706-ec29-4a9a-900e-00828b532636` |
 
 **Single-use and expiry are both enforced.** The 15-minute wait deliberately
@@ -251,13 +252,18 @@ attempt cap. S-5 is therefore specific to the two limiter short-circuits at
 that this route repeats the same shape at `:1154` (empty token) and `:1159-1163`
 (per-address limiter), both of which return without auditing.
 
-**Outstanding against the readiness plan's own evidence contract (F4).** §9.2's
-A-9 row asks SP-21 to record the **grant record ID** of each grant, and the table
-above does not. The two ids are non-secret 128-bit references to rows — not
-tokens, and not derivable from one — and they are readable host-locally from
-`recovery_grants` alongside the timestamps already transcribed. Either they are
-added by the Operations Owner, or a deviation from A-9 is documented and
-approved; this document does not invent them.
+**A-9's grant record IDs — recorded 2026-08-24 (F4 remediation).** §9.2's A-9 row
+asks SP-21 to record the **grant record ID** of each grant, and the table above did
+not. The two ids are now in it, read host-locally from `recovery_grants` on the
+staging database with a single read-only `SELECT` naming `id`, `purpose`,
+`created_at`, `expires_at`, `consumed_at` and `invalidated_at` **and no other
+column** — `token_hash` was never selected, is not derivable from an id, and appears
+nowhere in this document. Each row's timestamps match the audit times already
+transcribed above to the second, which is what identifies them as SP-21's two
+grants rather than an assumption that they are: `233b8199…` was consumed at
+20:44:49.396104Z (the accepted redemption) and is the grant replayed at 20:45:43Z,
+and `b8437d11…` was never consumed and expired at 20:57:07.711019Z, 5m38s before
+the refusal at 21:02:45Z.
 
 **Still Not Run for criterion 8's neighbours:** the `revoke` subcommand and its
 `invalidate_all` path were not exercised, and criterion 9 (custody, replacement,
@@ -441,6 +447,14 @@ enforced the binding instead (A-1).
 Every database read performed in this session selected named non-sensitive
 columns. No query selected `credential_id`, `public_key`, `aaguid` or any session
 or token column.
+
+The same holds for the two reads added on 2026-08-24 while completing this
+document's outstanding fields: `recovery_grants` was read for `id`, `purpose`,
+`created_at`, `expires_at`, `consumed_at` and `invalidated_at` — **not**
+`token_hash` — and `audit_events` was read for `occurred_at`, `action`,
+`actor_capability` and the `auth_method` key of the payload. Both were read-only
+`SELECT`s against the staging database. No session, token or credential column was
+named by either.
 
 ---
 
