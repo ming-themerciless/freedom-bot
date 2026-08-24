@@ -100,6 +100,7 @@ MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 FORM = "application/x-www-form-urlencoded"
 
 from tests.web.template_digests import P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS
+from application.web.shell import ANONYMOUS_SHELL
 
 
 # Contract §5.2 Authoritative Caller Matrix for R-28 through R-38
@@ -231,11 +232,20 @@ def compute_sha256(path: Path) -> str:
 
 
 def get_jinja_env() -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(TEMPLATE_ROOT)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()`
+    # on every real full-page render. These tests render templates in isolation,
+    # with no request boundary to derive one, so the anonymous shell is the
+    # default here. A context value overrides a global, so a test supplying its
+    # own shell — and production, which always does — is unaffected. That
+    # production always passes one explicitly is asserted separately, so this
+    # default cannot hide a regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def strip_css_comments(css_text: str) -> str:
@@ -1811,7 +1821,7 @@ def test_asset_integrity_manifest_verification() -> None:
         for line in MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    assert len(lines) == 3
+    assert len(lines) == 4
     for line in lines:
         parts = line.split()
         assert len(parts) == 2

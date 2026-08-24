@@ -1,0 +1,94 @@
+# Caddy site block for the Freedom Blades portal. Authored 2026-08-23 by P3.5 (F-3).
+#
+# Install as its own file and `import` it from /etc/caddy/Caddyfile, so a mistake
+# here is a mistake in one file rather than in the block that also serves the
+# three live Foundry instances. Always `caddy validate --config /etc/caddy/Caddyfile`
+# before `systemctl reload caddy`.
+#
+# Replace __PLACEHOLDER__ values. TC-LIM-02 asserts that the limits below and the
+# application's own limits are equal, read from the deployed configuration.
+
+__SITE_ADDRESS__ {
+	# Cloudflare **Origin CA** wildcard for *.rpgworld.org, as the Foundry blocks
+	# already use. This certificate is trusted by Cloudflare and by nothing else,
+	# which is why the DNS record must stay proxied ("orange"): behind a DNS-only
+	# record a browser would reject it outright (F-10).
+	tls /etc/ssl/rpgworld/cloudflare.pem /etc/ssl/rpgworld/cloudflare.key
+
+	encode zstd gzip
+
+	# ---------------------------------------------------------------------
+	# Who may reach it at all — remove this block only at go-live
+	# ---------------------------------------------------------------------
+	# Until the Phase 3 gate passes, the portal is reachable by the Operations
+	# Owner and nobody else. Certificate Transparency publishes every hostname
+	# Cloudflare issues for, so "nobody knows the address" is not a control.
+	@blocked not remote_ip __OPERATOR_ADDRESSES__
+	respond @blocked 403 {
+		body "Not available."
+		close
+	}
+
+	# ---------------------------------------------------------------------
+	# The visitor's real address (F-10, N-34)
+	# ---------------------------------------------------------------------
+	# N-34 trusts **exactly one** hop and reads the **right-most**
+	# `X-Forwarded-For` entry, trusting it only when the transport peer is
+	# loopback. Cloudflare terminates TLS in front of this proxy, so without the
+	# rewrite below the right-most entry is Cloudflare's address and every
+	# visitor would share one bucket of the N-30/N-31 authentication limiter —
+	# ten OAuth starts per ten minutes for the entire internet at once.
+	#
+	# Setting (not appending) the header from CF-Connecting-IP keeps the app's
+	# view at exactly one hop, which is what its policy already validates.
+	#
+	# **This is only sound while the origin is unreachable except through
+	# Cloudflare.** A request that reaches this port directly can set
+	# CF-Connecting-IP to anything. The operator-address matcher above is the
+	# interim control; before go-live the origin must be restricted to
+	# Cloudflare's published ranges at the firewall, and that restriction is a
+	# deployment-gate item, not an application setting.
+	reverse_proxy 127.0.0.1:__PORT__ {
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up Host {host}
+
+		# N-51: browser routes carry at most N-19, and the application's own read
+		# path is bounded at 30 s. A proxy timeout below the application's would
+		# turn a slow answer into a confusing 502 rather than the typed refusal
+		# the application would have produced.
+		transport http {
+			read_timeout 35s
+			write_timeout 35s
+		}
+	}
+
+	# ---------------------------------------------------------------------
+	# Body limit (N-55, N-19) — TC-LIM-02's parity assertion reads this number
+	# ---------------------------------------------------------------------
+	# 1 MiB, matching WEB_MAX_REQUEST_BYTES exactly. The 64 MiB snapshot bound is
+	# deliberately absent: the submission endpoint is **not mounted in this
+	# process** (route contract §1.2 admits one mount, the static assets), so no
+	# route served here may exceed the general bound. If a later package mounts
+	# it, this file and N-55 change together or the parity assertion fails.
+	request_body {
+		max_size 1MiB
+	}
+
+	# ---------------------------------------------------------------------
+	# Security headers: **none here, deliberately** (F-12)
+	# ---------------------------------------------------------------------
+	# The application owns every one of them — CSP (N-26), Referrer-Policy,
+	# X-Content-Type-Options, COOP and CORP — and P3.4's tests assert the exact
+	# set on real responses. Two `Content-Security-Policy` headers are both
+	# enforced, so a proxy-added policy silently intersects with the application's
+	# and breaks pages that the test suite says are fine. The application also
+	# omits `X-Frame-Options` on purpose, using `frame-ancestors 'none'` instead;
+	# re-adding it here would contradict the accepted contract.
+	#
+	# The prototype block this replaces did add them, because it served static
+	# files with no application behind it. That is not this.
+	#
+	# One exception, and it is not a security header:
+	header -Server
+}

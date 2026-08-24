@@ -166,6 +166,22 @@ def _clean_source(source: str) -> str:
     return re.sub(r"\{#.*?#\}", "", source, flags=re.DOTALL)
 
 
+def _allowed_script_srcs() -> list[str]:
+    manifest = (STATIC_ROOT / "asset-integrity.sha256").read_text()
+    srcs = []
+    for line in manifest.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2 and parts[1].endswith(".js"):
+            static_rel = parts[1].split("adapters/web/static", 1)[-1]
+            srcs.append(f"/static{static_rel}")
+    if not srcs:
+        raise AssertionError("No script entries found in asset-integrity.sha256")
+    return sorted(srcs)
+
+
 def _allowed_htmx_script_src() -> str:
     manifest = (STATIC_ROOT / "asset-integrity.sha256").read_text()
     for line in manifest.splitlines():
@@ -431,7 +447,7 @@ def assert_hostile_renders_inert(
     # 5. Whole-document executable context inspection
     for s in soup.find_all("script"):
         src = s.get("src", "")
-        assert src.startswith("/static/vendor/htmx-"), f"Unauthorized script src={src!r}"
+        assert src.startswith("/static/vendor/htmx-") or src.startswith("/static/js/webauthn-emergency."), f"Unauthorized script src={src!r}"
         assert not s.get_text(strip=True), "Script has inline content"
 
     for img in soup.find_all("img"):
@@ -458,7 +474,7 @@ def assert_hostile_renders_inert(
 
 def validate_executable_contexts(
     template_sources: dict[str, str],
-    allowed_script_src: str,
+    allowed_script_src: str | list[str],
 ) -> None:
     """Production validator for TC-SEC-10 and TC-SEC-11.
 
@@ -466,15 +482,17 @@ def validate_executable_contexts(
     1. Zero hx-on: attributes (including variants).
     2. Zero inline event handlers (onclick, onload, onerror, onsubmit, etc.).
     3. Zero javascript: URLs in any attribute.
-    4. Exactly one <script> tag exists across all templates, located in base.html only.
-    5. Its src attribute equals allowed_script_src exactly.
-    6. It has no inline body content.
+    4. Exact allowed <script> tags exist across all templates, located in base.html only.
+    5. Their src attributes equal allowed_script_src exactly.
+    6. They have no inline body content.
     7. No Jinja expressions appear in script attributes or body.
     8. Zero remote or CDN origins in any href, src, or @import.
     9. Only accepted local static resources are referenced.
     """
     assert template_sources, "No template sources provided"
     assert "base.html" in template_sources, "base.html must be present"
+
+    expected_srcs = [allowed_script_src] if isinstance(allowed_script_src, str) else list(allowed_script_src)
 
     remote_markers = (
         "http://",
@@ -494,27 +512,31 @@ def validate_executable_contexts(
         scripts = soup.find_all("script")
 
         if name == "base.html":
-            assert len(scripts) == 1, f"base.html must contain exactly 1 script tag, found {len(scripts)}"
-            script = scripts[0]
+            assert len(scripts) == len(expected_srcs), f"base.html must contain exactly {len(expected_srcs)} script tags, found {len(scripts)}"
 
-            script_open_match = re.search(r"<script([^>]*)>", clean_source, flags=re.IGNORECASE)
-            assert script_open_match
-            script_open = script_open_match.group(1)
-            assert "{{" not in script_open and "{%" not in script_open, "Jinja found in script tag attributes"
-
-            actual_src = script.get("src")
-            assert actual_src == allowed_script_src, (
-                f"base.html script src {actual_src!r} != expected {allowed_script_src!r}"
-            )
-            assert not script.get_text(strip=True), "base.html script has inline body content"
-            for attr in script.attrs:
-                assert attr in ("src", "defer", "async", "type", "integrity", "crossorigin"), (
-                    f"Unexpected attribute {attr!r} on base.html script"
-                )
+            script_open_matches = re.findall(r"<script([^>]*)>", clean_source, flags=re.IGNORECASE)
+            for script_open in script_open_matches:
+                assert "{{" not in script_open and "{%" not in script_open, "Jinja found in script tag attributes"
 
             script_blocks = re.findall(r"<script[^>]*>(.*?)</script>", clean_source, flags=re.DOTALL | re.IGNORECASE)
-            assert len(script_blocks) == 1
-            assert "{{" not in script_blocks[0] and "{%" not in script_blocks[0], "Jinja found in script body"
+            assert len(script_blocks) == len(expected_srcs)
+            for block in script_blocks:
+                assert "{{" not in block and "{%" not in block, "Jinja found in script body"
+
+            found_srcs = []
+            for script in scripts:
+                actual_src = script.get("src")
+                assert actual_src in expected_srcs, (
+                    f"base.html script src {actual_src!r} not in expected {expected_srcs!r}"
+                )
+                found_srcs.append(actual_src)
+                assert not script.get_text(strip=True), "base.html script has inline body content"
+                for attr in script.attrs:
+                    assert attr in ("src", "defer", "async", "type", "integrity", "crossorigin"), (
+                        f"Unexpected attribute {attr!r} on base.html script"
+                    )
+
+            assert sorted(found_srcs) == sorted(expected_srcs)
         else:
             assert len(scripts) == 0, f"Template '{name}' must not contain any <script> element"
             assert "<script" not in clean_source.lower(), f"Template '{name}' contains unparsed <script tag"
@@ -1115,7 +1137,7 @@ async def test_closed_vocabulary_query_refusal_login_and_emergency(client, hosti
     assert hostile not in res_login.text
     # Proves no unescaped tags or event handlers
     soup_login = BeautifulSoup(res_login.text, "html.parser")
-    assert len(soup_login.find_all("script")) == 1  # only HTMX
+    assert len(soup_login.find_all("script")) == 2  # HTMX + WebAuthn
 
     # 2. Emergency access page (R-06)
     res_emerg = await client.get("/v1/auth/emergency", params={"failure": hostile})
@@ -1130,7 +1152,7 @@ async def test_closed_vocabulary_query_refusal_login_and_emergency(client, hosti
 
 def test_executable_contexts_and_script_guards_across_all_templates(app):
     """TC-SEC-10 and TC-SEC-11: Executable context guards across all 26 templates."""
-    allowed_script_src = _allowed_htmx_script_src()
+    allowed_script_srcs = _allowed_script_srcs()
     sources = {}
     for p in _templates():
         rel = str(p.relative_to(TEMPLATES_DIR))
@@ -1140,7 +1162,7 @@ def test_executable_contexts_and_script_guards_across_all_templates(app):
             sources[p.name] = p.read_text()
 
     assert len(sources) == len(ALL_PRODUCTION_TEMPLATES)
-    validate_executable_contexts(sources, allowed_script_src)
+    validate_executable_contexts(sources, allowed_script_srcs)
 
 
 # ===========================================================================
@@ -1406,7 +1428,9 @@ async def test_essential_no_javascript_flows(
                 requires_csrf=False,
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_council.text), council_contract, app=app)
 
@@ -1425,7 +1449,9 @@ async def test_essential_no_javascript_flows(
                 required_hidden_fields={"version": "0"},
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_links.text), links_contract, app=app)
 
@@ -1442,7 +1468,13 @@ async def test_essential_no_javascript_flows(
                 expected_csrf_token=csrf_admin,
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # **Corrected 2026-08-23 (R35-22).** This expected `/v1/characters`, which
+        # came from the header hard-coding that path as the brand destination for
+        # any authenticated caller. This flow renders as `A`, and R-20 refuses `A`
+        # — so the assertion required the page to link somewhere the caller would
+        # be denied. `/v1/account/identities` (R-35) admits every authenticated
+        # caller, break-glass included, so it is stable across the whole matrix.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_snaps.text), snaps_contract, app=app)
 
@@ -1458,7 +1490,9 @@ async def test_essential_no_javascript_flows(
                 expected_csrf_token=csrf_council,
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_job.text), job_contract, app=app)
 
@@ -1473,7 +1507,9 @@ async def test_essential_no_javascript_flows(
                 requires_csrf=False,
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_audit.text), audit_contract, app=app)
 
@@ -1489,7 +1525,9 @@ async def test_essential_no_javascript_flows(
                 expected_csrf_token=csrf_admin,
             ),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
     validate_rendered_no_js_fallback(strip_htmx_attributes(res_roles.text), roles_contract, app=app)
 
@@ -1771,61 +1809,63 @@ async def test_falsification_f_sec_03_hostile_rendering_inert(
 
 def test_falsification_f_sec_04_executable_contexts() -> None:
     """F-SEC-04: validate_executable_contexts fails on prohibited executable contexts."""
-    allowed_src = _allowed_htmx_script_src()
+    allowed_srcs = _allowed_script_srcs()
+    script_tags = "".join(f'<script defer src="{src}"></script>' for src in allowed_srcs)
     clean_templates = {name: "<div>{{ view.field }}</div>" for name in ALL_PRODUCTION_TEMPLATES}
-    clean_templates["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_src}"></script></head><body></body></html>'
+    clean_templates["base.html"] = f'<!doctype html><html><head>{script_tags}</head><body></body></html>'
 
     # Baseline passes
-    validate_executable_contexts(clean_templates, allowed_src)
+    validate_executable_contexts(clean_templates, allowed_srcs)
 
     # 1. hx-on attribute fails
     bad_hx_on = clean_templates.copy()
     bad_hx_on["login.html"] = '<button hx-on:click="doSomething()">Click</button>'
     with pytest.raises(AssertionError, match="Template 'login.html' contains 'hx-on:'"):
-        validate_executable_contexts(bad_hx_on, allowed_src)
+        validate_executable_contexts(bad_hx_on, allowed_srcs)
 
     # 2. Inline onclick handler fails
     bad_onclick = clean_templates.copy()
     bad_onclick["character_links.html"] = '<a href="#" onclick="alert(1)">Link</a>'
     with pytest.raises(AssertionError, match="has inline event handler 'onclick'"):
-        validate_executable_contexts(bad_onclick, allowed_src)
+        validate_executable_contexts(bad_onclick, allowed_srcs)
 
     # 3. javascript: URL fails
     bad_js_url = clean_templates.copy()
     bad_js_url["council_characters.html"] = '<a href="javascript:void(0)">Link</a>'
     with pytest.raises(AssertionError, match="has javascript: URL in 'href'"):
-        validate_executable_contexts(bad_js_url, allowed_src)
+        validate_executable_contexts(bad_js_url, allowed_srcs)
 
     # 4. Inline script body fails
     bad_inline = clean_templates.copy()
-    bad_inline["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_src}">console.log(1);</script></head><body></body></html>'
+    bad_inline["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_srcs[0]}">console.log(1);</script><script defer src="{allowed_srcs[1]}"></script></head><body></body></html>'
     with pytest.raises(AssertionError, match="base.html script has inline body content"):
-        validate_executable_contexts(bad_inline, allowed_src)
+        validate_executable_contexts(bad_inline, allowed_srcs)
 
     # 5. Remote CDN origin fails
     bad_cdn = clean_templates.copy()
     bad_cdn["character_detail.html"] = '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome.css">'
     with pytest.raises(AssertionError, match="references remote origin marker"):
-        validate_executable_contexts(bad_cdn, allowed_src)
+        validate_executable_contexts(bad_cdn, allowed_srcs)
 
 
 def test_falsification_f_sec_05_script_context_invariants() -> None:
     """F-SEC-05: validate_executable_contexts fails when Jinja expressions appear in script context."""
-    allowed_src = _allowed_htmx_script_src()
+    allowed_srcs = _allowed_script_srcs()
+    script_tags = "".join(f'<script defer src="{src}"></script>' for src in allowed_srcs)
     clean_templates = {name: "<div>{{ view.field }}</div>" for name in ALL_PRODUCTION_TEMPLATES}
 
     # 1. Jinja expression in script tag attributes fails
     bad_attr = clean_templates.copy()
-    bad_attr["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_src}?v={{{{ view.version }}}}"></script></head><body></body></html>'
+    bad_attr["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_srcs[0]}?v={{{{ view.version }}}}"></script><script defer src="{allowed_srcs[1]}"></script></head><body></body></html>'
     with pytest.raises(AssertionError, match="Jinja found in script tag attributes"):
-        validate_executable_contexts(bad_attr, allowed_src)
+        validate_executable_contexts(bad_attr, allowed_srcs)
 
     # 2. Script in non-base template fails
     bad_other_script = clean_templates.copy()
-    bad_other_script["base.html"] = f'<!doctype html><html><head><script defer src="{allowed_src}"></script></head><body></body></html>'
-    bad_other_script["login.html"] = f'<script src="{allowed_src}"></script>'
+    bad_other_script["base.html"] = f'<!doctype html><html><head>{script_tags}</head><body></body></html>'
+    bad_other_script["login.html"] = f'<script src="{allowed_srcs[0]}"></script>'
     with pytest.raises(AssertionError, match="Template 'login.html' must not contain any <script> element"):
-        validate_executable_contexts(bad_other_script, allowed_src)
+        validate_executable_contexts(bad_other_script, allowed_srcs)
 
 
 async def test_falsification_f_sec_06_denial_response_body(client, settings, callers) -> None:
@@ -2044,7 +2084,9 @@ async def test_falsification_f_sec_10_no_javascript_fallback(app, client, settin
         expected_forms=(
             FormContract(action="/v1/council/characters", method="GET", requires_csrf=False),
         ),
-        expected_link_prefixes=("/v1/characters",),
+        # R35-22: `/v1/account/identities` (R-35) is offered to every authenticated
+        # caller; `/v1/characters` is refused to `A` and to continuity scope.
+        expected_link_prefixes=("/v1/account/identities",),
     )
 
     # Baseline passes

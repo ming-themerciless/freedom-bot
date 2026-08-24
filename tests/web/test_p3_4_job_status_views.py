@@ -115,6 +115,7 @@ TERMINAL_JOB_STATES: tuple[str, ...] = tuple(
 )
 
 from tests.web.template_digests import P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS
+from application.web.shell import ANONYMOUS_SHELL
 
 
 # Contract §6.2 authoritative caller matrix for R-43…R-46, plus AC, which §6.2's
@@ -267,11 +268,20 @@ def compute_sha256(path: Path) -> str:
 
 
 def get_jinja_env() -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(TEMPLATE_ROOT)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()`
+    # on every real full-page render. These tests render templates in isolation,
+    # with no request boundary to derive one, so the anonymous shell is the
+    # default here. A context value overrides a global, so a test supplying its
+    # own shell — and production, which always does — is unaffected. That
+    # production always passes one explicitly is asserted separately, so this
+    # default cannot hide a regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def strip_css_comments(css_text: str) -> str:
@@ -1408,7 +1418,7 @@ def test_asset_integrity_manifest_verification() -> None:
         for line in MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    assert len(lines) == 3
+    assert len(lines) == 4
     for line in lines:
         digest, rel_path = line.split()
         target = ROOT / rel_path
@@ -2547,8 +2557,9 @@ async def test_the_rendered_page_never_carries_client_side_authority(
     # The shell's one approved external element is HTMX itself, served
     # same-origin from the accepted manifest, and nothing else is a script.
     scripts = re.findall(r"<script\b[^>]*>", response.text)
-    assert len(scripts) == 1, f"expected only the vendored HTMX element, found {scripts}"
-    assert "/static/vendor/htmx-" in scripts[0]
+    assert len(scripts) == 2, f"expected the approved static script elements, found {scripts}"
+    assert any("/static/vendor/htmx-" in s for s in scripts)
+    assert any("/static/js/webauthn-emergency." in s for s in scripts)
 
     # And no browser-owned scope field reached the apply form.
     validate_form_exactness(

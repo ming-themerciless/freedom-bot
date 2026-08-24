@@ -64,6 +64,7 @@ def asset():
             "asset-integrity.sha256",
             "css",
             "images",
+            "js",
             "vendor",
         ]
 
@@ -445,13 +446,15 @@ def test_the_static_root_contains_exact_authorized_corpus(asset):
         for entry in STATIC_ROOT.iterdir()
         if entry.name not in (FINGERPRINTED_NAME, PLAIN_NAME)
     )
-    assert entries == ["asset-integrity.sha256", "css", "images", "vendor"]
+    assert entries == ["asset-integrity.sha256", "css", "images", "js", "vendor"]
     assert (STATIC_ROOT / "asset-integrity.sha256").is_file()
     assert (STATIC_ROOT / "css").is_dir()
     assert (STATIC_ROOT / "images").is_dir()
+    assert (STATIC_ROOT / "js").is_dir()
     assert (STATIC_ROOT / "vendor").is_dir()
-    assert sorted(p.name for p in (STATIC_ROOT / "css").iterdir()) == ["freedom-blades.58a9b9eed003.css"]
+    assert sorted(p.name for p in (STATIC_ROOT / "css").iterdir()) == ["freedom-blades.3f877d00a8f9.css"]
     assert sorted(p.name for p in (STATIC_ROOT / "images").iterdir()) == ["freedom-blades-token.eab0d13128f5.png"]
+    assert sorted(p.name for p in (STATIC_ROOT / "js").iterdir()) == ["webauthn-emergency.9e0c073e9e6c.js"]
     assert sorted(p.name for p in (STATIC_ROOT / "vendor").iterdir()) == ["htmx-2.0.10.71ea67185bfa.min.js"]
     assert STATIC_ROOT == Path(__file__).resolve().parents[2] / "adapters" / "web" / "static"
 

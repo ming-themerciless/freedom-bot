@@ -1,3 +1,11 @@
+
+# `includes/header.html` re-frozen 2026-08-23 by the C35-05 shell contract.
+# The P3.4 digest recorded a *static* header: the same three links for every
+# caller, no sign-out control anywhere, and no route to any privileged surface
+# (F-17). The frame is now rendered from the server-owned shell, so the digest
+# necessarily changed. Re-frozen deliberately, with the previous value recorded
+# here rather than silently overwritten:
+#   was bf2d9a81ce9614c43461a7cedb0db9d2c7e0ba5050e14a7cda8e46f02d426857
 """Canonical registry of P3.4 template digests.
 
 This test-support module is the single authoritative source for template SHA-256
@@ -64,12 +72,13 @@ PROPOSED_STEP_10_TEMPLATE_DIGESTS: types.MappingProxyType[str, str] = (
     })
 )
 
-#: Proposed Step 11 implementation digests reflecting accessibility corrections.
+#: Proposed Step 11/P3.5 implementation digests reflecting accessibility corrections and F-15 emergency WebAuthn.
 _P3_4_IMPLEMENTATION_DIGESTS: dict[str, str] = {
     **_ACCEPTED_STEP_1_THROUGH_10_DIGESTS,
     "character_links.html": "78fdaac512f3bddc2073e20b03fc610f8afb0243db5907e8c1cadf904c5bed49",
     "council_characters.html": "671e8308f5f746941bcd875cb66ccc368e8c4a18dc5738e8f5411e6f62be5c87",
     "council_snapshots.html": "4aca2c0e057f94a061e10af1640dcae5ec43ecb66765db8ff629a3f616a00229",
+    "emergency.html": "3ed40f3c5fa6e8a0a161cf4c9182a6f10a2d98058d65a341aad6e41fa2b386d9",
     "error.html": "269e72e427a7166ebf22ca12f46827c2ee30671a2f48fdde9a504ca87f1c4f33",
     "job_status_fragment.html": "a2e5c106ac44c4f38c203286918219fec61858d9909e2a851a5a2eb6fb0096e3",
     "validation.html": "3f71db358dbd5a83bd85b520fe3541b93d5a04f6cd1db2c4047a9a3bc9b18c39",
@@ -120,11 +129,11 @@ ACCEPTED_STEP_1_THROUGH_10_INCLUDE_DIGESTS: types.MappingProxyType[str, str] = (
     types.MappingProxyType(_ACCEPTED_STEP_1_THROUGH_10_INCLUDE_DIGESTS)
 )
 
-#: Proposed Step 11 implementation digests for shared includes and base shell.
+#: Proposed Step 11/P3.5 implementation digests for shared includes and base shell.
 _P3_4_IMPLEMENTATION_INCLUDE_DIGESTS: dict[str, str] = {
     "includes/footer.html": "2f1068b436a38a7ef79580aec4b55ed23dcaa5a3b827596509caa000ed72f7c3",
-    "includes/header.html": "bf2d9a81ce9614c43461a7cedb0db9d2c7e0ba5050e14a7cda8e46f02d426857",
-    "base.html": "818f0ff60eb4ad7a9d6c5ac0720ccc7c3a3688f908a5ceae3f44ead5bcfba31e",
+    "includes/header.html": "fc1fc051f19454be4df9e430e6b76d3209f4c6a528cc86f8c23992324359ccbb",
+    "base.html": "a7ff85b659b77b9fc496d5d3afdf0499b70cb7cdd43afde403c2d4686e892770",
 }
 
 P3_4_IMPLEMENTATION_INCLUDE_DIGESTS: types.MappingProxyType[str, str] = (

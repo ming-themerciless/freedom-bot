@@ -6234,6 +6234,455 @@ off. It closes nothing.
   closed P3.G4 and released P3.5 on 2026-08-23.** Formal evidence:
   `docs/review/phase-3-p3-4-step-13-final-independent-reviews-and-acceptance.md`.
 
+## C-P3.5-A — P3.5 planning opened; readiness audit complete; execution plan submitted for approval
+
+**Date:** 2026-08-23 · **Requester:** Claude / working Technical Lead ·
+**Status:** **Proposed. Awaiting the Acceptance Authority's approval.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5 phase integration
+  and authentication/security gate package; the Phase 3 gate; RAID I-06, A-05, A-06
+  and R-23.
+- **Reason and alternatives considered:** the P3.5 handover requires a read-only
+  readiness audit and an execution plan **before** any deployment or credential work.
+  The alternative — beginning staging or enrollment first — was rejected because it
+  would spend Peter's authority before the gaps were known, and because both actions
+  are outside the authority this package holds. A second alternative, treating the
+  green local suite as P3.5 evidence, was rejected because the rows that close I-06,
+  A-05, A-06 and R-23 require evidence levels no automated suite can supply.
+- **Added/removed scope:** none. One planning artifact is added:
+  `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`. No code, schema,
+  migration, configuration, contract or accepted numeric policy is changed, and no
+  application behavior is affected.
+- **Dependency and critical-path effect:** P3.5's critical path is now explicit and
+  it is **not** implementation. Six of eleven deliverables depend on a staging
+  environment, a browser engine, an authenticator and a protected administrator
+  account that do not exist on any host, and on actions only Peter can perform.
+  Three stop gates are proposed: SG-1 plan approval releases repository-scoped work
+  only; SG-2 authorizes the staging build; SG-3 authorizes the credential ceremony.
+- **Estimate/forecast and capacity effect:** the accepted **3/5/8 focused-day** P3.5
+  range is **retained unchanged** for the implementer stream and decomposed to
+  3.0/5.0/8.0 across four streams. The 30% review/remediation contingency — 1.5
+  focused days — is held explicitly. Peter's accountable effort (staging build, A-05
+  ceremony, real-device check, screen-reader capacity, gate decision) and Codex's two
+  review passes are estimated **separately**, because the accepted range never
+  contained them. Confidence: Medium-low for the implementer stream, **Low for
+  end-to-end P3.5 completion**. No calendar date is committed; availability windows
+  remain unrecorded.
+- **New or changed risks:** no RAID disposition is changed. I-06, A-05 and A-06 remain
+  **Open**; R-23 remains an **active accepted residual**. Four planning-level findings
+  are raised: **F-1** (important, traceability) the P3.4 submission's accessibility
+  matrix renumbers the TC-UI rows against the accepted traceability contract, leaving
+  TC-UI-03 and TC-UI-05 without a citation under their own IDs — the tests themselves
+  are named for the contract's numbering and pass, so nothing is broken and no accepted
+  row is weakened; **F-2** no `freedom-web` systemd unit template exists in the
+  repository, which TC-OPS-04 needs; **F-3** no repository artifact defines the portal's
+  proxy site block or its body limits, which TC-LIM-02's parity assertion needs; **F-4**
+  no browser engine or browser automation exists on this host, which blocks TC-UI-01/02,
+  TC-SEC-07's browser half and the WebAuthn registration ceremony until Peter decides
+  how a browser is supplied.
+- **Testing, migration, security and operational effect:** none is made by this record.
+  The audit re-ran every available check: `tests/web` 2,168 passed with 80 intentional
+  matrix skips; bot/domain 2,294 passed (run **sequentially**, since both suites share
+  the one disposable `freedom_test` database); Foundry module 155 passed; asset integrity
+  3/3; visual freeze 14/14; bytecode compilation clean in both virtualenvs;
+  `git diff --check` clean; a single linear Alembic head `0013` with no branches;
+  `git status` clean before and after. **No formatter, linter or type checker is
+  configured in this repository** — recorded as unavailable, never as passed. The
+  migration upgrade/downgrade/upgrade rehearsal was deliberately **not** run in a
+  read-only audit and is the first approved execution step.
+- **Product Owner recommendation:** approve the plan (SG-1) and decide the browser
+  question, releasing only the repository-scoped step — final traceability, the F-1
+  reconciliation, and the migration and backup/restore rehearsals against the guarded
+  disposable database. Hold SG-2 and SG-3 until the plan has been read.
+- **Technical Lead and specialist reviews:** the readiness audit found **no blocking
+  security, authorization, identity, atomicity, data-integrity, recovery or reliability
+  issue**, scoped to what a read-only audit and the local suites can show. That is not a
+  substitute for the two Codex passes, which P3.5 will request at SG-4.
+- **Acceptance Authority decision:** **none yet.** No staging exists, no credential is
+  enrolled, no RAID item is closed, the Phase 3 gate remains open and Phase 4 remains
+  unstarted. Formal record:
+  `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`.
+
+## C-P3.5-B — SG-1 approved; browser decision taken; two ceremony findings raised
+
+**Date:** 2026-08-23 · **Requester:** Peter Duscha / Acceptance Authority ·
+**Status:** **Approved (SG-1 and P-2 only). SG-2 and SG-3 remain unapproved.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05 and R-23.
+- **Reason and decision:** Peter approved the P3.5 readiness and execution plan
+  (stop gate SG-1) and decided the browser question (P-2) in favour of the
+  recommended option — his own workstation browser against the staging loopback.
+- **Added/removed scope:** repository-scoped execution EX-1…EX-9 is released.
+  **No headless browser, driver or other frontend toolchain dependency is added**,
+  preserving delivery-plan §4's exclusion. EX-5 gains one artifact: the WebAuthn
+  registration reference page described in F-7. No staging, deployment, exposure,
+  credential or production action is authorized.
+- **Dependency and critical-path effect:** SG-2 (staging build) and SG-3 (credential
+  ceremony) remain the critical path and remain unapproved. I-06, A-05, A-06 and
+  R-23 remain open.
+- **Estimate/forecast and capacity effect:** none. The accepted 3/5/8 focused-day
+  implementer range is unchanged; no calendar date is committed.
+- **New or changed risks:** two findings raised while preparing the ceremony's
+  prerequisites. **F-7 (important):** `tools/webauthn_enrollment.py` directs the
+  operator to a registration reference page in `docs/operations/` that **does not
+  exist**, so the A-05 ceremony currently has no supported starting point; EX-5
+  authors it. **F-8 (important, operator safety):** `enroll` stores a credential
+  without recording or validating the relying-party identifier its browser ceremony
+  used, while authentication checks `expected_rp_id` against the running service's
+  `WEB_WEBAUTHN_RP_ID`, which configuration requires to equal the public origin's
+  own host — so a credential enrolled at a loopback staging origin is accepted and
+  **can never authenticate** against the production hostname, and nothing says so
+  until somebody is locked out. Neither is exploitable and neither weakens an
+  accepted control; the strictness behind F-8 is a control worth keeping.
+- **Testing, migration, security and operational effect:** no code, schema, migration,
+  runtime or configuration change is made by this record. A-05's closure criteria are
+  **tightened**, not weakened: criterion 2a now requires each credential to have been
+  created under the intended target host's relying-party identifier and requires one
+  successful authentication against a service running that same RP ID before A-05 can
+  close. A staging-loopback enrollment is explicitly recorded as a rehearsal of the
+  mechanism rather than as satisfaction of the assumption.
+- **Product Owner recommendation:** proceed with EX-1…EX-5 only; hold SG-2 and SG-3
+  until the staging inputs and the two authenticators are in hand.
+- **Technical Lead and specialist reviews:** F-8 is referred to Codex's independent
+  and security-focused passes as a structural question — the ceremony's RP ID is
+  knowable at enrollment and could be recorded and checked. **No behavior change is
+  made under this plan**, because it would touch an accepted P3.1 contract surface
+  and is Peter's decision after review.
+- **Acceptance Authority decision:** **Peter approved SG-1 and the P-2 browser
+  decision on 2026-08-23.** SG-2, SG-3, the Phase 3 gate and Phase 4 remain
+  unapproved. Formal record:
+  `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` §0.2.
+
+## C-P3.5-C — First deployed run: one blocking defect fixed, one routed to Gemini
+
+**Date:** 2026-08-23 · **Requester:** Claude / working Technical Lead ·
+**Status:** **Interim. No gate decision requested; no RAID item closed.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID I-06, A-05;
+  the P3.1 break-glass deliverable; the Phase 3 gate.
+- **Reason and decision:** Peter approved SG-1, authorized the host build and
+  performed it. The portal ran under its restricted service account for the first
+  time in the project's history, on `freedom-blades-test.rpgworld.org` with a
+  separate database, a separate test Discord application, no real data and a
+  password gate at the proxy. Four defects appeared within the first hour. **Every
+  suite was green before and after; none of them was caught by a test.**
+- **Added/removed scope:** no product scope. Deployment artifacts that did not
+  exist were authored: the `freedom-web` unit template (F-2), the proxy site block
+  (F-3), the WebAuthn registration page and its host-local conversion tool (F-7),
+  the ASGI entry point, and three operator scripts. One blocking defect was fixed
+  in `infra/postgresql/runtime-grants.sql.tmpl`; one was routed to Gemini.
+- **Dependency and critical-path effect:** **F-15 blocks A-05 and therefore blocks
+  exposure.** The passkey break-glass login cannot be completed in a browser: the
+  page has no control and the site ships no application JavaScript, so R-07/R-08
+  are unreachable. It is a scope gap — P3.4 Step 4 was explicitly instructed not to
+  write passkey JavaScript, and no later package was commissioned to. Routed to
+  Gemini as frontend owner per delivery plan §2 and §5 P3.5.
+- **Estimate/forecast and capacity effect:** the accepted 3/5/8-day implementer
+  range is unchanged; the F-15 remediation falls inside the 30% review/remediation
+  contingency, which is what it was reserved for. No calendar date is committed.
+- **New or changed risks:** **F-14 (blocking, fixed):** the restricted runtime role
+  had no `SELECT` on `alembic_version`, which S-14 must read, so the documented
+  restricted-role deployment could never have started — in staging or production.
+  Fixed, regression-tested and falsified. **F-15 (blocking, routed).** **F-16
+  (important):** nothing in the suite asserts a human can complete break-glass
+  login, which is how F-15 survived two gates. **F-13 (minor):** `/healthz` raises
+  rather than reporting when the kill-switch directory is unreadable; not fixed,
+  as it is accepted P3.1/P3.3 surface. **F-11 (host):** the Cloudflare origin
+  private key was world-readable; reported and corrected by the Operations Owner,
+  never read. **F-10:** the origin certificate is Cloudflare-issued and trusted
+  only by Cloudflare, so proxied DNS is mandatory and the true visitor address must
+  be rewritten or the authentication limiter would treat the whole internet as one
+  source.
+- **Testing, migration, security and operational effect:** migrations `0001`–`0013`
+  applied cleanly to `freedom_staging`; the protected administrator mapping landed
+  with the correct guild and role snowflakes; restricted grants applied and verified
+  in their three documented bands, with `audit_events` holding `SELECT, INSERT` and
+  neither `UPDATE` nor `DELETE`. `tests/test_runtime_grants.py` and
+  `test_runtime_grants_live.py`: **57 passed**, including the new regression test,
+  which was falsified by removing the fix and restored. `/healthz` reports `ok` on
+  every check with `environment: staging`. All four pre-existing sites verified
+  still serving after every proxy change.
+- **Product Owner recommendation:** accept the F-14 fix as remediation, release the
+  F-15 prompt to Gemini, and retain every exposure prerequisite. A-05 has its first
+  real enrollment — two credentials on a deployed host — and that is a rehearsal,
+  not closure: the credentials are bound to the test address and no passkey login
+  has yet succeeded.
+- **Technical Lead and specialist reviews:** requested from Codex in
+  `phase-3-p3-5-interim-findings-and-review-request.md` — an independent pass and a
+  distinct security-focused pass, with six named questions including whether any
+  finding should reopen a closed gate.
+- **Acceptance Authority decision:** **none requested.** I-06, A-05 and A-06 remain
+  open, R-23 remains active, the Phase 3 gate remains open, and Phase 4 remains
+  unstarted.
+
+## C-P3.5-D — Codex withheld the Gemini prompt; C35 remediation partial
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Partial remediation submitted for re-review. Gemini remains unreleased.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-15, F-17,
+  F-13, F-14; RAID I-06, A-05; the Phase 3 gate.
+- **Reason and decision:** Codex's independent review of the P3.5 interim package raised
+  C35-01…C35-07 and withheld release of the Gemini prompt. C35-01, C35-02, C35-03, C35-04
+  and C35-06 are implemented and verified. **C35-05 is not started**, and C35-07 depends
+  on it, so the prompt stays unreleased.
+- **Added/removed scope:** no product scope. One repository artifact stopped carrying
+  credential material; one perimeter defect was closed in the repository artifact; three
+  test modules were added or extended; the registration ceremony was corrected.
+- **Dependency and critical-path effect:** the server-owned shell contract (C35-05) is now
+  the critical path for F-17 and for any further Gemini work. Rotation of the staging gate
+  and re-enrollment of both emergency credentials are required Operations Owner actions.
+- **Estimate/forecast and capacity effect:** consumed within the 30% review/remediation
+  contingency. C35-05 is a further backend package not separately estimated. No calendar
+  commitment.
+- **New or changed risks:** **F-18** — a password verifier authored by this package was
+  committed and reached Git history through a harness checkpoint ref; on no branch and no
+  remote-tracking ref, not pushed, but read during review, so the password is spent and
+  rotation is mandatory. **F-19** — `/healthz` was publishable through the proxy against
+  the accepted operational contract. Both are recorded in the readiness plan.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime
+  data change. `tests/test_deployment_artifacts.py` (7 cases) and six new live
+  runtime-grant cases were added and **falsified**; `tests/web/test_health_kill_switch_robustness.py`
+  (6 cases) added with its falsification retained as a test. The deployed host is
+  **unchanged** — it still proxies `/healthz` and still holds the inline verifier.
+- **Product Owner recommendation:** authorize the three host actions (rotate, reinstall and
+  reload, re-enroll), then commission C35-05 as the next backend package.
+- **Technical Lead and specialist reviews:** Codex independent and distinct
+  security-focused re-review requested in
+  `docs/review/phase-3-p3-5-c35-remediation-handoff.md`.
+- **Acceptance Authority decision:** **none requested.** No RAID item is closed, Gemini is
+  not released, the Phase 3 gate remains open and Phase 4 remains unstarted.
+
+## C-P3.5-E — R35 remediation partial; rotation script repaired
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Partial. Submitted for another independent and security-focused review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-13, F-17, F-18;
+  RAID A-05; the Phase 3 gate.
+- **Reason and decision:** Codex's re-review found the C35 remediation incomplete and the
+  operator script defective. R35-08, R35-09 and R35-10 are complete and falsified; R35-11 is
+  not started; the Gemini prompt stays unreleased.
+- **Added/removed scope:** no product scope. One operator script rewritten; two test modules
+  added or extended.
+- **Dependency and critical-path effect:** R35-11 (the server-owned shell contract) is the
+  critical path for F-17 and any further Gemini work. Gate rotation and credential
+  re-enrollment remain Operations Owner actions, both still outstanding.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+  R35-11 is a further backend package, not separately estimated. No calendar commitment.
+- **New or changed risks:** the rotation procedure previously handed over **could not run at
+  all** — a SIGPIPE defect under `pipefail` — so the compromised gate password has never been
+  rotated and remains active. The plaintext also passed through child-process argv. Both are
+  fixed and falsified; neither password nor verifier appears in any artifact.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime data
+  change. New: 11 hermetic script tests, 3 ASGI health cases. The stdin hashing interface was
+  verified functionally against a real Caddy rather than assumed. The deployed host remains
+  unchanged.
+- **Product Owner recommendation:** authorize the host actions, then commission R35-11.
+- **Technical Lead and specialist reviews:** requested in
+  `docs/review/phase-3-p3-5-c35-remediation-handoff.md` (canonical; the R35 handoff now redirects there).
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-F — Rotation transaction safety completed; shell contract still outstanding
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Partial. Submitted for another independent and security-focused review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-13, F-17, F-18;
+  RAID A-05; the Phase 3 gate.
+- **Reason and decision:** Codex's third review found the rotation helper not transaction-safe
+  under interruption, its failure-path coverage incomplete, the handoff ambiguous, and
+  C35-05 still unstarted. R35-13, R35-14, R35-15, R35-16 and R35-18 are complete; **R35-17
+  is not**, and Gemini stays unreleased.
+- **Added/removed scope:** no product scope. One operator script rewritten as a transaction;
+  one test module extended from 11 to 24 cases; two handoffs consolidated into one canonical
+  document.
+- **Dependency and critical-path effect:** R35-17 is the sole remaining blocker for F-17 and
+  any Gemini work. Four Peter-only host actions remain outstanding.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+  R35-17 is scoped but not estimated. No calendar commitment.
+- **New or changed risks:** an interrupted rotation could previously leave an unknown active
+  password on disk — an availability and access-control risk in the recovery path itself.
+  Fixed and falsified. No new risk is introduced.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime data
+  change. 24 script tests, 7 deployment-artifact tests, 10 health tests (0 skipped with the
+  guarded disposable database), 57 + 53 runtime-grant tests, web 2178, bot 2323, Foundry 155,
+  manifests OK, compilation clean, `git diff --check` clean. The deployed host is unchanged.
+- **Product Owner recommendation:** authorize the four host actions, then commission R35-17.
+- **Technical Lead and specialist reviews:** requested in the canonical handoff
+  `docs/review/phase-3-p3-5-c35-remediation-handoff.md`.
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-G — The server-owned shell contract is implemented
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Submitted for independent and security-focused re-review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-17, C35-05,
+  R35-11, R35-17; the view-model and traceability contracts; the Phase 3 gate.
+- **Reason and decision:** the shell contract was the sole remaining blocker for F-17 and for
+  any Gemini work. It is implemented, tested across every accepted caller state, and recorded
+  in the contracts by addition.
+- **Added/removed scope:** one new application module and a typed view model (VM-23); two
+  wiring points; the shared header; eleven traceability rows. No route, no view-model change
+  to any existing page, no persistence, no migration.
+- **Dependency and critical-path effect:** F-17's backend half is complete. The Gemini prompt
+  is revised and narrowed to styling; it stays unreleased pending Codex. Four Peter-only host
+  actions were completed during this session except the Cloudflare ingress restriction.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+- **New or changed risks:** none introduced. Two pre-existing defects were found and fixed —
+  a capability-only navigation rule would have offered a break-glass caller a route R-40
+  refuses, and the P3.4 scope guard never caught modifications to tracked files.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime
+  data change. Web 2199 passed, bot 2337 passed, Foundry 155, shell contract 21, manifests
+  verified, compilation clean, `git diff --check` clean. Accepted P3.4 evidence was updated
+  deliberately in three places, each recorded with its prior value or prior intent.
+- **Product Owner recommendation:** submit for Codex review; do not release Gemini until it
+  accepts both the backend contract and the revised prompt.
+- **Technical Lead and specialist reviews:** requested in the canonical handoff.
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-H — Shell boundary defects and the rotation commit window closed
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Submitted for another independent and security-focused review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-17, F-18,
+  C35-05; VM-23; the Phase 3 gate.
+- **Reason and decision:** Codex's fourth review found the rotation helper unsafe after a
+  successful reload and the shell derived at the wrong lifecycle point from stale authority.
+  R35-19 through R35-25 are implemented; Gemini stays unreleased.
+- **Added/removed scope:** no product scope. One operator script resequenced; the shell's
+  derivation point, source context and home destination corrected; one new request-boundary
+  test module.
+- **Dependency and critical-path effect:** the backend half of F-17 is complete and now has
+  request-boundary evidence. Only the Cloudflare ingress restriction remains of the host
+  actions.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+- **New or changed risks:** three defects removed, each of which would have mattered
+  operationally — a rotation that could leave an unknown active password; navigation that
+  outlived revoked authority; and a denial page that told a signed-in caller they were logged
+  out. No new risk introduced.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime
+  data change. Web 2238, bot 2346, Foundry 155, shell unit 30, request boundary 28, rotation
+  33, ASGI health 10 with zero skips. Every fix falsified with the mutation asserted before
+  the result was read. Eleven pieces of accepted P3.4 evidence updated deliberately, each
+  recorded with its prior value or intent.
+- **Product Owner recommendation:** submit for Codex review; authorize the Cloudflare ingress
+  restriction at the deployment gate.
+- **Technical Lead and specialist reviews:** requested in the canonical handoff.
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-I — Shell lifecycle completed on public and failure pages
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Submitted for another independent and security-focused review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; findings F-17, F-18,
+  C35-05; VM-23; TC-SHELL; the Phase 3 gate.
+- **Reason and decision:** Codex's fifth review found authenticated callers still receiving
+  the anonymous frame on public full pages and on refresh-failure pages, and post-commit
+  housekeeping failures being swallowed. R35-26 through R35-31 are implemented.
+- **Added/removed scope:** no product scope. One public-page shell attachment; one refusal-path
+  shell; one conservative typed shell state; the rotation script's housekeeping made
+  attributable; twenty further request-boundary cases.
+- **Dependency and critical-path effect:** the backend half of F-17 is complete across every
+  full-page render. Gemini remains blocked pending Codex. Only the Cloudflare ingress
+  restriction remains of the host actions.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+- **New or changed risks:** three defects removed, each operationally material — a portal that
+  told signed-in people they were signed out on its two most-visited public pages; an outage
+  page that did the same; and a rotation that hid its own cleanup failures while verifier
+  material accumulated. No new risk introduced.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime data
+  change. Web 2258, bot 2346, Foundry 155, request boundary 48, focused packages 90 and 104,
+  ASGI health 10 with zero skips. Every fix falsified with the mutation asserted first. VM-23
+  and TC-SHELL-17…20 updated by addition.
+- **Product Owner recommendation:** submit for Codex review; authorize the Cloudflare ingress
+  restriction at the deployment gate.
+- **Technical Lead and specialist reviews:** requested in `docs/review/Handover information`
+  and the canonical handoff.
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-J — Public-shell failure boundary made typed
+
+**Date:** 2026-08-23 · **Requester:** Codex, via the Acceptance Authority ·
+**Status:** **Submitted for another independent and security-focused review.**
+
+- **Affected requirement, milestone and release:** Milestone P3.5; finding F-17; VM-23;
+  TC-SHELL; the Phase 3 gate.
+- **Reason and decision:** Codex's sixth review ran the focused database-backed suite at 194
+  passed and found one remaining defect: the public-shell helper caught every `Exception` and
+  treated it as "no session". R35-32 through R35-36 are implemented.
+- **Added/removed scope:** no product scope. One typed exception policy; one app-level
+  `ServiceDegraded` handler mirroring the existing protected-route response; nineteen further
+  request-boundary cases.
+- **Dependency and critical-path effect:** none changed. Gemini remains blocked pending Codex.
+  Only the Cloudflare ingress restriction remains of the host actions.
+- **Estimate/forecast and capacity effect:** within the review/remediation contingency.
+- **New or changed risks:** one defect removed, and it was the quiet kind — a portal that
+  looked healthy while it could not resolve anybody, logging out the operator best placed to
+  notice. No new risk introduced.
+- **Testing, migration, security and operational effect:** no schema, migration or runtime data
+  change. Web 2277, bot 2346, Foundry 155, boundary 67, focused packages 157 and 104, ASGI
+  health 10 with zero skips. Falsified with the mutation verified by AST in both directions.
+  VM-23 and TC-SHELL-21…27 updated by addition.
+- **Product Owner recommendation:** submit for Codex review; authorize the Cloudflare ingress
+  restriction at the deployment gate.
+- **Technical Lead and specialist reviews:** requested in `docs/review/Handover information`
+  and the canonical handoff. Live-host actions H-1…H-3 are recorded as Peter/Claude
+  attestations, not independently reviewed evidence.
+- **Acceptance Authority decision:** **none requested.** No RAID item closed, Gemini not
+  released, Phase 3 gate open, Phase 4 unstarted.
+
+## C-P3.5-K — Frontend repository remediation accepted; supervised evidence retained
+
+**Date:** 2026-08-24 · **Requester:** Peter / Acceptance Authority ·
+**Status:** **Repository implementation accepted; operational evidence pending.**
+
+- **Affected requirement, milestone and release:** P3.5; F-15/F-17; A-05;
+  TC-BG-02; TC-UI-01/02; R-23; the Phase 3 gate.
+- **Reason and alternatives considered:** after Gemini's frontend implementation,
+  Codex twice reviewed the actual diff and withheld acceptance for a dead no-JS
+  action, CSP-incompatible style mutation, unexecuted ceremony paths, an
+  unenforced refusal vocabulary, permissive Base64URL padding and overclaimed
+  evidence. Each was remediated. Treating green mocks as real-browser evidence
+  was rejected; the physical session remains a separate gate activity.
+- **Added/removed scope:** no product scope added. The repository now contains a
+  fingerprinted same-origin WebAuthn client, truthful progressive enhancement,
+  VM-23 shell presentation, strict client validation, durable tests and a
+  supervised-session plan. No production deployment is authorized here.
+- **Dependency and critical-path effect:** the frontend-code blocker is removed.
+  The critical path moves to the supervised staging browser/authenticator
+  session and the remaining P3.5 operational evidence.
+- **Estimate/forecast and capacity effect:** Peter expects the supervised session
+  within a few hours on 2026-08-24. This is an availability statement, not a
+  guaranteed completion date; failures return to remediation.
+- **New or changed risks:** no new implementation risk. The residual is explicit:
+  automated and mocked success may still differ from a real browser, RP ID,
+  authenticator, proxy and deployed session lifecycle. R-23 remains active.
+- **Testing, migration, security and operational effect:** Codex independently
+  ran 50 Node tests, 9 structural tests, 10,240 randomized Base64URL vectors,
+  refusal probes, asset verification and whitespace checks. Gemini reported the
+  full sequential suites green. No schema/migration change is part of the final
+  frontend remediation. Real browser/authenticator tests remain Not Run.
+- **Product Owner recommendation:** commit the coherent P3.5 repository package,
+  execute the bounded supervised procedure in isolated staging, and update the
+  evidence record before requesting any gate decision.
+- **Technical Lead and specialist reviews:** Codex frontend implementation and
+  security-focused review accepted with no remaining repository-code findings.
+  Formal record:
+  `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md`.
+- **Acceptance Authority decision:** Peter authorized documentation consolidation
+  and a sensible repository commit. Peter has **not** accepted A-05, R-23, the
+  outstanding test rows or the Phase 3 gate, and has not authorized public
+  exposure or Phase 4.
+
 ## Required fields for later entries
 
 Every material entry must identify:

@@ -1,0 +1,90 @@
+# `freedom-web` — the portal process (N-50). Authored 2026-08-23 by P3.5 (F-2).
+#
+# Copy to /etc/systemd/system/freedom-web.service and replace the __PLACEHOLDER__
+# values. Never commit a filled-in copy: EnvironmentFile points at the secrets.
+#
+# ## Why this exists as its own unit
+#
+# The portal answers browsers; the worker drains a queue. They run the same code
+# from the same virtualenv and differ by WORKER_ENABLED alone, and each refuses
+# the other's value (S-11, both directions). Separating them is what lets a web
+# deploy be quick while a worker holding a 60-second lease drains — operational
+# contract §3.
+#
+# ## The numbers below are the accepted ones, and each has a reason
+#
+# `--host 127.0.0.1` — N-50 and OD-20. The public perimeter is the reverse proxy
+#                    and nothing else. A portal bound to 0.0.0.0 would be
+#                    reachable past every control the proxy applies, and N-34
+#                    only trusts a forwarded address when the transport peer is
+#                    loopback.
+# `--timeout-keep-alive 5` — N-52.
+# `TimeoutStopSec=30` — N-52's graceful shutdown. Unlike the worker this is not
+#                    fenced by a lease; it bounds how long a deploy waits on
+#                    in-flight requests, whose own read timeout is N-51's 30 s.
+# `Restart=on-failure` — the portal holds no claim and no durable state. Losing
+#                    the process loses in-flight requests and nothing else;
+#                    sessions are rows in PostgreSQL, not memory.
+#
+# ## No MemoryMax
+#
+# Deliberate, and different from the worker. N-47 bounds the *worker*, whose peak
+# is per-job and unmeasured. The portal's footprint is its bounded pool (N-53)
+# and its request bound (N-19); an OOM-killed portal mid-request is a worse
+# outcome than a slow one. TC-PERF-03 measures it rather than guessing here.
+
+[Unit]
+Description=Freedom Blades web portal
+Wants=network-online.target postgresql.service
+After=network-online.target postgresql.service
+# No ordering against freedom-worker in either direction: a queued job waits,
+# which is the point of a durable queue.
+
+[Service]
+Type=simple
+WorkingDirectory=__REPOSITORY_ROOT__
+ExecStart=__REPOSITORY_ROOT__/venv-web/bin/python -m uvicorn tools.portal_server:application \
+    --factory \
+    --host 127.0.0.1 \
+    --port __PORT__ \
+    --timeout-keep-alive 5 \
+    --no-server-header \
+    --proxy-headers \
+    --forwarded-allow-ips 127.0.0.1
+# --forwarded-allow-ips is pinned to loopback rather than left at uvicorn's
+# default: the application's own N-34 policy trusts exactly one hop from a
+# loopback peer, and a server-level trust wider than the policy it feeds would
+# be a second, looser answer to the same question.
+EnvironmentFile=__ENVIRONMENT_FILE__
+Environment=PYTHONUNBUFFERED=1
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+ReadOnlyPaths=__REPOSITORY_ROOT__
+# The artifact root is writable here even though the portal stores no artifact —
+# the snapshot submission endpoint is not mounted in this process (route contract
+# §1.2 admits one mount, the static assets). The reason is the **startup
+# readiness probe**: `FilesystemArtifactStore.ensure_ready()` proves on the real
+# filesystem that a hard link can be made and that linking over an existing name
+# refuses, and it proves it by creating and removing two temporary files. Under
+# `ProtectSystem=strict` that probe fails, the `artifact_store` health check
+# reports false, and the portal reports degraded for a fault that does not exist.
+#
+# The store additionally requires the root to be **owned by this service account**
+# and to carry no group or other permission bits at all — `chown` it to the
+# service user and `chmod 700`, never `root:group 750`.
+ReadWritePaths=__ARTIFACT_ROOT__
+# The kill-switch file is *written* by the host-local operator command and only
+# ever `stat`-ed here (N-56), so its directory stays read-only to this process.
+
+[Install]
+WantedBy=multi-user.target

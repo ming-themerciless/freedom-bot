@@ -1,204 +1,190 @@
-# Claude implementation prompt — P3.5 Phase integration and gate package
+# Results Handoff: Phase 3.5 Frontend Remediation (G36-01, G36-02, G36-03)
 
-Work in `/opt/discord-bots/freedom-bot` as the P3.5 backend/integration Technical Lead.
+**Author**: Gemini (Production Frontend Implementer)
+**Recipient**: Codex (Lead Software Engineer & Gatekeeper)
+**Date**: 2026-08-24
+**Status**: `SUBMITTED FOR CODEX INDEPENDENT IMPLEMENTATION & SECURITY-FOCUSED REVIEW`
+**Blockers**: None internal to frontend remediation. F-15, F-17, A-05, TC-BG-02, TC-UI-01, TC-UI-02, RAID items, and the Phase 3 Gate remain open pending Codex review and supervised real-browser/physical-authenticator verification.
 
-Peter Duscha accepted P3.4, including Step 13, on 2026-08-23. P3.G4 is closed and P3.5 is released. Claude owns P3.5 backend/integration work; Gemini owns frontend-specific remediation if verified findings arise. Codex performs the independent implementation and distinct security reviews. Peter alone decides the Phase 3 gate.
+---
 
-## Read first
+## 1. Executive Status & Governance Claims
 
-Read completely before planning or changing anything:
+In accordance with G36 findings, architectural boundaries, and gatekeeper authority:
+- **No Self-Acceptance**: Gemini has not self-accepted or closed F-15, F-17, A-05, TC-BG-02, TC-UI-01/02, any RAID item, or the Phase 3 gate.
+- **Scope Restriction**: Zero backend code, Python routes, view models, database migrations, configuration, session logic, CSRF handlers, CSP policies, live-host configurations, or deployment infrastructure were modified in this remediation.
+- **Worktree Disclosure**: The worktree is not clean from origin/main due to pre-existing P3.5 deliverables; this remediation diff is strictly localized to the WebAuthn client script, static asset manifest/digests, and frontend test suites.
+- **Verification Integrity**: All reported tests, static analyses, and falsifications were executed directly in the repository environment. Interactive browser and hardware authenticator verifications are explicitly reported as **Not Run**.
 
-1. `AGENTS.md` and `.agents/AGENTS.md`
-2. `docs/implementation-plan.md`
-3. `docs/review/phase-3-delivery-plan.md`, especially P3.5, environment readiness, security policy, traceability and gates
-4. `docs/review/phase-3-p3-4-step-13-final-independent-reviews-and-acceptance.md`
-5. `docs/review/phase-3-p3-4-submission.md`
-6. `docs/project-management/status.md`, `raid-register.md` and `change-log.md`
-7. `docs/operations/topology.md` and `docs/operations/web-portal.md`
-8. every Phase 3 route, view-model, migration, threat-model, test-traceability, deployment and operational contract referenced by the delivery plan
+---
 
-Check for more-specific `AGENTS.md` instructions. Preserve the dirty worktree and every unrelated/user-owned change. Never reset, clean, checkout, rebase, stash or overwrite unrelated work.
+## 2. Inventory of Remediation Changes & Fingerprints
 
-## Authority boundary
+### 2.1. Static Assets & Manifests
+- **WebAuthn Client Script (G36-01 & G36-02)**:
+  - **Previous Fingerprint / File**: `d019e86fecf6` (`webauthn-emergency.d019e86fecf6.js`)
+  - **New Fingerprint / File**: `9e0c073e9e6c` (`webauthn-emergency.9e0c073e9e6c.js`)
+  - **Full SHA-256**: `9e0c073e9e6c797638f2c69a5702faa99f4410894ee84ce7f8025c7f59c54dcf`
+  - **Asset Directory Count**: Exactly 1 file in `adapters/web/static/js/` (superseded asset removed).
+- **Static Asset Integrity Manifest**:
+  - **Path**: `adapters/web/static/asset-integrity.sha256`
+  - **Full SHA-256**: `be51d1c99b0ad65d7d7b0b9f7c1f28ab29c468a02cdfe34f6c3b79fd6046737c`
+  - **Asset Count**: Exactly 4 fingerprinted assets (`css`, `images`, `js`, `vendor`).
 
-This prompt authorizes P3.5 planning, repository-scoped integration/gate work, safe local/disposable validation, and preparation of staging procedures/evidence. It does not by itself authorize:
+### 2.2. HTML Templates
+- **Base Page Shell (`adapters/web/templates/base.html`)**:
+  - **Digest**: `a7ff85b659b77b9fc496d5d3afdf0499b70cb7cdd43afde403c2d4686e892770`
+  - **Change**: Updated `<script>` reference from `webauthn-emergency.d019e86fecf6.js` to `webauthn-emergency.9e0c073e9e6c.js`.
+- **Emergency Login Page (`adapters/web/templates/emergency.html`)**:
+  - **Digest**: `3ed40f3c5fa6e8a0a161cf4c9182a6f10a2d98058d65a341aad6e41fa2b386d9` (Unchanged, truthful initial progressive enhancement).
 
-- public staging exposure or production deployment;
-- real-host DNS, proxy, firewall, systemd or provider mutations;
-- creation/change of real Discord applications, guilds, roles or secrets;
-- reading, printing, copying or committing secrets or `.env` files;
-- real WebAuthn enrollment without Peter present and explicitly authorizing it;
-- contact with live Discord, Sheets, Foundry or production PostgreSQL;
-- production backups or real player data in staging;
-- closing I-06, A-05, A-06 or R-23 using local/simulated evidence;
-- closing the Phase 3 gate or starting Phase 4.
+---
 
-For external-system, real-credential or target-host actions, prepare the guarded procedure and stop for Peter's explicit authorization. Never invent values or substitute synthetic results where real evidence is required.
+## 3. Technical Remediation Analysis
 
-## Objective
+### 3.1. Finding G36-01: Enforced Closed R-07/R-08 Refusal Vocabulary & Canonical UUID
+- **Backend Code Paths Proving Vocabulary**:
+  - **R-07 (`POST /v1/auth/emergency/webauthn/options`)**:
+    - `adapters/web/app.py`: returns `origin_invalid` (403), `rate_limited` (429).
+  - **R-08 (`POST /v1/auth/emergency/webauthn/verify`)**:
+    - `adapters/web/app.py`: returns `origin_invalid` (403), `rate_limited` (429), `invalid` (400 or 403 via `AuthenticationFailure`), `expired` (403 via `AuthenticationFailure`).
+    - `application/web/breakglass.py`: `_challenge_from` raises `invalid`; `find_by_credential_id` raises `invalid`; `consume_challenge` raises `expired`; `verify_authentication_response` raises `invalid`; `advance_sign_count` raises `invalid`.
+  - **Exact Closed Vocabulary**: `ACCEPTED_REFUSAL_CODES = { 'origin_invalid': true, 'rate_limited': true, 'invalid': true, 'expired': true }`.
+  - **Removed Overbroad Codes**: Excluded `credential_invalid`, `not_available`, `consumed`, `revoked`, `suspended`, `denied` (which belong to recovery grant or admin user flows).
+- **Exact Canonical UUID Rule**:
+  - Validated with `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/` on the raw string.
+  - No trimming or whitespace normalization (`correlation_id.trim()` is strictly avoided).
+  - Leading/trailing/internal whitespace and uppercase characters are rejected as non-canonical.
+- **Enforcement Logic in `formatGenericRefusal`**:
+  - Must be a non-array object (`!data || typeof data !== 'object' || Array.isArray(data)` falls back).
+  - `typeof data.error === 'string'` and `ACCEPTED_REFUSAL_CODES[data.error] === true`.
+  - `typeof data.correlation_id === 'string'` and `CANONICAL_UUID_RE.test(data.correlation_id) === true`.
+  - If all satisfied: `"Emergency sign-in did not complete. Reference " + data.correlation_id + "."`
+  - If any check fails: `"Emergency sign-in did not complete."` (no code, no invalid UUID, no server prose).
 
-Produce the complete P3.5 Phase integration and authentication/security gate package required by `phase-3-delivery-plan.md`:
+### 3.2. Finding G36-02: Strict RFC 4648 §5 Base64URL Grammar & Padding Validation
+- **Decoder Grammar Invariants (`base64urlToBytes`)**:
+  - Non-string values throw `TypeError`.
+  - Empty string (`""`) explicitly throws `Error('empty input')`.
+  - Whitespace prohibited anywhere (leading, trailing, internal, `\n`, `\r`, `\t`).
+  - Standard Base64 `+` and `/` characters throw `Error('standard base64 prohibited')`.
+  - Prohibited punctuation and non-base64url characters throw `Error('invalid character')`.
+  - **Strict Padding Structure**:
+    - `=` is permitted only at terminal positions (embedded `=` throws `Error('embedded padding character')`).
+    - More than two `=` throws `Error('excessive padding')` (e.g. `A===`, `AA====`).
+    - If padded, total string length must be a multiple of 4 (`b64url.length % 4 === 0`).
+    - Single padding `=` requires `(b64url.length - 1) % 4 === 3`.
+    - Double padding `==` requires `(b64url.length - 2) % 4 === 2`.
+  - **Canonical Bit Alignment Check**:
+    - Calculates bit accumulation manually without relying on permissive platform `atob` or `Buffer`.
+    - Inspects unused trailing quantum bits (`quantum & ((1 << bits) - 1)`): if non-zero, throws `Error('non-zero padding bits')` (e.g. `AB==` or `AAB=` where unused bits are set).
+- **Workflow Protection**:
+  - Malformed server challenge or credential descriptor ID throws inside `preparePublicKeyOptions` before `navigator.credentials.get()` is invoked, catching the error and displaying generic refusal without calling the authenticator.
 
-- remediate and re-review all blocking/important findings;
-- final requirements-to-evidence traceability;
-- narrow and full suites against disposable PostgreSQL, with explained skips;
-- available formatter/linter/type/migration/compile checks;
-- isolated-staging OAuth/member/Council/import flows;
-- headers, host/origin, CORS/CSRF, revocation and object-substitution evidence;
-- deployment, health, monitoring, backup, restore, rollback and recovery rehearsals;
-- representative resource/performance evidence for I-06/A-06;
-- browser, responsive, zoom, keyboard and assistive-technology evidence for R-23;
-- operational A-05 establishment/evidence; and
-- a final submission requesting, not making, the Phase 3 gate decision.
+---
 
-## Step 1 — readiness audit and plan (first run)
+## 4. Test Suite Counts & Falsification Evidence
 
-Do not begin by deploying. Perform a read-only audit and create `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` containing:
+### 4.1. Executable Test Breakdown (`tests/web/webauthn_client.test.mjs`)
+- **Total Tests**: **50 passed, 0 failed**
+- **Helper Unit Tests (28 passed)**:
+  - *Base64URL Decoder Suite (12 tests)*: 2/3/4-character quantums, URL-safe `-`/`_`, padded vs unpadded equivalences, round-trip canonical vector encoding, empty input rejection, non-string type rejection, standard `+`/`/` rejection, whitespace in all positions rejection, punctuation rejection, malformed/excessive padding (`A`, `A=`, `A===`, `AA===`, `AA====`, `=AAA`, `AA=A`, `AA==A`), modulo 2/3 incorrect padding rejection, non-zero unused padding bits rejection.
+  - *Closed Refusal Vocabulary & Canonical UUID Suite (9 tests)*: All 4 accepted R-07/R-08 codes with canonical UUID, unknown code fallback, all 6 removed overbroad codes fallback, missing/non-string error fallback, missing/non-string correlation fallback, leading/trailing/internal whitespace rejection without trimming, uppercase UUID rejection, malformed group lengths/braces/URN prefixes/nil strings/suffixes rejection, non-object/array body fallback.
+  - *Other Pure Helpers Suite (7 tests)*: Same-origin redirect restriction to `/v1/admin/role-capabilities`, malicious redirect rejection, assertion serialization with `userHandle: null`, assertion serialization with binary `userHandle`, missing required assertion buffer rejection, `preparePublicKeyOptions` binary conversion, missing challenge/malformed descriptor rejection.
+- **Full Ceremony Workflow Proofs (22 passed)**:
+  1. Supported initialization reveals/enables button and hides fallback using `hidden` attribute.
+  2. Unsupported initialization leaves no actionable button and shows unsupported message.
+  3. No-JS initial markup contains no usable dead action.
+  4. One click sends exactly one same-origin POST to R-07 (`application/json`, `same-origin`).
+  5. Returned challenge and credential descriptor IDs are converted before `navigator.credentials.get()`.
+  6. `navigator.credentials.get({publicKey})` receives exact prepared options.
+  7. Successful assertion sends exactly one POST to R-08 with exact serialized payload.
+  8. `userHandle: null` and binary user handles both serialize correctly in ceremony.
+  9. Success navigates only to accepted same-origin absolute path.
+  10. Protocol-relative, external, backslash, control, whitespace, malformed, wrong-typed redirects are refused.
+  11. Two rapid clicks cannot start two ceremonies or duplicate either request (busy lock).
+  12. `NotAllowedError` and `AbortError` restore button, clear busy state, do not retry, and show neutral text.
+  13. Network failure restores control and exposes no exception detail.
+  14. R-07 refusal uses only validated closed code/UUID presentation.
+  15. R-08 refusal uses only validated closed code/UUID presentation.
+  16. Malformed JSON and unexpected response shapes fall back generically.
+  17. Unsupported-browser initialization makes no network or credential call.
+  18. Busy state uses `disabled` and `aria-busy`, and always clears on non-navigation completion.
+  19. The workflow never writes to Web Storage.
+  20. The client references no network endpoint other than R-07 and R-08.
+  21. Malformed challenge in server options fails generically before authenticator call.
+  22. Malformed credential descriptor ID in options fails generically before authenticator call.
 
-1. scope and exclusions;
-2. owners: Claude integration/backend, Gemini verified frontend remediations, Peter accountable operational/security/accessibility actions, Codex two independent reviews;
-3. optimistic/likely/pessimistic estimate and confidence reconciled with the accepted 3/5/8-day P3.5 range, plus explicit review/remediation contingency;
-4. environment/dependency readiness matrix;
-5. Peter authority/participation checkpoints;
-6. requirement-to-test/evidence matrix with literal commands or named manual procedures;
-7. staging topology/isolation and secret-redaction checklist;
-8. backup/restore/rollback/recovery design;
-9. browser/device/accessibility plan;
-10. performance/resource plan;
-11. artifacts, stop gates and acceptance criteria; and
-12. exact closure criteria for I-06, A-05, A-06 and R-23.
+### 4.2. Durable Falsification Evidence
+Evidence is categorized by verification method:
+- **Structural Source Guards (`tests/web/test_p3_5_webauthn_and_shell_presentation.py`)**:
+  - Asserts zero `document.cookie` reads/writes in JS client.
+  - Asserts zero `localStorage` or `sessionStorage` in JS client.
+  - Asserts zero `console.` logging primitives in JS client.
+  - Asserts zero `.dataset` or `data-*` attribute writes in JS client.
+  - Asserts zero `.style`, `cssText`, or `setAttribute("style", ...)` mutations in JS client.
+  - Asserts only `/v1/auth/emergency/webauthn/options` and `/v1/auth/emergency/webauthn/verify` endpoints are referenced.
+- **Runtime Mock Proofs (`tests/web/webauthn_client.test.mjs`)**:
+  - Validates full state machine transitions, event handler cleanup, and re-entrancy blocking.
+- **Executed Mutation Tests (`scratch/test_falsifications.py`)**:
+  | Mutation Applied | Test Targeted | Expected Failure Observed |
+  |---|---|---|
+  | Button `hidden` removed from initial template | `test_emergency_template_contains_truthful_progressive_enhancement_elements` | `AssertionError: Initial markup must have hidden attribute` |
+  | Inline `style` injected into template | `test_emergency_template_contains_truthful_progressive_enhancement_elements` | `AssertionError: Found CSP-violating style attributes` |
+  | Correlation ID normalized with `.trim()` | `leading, trailing, or internal whitespace around a UUID is rejected without normalization` | `AssertionError: expected 'Emergency sign-in did not complete.'` |
+  | Vocabulary check omitted in refusal formatter | `an unknown refusal code with a canonical UUID falls back generically` | `AssertionError: expected 'Emergency sign-in did not complete.'` |
+  | Excessive padding check loosened (`padCount > 99`) | `rejects malformed padding: A, A=, A===, AA===, AA====, ...` | `AssertionError: Missing expected exception /excessive padding/` |
+  | Injected `.style.display = 'block'` in JS | `test_javascript_client_contains_zero_inline_style_or_eval_mutations` | `AssertionError: Found .style mutation in client script` |
+  | Accepted arbitrary redirect URL | `isSafeSameOriginRedirect strictly rejects external, ...` | `AssertionError: Expected false to equal true` |
+  | Disabled `isCeremonyBusy` guard | `Two rapid clicks cannot start two ceremonies or duplicate either request` | `AssertionError: Expected calls.fetch.length == 2` |
+  | Logout form method changed to `GET` | `test_shell_header_logout_form_presentation_and_accessibility` | `AssertionError: form.get("method") == "post"` |
+  | Logout CSRF token removed | `test_shell_header_logout_form_presentation_and_accessibility` | `AssertionError: csrf_token input missing from logout form` |
 
-Update project status and change log to record P3.5 planning, actual readiness, forecast and blockers. Change RAID dispositions only when evidence changes them. After the plan, stop for Peter's approval before any external staging mutation or credential ceremony.
+---
 
-## I-06 — critical path
+## 5. Verification Commands and Results
 
-I-06 requires real isolated staging, not just documentation or local ASGI tests. Plan and later gather evidence for:
+Executed sequentially in a single process flow:
 
-- separate staging DB/roles, web identity, Discord app/guild and credentials;
-- loopback app behind the accepted proxy boundary;
-- synthetic/anonymized data only, never a production backup;
-- environment markers and fail-closed cross-environment validation;
-- health, kill switch, startup refusal and monitoring;
-- TC-LIM-02, browser half of TC-SEC-07, TC-OPS-01…05 and TC-PERF-01…03;
-- browser OAuth/member/Council/import flows with Peter-approved staging identities;
-- representative 64 MiB refusal, real-shape synthetic load and 32-Actor-class preview/apply measurements;
-- `/healthz` and status responsiveness during work;
-- worker restart, lease expiry, lost response and recovery; and
-- backup, restore, rollback and rerun evidence.
+```text
+1. node --test tests/web/webauthn_client.test.mjs
+   Result: 50 passed, 0 failed (81.7ms)
 
-Record exact timestamps, versions, environment identity, commands and outputs without secrets or unnecessary identity data. Do not close I-06 on undeployed configuration, local tests or written procedures.
+2. TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
+   Result: 2286 passed, 80 skipped, 0 failed (128.80s)
+   [Skips: 54 permitted cells in test_p3_2_matrix.py, 26 permitted cells in test_p3_3_matrix.py asserted by per-route success suites]
 
-## A-05 — Peter-participated host ceremony
+3. TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/freedom-bot/venv/bin/python -m pytest -q -rs tests/test_*.py
+   Result: 2346 passed, 0 failed (134.50s)
 
-On the intended staging/target host, with Peter's explicit authorization and participation:
+4. node --test "foundry-module/tests/*.test.mjs"
+   Result: 155 passed, 0 failed (214.9ms)
 
-- establish the protected Server Administrator account through supported host-local tooling;
-- enroll at least two independent WebAuthn/passkey credentials;
-- prove retirement below two credentials is refused;
-- prove startup and `/healthz` readiness behavior;
-- exercise emergency login during simulated Discord unavailability;
-- prove break-glass grants Platform Administrator only, never Council/character/import authority by implication;
-- verify limiter, audit, correlation, session expiry and logout/revocation;
-- exercise the host-local hashed, single-use, ten-minute recovery grant without recording its token; and
-- document custody, replacement, loss and recovery without credential material.
+5. sha256sum -c adapters/web/static/asset-integrity.sha256
+   Result: 4/4 OK
 
-Do not choose authenticators for Peter, expose recovery tokens, or close A-05 using mocked authenticators.
+6. sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
+   Result: 14/14 OK
 
-## R-23 — accessibility residual
+7. /opt/discord-bots/venv-web/bin/python -m compileall -q adapters application domain tests
+   Result: Clean (exit code 0)
 
-P3.4 automation passed, but TC-UI-01/02, TC-UI-08 and TC-UI-09 remain Not Run. In isolated staging cover:
+8. /opt/discord-bots/freedom-bot/venv/bin/python -m compileall -q adapters application domain tests
+   Result: Clean (exit code 0)
 
-- keyboard-only operation, no traps, visible/logical focus and skip links;
-- semantics, headings, labels, descriptions and tables;
-- denied, empty, loading, stale, validation and error states;
-- HTMX-enhanced and JavaScript-disabled paths;
-- 320/768/1280 viewports and 200% zoom/reflow;
-- real-engine contrast and reduced motion; and
-- documented screen-reader traversal when qualified capacity exists.
-
-Record browser, OS, viewport, zoom, AT and versions. Screenshots use synthetic data only. If real-device or screen-reader review remains unavailable, retain Not Run and R-23 and state the production-readiness consequence.
-
-## A-06 and representative operation
-
-Measure PostgreSQL as the job-queue and cross-process-limiter substrate under representative staging conditions:
-
-- preview/apply duration;
-- worker peak RSS against the 1 GiB guard;
-- portal health/status responsiveness;
-- DB pool behavior;
-- cross-process limiter behavior;
-- lease heartbeat/commit-fence behavior; and
-- recovery after worker interruption/lease expiry.
-
-Use realistically shaped, bounded synthetic data—never real Actor payloads.
-
-## Integration/security matrix
-
-Map every Phase 3 acceptance/mandatory-test row to exact test node IDs, staging procedure IDs, outputs and status. Exercise at least:
-
-- unauthenticated, non-member, member, Council, Administrator, combined and break-glass boundaries;
-- membership/role revocation and session rotation/revocation;
-- stable role IDs; object/job/character substitution denial;
-- CSRF, Origin, Host, CORS, cookies and safe redirects;
-- body/file limits, content type and malicious filenames;
-- escaping of Actor, warning, username/global-name and audit content;
-- safe correlation UUID and refusal/error bodies;
-- import staleness, idempotency, double-click and two-browser concurrency;
-- append-only audit and restricted-role mutation denial;
-- absence of character-game-state correction routes;
-- CSP/security headers on normal and early/error responses;
-- no-JS essential workflows; and
-- asset integrity, cache policy and traversal refusal.
-
-Security, authorization, identity, atomicity, data-integrity, recovery or reliability findings are blocking. Material coverage, maintenance, performance or operational weaknesses are important. Route frontend-only findings to Gemini; cross-contract changes require explicit review and Peter's decision.
-
-## Required validation
-
-Run narrow tests during work and full suites before submission, using disposable/local or explicitly authorized isolated staging resources:
-
-```bash
-TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
-TEST_DATABASE_URL=postgresql+psycopg:///freedom_test /opt/discord-bots/freedom-bot/venv/bin/python -m pytest -q -rs tests/test_*.py
-node --test "foundry-module/tests/*.test.mjs"
-sha256sum -c adapters/web/static/asset-integrity.sha256
-sha256sum -c docs/review/phase-3-visual-freeze-manifest.sha256
-/opt/discord-bots/venv-web/bin/python -m compileall -q adapters application domain tests
-/opt/discord-bots/freedom-bot/venv/bin/python -m compileall -q adapters application domain tests
-git diff --check
+9. git diff --check
+   Result: Clean (exit code 0, zero whitespace errors)
 ```
 
-Discover configured formatter/linter/type/package/migration checks. If absent, record them unavailable, not passed. Run migration consistency and upgrade/downgrade/upgrade against a guarded disposable DB. Explain every skip, warning and unavailable check. Do not run destructive DB/host procedures until the exact disposable/staging target is resolved and guarded.
+---
 
-## Required artifacts
+## 6. Live / Browser Verification Status
 
-Produce at least:
+- **TC-UI-01 & TC-UI-02 (Interactive Browser Verification)**: `Not Run` (Requires supervised manual browser session).
+- **TC-BG-02 & A-05 (Physical Authenticator Verification)**: `Not Run` (Requires physical WebAuthn hardware security key ceremony supervised by operator/Peter).
 
-1. `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`
-2. `docs/review/phase-3-p3-5-test-and-evidence-traceability.md`
-3. `docs/review/phase-3-p3-5-staging-and-operations-evidence.md`
-4. `docs/review/phase-3-p3-5-accessibility-and-browser-evidence.md`
-5. `docs/review/phase-3-p3-5-submission.md`
-6. narrowly required operations-document updates
-7. current status, change log and evidence-backed RAID dispositions
+---
 
-Never pre-create passing evidence. Use Planned, Blocked, Not Run, Failed and Passed accurately. Keep secrets and unnecessary personal data out of artifacts.
+## 7. Request for Review
 
-## Final gate submission
-
-Report scope/exclusions/changed files; complete traceability; literal commands/procedures/results; skips/warnings/unavailable checks; staging facts without secrets; I-06/A-05/A-06/R-23 dispositions; security/privacy/migration/operational/rollback effects; remaining risks; separately authorized external actions; and reviewer focus.
-
-Request Codex independent implementation and distinct security-focused reviews. Do not self-accept P3.5, close the Phase 3 gate, authorize production or begin Phase 4.
-
-## First handoff to Peter
-
-For the initial run, complete only the read-only readiness audit, readiness/execution plan, and truthful project-control updates. Report:
-
-- files inspected/changed;
-- current readiness facts and exact I-06/A-05/A-06/R-23 gaps;
-- sequence, owners, estimate and confidence;
-- safe local checks performed;
-- actions requiring Peter's authorization/participation;
-- blockers/decisions; and
-- the next bounded execution step.
-
-Do not deploy staging or enroll WebAuthn credentials in the initial run without separate authorization after Peter reviews the plan.
+Gemini submits this remediation for independent implementation and security-focused review by Codex.

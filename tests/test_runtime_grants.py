@@ -78,6 +78,11 @@ def granted_tables(statement_pattern: str) -> set[str]:
 #: closed — either of which would make the fence advisory rather than enforced.
 READ_ONLY_TABLES = {"submission_admissions"}
 
+#: Alembic's own bookkeeping table. It is not an application table and is not in
+#: the ORM metadata, so it is excluded from the metadata equalities below and
+#: given its own test. The portal cannot start without reading it (S-14).
+SCHEMA_VERSION_TABLE = "alembic_version"
+
 
 def mutable_tables() -> set[str]:
     return granted_tables(
@@ -110,7 +115,11 @@ def test_every_table_is_granted_to_the_runtime_role():
     )
 
     expected = set(metadata.tables)
-    assert granted == expected, "a table is missing from the runtime grants"
+    # `alembic_version` is granted deliberately and is not an application table;
+    # it has its own test rather than being smuggled into this equality.
+    assert granted - {SCHEMA_VERSION_TABLE} == expected, (
+        "a table is missing from the runtime grants"
+    )
 
 
 def test_audit_tables_receive_no_update_or_delete_grant():
@@ -205,7 +214,7 @@ def test_every_retained_table_has_its_public_privileges_revoked():
         r"REVOKE\s+ALL\s+PRIVILEGES\s+ON(?P<tables>.*?)FROM\s+PUBLIC"
     )
 
-    assert revoked == set(metadata.tables), (
+    assert revoked - {SCHEMA_VERSION_TABLE} == set(metadata.tables), (
         "a retained table's PUBLIC privileges are never revoked: "
         f"{set(metadata.tables) - revoked}"
     )
@@ -229,3 +238,27 @@ def test_no_credential_is_embedded_in_the_template():
 
     assert "PASSWORD" not in body.upper()
     assert "__APP_ROLE__" in body, "the role must stay a deployment-time placeholder"
+
+
+def test_the_runtime_role_can_read_the_schema_version_and_cannot_write_it():
+    """S-14 regression, 2026-08-23.
+
+    The portal refuses to start unless it can read `alembic_version` over its
+    *runtime* connection. The template granted every application table and not
+    this one, so the restricted role could never start the portal — a defect no
+    test could catch while no deployed configuration had ever been started
+    (I-06, TC-OPS-04). It is caught here now, at the text level, and by the
+    effective-privilege suite in `test_runtime_grants_live.py`.
+
+    SELECT only: migrations run as the schema owner, and a runtime role able to
+    write this table could tell the next startup it was serving a schema it was
+    not.
+    """
+    assert SCHEMA_VERSION_TABLE in read_only_granted(), (
+        "the runtime role cannot read alembic_version, so S-14 refuses every "
+        "startup and the portal can never run under the restricted role"
+    )
+    for granted in (mutable_tables(), no_delete_granted(), append_only_granted()):
+        assert SCHEMA_VERSION_TABLE not in granted, (
+            "alembic_version must be readable and not writable by the runtime role"
+        )

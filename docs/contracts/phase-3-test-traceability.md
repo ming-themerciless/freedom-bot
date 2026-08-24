@@ -927,3 +927,45 @@ decision to its evidence without reading the whole table.
   operational contract §4.4, not a measured one.
 - **The static root is empty.** No production asset exists to test, so no test
   claims one does.
+
+## 23. Shell/navigation contract evidence — added 2026-08-23, by addition only
+
+C35-05/R35-17. No accepted row is rewritten.
+
+| ID | Test | Level | Evidence |
+|---|---|---|---|
+| TC-SHELL-01 | Each accepted caller state (`N`, `M`, `C`, `A`, `CA`) is offered exactly its accepted destinations | unit | `test_shell_navigation_contract.py::test_each_caller_state_is_offered_exactly_its_accepted_destinations` |
+| TC-SHELL-02 | The anonymous shell offers only anonymous destinations, and no logout or token | unit | `::test_the_anonymous_shell_offers_only_anonymous_destinations` |
+| TC-SHELL-03 | No authenticated caller is ever shown `Login` (F-17's original symptom) | unit | `::test_an_authenticated_caller_is_never_offered_login` |
+| TC-SHELL-04 | Platform administrator acquires no Council navigation | unit | `::test_platform_administrator_does_not_acquire_council_navigation` |
+| TC-SHELL-05 | Continuity scope (N-65) is offered only role capabilities and identities, even when the caller also holds Council | unit | `::test_break_glass_is_offered_only_what_its_scope_permits`, `::test_continuity_scope_strips_council_navigation_even_from_a_council_holder` |
+| TC-SHELL-06 | A valid session gets logout and that session's own CSRF token | unit | `::test_a_valid_session_gets_logout_and_the_session_s_own_token` |
+| TC-SHELL-07 | Missing, malformed, expired and revoked sessions yield no logout and no token | unit | `::test_no_session_means_no_logout_and_no_token` |
+| TC-SHELL-08 | At most one destination is current, resolved by longest prefix | unit | `::test_the_current_page_is_resolved_by_longest_match`, `::test_at_most_one_destination_is_ever_current` |
+| TC-SHELL-09 | **Hiding a link does not deny a route** — the guard refuses independently | direct HTTP | `::test_hiding_a_link_does_not_deny_the_route` |
+| TC-SHELL-10 | **Naming a destination does not bypass a route** | direct HTTP | `::test_rendering_a_link_would_not_bypass_a_guard` |
+| TC-SHELL-11 | The header renders only the shell's links, marks exactly one current, and carries no button but the sign-out submit | template | `test_p3_4_shell_and_components.py` |
+
+| TC-SHELL-12 | **Request boundary**: every caller state's rendered frame, through the real preamble, refresh, `authorize()`, render and template | direct HTTP + database | `test_shell_request_boundary.py`, 28 cases |
+| TC-SHELL-13 | An authenticated caller **denied** a route still receives their own frame and logout token, not the anonymous one | direct HTTP | `::test_a_denied_page_still_carries_the_authenticated_frame` |
+| TC-SHELL-14 | The rendered logout token ends the session; missing, empty, wrong and **another session's** token are each refused `403` and leave the session alive | direct HTTP | `::test_the_rendered_token_logs_the_caller_out`, `::test_logout_refuses_*` |
+| TC-SHELL-15 | A refresh that adds or **removes** authority moves the frame with the route decision | direct HTTP, at the `_close` seam | `::test_a_refresh_that_*` |
+| TC-SHELL-16 | `home_href` is always a destination the caller may reach | unit + request boundary | `::test_the_brand_destination_is_one_this_caller_may_reach` |
+| TC-SHELL-17 | **Public full pages** carry the caller's own frame: anonymous for anonymous, malformed, empty, expired and revoked; authenticated with sign-out for member, administrator and break-glass | direct HTTP | `::test_a_public_page_*` |
+| TC-SHELL-18 | A public page whose caller's authority is **not fresh** renders the conservative session-only frame, without making a provider call | direct HTTP | `::test_a_public_page_gives_a_stale_caller_the_conservative_frame` |
+| TC-SHELL-19 | A logout token rendered on a **public** page ends the session | direct HTTP | `::test_a_public_page_logout_token_actually_works` |
+| TC-SHELL-21 | A request with **no cookie** renders the public page without resolving a session at all | direct HTTP | `::test_no_cookie_performs_no_session_lookup` |
+| TC-SHELL-22 | Malformed, overlong and unknown-but-well-formed tokens each render the anonymous shell | direct HTTP | `::test_an_unusable_token_renders_the_anonymous_shell` |
+| TC-SHELL-23 | A degraded session store renders `503` with security headers and `no-store`, **never** an anonymous `200` | direct HTTP | `::test_a_degraded_session_store_does_not_render_an_anonymous_success` |
+| TC-SHELL-24 | An unexpected implementation error reaches the safe-error boundary as `500`, disclosing no message, class, traceback, module, database target or SQL | direct HTTP | `::test_an_unexpected_error_reaches_the_safe_error_boundary` |
+| TC-SHELL-25 | Cancellation is not converted into a rendered page | direct HTTP | `::test_cancellation_is_not_converted_into_anonymous_rendering` |
+| TC-SHELL-26 | A degraded page discloses no cookie value, account id, session id, capability or provider detail | direct HTTP | `::test_a_degraded_or_error_page_discloses_no_caller_material` |
+| TC-SHELL-27 | A protected request resolves its session **exactly once** — the public helper adds no second resolution | direct HTTP | `::test_a_protected_request_still_resolves_its_session_once` |
+| TC-SHELL-20 | A refusal from a failed refresh renders `503` with the conservative authenticated frame — sign-out available, no privileged link, no capability/session/provider leakage | direct HTTP | `::test_a_service_degraded_refusal_*`, `::test_a_degraded_page_leaks_no_*` |
+
+**Not covered here, and stated rather than implied:** no browser has rendered this
+frame. TC-UI-01/02 remain **Not Run**, and the supervised browser evidence for
+logout and navigation belongs to the staging package with them. TC-SHELL-15 drives
+the refresh at the `_close` seam rather than through a real provider round trip:
+`_refresh_plan()` returns `None` without a stored OAuth token grant and the seeded
+callers have none, so an end-to-end Discord refresh is **not** exercised.

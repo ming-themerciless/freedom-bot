@@ -88,21 +88,23 @@ def test_static_corpus_equals_closed_step_2_inventory_exactly() -> None:
         if p.is_file()
     )
 
-    # Expected: 1 manifest + 1 CSS + 1 image + 1 vendor JS
-    assert len(found_files) == 4, f"Unexpected files found in static corpus: {found_files}"
+    # Expected: 1 manifest + 1 CSS + 1 image + 1 vendor JS + 1 application JS
+    assert len(found_files) == 5, f"Unexpected files found in static corpus: {found_files}"
     assert "asset-integrity.sha256" in found_files
 
     css_files = [f for f in found_files if f.startswith("css/")]
     image_files = [f for f in found_files if f.startswith("images/")]
     vendor_files = [f for f in found_files if f.startswith("vendor/")]
+    js_files = [f for f in found_files if f.startswith("js/")]
 
     assert len(css_files) == 1, f"Expected exactly one CSS file, got: {css_files}"
     assert len(image_files) == 1, f"Expected exactly one image file, got: {image_files}"
     assert len(vendor_files) == 1, f"Expected exactly one vendor JS file, got: {vendor_files}"
+    assert len(js_files) == 1, f"Expected exactly one JS file, got: {js_files}"
 
     # Verify top-level entries
     top_entries = sorted(entry.name for entry in STATIC_DIR.iterdir())
-    assert top_entries == ["asset-integrity.sha256", "css", "images", "vendor"]
+    assert top_entries == ["asset-integrity.sha256", "css", "images", "js", "vendor"]
 
 
 def test_every_asset_filename_has_required_fingerprint_grammar() -> None:
@@ -339,8 +341,34 @@ def test_css_and_js_contain_no_forbidden_patterns() -> None:
                 assert "javascript:" not in text, f"javascript: URL found in {p.name}"
 
 
+#: Backend files P3.5 is permitted to change, each for a named accepted finding.
+#: P3.4's rule was "the frontend package does not touch the backend", and it still
+#: holds for frontend work. P3.5 is a backend package and changes backend files by
+#: design, so the exception is enumerated here rather than left to erode the guard.
+PERMITTED_P3_5_BACKEND = {
+    # C35-05 / R35-17: the server-owned shell contract and its two wiring points.
+    "application/web/shell.py",
+    "adapters/web/app.py",
+    "adapters/web/portal_routes.py",
+    "adapters/web/import_routes.py",
+    # C35-04 / F-13: an unreadable kill switch degrades health instead of breaking it.
+    "application/web/startup.py",
+    # C35-05: VM-23 registered in the view-model registry the guards read.
+    "application/web/view_models.py",
+}
+
+
 def test_no_unrelated_production_files_modified() -> None:
-    """11. Verify no templates or Python files under adapters/ or application/ were modified outside allowlist."""
+    """11. No template or backend file changes outside the allowlists.
+
+    **Parsing corrected 2026-08-23 (P3.5).** This previously did
+    `line.strip()` before slicing `line[:2]` and `line[3:]`, and porcelain status
+    codes are two columns wide: a *modified* file arrives as `" M path"`, so
+    stripping the leading space shifted the slice and yielded `"pplication/..."`.
+    The guard therefore never caught a modification to a tracked file — only
+    untracked ones, whose `"?? "` prefix happens to survive the strip. It was
+    asserting far less than it claimed for the whole of P3.4.
+    """
     result = subprocess.run(
         ["git", "status", "--short"],
         cwd=ROOT,
@@ -348,7 +376,9 @@ def test_no_unrelated_production_files_modified() -> None:
         text=True,
     )
     assert result.returncode == 0
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    # Deliberately not stripped: the first two columns are the status field, and
+    # for a modified file the first of them is a space.
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
 
     permitted_templates = {
         "adapters/web/templates/base.html",
@@ -367,14 +397,18 @@ def test_no_unrelated_production_files_modified() -> None:
         "adapters/web/templates/character_detail.html",
     }
 
-    # Modified files should only be review documents, allowlisted static assets, and allowlisted test files
     for line in lines:
-        status, path = line[:2], line[3:].strip('"')
+        path = line[3:].strip().strip('"')
+        # A rename arrives as "old -> new"; the destination is what was written.
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
         if path.startswith("adapters/web/templates/") and path not in permitted_templates:
             pytest.fail(f"Unpermitted template modification detected in working tree: {path}")
         if path.startswith("adapters/") and not (
-            path.startswith("adapters/web/static/") or path.startswith("adapters/web/templates/")
+            path.startswith("adapters/web/static/")
+            or path.startswith("adapters/web/templates/")
+            or path in PERMITTED_P3_5_BACKEND
         ):
             pytest.fail(f"Unpermitted adapters modification detected in working tree: {path}")
-        if path.startswith("application/"):
+        if path.startswith("application/") and path not in PERMITTED_P3_5_BACKEND:
             pytest.fail(f"Unpermitted application modification detected in working tree: {path}")

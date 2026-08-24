@@ -1009,6 +1009,144 @@ decision. It is the same rule §8's VM-20 states about a `detail` field.
 Additive under §1 rule 5: a view model is added, none is removed, renamed or
 narrowed, and `VIEW_MODEL_VERSION` stays `vm-1`.
 
+## 8a. The server-owned shell — VM-23, added 2026-08-23 (C35-05)
+
+Added by **addition only**. No existing view model changes; every page view model
+keeps its shape, and this is supplied *alongside* it on every full-page render.
+
+### VM-23 `ShellView` — every full-page render
+
+```text
+ShellView(
+    authenticated: bool,
+    navigation: tuple[ShellLink, ...],   # already filtered to this caller
+    logout_csrf_token: str | None,       # present only for a valid session
+    home_href: str,                      # always one of this caller's own links
+    current: ShellNav | None,            # at most one, resolved server-side
+)
+
+ShellLink(id: ShellNav, label: str, href: str, active_prefixes: tuple[str, ...])
+```
+
+`ShellNav` is a **closed** vocabulary: `login`, `emergency`, `characters`,
+`council_characters`, `snapshots`, `role_capabilities`, `identities`. A template
+cannot introduce a destination, and every destination the frame can name is
+readable in one place.
+
+**Why it exists.** The shared header previously rendered the same three links to
+everyone, so a signed-in administrator was shown "Login", no template anywhere
+offered a way to sign out, and no privileged surface was linked at all (F-17). It
+was not implementable in templates: `RequestAuthority.render()` supplied only the
+page's own `view`, most page view models carry no CSRF token, and a template must
+not infer authority from cookies or URLs.
+
+**Navigation is presentation, never authorization.** Route guards remain the sole
+authority. Two tests hold the two halves apart: hiding a link does not deny a
+route, and naming a destination does not bypass one.
+
+**The matrix**, derived row by row from §5.2 and §6 of the route-authorization
+contract — no destination appears whose row was not read:
+
+| Destination | Route | Offered to |
+|---|---|---|
+| `identities` | R-35 | every authenticated caller, `BG` included |
+| `characters` | R-20 | a guild member who is not an administrator-without-Council |
+| `council_characters` | R-22 | `C`, `CA` |
+| `snapshots` | R-40 | a guild member who is Council or administrator |
+| `role_capabilities` | R-32 | `A`, `CA`, `BG` |
+| `login`, `emergency` | R-02, R-06 | anonymous only |
+
+Two consequences, stated rather than left to be noticed:
+
+- **Platform administrator acquires no Council navigation.** R-20 and R-22 are
+  `✗ 403` for `A`.
+- **Continuity scope (N-65) is read, not just capability.** A break-glass
+  administrator holds `platform_administrator`, so a capability-only rule would
+  have offered it `snapshots` — which R-40 refuses for `BG`. The shell reads
+  `administrator_scope` and offers a continuity-scoped caller exactly
+  `role_capabilities` and `identities`.
+
+**Logout.** `logout_csrf_token` is present only when a valid authenticated session
+exists, and is that session's own token. It is never minted for an anonymous,
+missing, malformed, expired or revoked session — structurally, not by a check:
+`open_request()` raises `SessionAbsent` for all of those, so no gate is produced
+and the anonymous shell is the only thing that can be rendered. Logout remains
+`POST /v1/auth/logout` (R-05) with CSRF enforcement; it is never a link.
+
+**Current page.** Resolved server-side by longest matching prefix, so at most one
+destination is ever current. `login` claims `/v1/login`, `/v1/auth/` and `/`, which
+is the behaviour P3.4 accepted; `emergency` sits under `/v1/auth/` and wins there
+by being the longer match.
+
+**The rules mirror the services, not a paraphrase of the matrix.** `characters`
+follows `access_control._member_read`: membership is required, and an
+administrator who is *not* also Council is refused — `CA` reaches it through
+Council. `snapshots` follows `Requirement.COUNCIL_OR_ADMINISTRATOR`: membership
+**and** one of the two capabilities. Deriving from the prose matrix alone produced
+a frame that offered an administrator a page R-20 refuses, which the
+request-boundary tests caught.
+
+**`home_href`** is the brand/home destination and is always one of this caller's
+own offered links — the first in presentation order. It replaced a template
+literal of `/v1/characters`, which sent administrator-only and continuity-scoped
+callers to a page they are refused (R35-22).
+
+**Derived from the final context.** The shell is built at the request boundary
+from the context `authorize()` is given — after any membership refresh — and
+**before** the capability decision. Before, because a valid caller who is *denied*
+a route still receives a rendered page, and that page must carry their own frame
+rather than the anonymous one. From the final context, because a refresh may have
+removed authority, and the frame must not still offer what the route now refuses.
+
+**The lifecycle, with exactly one owner per route class (R35-26).** A protected
+route's preamble attaches the shell from its final authorized context. A public
+full page — `/v1/login`, `/v1/auth/emergency` — has no preamble, so it attaches its
+own via `_attach_public_shell()`. No request resolves its session twice, and a page
+with neither renders the anonymous shell.
+
+**A public page authorizes nothing and refreshes nothing.** Drawing a header must
+not make a provider call. So when the membership projection is not fresh — exactly
+when a preamble would have refreshed it — a public page renders the **conservative
+session-only shell** rather than privileged links resting on unrevalidated
+capabilities. Freshness is read from the projection itself, not from whether a
+refresh was *planned*: `_refresh_plan()` returns `None` whenever no provider token
+is stored, and would have reported a stale caller as current.
+
+**The conservative session-only shell** is authenticated, offers sign-out, and
+offers exactly `identities` — the one destination requiring no capability (R-35).
+It is used in two places: a public page whose caller's authority is not known to be
+current, and a refusal raised by a refresh that failed **without** invalidating the
+session (R35-27) — a Discord outage rendering a 503 must not tell a caller with a
+live session that they are signed out, and must not keep offering Council on the
+strength of the refresh that just failed. "The session is valid" and "the
+capabilities are current" are different statements, and this type is what keeps
+them apart.
+
+A refusal meaning the session itself is gone never reaches that path:
+`open_request()` raises `SessionAbsent` for a missing, malformed, expired or revoked
+session, and the anonymous shell is the result.
+
+**The public helper's failure policy is typed, not blanket (R35-32).** It catches
+`SessionAbsent` and nothing else:
+
+| Condition | Result |
+|---|---|
+| No session cookie | anonymous shell, and **no session-store lookup at all** |
+| Unknown, malformed, expired or revoked token (`SessionAbsent`) | anonymous shell, no logout token |
+| Session store degraded (`ServiceDegraded`) | VM-03 with `503`, security headers and `no-store` — never an anonymous `200` |
+| Database, repository or programming failure | propagates to the safe-error boundary: correlation id, `500`, nothing else |
+| Cancellation (`BaseException`) | never caught; normal propagation semantics |
+
+It was previously `except Exception: return`, whose comment claimed any failure
+meant "no session". That is false, and the consequence was worse than a wrong
+frame: a portal whose session store was unreachable would have rendered a healthy-
+looking anonymous page to everybody, and the signed-in operator best placed to
+notice would have been silently logged out instead of told.
+
+**Fragments.** The shell is supplied by `RequestAuthority.render()`, which renders
+full pages. Fragment responses keep their accepted fragment-only behaviour and do
+not acquire it.
+
 ## 9. HTMX and Jinja compatibility constraints
 
 These are contract terms for P3.4, not suggestions:

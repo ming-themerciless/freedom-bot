@@ -31,6 +31,7 @@ from typing import Literal
 from uuid import UUID
 
 from application.audit import ActorCapability
+from application.web.shell import ShellView
 
 #: The version identifier the whole set carries. A change that removes a field,
 #: renames one or narrows an enum is **breaking** and returns through P3.G2/G3.
@@ -1466,6 +1467,11 @@ class AuditSearchView:
 #: against the parsed contract document by the structural tests, so a name that
 #: drifts fails a test rather than a review.
 IMPLEMENTED_VIEW_MODELS: dict[str, type] = {
+    # VM-23 lives in `shell.py` rather than here: it is the frame every page is
+    # rendered inside, not a page's own view. It is registered here because it is
+    # a view model and the structural guards are the reason that matters — frozen,
+    # slotted, and holding no mutable collection, exactly like the rest.
+    "VM-23": ShellView,
     "VM-01": LoginPageView,
     "VM-02": NonMemberView,
     "VM-03": ServiceDegradedView,

@@ -122,6 +122,7 @@ from tests.web.template_digests import (
     P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS,
     PROPOSED_STEP_10_TEMPLATE_DIGESTS,
 )
+from application.web.shell import ANONYMOUS_SHELL
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_ROOT = ROOT / "adapters" / "web" / "templates"
@@ -273,11 +274,20 @@ def compute_sha256(path: Path) -> str:
 
 
 def get_jinja_env() -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(TEMPLATE_ROOT)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()`
+    # on every real full-page render. These tests render templates in isolation,
+    # with no request boundary to derive one, so the anonymous shell is the
+    # default here. A context value overrides a global, so a test supplying its
+    # own shell — and production, which always does — is unaffected. That
+    # production always passes one explicitly is asserted separately, so this
+    # default cannot hide a regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def strip_css_comments(css_text: str) -> str:
@@ -440,8 +450,11 @@ def test_import_result_applied_council_rendering() -> None:
     assert "created" in rendered and "5" in rendered
     assert "updated" in rendered and "27" in rendered
     assert "View audit history &rarr;" in rendered
-    assert '<form' not in rendered
-    assert 'csrf_token' not in rendered
+    # The page's own content: the shared frame's sign-out form is not this page's,
+    # and is asserted in test_shell_navigation_contract.py (C35-05).
+    body = rendered[rendered.find("<main"):rendered.find("</main>")]
+    assert '<form' not in body
+    assert 'csrf_token' not in body
 
 
 def test_import_result_refused_council_rendering() -> None:
@@ -838,7 +851,7 @@ def test_asset_integrity_manifest_verification() -> None:
         for line in MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    assert len(lines) == 3
+    assert len(lines) == 4
     for line in lines:
         parts = line.split()
         assert len(parts) == 2
@@ -1324,7 +1337,10 @@ async def test_r47_import_receipt_database_backed_rendering(
     assert str(import_id) in response.text
     assert checksum in response.text
     assert "/Actors/Characters (active)" in response.text
-    assert '<form' not in response.text
+    # The page's own content. The shared frame's sign-out form is not this page's
+    # mutation control, and is asserted in test_shell_navigation_contract.py.
+    receipt_body = response.text[response.text.find("<main"):response.text.find("</main>")]
+    assert '<form' not in receipt_body
 
 
 @requires_database

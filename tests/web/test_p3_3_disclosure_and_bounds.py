@@ -101,7 +101,7 @@ def _assert_inert(body: str, hostile: str) -> None:
     # 4. Outside container: only known same-origin fingerprinted htmx script and accepted token emblem
     for s in soup.find_all("script"):
         src = s.get("src", "")
-        assert src.startswith("/static/vendor/htmx-"), f"Unauthorized script src={src!r}"
+        assert src.startswith("/static/vendor/htmx-") or src.startswith("/static/js/webauthn-emergency."), f"Unauthorized script src={src!r}"
         assert not s.get_text(strip=True), "Script has inline content"
 
     for img in soup.find_all("img"):

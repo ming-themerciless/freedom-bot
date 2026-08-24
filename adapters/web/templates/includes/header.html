@@ -1,31 +1,47 @@
+{#
+  The page frame. Every link and the logout control come from the server-owned
+  shell (C35-05); this template decides nothing about who the caller is.
+
+  Before P3.5 this rendered the same three links to everybody: a signed-in
+  administrator was shown "Login", nothing anywhere offered a way to sign out,
+  and no privileged surface was linked at all (F-17).
+
+  `shell.navigation` is already filtered to what this caller may reach, so there
+  is no conditional here on capability, session or role — a template that made
+  those decisions would be a second authority, and the one at the request
+  boundary has already answered.
+#}
 <header class="app-header">
   <div class="app-header-top">
-    <a href="/v1/characters" class="brand-title">
+    <a href="{{ shell.home_href }}" class="brand-title">
       <img src="/static/images/freedom-blades-token.eab0d13128f5.png" alt="" class="brand-emblem" width="36" height="36">
       <span>Freedom Blades</span>
     </a>
   </div>
-  {% set p = request.url.path if request and request.url else "" %}
-  {% if p.startswith("/v1/auth/emergency") %}
-    {% set current_nav = "emergency" %}
-  {% elif p == "/v1/login" or p.startswith("/v1/login") or p.startswith("/v1/auth/") or p == "/" %}
-    {% set current_nav = "login" %}
-  {% elif p == "/v1/characters" or p.startswith("/v1/characters/") %}
-    {% set current_nav = "characters" %}
-  {% else %}
-    {% set current_nav = "" %}
-  {% endif %}
   <nav aria-label="Main navigation" class="app-navigation">
     <ul class="nav-menu">
-      <li>
-        <a href="/v1/characters" class="nav-link{% if current_nav == 'characters' %} active{% endif %}"{% if current_nav == 'characters' %} aria-current="page"{% endif %}>Characters</a>
-      </li>
-      <li>
-        <a href="/v1/auth/emergency" class="nav-link{% if current_nav == 'emergency' %} active{% endif %}"{% if current_nav == 'emergency' %} aria-current="page"{% endif %}>Emergency Access</a>
-      </li>
-      <li>
-        <a href="/v1/login" class="nav-link nav-link-login{% if current_nav == 'login' %} active{% endif %}"{% if current_nav == 'login' %} aria-current="page"{% endif %}>Login</a>
-      </li>
+      {% for link in shell.navigation %}
+        {% set current = shell.current is not none and link.id == shell.current %}
+        <li>
+          <a href="{{ link.href }}"
+             class="nav-link{{ ' nav-link-login' if link.id.value == 'login' else '' }}{{ ' active' if current else '' }}"
+             {%- if current %} aria-current="page"{% endif %}>{{ link.label }}</a>
+        </li>
+      {% endfor %}
+      {% if shell.logout_available %}
+        <li>
+          {#
+            POST, with the shell's synchronizer token. Never a GET: a link that
+            ended a session could be triggered by any page that could make the
+            browser follow it. The token is present only because a valid session
+            is, and it is the session's own.
+          #}
+          <form method="post" action="/v1/auth/logout" class="nav-logout-form">
+            <input type="hidden" name="csrf_token" value="{{ shell.logout_csrf_token }}">
+            <button type="submit" class="nav-link nav-logout">Sign out</button>
+          </form>
+        </li>
+      {% endif %}
     </ul>
   </nav>
 </header>

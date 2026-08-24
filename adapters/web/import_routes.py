@@ -66,6 +66,7 @@ from application.web.view_models import (
     ServiceDegradedView,
     ValidationView,
 )
+from application.web.shell import session_only_shell, shell_for
 
 #: The closed P3.3 inventory, by contract identifier. Merged into `app.py`'s
 #: `ROUTE_INVENTORY` so `TC-STRUCT-01` still asserts **one** registered set
@@ -189,7 +190,38 @@ def register(app: FastAPI, composition, authority) -> None:
                     _close, composition, gate, observation, settings, guard.mutation
                 )
             except WebRefusal as refusal:
+                # R35-27. The refusal is rendered as a full page, and the request
+                # began with a **valid session** — `_open` already proved that.
+                # Without this the 503 a member sees during a Discord outage carried
+                # the anonymous frame: "Login" offered, sign-out hidden, mid-session.
+                #
+                # The conservative frame, not the caller's full one: the refresh that
+                # was meant to revalidate their capabilities is precisely what failed,
+                # so the only things asserted are "there is a session" and "you may
+                # sign out". A privileged link here would rest on authority nobody
+                # confirmed.
+                #
+                # A refusal that means the session itself is gone never reaches here:
+                # `open_request` raises `SessionAbsent` for a revoked or expired one,
+                # before any of this.
+                request.state.shell = session_only_shell(csrf_token=gate.csrf_token)
                 raise _Refused(_refusal_response(request, refusal, guard)) from None
+
+        # The shell, built here from the **final** context and attached **before**
+        # the capability decision (R35-20, R35-21).
+        #
+        # Before step 5 rather than after it, because a valid authenticated caller
+        # can be *denied* a route, and `_refusal_response()` renders that denial. If
+        # the shell were attached after `authorize()`, the 403 a signed-in
+        # administrator sees for a Council page would carry the anonymous frame:
+        # "Login" offered, sign-out hidden, mid-session.
+        #
+        # From `context` rather than `gate.context`, because a provider refresh may
+        # have added or removed authority since the session was opened, and the
+        # removal direction is the one that matters. A refresh that invalidates the
+        # session raises above and never reaches here, so no authenticated frame
+        # survives a revocation.
+        request.state.shell = shell_for(context, csrf_token=gate.csrf_token)
 
         # -- 5. capability decision ----------------------------------------
         try:

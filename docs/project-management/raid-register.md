@@ -2,6 +2,24 @@
 
 Status date: 2026-08-18
 
+## P3.5 frontend acceptance amendment — 2026-08-24
+
+- **A-05 remains Open.** Codex accepted the repository implementation of the
+  emergency WebAuthn client, including strict protocol/refusal validation and
+  executable ceremony tests. This removes the frontend-code blocker but does
+  not prove either real credential works at the intended staging origin/RP ID.
+  The supervised two-credential ceremony and Security Reviewer confirmation are
+  still required.
+- **R-23 remains Active.** Frontend source, structural and workflow automation
+  passed review, but TC-UI-01/02 and the real-device checks remain Not Run. A
+  bounded supervised browser session is documented in
+  `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md`.
+- **I-06 and A-06 remain Open.** This frontend decision supplies no missing
+  staging operations or representative-load evidence.
+- **No Phase 3 gate or exposure decision is made.** The manual session planned
+  for later on 2026-08-24 moves no status until its results are recorded and
+  accepted by the named authority.
+
 Scale: probability and impact are `Low`, `Medium` or `High`. The Delivery Lead
 updates status and due dates; the named role owns the response. A person's name
 must replace each role assignment before the affected work starts.

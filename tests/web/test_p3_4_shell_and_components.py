@@ -37,6 +37,13 @@ from tests.web.template_digests import (
     P3_4_IMPLEMENTATION_INCLUDE_DIGESTS,
     P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS,
 )
+from application.web.shell import (
+    ANONYMOUS_SHELL,
+    ShellNav,
+    ShellView,
+    navigation_for,
+    with_current,
+)
 
 
 # Step 4 Authorized & Actually Used Selectors (must be used in templates)
@@ -101,11 +108,20 @@ PROHIBITED_LATER_STEP_SELECTORS: tuple[str, ...] = (
 
 
 def get_jinja_env(template_dir: Path = TEMPLATE_ROOT) -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(template_dir)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()` on
+    # every real full-page render. These tests render a template in isolation, with
+    # no request boundary to derive one, so the anonymous shell is the default here.
+    # A context value overrides a global, so a test that supplies its own shell —
+    # and production, which always does — is unaffected. That production always
+    # passes one explicitly is asserted separately, so this default cannot hide a
+    # regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def make_request(path: str = "/v1/characters") -> Request:
@@ -499,6 +515,26 @@ def test_landmark_order_and_skip_link_positive() -> None:
     assert "<h1" not in header_footer_only, "Shared shell must not contain an <h1> tag"
 
 
+def _authenticated_shell() -> ShellView:
+    """A caller offered every authenticated destination.
+
+    Used where a test is about the frame's behaviour rather than about who may
+    reach what. No real caller necessarily holds all of these at once; the
+    navigation matrix decides that, and is tested separately.
+    """
+    return ShellView(
+        authenticated=True,
+        navigation=navigation_for(
+            ShellNav.CHARACTERS,
+            ShellNav.COUNCIL_CHARACTERS,
+            ShellNav.SNAPSHOTS,
+            ShellNav.ROLE_CAPABILITIES,
+            ShellNav.IDENTITIES,
+        ),
+        logout_csrf_token="synthetic-csrf-token",
+    )
+
+
 @pytest.mark.parametrize(
     "path,expected_active_text,expected_count",
     [
@@ -522,7 +558,20 @@ def test_aria_current_page_selection_positive(
     """5. Exactly one nav item has aria-current='page' for matching paths, and zero for unmapped paths."""
     env = get_jinja_env()
     template = env.get_template("includes/header.html")
-    rendered = template.render(request=make_request(path))
+    # The shell decides which destinations exist; this test is about which of them
+    # is marked as the current page. Anonymous cases are about the anonymous
+    # destinations, so they get the anonymous shell; the rest need a caller who is
+    # actually offered the link under test. Which caller is offered what is the
+    # subject of the navigation-matrix tests, not of this one.
+    anonymous_destinations = {"Login", "Emergency Access"}
+    shell = (
+        ANONYMOUS_SHELL
+        if expected_active_text in anonymous_destinations or expected_active_text is None
+        else _authenticated_shell()
+    )
+    # `with_current` is what production's `render()` applies; a direct render has
+    # to apply it too, or the frame is asked which page it is on and told nothing.
+    rendered = template.render(request=make_request(path), shell=with_current(shell, path))
     validate_aria_current_uniqueness(
         rendered, expected_active_text=expected_active_text, expected_count=expected_count
     )
@@ -588,9 +637,22 @@ def test_navigation_uses_ordinary_anchors_without_js_toggle() -> None:
     """8. Navigation is made from ordinary anchors with no JavaScript menu toggle."""
     header_content = (TEMPLATE_ROOT / "includes" / "header.html").read_text(encoding="utf-8")
 
-    assert "<button" not in header_content, "Header must not have button elements (no JS mobile menu toggle)"
+    # **Narrowed 2026-08-23 (C35-05).** This asserted `"<button" not in ...`, whose
+    # intent was "no JavaScript mobile-menu toggle". Sign-out is now a real control
+    # and must be a `POST` carrying a CSRF token, which means a form and a submit
+    # button — the opposite of a JavaScript toggle, and the thing that makes logout
+    # work with JavaScript disabled. So the intent is asserted directly instead.
     assert "onclick" not in header_content
     assert "mobile-menu" not in header_content
+    assert "hx-on:" not in header_content
+    assert "<script" not in header_content
+    buttons = re.findall(r"<button[^>]*>", header_content)
+    assert all('type="submit"' in button for button in buttons), (
+        "the only button the header may carry is the sign-out form's submit"
+    )
+    assert header_content.count("<form") == header_content.count('method="post"'), (
+        "every form in the header must be a POST"
+    )
     assert re.findall(r'<a\s+href="[^"]+"\s+class="nav-link', header_content), "Must contain standard nav-link anchors"
 
 
@@ -668,8 +730,19 @@ def test_falsification_1c_reversed_landmark_order() -> None:
 def test_falsification_2_multiple_aria_current_detected() -> None:
     """Falsification 2: Adding a second aria-current='page' fails uniqueness validator."""
     env = get_jinja_env()
-    rendered = env.get_template("includes/header.html").render(request=make_request("/v1/characters"))
-    mutated = rendered.replace('class="nav-link nav-link-login"', 'class="nav-link nav-link-login" aria-current="page"')
+    # An authenticated shell at a path one of its links matches, so the unmutated
+    # render already has exactly one current item; the mutation then makes two.
+    # Under the anonymous shell this path marks nothing, and the mutation would
+    # produce one rather than two — the falsification would pass for the wrong
+    # reason and prove nothing.
+    rendered = env.get_template("includes/header.html").render(
+        request=make_request("/v1/characters"),
+        shell=with_current(_authenticated_shell(), "/v1/characters"),
+    )
+    assert rendered.count('aria-current="page"') == 1, "the unmutated render must have exactly one"
+    mutated = rendered.replace(
+        '<a href="/v1/account/identities"', '<a aria-current="page" href="/v1/account/identities"', 1
+    )
 
     with pytest.raises(AssertionError, match=r"Expected exactly one aria-current='page', found 2"):
         validate_aria_current_uniqueness(mutated)
@@ -775,8 +848,8 @@ def test_falsification_5_css_byte_tampering_fails_fingerprint_and_manifest(tmp_p
 
     # 7. Prove production CSS and manifest hashes remain unchanged
     prod_css = ROOT / css_rel
-    assert compute_sha256(prod_css) == "58a9b9eed003c44b0b4e63d25910ecd704cdac03b0dcea6d2e105d63b8756649"
-    assert compute_sha256(MANIFEST_PATH) == "299a8a26ec64e862677e61e46cb432c632fc3d9dc48c29f0648dc03b9f31bf2b"
+    assert compute_sha256(prod_css) == "3f877d00a8f931877ffebdd2d5aacba5ffc8b0516d97c28d892828619805856a"
+    assert compute_sha256(MANIFEST_PATH) == "be51d1c99b0ad65d7d7b0b9f7c1f28ab29c468a02cdfe34f6c3b79fd6046737c"
 
 
 def test_falsification_f2_unsupported_head_extra_block_fails() -> None:

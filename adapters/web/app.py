@@ -70,8 +70,19 @@ from application.web.config import (
     WebSettings,
     require_canonical_web_settings,
 )
+from application.web.access_control import SessionAbsent
 from application.web.crypto import keyed_digest
-from application.web.errors import AuthenticationFailure, record_authentication_failure
+from application.web.shell import (
+    ANONYMOUS_SHELL,
+    session_only_shell,
+    shell_for,
+    with_current,
+)
+from application.web.errors import (
+    AuthenticationFailure,
+    ServiceDegraded,
+    record_authentication_failure,
+)
 from application.web.oauth import safe_return_path
 from application.web.providers import (
     ProviderRefused,
@@ -232,12 +243,92 @@ class RequestAuthority:
     def render(
         self, request: Request, template: str, *, view, status_code: int
     ) -> HTMLResponse:
+        """Render a full page with its page view and the server-owned shell.
+
+        The shell (C35-05) is derived here from the gate the request preamble
+        resolved, never from anything a template can reach: a template able to ask
+        who the caller is would be a second authority answering a question the
+        request boundary has already answered once.
+
+        No gate means no live session — `open_request()` raises `SessionAbsent`
+        for a missing, malformed, expired or revoked one — so the anonymous shell
+        is the right answer for exactly those cases, and it carries no logout
+        action and no CSRF token.
+        """
+        shell = getattr(request.state, "shell", None) or ANONYMOUS_SHELL
+        shell = with_current(shell, request.url.path)
         return self.templates.TemplateResponse(
             request=request,
             name=template,
-            context={"view": view},
+            context={"view": view, "shell": shell},
             status_code=status_code,
         )
+
+
+async def _attach_public_shell(request: Request, composition, settings) -> None:
+    """Give a public full page the frame belonging to its actual caller (R35-26).
+
+    Public pages do not run a protected preamble, so before this they rendered the
+    **anonymous** frame to everybody — a signed-in caller visiting `/v1/login` was
+    offered "Login" and shown no way to sign out. That was the remaining half of
+    F-17.
+
+    **Ownership is exclusive, not layered.** A protected route's preamble attaches
+    its own shell from the final authorized context; this runs only on routes that
+    have no preamble, so no request resolves its session twice.
+
+    **It authorizes nothing and refreshes nothing.** Drawing a header must not make
+    a provider call, so when the membership projection is stale — exactly when the
+    preamble would have refreshed — this returns the conservative session-only
+    frame rather than privileged links resting on capabilities nobody revalidated.
+    A failure to resolve the session at all is an anonymous frame, which is also
+    what a missing, malformed, expired or revoked session produces: `open_request`
+    raises for every one of them.
+    """
+    token = request.cookies.get(settings.session.cookie_name)
+    if not token:
+        # No cookie, no lookup. An anonymous visitor must reach a public page
+        # without touching session storage at all.
+        return
+    # Imported here rather than at module scope: `portal_routes` imports from this
+    # module, and a top-level import would close the cycle.
+    from adapters.web.portal_routes import _open
+
+    try:
+        gate = await run_in_threadpool(_open, composition, settings, token)
+    except SessionAbsent:
+        # **The only** outcome that means "no usable session". `open_request()`
+        # raises it for a token that is unknown, malformed, expired or revoked —
+        # the four expected cases, and nothing else.
+        #
+        # This was `except Exception: return` (R35-32), and the comment claiming
+        # any failure meant "no session" was false: a database outage, a repository
+        # fault or a plain programming error was being turned into a cheerful
+        # anonymous page. The portal would have looked *fine* while its session
+        # store was unreachable, and the one person who could have noticed — the
+        # signed-in operator, suddenly logged out — would have been told nothing.
+        return
+    # Everything else propagates deliberately:
+    #
+    # * `ServiceDegraded` reaches the handler that renders VM-03 with `503`, the
+    #   same answer a protected route gives, rather than an anonymous `200`;
+    # * a database or repository failure, or any unexpected error, reaches the
+    #   established safe-error boundary — a correlation id, security headers and
+    #   nothing else;
+    # * `BaseException`, including cancellation, is never caught here at all, so
+    #   task cancellation keeps its normal semantics.
+    # The question is "are these capabilities current?", and the projection's own
+    # freshness is what answers it — **not** `gate.refresh`, which is `None`
+    # whenever no stored provider token exists and would have quietly reported a
+    # stale caller as fresh.
+    projection = gate.context.membership
+    current = projection is not None and projection.is_fresh(
+        now=utcnow(), cache_seconds=settings.bounds.membership_cache_seconds
+    )
+    if not current:
+        request.state.shell = session_only_shell(csrf_token=gate.csrf_token)
+        return
+    request.state.shell = shell_for(gate.context, csrf_token=gate.csrf_token)
 
 
 def _attach_cleanup_failure(failure: BaseException, cleanup: BaseException) -> None:
@@ -655,6 +746,7 @@ def _register_routes(
                 else None
             ),
         )
+        await _attach_public_shell(request, composition, settings)
         return authority.render(request, "login.html", view=view, status_code=200)
 
     @app.get("/v1/auth/discord/start", name="oauth_start")
@@ -953,6 +1045,7 @@ def _register_routes(
                 else None
             ),
         )
+        await _attach_public_shell(request, composition, settings)
         response = authority.render(request, "emergency.html", view=view, status_code=200)
         response.headers["X-Robots-Tag"] = "noindex"
         return response
@@ -1302,6 +1395,29 @@ def _register_error_handlers(app: FastAPI, authority: RequestAuthority) -> None:
     escaping policy on the single response path a caller is most likely to be
     able to provoke.
     """
+
+    @app.exception_handler(ServiceDegraded)
+    async def service_degraded(request: Request, exc: ServiceDegraded) -> Response:
+        """VM-03 with `503`, for a public page whose session store is degraded.
+
+        Added 2026-08-23 (R35-32/R35-33). A protected route already answers this
+        way through `_refusal_response()`; a public page had no handler, so a
+        degradation raised while resolving its caller's session would have fallen
+        through to the generic `500`. Same view, same status, same headers — one
+        answer to one condition, rather than two renderers disagreeing.
+        """
+        view = ServiceDegradedView(
+            state="error",
+            reason=DeniedReason(DenialCategory.SERVICE_DEGRADED),
+            subsystem="identity_provider",
+            grace_expired=True,
+            correlation=Correlation(exc.correlation_id),
+        )
+        response = authority.render(request, "degraded.html", view=view, status_code=503)
+        for header, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception) -> Response:

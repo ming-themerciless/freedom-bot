@@ -412,6 +412,7 @@ from tests.web.no_js_helpers import (
     strip_htmx_attributes,
     validate_rendered_no_js_fallback,
 )
+from application.web.shell import ANONYMOUS_SHELL
 
 
 # -----------------------------------------------------------------------------
@@ -434,6 +435,7 @@ def test_production_template_inventory_coverage() -> None:
 def test_base_template_landmarks_and_skip_link_order() -> None:
     """base.html owns main landmark, header, footer, skip link as first focusable control, and lang attribute."""
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(TEMPLATES_DIR)))
+    env.globals.setdefault("shell", ANONYMOUS_SHELL)
     rendered = env.get_template("base.html").render({"request": type("Req", (), {"url": type("URL", (), {"path": "/"})()})()})
     soup = BeautifulSoup(rendered, "html.parser")
 

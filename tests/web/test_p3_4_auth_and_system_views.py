@@ -55,6 +55,7 @@ STATIC_ROOT = ROOT / "adapters" / "web" / "static"
 MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 
 from tests.web.template_digests import NON_STEP_4_TEMPLATE_DIGESTS
+from application.web.shell import ANONYMOUS_SHELL
 
 
 
@@ -74,11 +75,20 @@ def clean_between_cases(request):
 
 
 def get_jinja_env() -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(TEMPLATE_ROOT)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()`
+    # on every real full-page render. These tests render templates in isolation,
+    # with no request boundary to derive one, so the anonymous shell is the
+    # default here. A context value overrides a global, so a test supplying its
+    # own shell — and production, which always does — is unaffected. That
+    # production always passes one explicitly is asserted separately, so this
+    # default cannot hide a regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def make_request(path: str = "/v1/login") -> Request:

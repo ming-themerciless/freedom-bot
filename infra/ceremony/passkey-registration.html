@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freedom Blades — register an emergency passkey</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+         max-width: 44rem; margin: 2rem auto; padding: 0 1.25rem; }
+  h1 { font-size: 1.5rem; }
+  ol { padding-left: 1.2rem; } li { margin: .5rem 0; }
+  button { font: inherit; padding: .7rem 1.2rem; border-radius: .4rem;
+           border: 1px solid currentColor; background: transparent; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  textarea { width: 100%; min-height: 9rem; font-family: ui-monospace, monospace;
+             font-size: .8rem; margin-top: .75rem; }
+  .box { border: 1px solid; border-radius: .5rem; padding: 1rem; margin: 1.25rem 0; }
+  .warn { border-style: dashed; }
+  .hide { display: none; }
+  code { font-family: ui-monospace, monospace; font-size: .9em; }
+  #status { font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Register an emergency passkey</h1>
+
+<p>This page is <strong>temporary</strong>. It exists only to create the emergency
+passkeys for the Server Administrator, and it is removed once they are enrolled.</p>
+
+<div class="box warn">
+<p><strong>Check the address bar before you continue.</strong> The passkey you
+create is permanently tied to the exact web address shown there. If it does not
+read the address you were told to open, stop — a passkey made at the wrong
+address will look fine and will never let you in.</p>
+<p>This page is currently registering for: <code id="rp"></code></p>
+<p><strong>Your device will be asked to store the passkey on itself</strong> (a
+"discoverable" credential, which is what a passkey normally is). That is required:
+when you sign in, the site deliberately tells the browser nothing about which
+accounts or credentials exist, so your device has to be able to offer the passkey
+without a hint. An authenticator that refuses to store it cannot be used for
+emergency access.</p>
+</div>
+
+<ol>
+  <li>Type your name, so the passkey is labelled in your phone or password manager.</li>
+  <li>Press the button and follow your device's prompt (Touch ID, Windows Hello, a
+      security key, or your password manager).</li>
+  <li>Copy the block of text that appears and paste it into the command you were given.</li>
+</ol>
+
+<p><label>Your name: <input id="operator" size="28" autocomplete="off" value="Peter Duscha"></label></p>
+
+<p><button id="go">Create the passkey</button></p>
+
+<p id="status"></p>
+
+<div id="out" class="box hide">
+  <p><strong>Done. Copy everything below</strong> — it is one long line.</p>
+  <textarea id="blob" readonly spellcheck="false"></textarea>
+  <p><button id="copy">Copy to clipboard</button></p>
+  <p>This text contains a <em>public</em> key and nothing secret. The private half
+  never left your device and cannot be exported by this page or any other.</p>
+</div>
+
+<div class="box">
+<p><strong>What this page does and does not do.</strong> It runs entirely in your
+browser. It sends nothing anywhere — no network request of any kind. It stores
+nothing. Closing the page discards everything, and you would simply run it again.</p>
+</div>
+
+<script>
+const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+document.getElementById('rp').textContent = location.hostname;
+
+document.getElementById('go').addEventListener('click', async () => {
+  const status = document.getElementById('status');
+  const button = document.getElementById('go');
+  const operator = document.getElementById('operator').value.trim() || 'Server Administrator';
+
+  if (!window.PublicKeyCredential) {
+    status.textContent = 'This browser cannot create passkeys.';
+    return;
+  }
+  button.disabled = true;
+  status.textContent = 'Waiting for your device…';
+
+  // Random, and carried alongside the result so the host-local tool can verify
+  // the ceremony it is being handed. The operator is registering their own
+  // authenticator, in person, and must still paste the result into a root shell,
+  // so the challenge here proves the response is well-formed rather than
+  // defending a remote enrollment route — there is none (TC-BG-10).
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+
+  try {
+    const credential = await navigator.credentials.create({ publicKey: {
+      challenge,
+      rp: { id: location.hostname, name: 'Freedom Blades' },
+      user: {
+        id: crypto.getRandomValues(new Uint8Array(16)),
+        name: operator,
+        displayName: operator
+      },
+      // ES256 then RS256: the two every platform authenticator and security key
+      // in practice supports, and both are in the server's accepted list.
+      pubKeyCredParams: [ { type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 } ],
+      // residentKey MUST be 'required' (C35-06). R-07 answers with an empty
+      // allowCredentials on purpose — a populated list would tell an
+      // unauthenticated caller which credentials exist — so at sign-in the browser
+      // has no hint to work from and can only offer a *discoverable* credential.
+      // 'preferred' lets an authenticator return a non-discoverable one, which
+      // registers cleanly and can then never be offered at login.
+      // requireResidentKey is the legacy spelling; both are sent so an older
+      // authenticator does not silently fall back.
+      authenticatorSelection: {
+        userVerification: 'required',
+        residentKey: 'required',
+        requireResidentKey: true
+      },
+      attestation: 'none',
+      timeout: 120000
+    }});
+
+    const response = credential.response;
+    const payload = {
+      rpId: location.hostname,
+      origin: location.origin,
+      challenge: b64url(challenge),
+      credential: {
+        id: credential.id,
+        rawId: b64url(credential.rawId),
+        type: credential.type,
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: b64url(response.clientDataJSON),
+          attestationObject: b64url(response.attestationObject),
+          transports: response.getTransports ? response.getTransports() : []
+        }
+      }
+    };
+
+    const blob = b64url(new TextEncoder().encode(JSON.stringify(payload)));
+    document.getElementById('blob').value = blob;
+    document.getElementById('out').classList.remove('hide');
+    status.textContent = 'Passkey created.';
+  } catch (error) {
+    status.textContent = 'Cancelled or failed: ' + (error && error.message ? error.message : error);
+    button.disabled = false;
+  }
+});
+
+document.getElementById('copy').addEventListener('click', async () => {
+  const field = document.getElementById('blob');
+  try { await navigator.clipboard.writeText(field.value); }
+  catch (e) { field.select(); document.execCommand('copy'); }
+  document.getElementById('copy').textContent = 'Copied';
+});
+</script>
+</body>
+</html>

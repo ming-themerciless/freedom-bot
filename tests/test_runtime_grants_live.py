@@ -455,3 +455,89 @@ def test_the_admission_fence_is_readable_and_immovable_by_the_runtime_role(restr
         assert sqlstate(refusal.value) == INSUFFICIENT_PRIVILEGE, statement
         restricted.rollback()
         restricted.execute(text(f"SET ROLE {RUNTIME_ROLE}"))
+
+
+# ---------------------------------------------------------------------------
+# C35-03: `alembic_version`, proved by PostgreSQL rather than by reading SQL
+# ---------------------------------------------------------------------------
+# The text-level test in `test_runtime_grants.py` proves the template *says* the
+# right thing. These prove the cluster *does* it. F-14 was a defect the template
+# text alone could not have revealed, because the omission was a table nobody had
+# thought to name.
+
+SCHEMA_VERSION_TABLE = "alembic_version"
+
+
+def test_the_restricted_role_can_read_the_schema_version(restricted):
+    """S-14: a process that cannot establish which schema it serves must not serve.
+
+    This is the exact query the startup check makes. Before the C35 remediation it
+    raised insufficient-privilege, and every start of the portal under the
+    restricted role failed — in staging and in production alike.
+    """
+    version = restricted.execute(
+        text(f"SELECT version_num FROM {SCHEMA_VERSION_TABLE}")
+    ).scalar()
+    assert version, "the runtime role read no revision, so S-14 would refuse startup"
+
+
+def test_effective_privileges_on_the_schema_version_are_select_only(restricted):
+    """Asked of PostgreSQL, about the role, rather than inferred from the template."""
+    granted, *withheld = restricted.execute(
+        text(
+            "SELECT has_table_privilege(:role, :table, 'SELECT'),"
+            "       has_table_privilege(:role, :table, 'INSERT'),"
+            "       has_table_privilege(:role, :table, 'UPDATE'),"
+            "       has_table_privilege(:role, :table, 'DELETE'),"
+            "       has_table_privilege(:role, :table, 'TRUNCATE')"
+        ),
+        {"role": RUNTIME_ROLE, "table": SCHEMA_VERSION_TABLE},
+    ).one()
+
+    assert granted is True, "SELECT is required by S-14"
+    assert not any(withheld), (
+        "the runtime role can write the schema version; a role able to rewrite it "
+        "could tell the next startup it was serving a schema it was not"
+    )
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        f"INSERT INTO {SCHEMA_VERSION_TABLE} (version_num) VALUES ('0000')",
+        f"UPDATE {SCHEMA_VERSION_TABLE} SET version_num = '0000'",
+        f"DELETE FROM {SCHEMA_VERSION_TABLE}",
+        f"TRUNCATE {SCHEMA_VERSION_TABLE}",
+    ],
+    ids=["insert", "update", "delete", "truncate"],
+)
+def test_every_write_class_on_the_schema_version_is_refused(restricted, statement):
+    """Each prohibited class attempted for real, and refused for the right reason."""
+    with pytest.raises(ProgrammingError) as denial:
+        restricted.execute(text(statement))
+
+    assert sqlstate(denial.value) == INSUFFICIENT_PRIVILEGE, (
+        f"`{statement}` failed for a reason other than privilege, so this proves nothing"
+    )
+
+
+def test_hostile_public_grants_on_the_schema_version_are_removed(db_connection):
+    """PUBLIC is normalised on this table too (O-1).
+
+    Every role is a member of PUBLIC, so a grant made there reaches the runtime
+    role without ever naming it — which is precisely how a privilege survives a
+    `REVOKE ... FROM <role>` and why the template revokes from PUBLIC first.
+    """
+    db_connection.execute(
+        text(f"GRANT UPDATE, DELETE ON {SCHEMA_VERSION_TABLE} TO PUBLIC")
+    )
+    apply_template(db_connection)
+
+    for privilege in ("UPDATE", "DELETE"):
+        held = db_connection.execute(
+            text("SELECT has_table_privilege(:role, :table, :privilege)"),
+            {"role": RUNTIME_ROLE, "table": SCHEMA_VERSION_TABLE, "privilege": privilege},
+        ).scalar()
+        assert held is False, (
+            f"{privilege} survived through PUBLIC; the template's revoke did not reach it"
+        )

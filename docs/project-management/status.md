@@ -1,14 +1,430 @@
 # Project status
 
-Status date: 2026-08-23 (thirty-ninth update: Peter/Acceptance Authority accepted
-P3.4 in full, including Step 13, after the independent Codex implementation review
-and distinct security-focused review passed with no blocking or important findings.
-Stop gate P3.G4 is closed. P3.5 is released to begin its approved planning and gate-
-evidence work. This decision does not authorize staging, deployment, public exposure,
-live-service contact, production data, or real-player-data use: RAID I-06 and A-05 remain
-open and continue to block those actions. TC-UI-01/02, TC-UI-08 and TC-UI-09 remain
-honestly Not Run and are carried into P3.5/staging evidence and residual accessibility
-risk R-23.)
+Status date: 2026-08-24 (fifty-first update: Codex accepted the completed P3.5
+frontend repository remediation for F-15/F-17 after independent implementation
+and security-focused review. Strict refusal/UUID and Base64URL counterexamples
+were corrected and independently probed. The real-browser and physical-
+authenticator session is planned for later on 2026-08-24 but remains Not Run;
+therefore F-15/F-17, TC-UI-01/02, TC-BG-02, A-05, R-23 and the Phase 3 gate remain
+open. No public exposure or Phase 4 start is authorized.)
+
+Update 2026-08-24 (fifty-first) — frontend code accepted; supervised evidence queued.
+
+- **Codex accepted the repository/frontend implementation** for F-15 and F-17.
+  The final review found no remaining code defect in progressive enhancement,
+  CSP-safe state changes, the WebAuthn ceremony, refusal presentation, strict
+  Base64URL handling, safe redirects, duplicate activation, VM-23 shell
+  presentation or static-asset integrity.
+- **Independent evidence:** 50 committed Node tests and 9 targeted structural
+  tests passed; 10,240 independent randomized Base64URL vectors and independent
+  refusal-vocabulary probes passed; 4/4 static assets verified; `git diff --check`
+  was clean. Gemini's full sequential handoff reports web 2,286 passed/80 skipped,
+  bot 2,346 and Foundry 155.
+- **No manual evidence is pre-claimed.** TC-UI-01/02 and the physical browser/
+  authenticator path of TC-BG-02/A-05 remain Not Run. A supervised isolated-
+  staging session is planned for later on 2026-08-24.
+- **Bounded session plan:**
+  `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md`.
+  It records prerequisites, viewport/zoom/keyboard checks, two-credential
+  authentication with Discord unavailable, sign-out, cancellation, evidence
+  hygiene and stop conditions.
+- **Governance:** repository acceptance does not close an operational finding.
+  F-15/F-17, I-06, A-05, A-06 and the Phase 3 gate remain open; R-23 remains
+  active; public exposure and Phase 4 remain unauthorized.
+
+Previous status date: 2026-08-23 (forty-second update: the portal ran for the first time on a
+deployed host under its restricted service account. Four defects appeared within the
+first hour, **none of which any test caught, with every suite green before and after** —
+which is RAID I-06 evidenced rather than asserted. One blocking defect is fixed and
+regression-tested; one blocking defect is routed to Gemini and blocks A-05 and exposure.
+Two real WebAuthn credentials are enrolled — the first in the project's history — and
+that is a rehearsal, not A-05's closure. No RAID item is closed, no gate decision is
+requested, and Codex's two review passes are requested. The forty-first update stands
+unchanged below.)
+
+Update 2026-08-23 (fiftieth) — public-shell failure boundary typed; package resubmitted.
+
+- **R35-32 — a broad `except Exception` hid infrastructure failure.** `_attach_public_shell()`
+  caught everything and returned, with a comment claiming any failure meant "no session". It
+  did not: a database outage, a repository fault or a programming error rendered a
+  **healthy-looking anonymous page**. The consequence was not the wrong navigation — it was
+  that a portal whose session store was unreachable would have looked fine to everyone, while
+  the signed-in operator best placed to notice was quietly logged out instead of told.
+- **The policy is now typed and catches `SessionAbsent` alone**, verified by AST rather than by
+  reading: no cookie means no lookup at all; unknown, malformed, expired and revoked tokens
+  give the anonymous shell; `ServiceDegraded` gives VM-03 with `503`, security headers and
+  `no-store`; database, repository and programming failures reach the safe-error boundary as
+  `500` with a correlation id and nothing else; cancellation is never caught.
+- **No second renderer was added.** A public page had no handler for `ServiceDegraded`, so one
+  was registered at the app boundary producing the same view, status and headers the protected
+  side already gives. A test asserts a protected request still resolves its session exactly
+  once.
+- **19 new failure-class cases** (67 in the boundary module), including no-cookie-no-lookup,
+  four unusable-token shapes, degraded store, unexpected error, cancellation, and disclosure
+  checks covering cookie value, account id, session id, capability and provider detail.
+- **Falsified** with the mutation asserted by AST before and after: restoring the broad catch
+  fails four cases; the corrected form catches `['SessionAbsent']` and all 67 pass.
+- **Verification:** web **2277 passed**, bot **2346 passed**, Foundry 155, focused web package
+  157, focused script package 104, ASGI health 10 with **0 skipped**, manifests OK, compilation
+  clean, `git diff --check` clean.
+- **Live-host actions restated as attestations.** H-1 to H-3 were performed by Peter and
+  observed by Claude; they have **not** been independently reviewed, and no RAID or gate state
+  changes on the strength of them. H-4 remains Not Run.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15 and F-17 open. Gemini remains
+  unreleased. No browser has rendered this frame.
+
+Update 2026-08-23 (forty-ninth) — shell lifecycle completed on every full page.
+
+- **R35-26 (blocking) — public pages made a signed-in caller look signed out.** `/v1/login`
+  and `/v1/auth/emergency` run no protected preamble, so they rendered the **anonymous**
+  frame to everybody: a member with a live session was offered "Login" and shown no way to
+  sign out. That was the remaining half of F-17, in the two pages a confused user is most
+  likely to visit. Public pages now attach their caller's own frame, with exactly one owner
+  per route class and no request resolving its session twice.
+- **A defect the tests found, not the code review:** the first version of that fix keyed
+  "is this authority current?" off `gate.refresh`, which is `None` whenever no provider token
+  is stored — so it reported a **stale** Council caller as fresh and gave them the full frame.
+  It now reads the projection's own freshness.
+- **R35-27 — a Discord outage told people they were logged out.** A refusal raised by a failed
+  refresh rendered its 503 with the anonymous frame, though the session was valid. It now
+  carries the conservative session-only frame: sign-out available, and only the destination
+  that needs no capability — never a privileged link resting on the refresh that just failed.
+- **R35-28 — housekeeping failures were swallowed.** `find` and `sort` ran in a pipeline whose
+  status nobody inspected, so superseded verifier generations accumulated while the rotation
+  reported success. Each step is now attributable and each failure is named by operation
+  class, with the password never printed twice and a tidy-up problem never reported as a
+  failed rotation.
+- **R35-29 — 48 request-boundary cases**, all database-backed, now cover public pages for
+  anonymous, malformed, empty, expired, revoked, member, administrator and break-glass
+  callers; the conservative frame for a stale caller; logout from a public page; and the
+  degraded-503 frame with its leakage assertions.
+- **All three falsified** with the mutation asserted before the result was read: 8, 1 and 3
+  failures respectively against the defective forms.
+- **Verification:** web **2258 passed**, bot **2346 passed**, Foundry 155, focused web package
+  90, focused script package 104, ASGI health 10 with **0 skipped**, manifests OK, compilation
+  clean, `git diff --check` clean.
+- **`docs/review/Handover information` now contains the completion handoff** rather than the
+  prior prompt (R35-31).
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15 and F-17 open. Gemini remains
+  unreleased. No browser has rendered this frame.
+
+Update 2026-08-23 (forty-eighth) — shell boundary defects fixed; rotation commit made safe.
+
+- **R35-19 (blocking) — the rotation script could lose the new password.** After a
+  successful reload it did fallible retention work *before* printing, so under `set -e` a
+  failed `mv`/`find`/`sort`/`rm` exited with **the new gate serving and its plaintext never
+  shown**. The password is now displayed immediately after a confirmed reload; housekeeping
+  runs afterwards and reports failures as warnings that name no verifier. Eight injection
+  cases; falsified against the old ordering.
+- **R35-20 — the shell read the pre-refresh authority.** It was built from `gate.context`
+  rather than the `context` handed to `authorize()`, so a caller whose Council role had just
+  been removed kept Council navigation while the routes refused them. Now derived from the
+  final context; falsified.
+- **R35-21 — the shell was attached after the decision.** A valid caller *denied* a route
+  received the **anonymous** frame on their 403: "Login" offered, sign-out hidden,
+  mid-session. Now attached before the capability decision; falsified.
+- **R35-22 — the brand link was a literal** `/v1/characters`, which R-20 refuses to an
+  administrator-without-Council. It is now `shell.home_href`, always one of that caller's own
+  destinations.
+- **A fourth defect, found by writing the tests:** the navigation rules had been derived from
+  the prose matrix and offered `Characters` to a member holding the admin role. They now
+  mirror `access_control._member_read` and `Requirement.COUNCIL_OR_ADMINISTRATOR` directly.
+- **R35-23 — 28 request-boundary cases** through the real preamble, refresh, `authorize()`,
+  render, template and logout route: anonymous/malformed/expired/revoked sessions, all seven
+  authenticated states, authenticated 403 rendering, logout with the rendered token, refusal
+  of missing/empty/wrong/**another session's** token, and refresh adding and removing
+  authority. Stated honestly: the refresh is driven at the `_close` seam, not through a real
+  Discord round trip, because the seeded callers have no stored OAuth grant.
+- **Seven no-JavaScript flow expectations corrected** — they required an administrator's page
+  to link to `/v1/characters`, a page R-20 refuses them: the same defect as R35-22, expressed
+  as a test expectation.
+- **Verification:** web **2238 passed**, bot **2346 passed**, Foundry 155, shell unit 30,
+  request boundary 28, rotation 33, ASGI health 10 with **0 skipped**, manifests OK,
+  compilation clean, `git diff --check` clean.
+- **Host actions:** three of the four are **done** and verified — gate rotated, corrected
+  configuration installed and reloaded with `/healthz` confirmed refused publicly, and both
+  emergency credentials replaced under the corrected ceremony with the unproven pair retired
+  and audited. Only the Cloudflare ingress restriction remains, and it is a deployment-gate
+  item.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15 and F-17 open. Gemini remains
+  unreleased. No browser has rendered this frame.
+
+Update 2026-08-23 (forty-seventh) — the shell contract is implemented; Gemini prompt revised.
+
+- **R35-17 / C35-05 is done.** A typed immutable shell view is supplied on every full-page
+  render, derived at the request boundary from the accepted session and capability authority,
+  with a closed navigation vocabulary and a matrix taken row by row from the accepted route
+  contract. Logout is `POST` with the session's own CSRF token and exists only for a valid
+  session — structurally, because no gate means no token.
+- **Two findings the work itself produced.** Continuity scope (N-65) had to be read rather
+  than capability alone: a break-glass caller holds administrator, so a capability-only rule
+  offered it Snapshots, which R-40 refuses for `BG`. And the P3.4 scope guard
+  `test_no_unrelated_production_files_modified` had a parsing defect — it stripped the line
+  before slicing the two-column status field, so **it never caught a modification to a tracked
+  file for the whole of P3.4**. Both corrected.
+- **Deliberate updates to accepted P3.4 evidence,** each recorded: the header's frozen digest
+  re-frozen with the old value written beside it; the "no button" assertion narrowed to its
+  intent, since sign-out must be a POST submit; three read-only-page assertions scoped to the
+  page body rather than the shared frame.
+- **Contracts:** VM-23 added to the view-model contract and TC-SHELL-01…11 to traceability,
+  both **by addition**; no accepted row rewritten.
+- **Gemini prompt revised** against the real field names and narrowed to styling and
+  presentation, since the backend half of F-17 is complete. It keeps its **NOT RELEASED**
+  banner pending Codex review.
+- **Verification:** web **2199 passed**, bot **2337 passed**, Foundry 155, shell contract 21,
+  manifests OK, compilation clean, `git diff --check` clean.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15 and F-17 open pending review
+  and real browser evidence. No browser has rendered this frame.
+
+Update 2026-08-23 (forty-sixth) — R35-13…R35-16, R35-18 done; R35-17 remains the blocker.
+
+- **R35-13 (blocking) — the rotation script was not interruption-safe.** After the atomic
+  move, `INT` or `TERM` left an **unvalidated verifier on disk whose password had never been
+  shown**, and a later unrelated Caddy reload would have activated a gate nobody knew the
+  password to. Rewritten as an explicit three-state transaction (`none`/`candidate`/
+  `committed`) whose rollback restores the exact pre-run state, is idempotent, captures the
+  exit status before running so it cannot mask the original failure, and becomes a no-op once
+  committed. **Falsified with the mutation asserted before the result was read.**
+- **R35-14 — verifier backups are bounded on every path.** The rollback copy is
+  transaction-owned and always removed; a retained recovery generation is created only on
+  successful commit, and exactly one is kept. Failed attempts no longer leave credential
+  material behind, and a pre-existing retained generation survives a rollback that still needs
+  the working gate.
+- **R35-15 — 24 hermetic tests**, including interruption by `SIGINT` and `SIGTERM` with and
+  without a previous gate, using a deterministic synchronization hook rather than a timing
+  guess: the fake `caddy validate` announces it has been reached and blocks.
+- **R35-16 — the ASGI skip explained exactly.** Reproduced Codex's observation (6 passed,
+  4 skipped without a database) and recorded the non-skipped run (10 passed). The database
+  boundary is intrinsic: `/healthz` checks the database, so the real endpoint cannot be
+  exercised without an engine.
+- **R35-18 — one canonical handoff.** `phase-3-p3-5-c35-remediation-handoff.md` is now the
+  cumulative current document and leads with blockers; the R35 handoff redirects to it.
+- **R35-17 — STILL NOT IMPLEMENTED.** No accepted-contract conflict exists; it is unstarted
+  work, now scoped concretely: `RequestAuthority.render()` passes only `{"view": view}`, there
+  are **30 render call sites** (portal 15, import 11, app 4) and **20 full-page templates**,
+  and no `fragments/` directory, so the full-page/fragment distinction must come from the
+  accepted route contract. It was not attempted rather than attempted badly.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15, F-17 open. Gemini unreleased.
+- **Peter-only host actions, all outstanding:** rotate the spent gate (now actually possible),
+  install and reload the corrected Caddy configuration, re-enroll both emergency credentials,
+  restrict origin ingress to Cloudflare ranges.
+
+Update 2026-08-23 (forty-fifth) — R35 remediation partial; the rotation script was broken.
+
+- **Codex's re-review did not accept the C35 remediation.** R35-08…R35-12 raised; the Gemini
+  prompt stays unreleased.
+- **R35-08 (blocking) — the gate-rotation script could never have run.** `tr … | head -c 20`
+  under `set -o pipefail` exits 141: `head` closes the pipe, `tr` dies of SIGPIPE. Reproduced
+  before fixing. **The gate has therefore never been rotated, and the committed password is
+  still active and still spent.** Also fixed: the plaintext no longer passes through a child
+  process command line. The stdin interface was established by running it — without a trailing
+  newline Caddy fails with `Error: EOF`, and with one the terminator is stripped rather than
+  hashed, verified against a real Caddy where the exact password answered 200 and the password
+  with a newline answered 401. The whole operation is now transactional: atomic install,
+  validate before reload, restore on failure, no password printed unless it is actually active,
+  and a truthful statement that the OLD password remains active if a reload fails.
+- **R35-09 — 11 hermetic tests** that execute the script against a temporary filesystem with
+  controlled host commands. Falsified against both original defects. One falsification attempt
+  silently tested the wrong thing (a `sed` delimiter collision, masked by a `grep` matching a
+  comment) and was redone with an assertion-bearing edit; recorded in the handoff.
+- **R35-10 — health proved at the ASGI boundary**, not only in the helper: degraded status,
+  `kill_switch: false`, exact response shape, and no path, errno, exception or traceback. The
+  falsification is kept as a test.
+- **R35-11 — NOT STARTED.** The server-owned shell/navigation contract remains the critical
+  path; F-17 cannot go to Gemini without it.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15, F-17 open.
+- **Host actions still required, none performed:** rotate the gate (never yet possible),
+  reinstall the site file and reload Caddy, re-enroll both credentials, restrict origin ingress.
+- **Formal record:** `docs/review/phase-3-p3-5-c35-remediation-handoff.md` (canonical; the R35 handoff now redirects there); change-log `C-P3.5-E`.
+
+Update 2026-08-23 (forty-fourth) — Codex withheld the Gemini prompt; C35 remediation partial.
+
+- **Codex reviewed the P3.5 interim package and did not release the Gemini prompt.** Six
+  findings, C35-01…C35-06, plus C35-07 requiring the prompt to be rewritten afterwards.
+- **C35-01 (blocking) — a password verifier was committed by this package.** Removed; the
+  gate is now a host-local fragment imported fail-closed. **It did enter Git history**,
+  verified rather than assumed: a harness checkpoint ref snapshotted the untracked file. It
+  is on no branch and no remote-tracking ref, and such refs are not pushed — but Codex read
+  it during review, so **the password is spent and rotation is a required Operations Owner
+  action**. Neither verifier appears in any document.
+- **C35-02 (blocking) — `/healthz` was publishable through the proxy**, against the accepted
+  operational contract. The refusal is now the first handle block; ordering proved in the
+  adapted configuration (health at route index 2, proxy at 9) and asserted by a falsified
+  test. **The deployed host is still unchanged.**
+- **C35-03 — F-14 now proved by PostgreSQL**, not by reading SQL: six live cases under the
+  restricted role covering the exact S-14 query, effective privileges, each write class
+  refused with SQLSTATE 42501, and hostile PUBLIC grants removed. 53 passed; falsified.
+- **C35-04 — F-13 fixed.** An unreadable kill switch now fails the check closed and keeps
+  `/healthz` answering `degraded` rather than returning 500. 6 tests; falsification kept as
+  a test. **The real-ASGI regression Codex asked for is not written.**
+- **C35-06 — ceremony corrected** to `residentKey: required` in both spellings, with the
+  empty `allowCredentials` preserved as the control it is. **The two enrolled staging
+  credentials cannot be proven discoverable** — no column records resident-key state — so
+  **Peter must re-enroll both** before the supervised browser login.
+- **C35-05 — NOT STARTED.** The server-owned shell/navigation contract is the largest
+  remaining P3.5 backend piece, and F-17 cannot go to Gemini without it. The Gemini prompt
+  now carries a NOT RELEASED banner.
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active; F-15 and F-17 open.
+- **Host actions required, none performed:** rotate the gate, reinstall the site file and
+  reload Caddy, re-enroll both credentials, and later restrict origin ingress to
+  Cloudflare's ranges.
+- **Formal record:** `docs/review/phase-3-p3-5-c35-remediation-handoff.md`; change-log
+  entry `C-P3.5-D`.
+
+Update 2026-08-23 (forty-third) — authorization boundary confirmed live; F-17 raised; both handoffs released.
+
+- **First live confirmation of the accepted §5.2 authorization matrix**, against a real
+  Discord identity holding real roles rather than a fixture: OAuth login completed and was
+  audited; capabilities resolved to `{platform_administrator}` alone because only the
+  protected mapping existed; **My Characters (R-20) refused the administrator exactly as
+  specified (`A = ✗ 403`)** while **role capabilities (R-32) admitted them (`A = ✓`)**; and
+  mapping the Council role through R-33 succeeded and was audited as
+  `role_capability.mapped`. **Administrator did not imply Council** — the capability existed
+  only once an administrator deliberately created the mapping.
+- **F-17 — important:** the shell is static. The header renders the same three links to
+  every caller, so a signed-in administrator is shown "Login"; **no template contains a
+  logout control** while `POST /v1/auth/logout` exists as accepted route R-05; and no
+  privileged surface is linked anywhere, so administration is reachable only by typing a
+  URL. **A second scope gap, like F-15:** no P3.4 prompt asked for a capability-aware
+  header or a logout control. No authorization boundary is weakened.
+- **Handoffs released:** the Gemini prompt now commissions **both** F-15 and F-17
+  (`phase-3-p3-5-gemini-security-key-emergency-access-prompt.md`), and the Codex interim
+  review request carries all findings plus the live matrix confirmation
+  (`phase-3-p3-5-interim-findings-and-review-request.md`).
+- **RAID:** unchanged. I-06, A-05, A-06 open; R-23 active. No gate decision requested.
+
+Update 2026-08-23 (forty-second) — first deployed run; F-14 fixed, F-15 routed to Gemini.
+
+- **Environment:** `freedom-blades-test.rpgworld.org`, Cloudflare-proxied, temporary,
+  password-gated at the proxy. Separate `freedom_staging` database at revision `0013`,
+  restricted `freedomweb` role under peer authentication, a **separate** test Discord
+  application and guild, **no real player data** and no production backup. The live
+  address and the three Foundry sites were verified still serving after every change.
+- **F-15 — blocking, routed to Gemini:** the passkey break-glass login **cannot be
+  completed in a browser**. The emergency page renders the security-key section as a
+  heading and one sentence with no control, and the site ships no application
+  JavaScript at all, so `navigator.credentials.get()` cannot be invoked and routes
+  R-07/R-08 are unreachable. The recovery grant — designed as the last resort for when
+  every passkey is lost — is currently the only working emergency route. **It is a
+  scope gap, not an implementation failure:** P3.4 Step 4 was explicitly instructed not
+  to write passkey JavaScript, and no later package was commissioned to supply it.
+  Prompt: `phase-3-p3-5-gemini-security-key-emergency-access-prompt.md`.
+- **F-14 — blocking, fixed:** the restricted runtime role had no `SELECT` on
+  `alembic_version`, the table S-14 must read to establish which schema it serves, so
+  the documented restricted-role deployment could never have started anywhere. Fixed in
+  the grants template as a separate documented section granting `SELECT` only, with a
+  regression test that was **falsified** — removed the fix, watched it fail, restored
+  it, watched it pass. 57 grants tests pass.
+- **F-16 — important:** nothing in the suite asserts that a human can *complete*
+  break-glass login. TC-BG-02's browser half must be carried as **Not Run** beside
+  TC-SEC-07's rather than inheriting a pass from the service-level cases.
+- **F-13 — minor, not fixed:** `/healthz` raises rather than reporting a fault when the
+  kill-switch directory is unreadable. Accepted P3.1/P3.3 surface; raised for Codex.
+- **Host findings:** the Cloudflare origin private key was world-readable and has been
+  corrected by the Operations Owner (never read by Claude); the origin certificate is
+  Cloudflare-issued so proxied DNS is mandatory, and the true visitor address is now
+  rewritten at the proxy or the authentication limiter would have treated the entire
+  internet as a single source.
+- **Artifacts authored because they did not exist:** the `freedom-web` systemd unit
+  template, the proxy site block, the WebAuthn registration page and its host-local
+  conversion tool, the ASGI entry point, and three operator scripts.
+- **A-05:** first real enrollment — two credentials on a deployed host, verified in the
+  database as enabled with correct COSE keys. **Not closed:** they are bound to the test
+  address's relying-party identifier and cannot authenticate against production, and no
+  passkey login has yet succeeded (F-15).
+- **RAID:** unchanged. I-06, A-05 and A-06 remain **Open**; R-23 remains an active
+  accepted residual.
+- **Reviews requested:** Codex independent implementation pass and distinct
+  security-focused pass — `phase-3-p3-5-interim-findings-and-review-request.md`, six
+  named questions including whether any finding should reopen a closed gate.
+- **Formal record:** change-log entry `C-P3.5-C`.
+
+Update 2026-08-23 (forty-first) — SG-1 approved; browser decision taken; F-7 and F-8 raised.
+
+- **Decisions:** Peter approved SG-1 (the P3.5 plan) and P-2 (browser question — his own
+  workstation browser against the staging loopback, the recommended option). SG-2 and SG-3
+  were not requested and remain unapproved.
+- **Released:** repository-scoped execution only — final traceability, the F-1 reconciliation,
+  the migration and backup/restore rehearsals against the guarded disposable database, the
+  missing deployment artifacts, and the staging runbook and accessibility plan as procedures
+  with empty result columns. Nothing outside the repository and `freedom_test` is touched.
+- **F-7 (important, blocks the A-05 ceremony):** `tools/webauthn_enrollment.py` directs the
+  operator to a registration reference page in `docs/operations/` that **does not exist**, so
+  there is currently no supported way to obtain the base64url credential id and COSE public key
+  its `enroll` subcommand requires. EX-5 authors the page; the mechanism itself is sound.
+- **F-8 (important, operator safety):** `enroll` stores a credential without recording or
+  validating the relying-party identifier the browser ceremony used, while authentication
+  verifies `expected_rp_id` against the running service's `WEB_WEBAUTHN_RP_ID` — which
+  configuration requires to equal the public origin's own host. A credential enrolled at a
+  loopback staging origin is therefore accepted and **can never authenticate** against the
+  production hostname, and nothing says so until somebody is locked out. Referred to Codex as a
+  structural question; no behavior change is made under this plan, because it would touch an
+  accepted P3.1 contract surface.
+- **A-05 criteria tightened, not weakened:** each credential must have been created under the
+  intended target host's relying-party identifier, and at least one must have authenticated
+  successfully against a service running that same RP ID, before A-05 can close. A
+  staging-loopback enrollment is a rehearsal of the mechanism, not satisfaction of the
+  assumption.
+- **RAID:** unchanged. I-06, A-05 and A-06 remain **Open**; R-23 remains an active accepted
+  residual.
+- **Formal record:** `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` §0.2;
+  change-log entry `C-P3.5-B`.
+
+Update 2026-08-23 (fortieth) — P3.5 planning opened; readiness audit complete; plan awaiting approval.
+
+- **What was done:** a read-only readiness audit of the repository and this host, the safe
+  local checks listed below, and the P3.5 readiness and execution plan
+  `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`. Nothing was deployed, enrolled,
+  exposed or mutated outside the repository and the disposable `freedom_test` database.
+- **Actual readiness — ready:** Python 3.12.3 in both virtualenvs; Node v24.19.0; PostgreSQL
+  16.15 on the loopback socket; disposable `freedom_test` and development `freedom_dev`
+  databases; the non-login restricted role `freedom_runtime_test`; a single linear Alembic head
+  `0013` with no branches; and the socket-pinned, disposable-only backup/restore drill script.
+- **Actual readiness — blocked or absent:** no staging database or role (`freedom_staging` does
+  not exist); no staging Discord application, guild or credentials; no `freedom-web`,
+  `freedom-web-staging` or `freedom-worker` unit on this host, and **no `freedom-web` unit
+  template in the repository at all**; no portal Caddy site block artifact; `/srv/freedom` exists
+  but is empty and root-owned; **no browser engine and no browser automation on this host**; no
+  real device and no identified screen-reader capacity; and **no WebAuthn credential has ever
+  been enrolled on any host**, so the protected administrator account does not yet exist.
+- **Safe local checks, all passing:** `tests/web` 2,168 passed with 80 intentional matrix skips
+  in 124.22 s; bot/domain 2,294 passed in 134.59 s (run sequentially — the two suites share one
+  disposable database); Foundry module 155 passed; production asset integrity 3/3 OK; visual
+  freeze 14/14 OK; bytecode compilation clean in both virtualenvs; `git diff --check` clean;
+  `alembic heads`/`history`/`branches` show one linear head `0013`; `git status` clean before
+  and after.
+- **Checks recorded as unavailable, not passed:** no formatter, linter or type checker is
+  configured in this repository — no configuration file and no such binary in either
+  virtualenv. The migration upgrade/downgrade/upgrade rehearsal was **not** run in this
+  read-only audit and belongs to the first approved execution step.
+- **Findings raised:** F-1, the P3.4 submission's accessibility matrix renumbers the TC-UI rows
+  relative to the accepted test-traceability contract, leaving TC-UI-03 and TC-UI-05 without a
+  citation under their own IDs (important, traceability only — the tests themselves are named
+  for the contract's numbering and pass); F-2, no `freedom-web` systemd unit template exists;
+  F-3, no repository artifact defines the portal's proxy site block or its body limits, which
+  TC-LIM-02 needs; F-4, no browser engine exists here. **No blocking security, authorization,
+  identity, atomicity, data-integrity, recovery or reliability finding was identified**, within
+  the limits of a read-only audit — this does not substitute for Codex's two review passes.
+- **Forecast:** the accepted 3/5/8 focused-day P3.5 range is **retained unchanged** for the
+  implementer stream and decomposed in the plan §3.1 to 3.0/5.0/8.0. Confidence remains
+  Medium-low for that stream and **Low for end-to-end P3.5 completion**, because six of the
+  eleven deliverables depend on host actions that have never been performed and that Claude
+  cannot perform. Peter's own accountable effort — staging build, the A-05 ceremony, the
+  real-device check, screen-reader capacity and the gate decision — is estimated separately in
+  plan §3.2 and was never inside the accepted implementer range. No calendar date is committed.
+- **Blockers awaiting Peter:** approve the plan (SG-1); decide how a browser is supplied for
+  the WebAuthn registration ceremony and the browser-observed checks (workstation browser
+  recommended, no new dependency); authorize and participate in the staging build (SG-2);
+  authorize and participate in the credential ceremony (SG-3); perform the real-device check;
+  decide screen-reader capacity; and record availability windows.
+- **RAID:** unchanged, deliberately. I-06, A-05 and A-06 remain **Open** and R-23 remains an
+  **active accepted residual**. Today's green local suite is activity, not evidence that moves
+  any of them; the plan §12 states the exact closure criteria for each.
+- **Next bounded step, on approval only:** the final requirements-to-evidence traceability, the
+  F-1 reconciliation, and the migration and backup/restore rehearsals against the guarded
+  disposable database. Nothing outside the repository and `freedom_test` is touched.
+- **Formal record:** `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`; change-log
+  entry `C-P3.5-A`.
 
 Update 2026-08-23 (thirty-ninth) — P3.4 and Step 13 accepted; P3.G4 closed; P3.5 released.
 

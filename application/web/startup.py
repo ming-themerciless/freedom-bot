@@ -266,7 +266,7 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
     checks.append(HealthCheck(name="expired_leases", ok=leases_ok))
     checks.append(HealthCheck(name="identity_provider", ok=provider_ok))
     checks.append(
-        HealthCheck(name="kill_switch", ok=not settings.kill_switch_file.exists())
+        HealthCheck(name="kill_switch", ok=_kill_switch_absent(settings.kill_switch_file))
     )
 
     status = "ok" if all(check.ok for check in checks) else "degraded"
@@ -343,6 +343,35 @@ def _worker_liveness(engine, database_ok: bool) -> tuple[bool, bool]:
     worker_ok = oldest_queued is None or float(oldest_queued) <= tolerance
     leases_ok = oldest_expired is None or float(oldest_expired) <= tolerance
     return worker_ok, leases_ok
+
+
+def _kill_switch_absent(kill_switch_file) -> bool:
+    """Is the switch absent? **Unreadable counts as engaged** (C35-04, F-13).
+
+    `Path.exists()` raises rather than answering when the process cannot traverse
+    the directory, so the unguarded call turned a permissions fault on one path
+    into a `500` for the whole endpoint — and a health endpoint that fails closed
+    on a permissions fault is least useful exactly when an operator most needs it.
+
+    The guard is deliberately not "unreadable means healthy". If this process
+    cannot see the switch, it cannot know the switch is off, and a monitor told
+    "ok" by a process that cannot read its own kill switch has been told
+    something false. So the check fails, `/healthz` reports `degraded` with
+    `kill_switch: false`, and the operator is pointed at a real fault.
+
+    Nothing about the path, the exception or the permissions reaches the response:
+    VM-16 carries check names and booleans, and that is all it has ever carried.
+
+    Enforcement is unaffected. This is the health *view*; whether the portal
+    refuses traffic is decided by the kill-switch middleware, which is a separate
+    reader with its own behaviour.
+    """
+    try:
+        return not kill_switch_file.exists()
+    except OSError:
+        # PermissionError is the observed case; ENOTDIR, ELOOP and a stale network
+        # mount arrive at the same conclusion through the same door.
+        return False
 
 
 def _artifact_root_ok(artifact_root) -> bool:

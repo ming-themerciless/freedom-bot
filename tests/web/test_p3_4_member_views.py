@@ -57,6 +57,7 @@ STATIC_ROOT = ROOT / "adapters" / "web" / "static"
 MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 
 from tests.web.template_digests import P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS
+from application.web.shell import ANONYMOUS_SHELL
 
 
 # Step 5 selectors added and actually used by Step 5 templates
@@ -154,11 +155,20 @@ def clean_between_member_cases(request):
 
 
 def get_jinja_env(template_dir: Path = TEMPLATE_ROOT) -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(template_dir)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()` on
+    # every real full-page render. These tests render a template in isolation, with
+    # no request boundary to derive one, so the anonymous shell is the default here.
+    # A context value overrides a global, so a test that supplies its own shell —
+    # and production, which always does — is unaffected. That production always
+    # passes one explicitly is asserted separately, so this default cannot hide a
+    # regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def make_request(path: str = "/v1/characters") -> Request:
@@ -368,8 +378,27 @@ def validate_member_cleanup_fixture(fixture_func_or_code: object) -> None:
     )
 
 
+def page_body(rendered_html: str) -> str:
+    """The page's own content, without the shared frame.
+
+    **Added 2026-08-23 (C35-05).** These checks are about what a *page* offers, and
+    the frame now carries one deliberate control: sign-out, which is a `POST` to
+    R-05 with the session's CSRF token. Asserting over the whole document would
+    have meant either deleting the sign-out control or weakening "this read-only
+    page offers no mutation" to "…except in the header", and both are worse than
+    scoping the assertion to what it was always about. The frame's own control is
+    asserted separately in `test_shell_navigation_contract.py`.
+    """
+    start = rendered_html.find("<main")
+    if start == -1:
+        return rendered_html
+    end = rendered_html.find("</main>", start)
+    return rendered_html[start:end if end != -1 else len(rendered_html)]
+
+
 def validate_zero_mutation_controls(rendered_html: str, template_name: str) -> None:
-    """Assert zero forms, editable inputs, buttons, textareas, selects, button classes, or mutation methods exist."""
+    """Assert the page offers no form, editable input, button, textarea or select."""
+    rendered_html = page_body(rendered_html)
     assert "<form" not in rendered_html, f"Forbidden <form> found in {template_name}"
     assert "<input" not in rendered_html, f"Forbidden <input> found in {template_name}"
     assert "<textarea" not in rendered_html, f"Forbidden <textarea> found in {template_name}"
@@ -483,7 +512,7 @@ def validate_asset_manifest_and_fingerprint(static_dir: Path, manifest_path: Pat
         for line in manifest_path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     ]
-    assert len(manifest_lines) == 3, f"Expected exactly 3 manifest entries, got: {len(manifest_lines)}"
+    assert len(manifest_lines) == 4, f"Expected exactly 4 manifest entries, got: {len(manifest_lines)}"
 
     for line in manifest_lines:
         expected_sha, rel_path = line.split(maxsplit=1)
@@ -884,7 +913,7 @@ def test_adversarial_probes_render_inert_in_member_views(probe: str) -> None:
     rendered_05 = env.get_template("my_characters.html").render(view=vm_05, request=make_request())
     scripts_05 = re.findall(r"<script\b([^>]*)>(.*?)</script>", rendered_05, flags=re.DOTALL)
     for attrs, body in scripts_05:
-        assert 'src="/static/vendor/' in attrs and not body.strip(), f"Injected script found: {attrs} -> {body}"
+        assert ('src="/static/vendor/' in attrs or 'src="/static/js/' in attrs) and not body.strip(), f"Injected script found: {attrs} -> {body}"
     assert "<img src=x" not in rendered_05
     validate_portrait_fallback_strict(rendered_05)
     validate_zero_mutation_controls(rendered_05, "my_characters.html")
@@ -894,7 +923,7 @@ def test_adversarial_probes_render_inert_in_member_views(probe: str) -> None:
     rendered_06 = env.get_template("character_detail.html").render(view=vm_06, request=make_request())
     scripts_06 = re.findall(r"<script\b([^>]*)>(.*?)</script>", rendered_06, flags=re.DOTALL)
     for attrs, body in scripts_06:
-        assert 'src="/static/vendor/' in attrs and not body.strip(), f"Injected script found: {attrs} -> {body}"
+        assert ('src="/static/vendor/' in attrs or 'src="/static/js/' in attrs) and not body.strip(), f"Injected script found: {attrs} -> {body}"
     assert "<img src=x" not in rendered_06
     validate_portrait_fallback_strict(rendered_06)
     validate_zero_mutation_controls(rendered_06, "character_detail.html")
@@ -1400,5 +1429,5 @@ def test_falsification_css_byte_tampering_fails_manifest_and_fingerprint_shared_
     # 4. Production bytes remain completely untouched
     prod_css_files = list((STATIC_ROOT / "css").glob("*.css"))
     assert len(prod_css_files) == 1
-    assert compute_sha256(prod_css_files[0]) == "58a9b9eed003c44b0b4e63d25910ecd704cdac03b0dcea6d2e105d63b8756649"
-    assert compute_sha256(MANIFEST_PATH) == "299a8a26ec64e862677e61e46cb432c632fc3d9dc48c29f0648dc03b9f31bf2b"
+    assert compute_sha256(prod_css_files[0]) == "3f877d00a8f931877ffebdd2d5aacba5ffc8b0516d97c28d892828619805856a"
+    assert compute_sha256(MANIFEST_PATH) == "be51d1c99b0ad65d7d7b0b9f7c1f28ab29c468a02cdfe34f6c3b79fd6046737c"

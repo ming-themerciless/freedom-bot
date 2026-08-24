@@ -253,3 +253,24 @@ FROM __APP_ROLE__;
 
 -- Sequences: none of the retained tables uses one. Identifiers are application
 -- generated UUIDs (ADR 0003, OD-35), so no sequence privilege is granted.
+
+-- ## The schema-version table (S-14), added 2026-08-23 by P3.5
+--
+-- `alembic_version` is **not** an application table and is not in the ORM
+-- metadata, which is why every list above is checked against that metadata and
+-- this statement stands apart from them.
+--
+-- It is here because the portal refuses to start without reading it. S-14 is
+-- "a process that cannot establish which schema it is serving must not serve
+-- one", and it establishes that by selecting `version_num` over the *runtime*
+-- connection. Without this grant the restricted role can never start the
+-- portal at all — which is exactly what happened the first time the service
+-- ran under the restricted role, and which no test caught because no test had
+-- ever run the deployed configuration (I-06, TC-OPS-04).
+--
+-- SELECT only, and deliberately: migrations run as the schema owner, and a
+-- runtime role that could write this table could tell the next startup it was
+-- serving a schema it was not.
+REVOKE ALL PRIVILEGES ON alembic_version FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON alembic_version FROM __APP_ROLE__;
+GRANT SELECT ON alembic_version TO __APP_ROLE__;

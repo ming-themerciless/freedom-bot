@@ -65,6 +65,7 @@ MANIFEST_PATH = STATIC_ROOT / "asset-integrity.sha256"
 FORM = "application/x-www-form-urlencoded"
 
 from tests.web.template_digests import P3_4_IMPLEMENTATION_TEMPLATE_DIGESTS
+from application.web.shell import ANONYMOUS_SHELL
 
 
 # Step 6 selectors added and used by Step 6 templates
@@ -183,11 +184,20 @@ FORBIDDEN_DENIAL_HEADERS: tuple[str, ...] = (
 
 
 def get_jinja_env(template_dir: Path = TEMPLATE_ROOT) -> jinja2.Environment:
-    return jinja2.Environment(
+    environment = jinja2.Environment(
         loader=jinja2.FileSystemLoader(str(template_dir)),
         autoescape=True,
         undefined=jinja2.StrictUndefined,
     )
+    # The server-owned shell (C35-05) is supplied by `RequestAuthority.render()` on
+    # every real full-page render. These tests render a template in isolation, with
+    # no request boundary to derive one, so the anonymous shell is the default here.
+    # A context value overrides a global, so a test that supplies its own shell —
+    # and production, which always does — is unaffected. That production always
+    # passes one explicitly is asserted separately, so this default cannot hide a
+    # regression in the wiring.
+    environment.globals.setdefault("shell", ANONYMOUS_SHELL)
+    return environment
 
 
 def compute_sha256(path: Path) -> str:

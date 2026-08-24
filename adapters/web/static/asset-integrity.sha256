@@ -1,6 +1,7 @@
-# Freedom Blades Static Asset Integrity Manifest (Step 2/Step 3)
+# Freedom Blades Static Asset Integrity Manifest (Step 2/Step 3/P3.5 F-15/F-17)
 # HTMX: project: https://github.com/bigskysoftware/htmx, distribution source: https://raw.githubusercontent.com/bigskysoftware/htmx/v2.0.10/dist/htmx.min.js, version: 2.0.10, upstream and local SHA-256: 71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de
 # Emblem: derived from design-prototype/assets/freedom-blades-token.png, source SHA-256: eab0d13128f55b7a367ce9e3ba88a2bad967e37768f7e28d9728186d9d322371
-58a9b9eed003c44b0b4e63d25910ecd704cdac03b0dcea6d2e105d63b8756649  adapters/web/static/css/freedom-blades.58a9b9eed003.css
+3f877d00a8f931877ffebdd2d5aacba5ffc8b0516d97c28d892828619805856a  adapters/web/static/css/freedom-blades.3f877d00a8f9.css
 eab0d13128f55b7a367ce9e3ba88a2bad967e37768f7e28d9728186d9d322371  adapters/web/static/images/freedom-blades-token.eab0d13128f5.png
+9e0c073e9e6c797638f2c69a5702faa99f4410894ee84ce7f8025c7f59c54dcf  adapters/web/static/js/webauthn-emergency.9e0c073e9e6c.js
 71ea67185bfa8c98c39d31717c6fce5d852370fcdfd129db4543774d3145c0de  adapters/web/static/vendor/htmx-2.0.10.71ea67185bfa.min.js

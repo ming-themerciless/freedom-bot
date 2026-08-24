@@ -14,7 +14,13 @@
       {% if view.webauthn_supported_hint %}
         <section data-section="webauthn" class="auth-section">
           <h2>Security key</h2>
-          <p>Present an enrolled security key.</p>
+          <p id="webauthn-desc">Present an enrolled security key.</p>
+          <div class="auth-webauthn-actions">
+            <button type="button" id="webauthn-signin-btn" class="form-submit auth-button-webauthn" aria-describedby="webauthn-desc" hidden>Use security key</button>
+            <p id="webauthn-fallback-msg" class="auth-meta">Security key sign-in requires browser script support. Use the recovery grant below if JavaScript is disabled.</p>
+            <p id="webauthn-unsupported-msg" class="auth-meta" hidden>Security key sign-in is not supported by this browser. Use the recovery grant below.</p>
+            <div id="webauthn-status-msg" class="auth-status-message" role="status" aria-live="polite" hidden></div>
+          </div>
         </section>
       {% else %}
         <section data-section="webauthn" class="auth-section">
