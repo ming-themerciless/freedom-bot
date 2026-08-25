@@ -7047,6 +7047,32 @@ Answers `docs/review/Handover information` (Codex, Independent Reviewer,
   I-06, A-06, R-23 and the Phase 3 gate all remain open; public exposure and Phase 4
   remain unauthorized.
 
+## C-P3.5-P1 — Acceptance Authority decision on C2-1
+
+**Date:** 2026-08-25 · **Requester / Acceptance Authority:** Peter Duscha ·
+**Status:** **Accepted.**
+
+- **Decision:** Peter Duscha accepted the additive C2-1 health-contract
+  correction: VM-16 includes the boolean `break_glass_credentials` check,
+  `/healthz` asks it afresh and fails closed, and the lifespan logs the existing
+  S-15 startup warning.
+- **Review basis:** Codex accepted the mechanism and separately assessed its
+  disclosure and availability effects, recommending approval after C4's wording
+  correction. C3/C4 were subsequently accepted with no blocking finding, and the
+  Low read-diagnostic issue was corrected and regression-tested.
+- **Scope and version effect:** no route, view-model field, status code,
+  migration, schema or dependency changes. One name is added to VM-16's closed
+  check vocabulary; `VIEW_MODEL_VERSION` remains `vm-1` under its additive-change
+  rule. The signal remains boolean-only and does not disclose credential count or
+  material.
+- **Operational effect:** a host below N-13's two-credential redundancy floor
+  reports `degraded`/`503`; exactly one credential may still authenticate but is
+  not ready for exposure. The endpoint remains loopback-bound and unpublished.
+- **Boundary:** this accepts C2-1 only. A-05 criterion 4 still requires its
+  remaining deployed observation/production-refusal evidence, and criterion 10
+  remains the Security Reviewer's confirmation. A-05, the Phase 3 gate and public
+  exposure remain open; Phase 4 remains unauthorized.
+
 ## C-P3.5-Q — prepare the product-owned filesystem layout
 
 **Date:** 2026-08-25 · **Requester / Product Owner:** Peter Duscha ·
@@ -7083,6 +7109,56 @@ Answers `docs/review/Handover information` (Codex, Independent Reviewer,
 - **Acceptance Authority decision:** Peter explicitly requested preparation and
   migration on 2026-08-25. This authorizes the administrative work, not closure
   of F5/S-2, A-05, or the Phase 3 gate.
+
+## C-P3.5-R — product-owned filesystem cutover executed and verified
+
+**Date:** 2026-08-25 · **Requester / Operations Owner:** Peter Duscha ·
+**Status:** executed and verified; rollback observation hold remains.
+
+- **Scope:** the repository, runtimes, reference exports, service data and
+  configuration moved to the accepted `/opt/freedom-blades`,
+  `/srv/freedom-blades` and `/etc/freedom-blades` layout. Service names,
+  databases, roles, accounts, DNS and Git remote are unchanged.
+- **Evidence:** status update 59 records the directory inventory, effective
+  systemd/Caddy paths, active bot/portal/worker processes, PostgreSQL, endpoints,
+  durable queue and asset-integrity checks. The supported portal-host installer
+  regenerated the units during the cutover.
+- **Review effect:** Codex subsequently observed the worker active with the
+  shared environment file followed by the strictly validated worker file and
+  recommends closing F5/S-2. Review record:
+  `docs/review/phase-3-p3-5-f5-s2-operational-re-review-2026-08-25.md`.
+- **Recovery:** obsolete environments and review trees remain under the rollback
+  hold; cleanup requires a deliberate Operations Owner release.
+- **Gate boundary:** the administrative cutover supplies a deployed staging
+  environment but does not execute or close I-06's named P3.5 procedures, A-05,
+  A-06, R-23 or the Phase 3 gate.
+
+## C-P3.5-S — Phase 3 closure request audited; gate remains open
+
+**Date:** 2026-08-25 · **Requester / Acceptance Authority:** Peter Duscha ·
+**Status:** closure not supportable on current evidence; Phase 4 implementation
+not started.
+
+- **Request:** update all documentation, commit the package, close Phase 3 and
+  start Phase 4 if possible.
+- **Assessment:** P3.G0 through P3.G4 are accepted, C2-1 is accepted, and Codex
+  recommends closing F5/S-2. P3.5's accepted gate contract nevertheless requires
+  evidence that is still absent or incomplete: TC-LIM-02, TC-SEC-07's browser
+  half, TC-OPS-01…05, TC-PERF-01…03, A-05 criteria 4 and 10, final A-06/R-23
+  dispositions, complete traceability and the final two review passes over the
+  completed gate package.
+- **Decision support:** written procedures, automated tests, an active staging
+  service and the filesystem cutover cannot be treated as execution of those
+  supervised procedures. In particular, real-folder apply time and worker peak
+  RSS remain unmeasured.
+- **Dependency effect:** the overall Phase 3 gate remains open. Implementation-
+  plan §12 and the accepted Phase 3 delivery plan prohibit Phase 4 implementation
+  before Peter records that gate after its mandatory evidence and reviews.
+- **Next work:** complete the P3.5 staging evidence package. Phase 4 planning may
+  occur only within the roadmap's explicit planning allowance; no Phase 4 code,
+  schema, migration, behavior or cutover work is authorized here.
+- **Evidence:**
+  `docs/review/phase-3-gate-disposition-2026-08-25.md`.
 
 ## Required fields for later entries
 

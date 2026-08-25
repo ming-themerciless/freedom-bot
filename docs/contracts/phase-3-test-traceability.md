@@ -647,7 +647,7 @@ Labelled explicitly, per the P3.0 prompt.
 
 | Test | Missing precondition |
 |---|---|
-| TC-LIM-02, TC-OPS-03, TC-OPS-04, TC-PERF-01…03, TC-SEC-07 (browser half) | **Staging does not exist** (delivery plan §10) |
+| TC-LIM-02, TC-OPS-03, TC-OPS-04, TC-PERF-01…03, TC-SEC-07 (browser half) | A deployed staging host now exists, but the named supervised procedures and measurements have not all been executed and accepted |
 | TC-UI-08 | Peter's own device |
 | TC-UI-09 | A screen reader and a person to drive it; **not yet planned or scheduled**, and inherited as `not tested` from the visual baseline |
 | Any real-data measurement | Real snapshots are operational inputs and are never committed as fixtures (plan §6.4) |
@@ -661,7 +661,8 @@ class.
 Peter accepted P3.1 and closed P3.G1 on 2026-08-16 without representing the
 missing evidence above as passing. The following conditions remain explicit:
 
-- **I-06 stays open.** It does not block P3.2. Before staging/production exposure
+- **I-06 stays open.** It does not block P3.2. A deployed staging host now exists,
+  but before staging/production exposure
   and final Phase 3 production-readiness acceptance, a named staging build must
   pass TC-LIM-02, TC-SEC-07's browser half, TC-OPS-01…05 and TC-PERF-01…03 at
   their required evidence levels. Store the date, environment and build identity,

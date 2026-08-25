@@ -1,5 +1,60 @@
 # Project status
 
+Status date: 2026-08-25 (sixty-second update: the Phase 3 gate was audited after
+C2 acceptance. Mandatory P3.5 staging, browser, operations and performance
+evidence remains incomplete, so Phase 3 cannot close and Phase 4 implementation
+cannot start.)
+
+Update 2026-08-25 (sixty-second) — Phase 3 gate audited; closure refused on
+missing mandatory evidence.
+
+- **Phase 3 remains open.** Peter requested closure and a Phase 4 start. The
+  accepted P3.5 criteria still have mandatory Not Run evidence: I-06's staging,
+  browser, operations and performance procedures; A-05 criteria 4 and 10; and
+  final A-06/R-23 dispositions and gate artifacts.
+- **Phase 4 implementation did not start.** The implementation plan and accepted
+  Phase 3 delivery plan prohibit it before the Phase 3 gate is validly recorded.
+  See `docs/review/phase-3-gate-disposition-2026-08-25.md`.
+- **Current executable work:** complete the P3.5 staging evidence package. The
+  deployed staging services and filesystem cutover are valid inputs, but they do
+  not substitute for TC-LIM-02, TC-SEC-07's browser half, TC-OPS-01…05 or
+  TC-PERF-01…03.
+
+Update 2026-08-25 (sixty-first) — C2 health-contract correction accepted.
+
+- **C2 accepted.** Peter Duscha accepted the additive VM-16
+  `break_glass_credentials` check after Codex's independent and security-focused
+  recommendation. The signal remains boolean-only, freshly queried, fail-closed
+  and loopback-only; `VIEW_MODEL_VERSION` remains `vm-1`.
+- **No broader acceptance inferred.** A-05 criterion 4 still needs its remaining
+  deployed observation/production-refusal evidence, and criterion 10 remains the
+  Security Reviewer's final confirmation. The Phase 3 gate, public exposure and
+  Phase 4 remain unauthorized.
+
+Status date: 2026-08-25 (sixtieth update: Codex independently re-reviewed the
+operational evidence produced by the filesystem cutover and recommends closing
+F5/S-2. The supported installer ran, the worker is active, and systemd reports the
+shared and worker environment files in the required order. C2 remains proposed;
+A-05 criteria 4 and 10, the Phase 3 gate, public exposure and Phase 4 remain open
+or unauthorized.)
+
+Update 2026-08-25 (sixtieth) — F5/S-2 operational evidence independently
+re-reviewed.
+
+- **F5/S-2 closure recommended.** The filesystem cutover executed the supported
+  installer with unit regeneration. Codex independently observed
+  `freedom-worker.service` active from the product-owned runtime and repository,
+  with `/etc/freedom-blades/portal.env` followed by
+  `/etc/freedom-blades/worker.env` in systemd's effective configuration.
+- **Focused verification passed.** The installer/worker-file suite passed 34
+  tests and the health/provider suite passed 26 tests against the disposable
+  PostgreSQL database. The preserved review environment was used because the
+  fresh production runtime deliberately does not contain pytest.
+- **Authority boundaries unchanged.** This technical recommendation does not
+  approve C2, close A-05 criteria 4 or 10, close the Phase 3 gate, authorize
+  public exposure, or release Phase 4. See
+  `docs/review/phase-3-p3-5-f5-s2-operational-re-review-2026-08-25.md`.
+
 Status date: 2026-08-25 (fifty-ninth update: the filesystem-layout migration is
 executed and directly verified. The accepted target is
 `/opt/freedom-blades/{platform,runtime,reference,workspace}` with service data at
@@ -2511,7 +2566,7 @@ production integration remains blocked.
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance at the head of `docs/review/phase-1-submission.md` |
 | Phase 2 — Import and reconciliation | Accepted | Closed 2026-08-12 | C-24 and B-1 closed after independent re-review returned no findings; Peter Duscha accepted the data-integrity, identity and migration-safety gate. See `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md` and change-log C-24-R. |
 | §12.1 frontend visual-design track | Accepted | Closed 2026-08-13 | Peter accepted Steps 1–5, including real-mobile inspection. Fourteen frozen implementation/asset files verify against `docs/review/phase-3-visual-freeze-manifest.sha256`; current token and contrast tools pass. See `docs/review/phase-3-visual-prototype-handoff.md`. |
-| Phase 3 — authentication, read-only portal and Council administration | P3.0 through **P3.3 accepted** | P3.G0 closed 2026-08-13; P3.G1 closed 2026-08-16; P3.G2 closed 2026-08-18; **P3.G3 closed 2026-08-19; P3.4 authorized** | P3.3 passed independent implementation and distinct security-focused reviews; Peter accepted `C-P3.3-I`, recorded the outstanding contract decisions in `C-P3.3-J`, accepted P3.3 and authorized P3.4. I-06 and A-05 remain open production-exposure conditions. Gemini production integration remains blocked until its later contract gate. |
+| Phase 3 — authentication, read-only portal and Council administration | P3.0 through **P3.4 accepted; P3.5 active** | P3.G0–P3.G4 closed; overall Phase 3 gate open | P3.4 and its frontend gate were accepted on 2026-08-23. C2-1 is accepted and Codex recommends F5/S-2 closure, but mandatory P3.5 staging/operations/performance/browser evidence and A-05 criteria 4/10 remain incomplete. See `docs/review/phase-3-gate-disposition-2026-08-25.md`. |
 | Phase 4 and later | Not ready | Predecessor gates apply | No later implementation is authorized. Follow implementation-plan §12.0 and package-specific definitions of ready. |
 
 ## Current critical path
