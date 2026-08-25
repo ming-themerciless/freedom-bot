@@ -131,3 +131,184 @@ def test_the_registration_ceremony_asks_for_no_account_identifier():
         "the registration page must transmit nothing"
     )
     assert "location.hostname" in text, "the relying party must be the page's own origin"
+
+
+# ---------------------------------------------------------------------------
+# The generated systemd units — C1, 2026-08-25
+# ---------------------------------------------------------------------------
+#
+# F5 was a worker unit that could never start, and the repair reached the
+# template and the operations guide but not `infra/staging/setup-portal-host.sh`,
+# which is the template's only executable consumer. A unit template and the
+# installer that fills it in are one contract, and nothing checked that they
+# still agreed: the corrected template asked for a placeholder the installer had
+# never heard of, so the supported provisioning path would have written
+# `EnvironmentFile=__WORKER_ENVIRONMENT_FILE__` into `/etc/systemd/system` and the
+# manual repair on the staging host would have been unreproducible from here.
+#
+# These tests render each unit the way the installer renders it — from the
+# installer's own substitution list and its own settings, not from a second copy
+# of either — and check the result.
+
+INSTALLER = ROOT / "infra" / "staging" / "setup-portal-host.sh"
+PLACEHOLDER = re.compile(r"__[A-Z0-9_]+__")
+
+
+def _installer_settings() -> dict[str, str]:
+    """The `KEY="value"` assignments at the top of the installer, `${…}` resolved."""
+    raw = dict(
+        re.findall(r'^([A-Z][A-Z0-9_]*)="([^"]*)"', INSTALLER.read_text(), re.M)
+    )
+    resolved: dict[str, str] = {}
+
+    def resolve(name: str, seen: frozenset[str] = frozenset()) -> str:
+        if name in resolved:
+            return resolved[name]
+        assert name not in seen, f"{name} refers to itself"
+        value = re.sub(
+            r"\$\{([A-Z][A-Z0-9_]*)\}",
+            lambda match: resolve(match.group(1), seen | {name}),
+            raw[name],
+        )
+        resolved[name] = value
+        return value
+
+    for key in raw:
+        resolve(key)
+    return resolved
+
+
+def _installer_substitutions() -> dict[str, str]:
+    """Placeholder -> value, exactly as `install_unit()`'s `sed` fills them in."""
+    settings = _installer_settings()
+    pairs = re.findall(
+        r'-e "s\|(__[A-Z0-9_]+__)\|\$\{([A-Z][A-Z0-9_]*)\}\|g"', INSTALLER.read_text()
+    )
+    assert pairs, "no substitutions found in the installer; these checks would pass vacuously"
+    return {placeholder: settings[variable] for placeholder, variable in pairs}
+
+
+def _installed_units() -> list[tuple[Path, str]]:
+    """The templates the installer installs, and the unit names it installs them as."""
+    # Trailing arguments are tolerated rather than required: the installer used to
+    # pass a third one, and a collection error there would have hidden the
+    # placeholder failure below behind a parsing failure of this test's own.
+    calls = re.findall(
+        r'^install_unit\s+"\$REPO_ROOT/(\S+?)"\s+(\S+?)(?:\s.*)?$',
+        INSTALLER.read_text(),
+        re.M,
+    )
+    assert calls, "no install_unit calls found; these checks would pass vacuously"
+    return [(ROOT / template, target) for template, target in calls]
+
+
+def _render(template: Path) -> str:
+    text = template.read_text()
+    for placeholder, value in _installer_substitutions().items():
+        text = text.replace(placeholder, value)
+    return text
+
+
+def _directives(unit_text: str) -> list[str]:
+    """Settings only. A `#` comment explaining a placeholder is documentation."""
+    return [
+        line
+        for line in unit_text.splitlines()
+        if line.strip() and not line.lstrip().startswith(("#", ";"))
+    ]
+
+
+@pytest.mark.parametrize("template,target", _installed_units(), ids=lambda value: str(value))
+def test_the_installer_resolves_every_placeholder_in_the_units_it_installs(
+    template: Path, target: str
+):
+    """C1. The exact defect: a template placeholder the installer never substitutes.
+
+    Rendered from the installer's own `sed` list, so adding a placeholder to a
+    template without teaching the installer about it fails here rather than on the
+    host — where it arrives as a unit that parses, loads, and starts a process with
+    a literal `__PLACEHOLDER__` for a file path.
+    """
+    unresolved = sorted(
+        {match.group() for line in _directives(_render(template)) for match in PLACEHOLDER.finditer(line)}
+    )
+    assert not unresolved, (
+        f"{target} would be installed carrying {', '.join(unresolved)}. "
+        f"Add the substitution to install_unit() in {INSTALLER.relative_to(ROOT)}: "
+        "the template and the installer are one contract."
+    )
+
+
+def test_the_generated_worker_unit_reads_the_worker_file_after_the_shared_one():
+    """F5's mechanism, in the unit the supported installer actually produces.
+
+    Order is the whole property. `systemd.exec(5)`: "If the same variable is set
+    twice from these files, the files will be read in the order they are specified
+    and the later setting will override the earlier setting." The shared portal
+    file sets `WORKER_ENABLED=false` — S-11 requires that, because it is also
+    `freedom-web`'s file — so the worker's own file must be read second or the
+    worker refuses itself on every start.
+    """
+    settings = _installer_settings()
+    worker = _render(ROOT / "infra" / "systemd" / "freedom-worker.service.tmpl")
+    files = [
+        line.split("=", 1)[1]
+        for line in _directives(worker)
+        if line.startswith("EnvironmentFile=")
+    ]
+
+    assert files == [settings["ENV_FILE"], settings["WORKER_ENV_FILE"]], (
+        "the worker unit must read the shared portal file first and the worker's "
+        f"own file second; it reads {files}"
+    )
+    assert all(path.startswith("/") for path in files), "both paths must be absolute"
+
+
+def test_no_generated_unit_sets_worker_enabled_with_an_environment_line():
+    """F5's cause, kept out of the units and out of the installer.
+
+    `Environment=` loses to `EnvironmentFile=` unconditionally, so this spelling
+    does not fail loudly — it produces a unit that reads as though it were
+    configured correctly and a process that refuses itself with S-11. The
+    installer used to append exactly this line to the worker unit.
+    """
+    for template, target in _installed_units():
+        for line in _directives(_render(template)):
+            assert not re.match(r"Environment=\s*WORKER_ENABLED=", line), (
+                f"{target} sets WORKER_ENABLED with Environment=, which the shared "
+                "EnvironmentFile overrides. Use a second EnvironmentFile listed after it."
+            )
+    # The templates are only half of it. The installer used to *append* the line
+    # after rendering — `install_unit … "WORKER_ENABLED=true"` and a `printf` of a
+    # second `[Service]` section — so a check that read only the templates would
+    # have passed throughout the defect. It writes no `Environment=` line at all
+    # now, and none of the three units needs one.
+    for line in INSTALLER.read_text().splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        assert "Environment=" not in line, (
+            f"the installer writes an Environment= line into a unit: {line.strip()!r}. "
+            "It loses to every EnvironmentFile the unit reads."
+        )
+
+
+def test_the_installer_provisions_the_worker_environment_file_it_substitutes():
+    """A path substituted into a unit but never created is a unit that fails to start.
+
+    `EnvironmentFile=` without a leading `-` is mandatory: systemd fails the unit
+    if the file is absent. The installer must therefore write it, and must write
+    the one line the file exists for.
+    """
+    installer = INSTALLER.read_text()
+    assert re.search(r"printf 'WORKER_ENABLED=true\\n' > \"\$WORKER_ENV_FILE\"", installer), (
+        "the installer must create the worker environment file with WORKER_ENABLED=true"
+    )
+    assert 'chmod 640 "$WORKER_ENV_FILE"' in installer, "the worker file needs a deliberate mode"
+    assert 'chown root:"$SERVICE_GROUP" "$WORKER_ENV_FILE"' in installer, (
+        "the worker file needs a deliberate owner"
+    )
+    # Idempotence: an existing file is confirmed, never silently rewritten — the
+    # same promise this script makes about the shared environment file.
+    assert 'if [ -f "$WORKER_ENV_FILE" ]; then' in installer, (
+        "the installer must check for an existing worker environment file first"
+    )

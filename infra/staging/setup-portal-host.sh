@@ -11,8 +11,11 @@
 #   2. creates the restricted PostgreSQL login role and the test database;
 #   3. creates the kill-switch and artifact directories;
 #   4. generates the portal's own secret keys and writes a locked environment
-#      file, leaving the Discord values as refusable placeholders; and
-#   5. installs the two systemd units, stopped.
+#      file, leaving the Discord values as refusable placeholders;
+#   5. writes the worker's one-line environment file, which is the only place
+#      systemd will let `WORKER_ENABLED=true` override the shared file (F5); and
+#   6. installs the two systemd units, stopped, and verifies with systemd that
+#      the worker reads those two files in the order that makes the override win.
 #
 # ## What it deliberately does NOT do
 #
@@ -47,6 +50,10 @@ DB_RUNTIME_ROLE="freedomweb" # matches SERVICE_USER so PostgreSQL peer auth need
 PORT="8001"
 ENV_DIR="/etc/freedom-web"
 ENV_FILE="${ENV_DIR}/portal.env"
+# The worker's one-line file, listed **after** the shared one on the worker unit.
+# It is the only place systemd will let `WORKER_ENABLED=true` win over the shared
+# file's required `false` — see the Worker environment file step below (F5).
+WORKER_ENV_FILE="${ENV_DIR}/worker.env"
 KILL_SWITCH_DIR="/srv/freedom/web"
 ARTIFACT_ROOT="/srv/freedom/snapshots"
 # The TEST address, and it must not be the production one: S-02 refuses a
@@ -236,40 +243,104 @@ ENVEOF
 fi
 
 # --------------------------------------------------------------------------
+step "Worker environment file"
+# --------------------------------------------------------------------------
+# **F5, and the reason this file exists at all.** `freedom-web` and
+# `freedom-worker` run the same code from the same virtualenv and differ by
+# `WORKER_ENABLED` alone, and S-11 refuses each process the other's value. The
+# shared file above must therefore say `false`, because it is also the portal's.
+#
+# The obvious way to flip it for the worker — `Environment=WORKER_ENABLED=true`
+# on the unit — **cannot work**. `systemd.exec(5)`: "Settings from these files
+# override settings made with Environment=". The shared file is read second and
+# wins, so the worker refuses itself with S-11 on every start while its unit
+# reads as though it were configured correctly. That is exactly what happened on
+# this host between 2026-08-23 and 2026-08-25.
+#
+# What does work is a second *file*, listed after the shared one on the worker
+# unit, because later files override earlier ones. It holds that single line and
+# nothing secret; the unit's `__WORKER_ENVIRONMENT_FILE__` placeholder is
+# substituted with this path below.
+if [ -f "$WORKER_ENV_FILE" ]; then
+    # Confirmed rather than overwritten, in keeping with this script's promise
+    # about the shared file — but confirmed *for the property that matters*,
+    # since an existing file setting `false` would reinstate the F5 defect
+    # silently and this script would have "succeeded".
+    effective="$(sed -n 's/^[[:space:]]*WORKER_ENABLED=//p' "$WORKER_ENV_FILE" | tail -n 1)"
+    [ "$effective" = "true" ] || die "$WORKER_ENV_FILE exists but its effective WORKER_ENABLED is '${effective:-unset}'. \
+The worker unit reads this file last, so that value wins and freedom-worker would refuse itself (S-11). \
+Fix or remove the file; this script will not overwrite it."
+    skip "$WORKER_ENV_FILE — left exactly as it is (WORKER_ENABLED=true confirmed)"
+else
+    mkdir -p "$ENV_DIR"; chmod 750 "$ENV_DIR"
+    printf 'WORKER_ENABLED=true\n' > "$WORKER_ENV_FILE"
+    chown root:"$SERVICE_GROUP" "$WORKER_ENV_FILE"
+    chmod 640 "$WORKER_ENV_FILE"
+    say "wrote $WORKER_ENV_FILE (root:${SERVICE_GROUP}, 0640) — one line, no secret"
+fi
+
+# --------------------------------------------------------------------------
 step "systemd units"
 # --------------------------------------------------------------------------
 # `FORCE_UNITS=1 sudo -E bash …` reinstalls the unit files from the templates.
 # Everything else in this script stays idempotent; only these are regenerated,
 # and only when asked, because a hand-edited unit should not vanish silently.
 install_unit() {
-    local template="$1" target="$2" extra_env="$3"
-    if [ -f "/etc/systemd/system/${target}" ] && [ "${FORCE_UNITS:-0}" != "1" ]; then
+    local template="$1" target="$2"
+    local installed="/etc/systemd/system/${target}"
+    if [ -f "$installed" ] && [ "${FORCE_UNITS:-0}" != "1" ]; then
         skip "$target (FORCE_UNITS=1 to regenerate)"; return
     fi
+    # Rendered beside the target and only moved into place once it has been
+    # checked: a unit carrying an unsubstituted placeholder is a unit that fails
+    # at start, and installing one and then refusing would leave the host worse
+    # than not running this script at all.
+    local staged="${installed}.staged.$$"
     sed -e "s|__REPOSITORY_ROOT__|${REPO_ROOT}|g" \
         -e "s|__ENVIRONMENT_FILE__|${ENV_FILE}|g" \
+        -e "s|__WORKER_ENVIRONMENT_FILE__|${WORKER_ENV_FILE}|g" \
         -e "s|__SERVICE_USER__|${SERVICE_USER}|g" \
         -e "s|__SERVICE_GROUP__|${SERVICE_GROUP}|g" \
         -e "s|__KILL_SWITCH_DIR__|${KILL_SWITCH_DIR}|g" \
         -e "s|__ARTIFACT_ROOT__|${ARTIFACT_ROOT}|g" \
         -e "s|__PORT__|${PORT}|g" \
-        "$template" > "/etc/systemd/system/${target}"
-    # An `if` rather than `[ … ] && …`: under `set -e` a false test at the head of
-    # an && list makes the list itself fail, and this script must not exit
-    # because a unit legitimately has no extra environment line.
-    if [ -n "$extra_env" ]; then
-        printf '\n[Service]\nEnvironment=%s\n' "$extra_env" \
-            >> "/etc/systemd/system/${target}"
+        "$template" > "$staged"
+    # Directives only. The templates explain themselves in `#` comments, and one
+    # of those comments names `__PLACEHOLDER__` as a word — a check that could not
+    # tell an explanation from a setting would be a check someone deletes.
+    local unresolved
+    unresolved="$(grep -v '^[[:space:]]*[#;]' "$staged" | grep -oE '__[A-Z0-9_]+__' | sort -u | tr '\n' ' ' || true)"
+    if [ -n "${unresolved% }" ]; then
+        rm -f "$staged"
+        die "$target would have been installed with unsubstituted placeholder(s): ${unresolved}\
+Add the substitution to install_unit() above; the template and this installer are one contract."
     fi
-    chmod 644 "/etc/systemd/system/${target}"
+    mv "$staged" "$installed"
+    chown root:root "$installed"
+    chmod 644 "$installed"
     say "installed $target"
 }
-install_unit "$REPO_ROOT/infra/systemd/freedom-web.service.tmpl"    freedom-web.service    ""
-# S-11 refuses each process the other's value, so the worker unit carries the
-# single line that distinguishes them rather than a second environment file.
-install_unit "$REPO_ROOT/infra/systemd/freedom-worker.service.tmpl" freedom-worker.service "WORKER_ENABLED=true"
+install_unit "$REPO_ROOT/infra/systemd/freedom-web.service.tmpl"    freedom-web.service
+# The worker unit lists ${WORKER_ENV_FILE} *after* the shared file, which is the
+# only arrangement systemd lets win (F5, see the step above). No `Environment=`
+# override is appended here, and none may be: it would be read first and then
+# overwritten by the shared file's `WORKER_ENABLED=false`.
+install_unit "$REPO_ROOT/infra/systemd/freedom-worker.service.tmpl" freedom-worker.service
 systemctl daemon-reload
 say "reloaded the systemd unit files. Neither service is enabled or started."
+
+# The effective configuration, asked of systemd rather than inferred from the
+# file this script just wrote. `systemctl show` reports the parsed list in load
+# order, so it answers the one question the unit text cannot: which file is read
+# last, and therefore which `WORKER_ENABLED` the worker will actually see.
+worker_files="$(systemctl show -p EnvironmentFiles --value freedom-worker.service | sed 's/ (ignore_errors=[a-z]*)//')"
+shared_position="$(printf '%s\n' "$worker_files" | grep -nxF "$ENV_FILE" | cut -d: -f1 || true)"
+worker_position="$(printf '%s\n' "$worker_files" | grep -nxF "$WORKER_ENV_FILE" | cut -d: -f1 || true)"
+if [ -z "$shared_position" ] || [ -z "$worker_position" ] || [ "$worker_position" -le "$shared_position" ]; then
+    die "freedom-worker.service does not read ${WORKER_ENV_FILE} after ${ENV_FILE}. \
+systemd reports: ${worker_files:-<none>}. The worker would refuse itself with S-11 on every start."
+fi
+say "verified: freedom-worker reads ${ENV_FILE} then ${WORKER_ENV_FILE} — the later file wins."
 
 # --------------------------------------------------------------------------
 step "Done"
@@ -281,6 +352,7 @@ cat <<SUMMARY
     database          ${DB_NAME} (owner ${DB_OWNER}, runtime role ${DB_RUNTIME_ROLE})
     directories       ${KILL_SWITCH_DIR}, ${ARTIFACT_ROOT}
     environment file  ${ENV_FILE}
+    worker override   ${WORKER_ENV_FILE} (WORKER_ENABLED=true, read last)
     units             freedom-web.service, freedom-worker.service (both stopped)
 
   Nothing is running and nothing is publicly reachable. Caddy was not touched.
