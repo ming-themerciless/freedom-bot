@@ -1,12 +1,34 @@
 # Project status
 
-Status date: 2026-08-25 (fifty-eighth update: filesystem-layout migration
-preparation is the only active work. The accepted target is
+Status date: 2026-08-25 (fifty-ninth update: the filesystem-layout migration is
+executed and directly verified. The accepted target is
 `/opt/freedom-blades/{platform,runtime,reference,workspace}` with service data at
-`/srv/freedom-blades` and configuration at `/etc/freedom-blades`. Active scripts,
-templates, examples and operations guides are prepared; historical evidence is
-unchanged. The cutover has not run. No service, data or privileged host path has
-been changed.)
+`/srv/freedom-blades` and configuration at `/etc/freedom-blades`. The bot, portal
+and worker are active from the fresh target environments; Caddy, PostgreSQL,
+assets, endpoints and durable queue state passed direct checks. Historical
+evidence is unchanged.)
+
+Update 2026-08-25 (fifty-ninth) — product-owned filesystem layout cut over.
+
+- **Cutover complete.** The repository, offline Actor exports, service data and
+  configuration moved by same-host rename to their accepted product-owned paths.
+  Every legacy source path is absent and the repository-local virtual-environment
+  links resolve to the fresh runtime environments.
+- **Direct runtime evidence.** `freedom-bot`, `freedom-web` and `freedom-worker`
+  are active with their effective working directories, executables and
+  environment files under the new layout. The emergency and health endpoints
+  answer `200` with the accepted Host header, the Caddy password gate answers
+  `401`, PostgreSQL is active, the durable queue is empty and asset integrity is
+  4/4.
+- **Cutover corrections recorded.** Existing repository-local symlinks require
+  `ln -sfnT` rather than plain `ln -s`, and the preserved portal environment file
+  requires a controlled `/srv/freedom/` to `/srv/freedom-blades/` path-prefix
+  update. Four runtime inputs whose legacy `0600` modes refused the service
+  account were restored to tracked-file mode `0644`; no secret value was read or
+  printed.
+- **Rollback hold remains.** Obsolete environments and review trees under
+  `/opt/discord-bots` are not removed until the Operations Owner releases the
+  observation hold. Existing product gates remain unchanged.
 
 Update 2026-08-25 (fifty-eighth) — product-owned filesystem layout prepared; cutover held.
 

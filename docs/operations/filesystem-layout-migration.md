@@ -1,6 +1,6 @@
 # Freedom Blades filesystem-layout migration
 
-Status: prepared, not executed · Date: 2026-08-25 · Owner: Operations Owner
+Status: executed and verified · Date: 2026-08-25 · Owner: Operations Owner
 
 This controlled maintenance change replaces the legacy `/opt/discord-bots`,
 `/srv/freedom`, and `/etc/freedom-web` product paths. It does not rename systemd
@@ -76,14 +76,25 @@ mv /opt/discord-bots/foundry-actor-exports \
 mv /srv/freedom /srv/freedom-blades
 mv /etc/freedom-web /etc/freedom-blades
 
-ln -s /opt/freedom-blades/runtime/venv-bot \
-      /opt/freedom-blades/platform/venv
-ln -s /opt/freedom-blades/runtime/venv-web \
-      /opt/freedom-blades/platform/venv-web
+ln -sfnT /opt/freedom-blades/runtime/venv-bot \
+         /opt/freedom-blades/platform/venv
+ln -sfnT /opt/freedom-blades/runtime/venv-web \
+         /opt/freedom-blades/platform/venv-web
 ```
 
 The repository-local links retain established development commands while the
 actual environments live under `runtime/`.
+
+The moved environment file is deliberately preserved byte-for-byte by the host
+setup script. Update only its legacy service-data path prefix, without printing
+the file or changing credential values, then restore its required metadata:
+
+```bash
+sed -i 's|/srv/freedom/|/srv/freedom-blades/|g' \
+  /etc/freedom-blades/portal.env
+chown root:freedomweb /etc/freedom-blades/portal.env
+chmod 0640 /etc/freedom-blades/portal.env
+```
 
 Regenerate active configuration from the moved repository:
 
