@@ -4,7 +4,8 @@
 **Branch:** `docs/platform-plan`
 **Author:** Claude (working Technical Lead)
 **Handover executed:** `docs/review/Handover information` (Codex, Independent Reviewer, 2026-08-24)
-**Written:** 2026-08-24T22:41Z
+**Written:** 2026-08-24T22:41Z; **§2 completed** 2026-08-25T05:10Z after the
+Operations Owner restarted the portal
 
 This addendum records what was actually executed against the Codex handover, and
 — just as importantly — what was **not**, and why. Every command below was run;
@@ -86,31 +87,72 @@ composed selection, and the full-suite figures above are the comparable evidence
 
 ## 2. Handover Step 2 — deploy and prove process/build identity
 
-**Blocked. Requires the Operations Owner.** No deployment, restart or
-configuration change was performed.
+**Complete.** The Operations Owner restarted `freedom-web.service` on
+2026-08-25. The running process has been proven to postdate the deployed commit,
+and S-1's operational control is satisfied **for this deployment**.
 
 `freedom-web.service` runs from this repository directly
 (`WorkingDirectory=/opt/discord-bots/freedom-bot`,
 `ExecStart=…/venv-web/bin/python -m uvicorn tools.portal_server:application`), so
-the reviewed commit is already on the deployment path. **Only the restart is
-missing** — and restarting is exactly what the handover says deployment alone
-cannot substitute for.
+the reviewed commit reached the deployment path at commit time and the restart
+was the whole of the deployment.
 
-### 2.1 The stale process, still running, measured rather than asserted
+### 2.1 The identity record
 
 | Field | Value |
 |---|---|
 | Unit | `freedom-web.service` (`/etc/systemd/system/freedom-web.service`) |
-| Active state | `active (running)` |
-| Main PID | 3436943 |
-| Process start (UTC) | **2026-08-24 08:36:54Z** |
-| Commit now on disk | `0bef692…`, committed **2026-08-24T22:36:31Z** |
-| Age gap | The running process predates the code it is meant to serve by **~14 hours** |
+| Deployment (UTC) | **2026-08-24T22:36:31Z** — the commit itself; the unit serves this working tree |
+| Restart (UTC) | **2026-08-25T05:08:56Z** (`ActiveEnterTimestamp`) |
+| Main PID | **3785672** |
+| Process start (UTC) | **2026-08-25 05:08:55Z** (`ps -o lstart`) |
+| Commit deployed | **`0bef692acb095a3b0e61147490ecc2c147e81e9a`** (2026-08-24T22:36:31Z) |
+| Repository HEAD | `9f62fcf042849f66fc07cc707d59f3d1c86e35e6` (2026-08-24T22:43:06Z, documentation only) |
+| Active state | `active (running)`, `Result=success`, `NRestarts=0` |
+| Previous process | PID 3436943, started 2026-08-24 08:36:54Z — the stale one, now replaced |
 
-The running process therefore **fails** the handover's identity requirement, and
-this is S-1 in its original form rather than a new instance of it.
+**The process postdates the deployed commit by 6h32m**, and postdates the
+documentation-only HEAD as well. `NRestarts=0` means it has not crash-looped
+since.
 
-`/healthz` confirms it from the outside, fetched read-only over loopback:
+### 2.2 Why this is proof and not an assumption
+
+The earlier S-1 failure was a process serving Python older than the commit under
+test while templates were re-read from disk, so a timestamp comparison alone is
+what has to be shown to be sound rather than merely favourable:
+
+- Every tracked `.py` file in the repository has an mtime **no later than
+  2026-08-24 22:12:44Z** (newest: `tests/web/test_p3_4_static_assets.py`; newest
+  non-test: `application/web/errors.py` at 22:11:19Z).
+- The process started **2026-08-25 05:08:55Z**, 6h56m after the last source edit.
+- CPython reads source at import and validates cached bytecode against the
+  source's mtime and size, so a `__pycache__` entry cannot serve stale code to a
+  process that started after the edit.
+
+There is therefore no mechanism by which this process could be running
+pre-remediation Python. That is a stronger statement than "the timestamps look
+right", and it is the statement S-1 asks for.
+
+### 2.3 Corroboration: the S-4 probe is observably running
+
+`identity_provider: true` cannot distinguish the removed literal from a probe
+that succeeded, because Discord is up. Response time can, and does:
+
+```text
+/healthz              0.024, 0.016, 0.016, 0.018, 0.017 s
+/v1/auth/emergency    0.002, 0.001, 0.001, 0.001, 0.001 s
+```
+
+Both endpoints do database work; only `/healthz` performs provider I/O. The
+consistent **~15 ms** gap is a warm-keepalive HTTPS round trip to Discord on a
+path that, in the previous build, made no network call at all and would have
+answered in the same millisecond range as the page render.
+
+This is corroboration, not the acceptance test. The definitive observation is
+`/healthz` reporting `identity_provider: false`, `degraded` and HTTP 503 under a
+deliberate provider outage, which is listed in §5 and needs the Operations Owner.
+
+### 2.4 Post-restart checks, all passing
 
 ```text
 $ curl -s -H 'Host: freedom-blades-test.rpgworld.org' http://127.0.0.1:8001/healthz
@@ -118,48 +160,37 @@ $ curl -s -H 'Host: freedom-blades-test.rpgworld.org' http://127.0.0.1:8001/heal
    "worker_heartbeat":true,"expired_leases":true,"identity_provider":true,
    "kill_switch":true},"version":"phase-3-p3.1","environment":"staging"}
   http=200
+
+$ curl -s -H 'Host: freedom-blades-test.rpgworld.org' http://127.0.0.1:8001/v1/auth/emergency
+  http=200, 3136 bytes
+
+$ sha256sum -c adapters/web/static/asset-integrity.sha256
+  4/4 OK
 ```
 
-`identity_provider: true` here is the **literal** S-4 removed — the probe exists
-in the committed code and not in the running process. That single field is the
-cleanest available proof that the process is stale, and it is what the restart
-must change. It is also why no browser observation may rest on this process.
+`worker_heartbeat: true` beside a dead worker unit is documented behavior, not a
+regression; see §6.
 
-### 2.2 Why the restart was not performed
-
-The review account (`foundry`) holds passwordless sudo for
-`systemctl restart|status freedom-bot` **only**. `freedom-web.service` is not in
-that grant, so restarting it requires an interactive password — the Operations
-Owner's hands, by definition. It was not attempted further.
-
-### 2.3 No configuration change is required before the restart
+### 2.5 No configuration change was required, and none was made
 
 `WEB_RATE_LIMIT_WEBAUTHN_CHALLENGES_PER_IP` is **new** in `.env.example`, so the
 obvious deployment risk was that the portal would refuse to start against an
-unchanged `/etc/freedom-web/portal.env`. It will not:
-`_Reader.registered_integer` returns `PolicyBound.default` for an unset variable,
-and `PolicyBound.default` is derived from the bound rather than stored
+unchanged `/etc/freedom-web/portal.env`. It did not, as predicted before the
+restart: `_Reader.registered_integer` returns `PolicyBound.default` for an unset
+variable, and that default is derived from the bound rather than stored
 separately, so the unset variable yields **10 per source IP per 10 minutes** —
-precisely the N-32a value Peter accepted. Setting it explicitly is optional and
-changes nothing.
+precisely the N-32a value Peter accepted. The portal started clean and answers on
+both endpoints above, which is the empirical confirmation.
 
 `/etc/freedom-web/portal.env` was **not** read; it is not readable by the review
 account, and nothing here needed it.
 
-### 2.4 What the Operations Owner should run, and what to record
+### 2.6 What this does and does not license
 
-```text
-sudo systemctl restart freedom-web.service
-systemctl show freedom-web.service -p ActiveEnterTimestamp -p MainPID
-curl -s -H 'Host: freedom-blades-test.rpgworld.org' http://127.0.0.1:8001/healthz
-sha256sum -c adapters/web/static/asset-integrity.sha256
-```
-
-Record deployment and restart UTC times, the new PID and its start time, and the
-commit SHA `0bef692…`; confirm the process start **postdates** the commit. The
-`/healthz` fetch is the acceptance test for the restart itself: with the outage
-absent it should still read `identity_provider: true`, but it is now a probe
-answering rather than a literal, which §5 below says how to distinguish.
+Browser observations may now rest on this process: its identity is verified and
+recorded. It licenses nothing else. SP-22's R-41 and R-46 denials, A-05 criteria
+3 and 4, and the staging re-observations in §5 all still have to be **performed**
+before any of them can be recorded.
 
 ---
 
@@ -294,12 +325,12 @@ systemd for unit liveness.
 
 | Item | State |
 |---|---|
-| Reviewed repository package | **Committed** as `0bef692…` |
+| Reviewed repository package | **Committed** as `0bef692…` and **deployed**, process identity verified (§2) |
 | Serial verification set | **Re-run and green**, figures in §1.2 |
 | N-32a | Accepted 2026-08-24; no configuration change needed to deploy it (§2.3) |
 | S-5, S-6 | Closed in the repository by Codex re-review |
-| S-4, S-7, S-9 | Repository remediation accepted; **deployed observation outstanding** |
-| S-1 | **Open** — the running process still predates the commit by ~14 hours |
+| S-4, S-7, S-9 | Repository remediation accepted and now **running**; deployed *behavioural* observation still outstanding (§5) |
+| S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
 | S-2 | **Open** — worker installed, never started, disabled at boot |
 | F3 / SP-22 R-41, R-46 | **Open** |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
@@ -310,15 +341,15 @@ systemd for unit liveness.
 
 ## 8. What is needed next, and from whom
 
-1. **Operations Owner** — restart `freedom-web.service` and record the identity
-   fields in §2.4. Everything downstream waits on this.
+1. ~~Restart `freedom-web.service`~~ — **done 2026-08-25T05:08:56Z** (§2).
 2. **Operations Owner** — enable and verify `freedom-worker.service` (§6),
    unblocking I-06's worker procedures.
 3. **Operations Owner** — supply the exact session-end timestamp and a truthful
    authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
    §4.3).
 4. **Supervised session** — SP-22's R-41 and R-46 denials, and A-05 criteria 3
-   and 4, on the restarted and identity-verified process.
+   and 4, on the restarted and identity-verified process. This is now the
+   critical path.
 5. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
 6. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate
@@ -326,5 +357,6 @@ systemd for unit liveness.
 
 No credential, assertion, challenge, cookie, token, token hash, CSRF value,
 public key, raw IP address or unnecessary identity datum was read or recorded in
-producing this addendum. No production service, production database, staging
-service state, authenticator or external account was mutated.
+producing this addendum. No production service, production database, authenticator or
+external account was mutated. The one staging state change is the
+`freedom-web.service` restart in §2, performed by the Operations Owner.
