@@ -363,6 +363,47 @@ corroborate an observation rather than substitute for one.
 
 ---
 
+### SP-23 — retirement below two enabled credentials is refused
+
+**Added 2026-08-25.** A-05 criterion 3's second half, and §9.2's A-3 row.
+Executed host-locally by the Operations Owner against the staging database.
+
+```text
+$ … -m tools.webauthn_enrollment retire --operator "Peter Duscha" \
+    --credential <record UUID of an enabled credential> \
+    --reason "A-05 criterion 3: observe retirement refusal below two enabled credentials"
+
+Refused: retiring this credential would leave 1, below the minimum of 2 (N-13).
+Enroll a replacement first.
+```
+
+The account held exactly **two** enabled credentials at the time — the state `list`
+reported, and the state it still holds. Nothing was retired and no credential
+record was modified. The record UUID is deliberately not transcribed here, as in
+§2's B-7 row.
+
+**This is a different property from the one §4 already proved, and the distinction
+matters.** §4 observed that *presenting* an already-retired credential is refused
+at login: a dead credential cannot be used. SP-23 observes that a **live**
+credential cannot be *made* dead while it is the second-to-last one. That is the
+property criterion 3 names, and it is the one that keeps the administrator from
+locking themselves out.
+
+The refusal is raised in `tools/webauthn_enrollment.py:212`, **before any write**,
+and its message states the resulting count, the minimum and the policy (N-13). The
+tool's refusal exit status is `EXIT_REFUSED = 1` (`tools/web_operator.py:32`).
+
+**The floor is absolute through the application.** There is no `--force`, no
+override subcommand and no lower-privileged path — `retire` is the only route to
+disabling a credential, and it refuses. The code states the consequence plainly:
+retiring below two leaves the administrator "one hardware failure away from an
+account that can only be recovered by database-owner action outside the
+application". That is a design property worth recording in its own right, and it is
+also why **criterion 4 cannot be observed by retiring a credential**. See the
+operational addendum §5 for what criterion 4 therefore requires.
+
+---
+
 ### A-4 corroboration — the same shell, two authorities, observed back to back
 
 The continuity shell was compared against an ordinary session on the same deployed
@@ -446,7 +487,8 @@ have a credential-existence oracle.
 **This closes the rejection half of A-05 criterion 3 by observation** — a real
 retired passkey, presented in a real browser to the deployed service, refused at
 verification. The *other* half of criterion 3 — that retiring below two enabled
-credentials is refused — is a different procedure (SP-22) and remains **Not Run**.
+credentials is refused — was **observed on 2026-08-25** and is recorded in SP-23
+below.
 
 **Usability observation, not a defect:** the operator cannot distinguish retired
 from current credentials in his authenticator, because the nicknames the portal
@@ -759,9 +801,10 @@ three GET routes SP-22 observed on 2026-08-24, and the two POST routes R-41 and
 R-46 observed on 2026-08-25 against the identity-verified deployed process, each
 answering `403 emergency_surface_refused` from N-65's continuity-surface check
 before any handler ran. **F3 is answered**; criterion 6 no longer rests on
-suite-level evidence. **Criteria 3 (retiring below two is
-refused), 4 (startup and `/healthz` below and at the threshold), 9 (custody,
-replacement, loss) and 10 (Security Reviewer confirmation) are Not Run.**
+suite-level evidence. **Criterion 3** (retiring below two is
+refused) **is evidenced by SP-23** as of 2026-08-25. **Criteria 4 (startup and
+`/healthz` below and at the threshold), 9 (custody, replacement, loss) and 10
+(Security Reviewer confirmation) are Not Run.**
 
 **Five findings from this session bear on A-05 and are undispositioned:** S-4,
 S-5, S-6, S-7 and S-9. The sixth — the SP-22 gap on criterion 6's remaining half,

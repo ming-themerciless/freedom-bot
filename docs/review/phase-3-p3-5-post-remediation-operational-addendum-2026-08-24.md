@@ -325,17 +325,107 @@ permitted, and §5 names the two reads added today and the columns they selected
 
 ## 5. Handover Step 5 — remaining A-05 procedures
 
-**Not executed.** Criteria 3, 4, 9 and 10 all require the Operations Owner, a
-browser, an authenticator or a designated Security Reviewer. Criterion 4 in
-particular takes the credential count below its safe threshold under a bounded
-procedure and must not be attempted unsupervised.
+**Criterion 3 complete. Criterion 4 analysed and blocked on a decision.
+Criteria 9 and 10 not started.**
 
-The proportionate staging re-observations the handover lists are likewise
-deferred; each needs the restarted process. One of them is cheap and worth
-scheduling first, because it is the restart's own acceptance test: with the
-portal's Discord service account faulted, `/healthz` must report
-`identity_provider: false`, `status: degraded` and HTTP **503**. On today's stale
-process it reports `true` and 200 throughout an outage, which is S-4 exactly.
+### 5.1 Criterion 3 — observed 2026-08-25
+
+Recorded as SP-23 in the evidence document. The Operations Owner ran
+`tools.webauthn_enrollment retire` against one of the two enabled credentials and
+it refused:
+
+```text
+Refused: retiring this credential would leave 1, below the minimum of 2 (N-13).
+Enroll a replacement first.
+```
+
+Refused at `tools/webauthn_enrollment.py:212`, **before any write**. Nothing was
+retired; the account still holds two enabled credentials. §9.2's A-3 row also asks
+for the exit status, which is `EXIT_REFUSED = 1` by definition
+(`tools/web_operator.py:32`) and should be captured from the shell rather than
+cited from the source to satisfy the row as written.
+
+Note this is **not** the same fact §4 recorded on 2026-08-24. That observation was
+that *presenting* a retired credential is refused at login — a dead credential
+cannot be used. Criterion 3 is that a **live** credential cannot be made dead while
+it is the second-to-last one. Both now exist.
+
+### 5.2 Criterion 4 — why it cannot be observed the obvious way
+
+Criterion 4 asks for startup and `/healthz` readiness behavior **below** and **at**
+the two-credential threshold. Getting below the threshold is the whole difficulty,
+and SP-23 is precisely why: the application refuses to take itself there. `retire`
+is the only route to disabling a credential, it has no `--force`, no override
+subcommand and no lower-privileged path, and it refuses at two. The code names the
+only remaining route explicitly — "database-owner action outside the application".
+
+So there are exactly two ways to observe the below-threshold state:
+
+1. **Direct database action against the real staging account** — disable one of
+   Peter's live credentials, observe, restore. This is the one thing the handover
+   forbids: *"Do not jeopardize actual recovery access."* It is also the action the
+   N-13 floor exists to prevent, so performing it to test the floor is
+   self-defeating. **Not recommended.**
+2. **A disposable database seeded below the threshold**, with the real deployed
+   build and a production-class environment setting. Nothing real is touched: no
+   credential of Peter's is modified, no recovery access is at risk, and the code
+   under observation is the deployed code rather than a test double.
+
+**Option 2 is the recommendation**, with its limitation stated rather than hidden:
+§9.3 of the readiness plan says A-05 is "not closable on … a passing unit test", and
+a disposable-database startup run sits closer to that line than a staging
+observation does. The judgment of whether it satisfies criterion 4 belongs to the
+**designated Security Reviewer**, not to the reviewer producing it. It is offered as
+an observation with a named limitation, not as a closure.
+
+### 5.3 A finding criterion 4 surfaced: `/healthz` cannot report this shortfall
+
+§9.2's A-4 row asks to prove "production-class startup refuses below two (S-15)
+**and that `/healthz` reports the shortfall**". The second half **cannot be
+satisfied as written**, and this appears to be a real gap rather than a wording
+problem:
+
+- The credential count is checked by `_check_break_glass_credentials`
+  (`application/web/startup.py:169-199`), which runs inside `run_resource_checks`
+  — **startup only**.
+- `build_health_view` (`application/web/startup.py:~232-280`) builds VM-16's closed
+  check vocabulary — `database`, `migrations`, `artifact_store`,
+  `worker_heartbeat`, `expired_leases`, `identity_provider`, `kill_switch`. There
+  is **no** break-glass credential check among them, and VM-16's vocabulary is
+  closed, so one cannot appear without being added.
+- S-15 is a refusal **only in production**; outside it, it is a startup *warning*
+  (`startup.py:15-17`, stated deliberately: a development host has no hardware
+  keys).
+
+The consequence on a staging host: an account holding **one** enabled credential
+starts normally, emits a warning that scrolls past once at boot, and then answers
+`/healthz` with `status: ok` and every check green — indefinitely. An operator
+polling the endpoint built for exactly this question cannot see that the platform is
+one hardware failure from an unrecoverable administrator account.
+
+**This is the same shape as S-4 and as the `worker_heartbeat` trap**: a health
+endpoint that cannot report a condition an operator would reach for it to learn.
+S-4 was raised as a finding and fixed. This one is raised here for the Security
+Reviewer, with no change proposed — the frontend and route surface are frozen, VM-16
+is a closed accepted vocabulary, and adding a check to it is a contract change that
+needs its own decision, not a drive-by fix during evidence work.
+
+### 5.4 Criteria 9 and 10, and the staging re-observations
+
+Criterion 9 (custody, replacement, loss and recovery, documented without credential
+material) is unwritten. It must include the usability observation §8.4 already
+records: portal nicknames do not distinguish retired from current passkeys in the
+platform UI, and a wrong selection consumes limiter budget.
+
+Criterion 10 is the designated Security Reviewer's confirmation, and by its own
+terms comes only after every other criterion and disposition is complete.
+
+The proportionate staging re-observations the handover lists still need the
+Operations Owner. One is worth scheduling first because it is the acceptance test
+for the S-4 remediation itself: with the portal's Discord service account faulted,
+`/healthz` must report `identity_provider: false`, `status: degraded` and HTTP
+**503**. §2.3 shows the probe is running; this would show it answering correctly
+when the answer is "no".
 
 ---
 
@@ -395,7 +485,8 @@ systemd for unit liveness.
 | S-2 | **Open** — worker installed, never started, disabled at boot |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
-| A-05, I-06, A-06 | **Open** |
+| A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; 4, 9, 10 outstanding |
+| I-06, A-06 | **Open** |
 | R-23 | **Active** |
 | Phase 3 gate | **Open** |
 | Public exposure, Phase 4 | **Unauthorized** |
@@ -408,11 +499,18 @@ systemd for unit liveness.
 3. **Operations Owner** — supply the exact session-end timestamp and a truthful
    authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
    §4.3).
-4. ~~SP-22's R-41 and R-46 denials~~ — **done 2026-08-25** (§3). **Supervised
-   session** — A-05 criteria 3 and 4 remain, on the identity-verified process.
-5. **Security Reviewer** — the A-05 readiness recommendation, only once the
+4. ~~SP-22's R-41 and R-46 denials~~ and ~~A-05 criterion 3~~ — **done
+   2026-08-25** (§3, §5.1).
+5. **Decision needed** — whether criterion 4 may be satisfied by a
+   disposable-database observation (§5.2). The Security Reviewer's call, not the
+   Operations Owner's and not the producing reviewer's.
+6. **Security Reviewer** — the §5.3 `/healthz` gap: a one-credential account
+   reports fully healthy outside production.
+7. **Operations Owner + supervised session** — the §5.4 staging re-observations,
+   starting with the provider-outage acceptance test for S-4.
+8. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
-6. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate
+9. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate
    decision, separately and last.
 
 No credential, assertion, challenge, cookie, token, token hash, CSRF value,
