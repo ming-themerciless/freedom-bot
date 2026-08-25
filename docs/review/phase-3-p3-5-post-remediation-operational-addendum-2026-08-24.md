@@ -196,10 +196,71 @@ before any of them can be recorded.
 
 ## 3. Handover Step 3 — SP-22 on deployed R-41 and R-46
 
-**Not executed.** It requires a live break-glass session established by a human
-at a browser with a platform authenticator, on a process whose identity has been
-verified after restart. Neither precondition is satisfiable from a shell, and
-Step 2 is not done. A-05 criterion 6 remains incomplete.
+**Complete. A-05 criterion 6 is now evidenced in full, and F3 is answered.**
+
+Executed by the Operations Owner on 2026-08-25 from inside an authenticated page
+of a live break-glass session, against the identity-verified process PID 3785672.
+
+| Route | Path | Time (UTC) | Status | Refusal |
+|---|---|---|---|---|
+| R-41 | `POST /v1/admin/snapshots/{synthetic}/folder` | 05:22:31.435Z | **403** | `emergency_surface_refused` |
+| R-46 | `POST /v1/council/jobs/{synthetic}/apply` | 05:22:31.608Z | **403** | `emergency_surface_refused` |
+
+Both are passes. `emergency_surface_refused` is raised by the **first** statement
+of `authorize()` (`application/web/access_control.py:318-319`) — N-65's
+continuity-surface check, which the function evaluates *before* the route's
+capability requirement, deliberately, so that a break-glass session on a Council
+route is refused for being emergency-scoped rather than for lacking Council. The
+handover asked for an authorization `403` from the continuity-scope capability
+decision and this is it, refusing one step earlier than a capability-requirement
+refusal would have.
+
+`emergency_scope_refused` was the anticipated code and is **not** the correct one
+here: it is raised deeper, by `require_full_administrator_scope()` and the
+mapping-capability checks (`application/web/capabilities.py:476`, `:492`), which
+N-65's surface check preempts on these two routes. The observed code is the more
+specific of the two and the one the contract's ordering requires.
+
+### 3.1 Method, and the two rules it had to satisfy
+
+The 2026-08-24 session left these two routes unobserved for a stated reason: they
+are POSTs taking an identifier, so they cannot be driven from a browser address
+bar, and driving them from a shell would mean handling the operator's session
+cookie, which A-8 forbids. Issuing them **from inside the already-authenticated
+page** satisfies both at once — the browser attaches the HttpOnly cookie itself,
+so it was never read, copied, printed or recorded, and the CSRF value was taken
+from the hidden field the page had already rendered and was likewise never
+recorded. Only route, UTC time, status and refusal code were captured, which is
+exactly what the handover permits.
+
+Path identifiers were synthetic well-formed UUIDs
+(`00000000-0000-4000-8000-000000000001`) naming no real snapshot and no real job.
+Bodies were minimal and form-encoded. No mutation was attempted and none occurred.
+
+### 3.2 Why neither result is a false pass
+
+The 2026-08-24 session recorded a near-miss on the GET half of SP-22: the first
+attempt returned the Discord sign-in page for all three URLs, which is the
+signature of *no session at all* rather than of a break-glass session being
+refused. The same discipline applies here, and the preamble's fixed order
+(`adapters/web/import_routes.py:150-230`) makes each early failure separately
+observable:
+
+| Failure mode | Observable | Seen? |
+|---|---|---|
+| No session | `401`, or `303` on a navigation route | no |
+| Foreign origin | `403 origin_invalid` | no |
+| Wrong content type | `415` | no |
+| Missing length | `411` | no |
+| Bad or absent CSRF | `403` with body exactly `{"error": "csrf_invalid"}` | no |
+| **Continuity surface (step 5)** | **`403 emergency_surface_refused`** | **both routes** |
+
+Only step 5 produces the observed code, so the requests demonstrably reached
+authorization. And neither reached **object lookup**: a handler that had run would
+have answered `snapshot_absent`, `job_absent` or `object_not_reachable` for an
+identifier naming nothing, and neither did. That absence is criterion 6's actual
+property — the route refuses before it looks the object up, so an emergency
+administrator cannot use it to learn whether an identifier exists.
 
 ---
 
@@ -332,7 +393,7 @@ systemd for unit liveness.
 | S-4, S-7, S-9 | Repository remediation accepted and now **running**; deployed *behavioural* observation still outstanding (§5) |
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
 | S-2 | **Open** — worker installed, never started, disabled at boot |
-| F3 / SP-22 R-41, R-46 | **Open** |
+| F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
 | A-05, I-06, A-06 | **Open** |
 | R-23 | **Active** |
@@ -347,9 +408,8 @@ systemd for unit liveness.
 3. **Operations Owner** — supply the exact session-end timestamp and a truthful
    authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
    §4.3).
-4. **Supervised session** — SP-22's R-41 and R-46 denials, and A-05 criteria 3
-   and 4, on the restarted and identity-verified process. This is now the
-   critical path.
+4. ~~SP-22's R-41 and R-46 denials~~ — **done 2026-08-25** (§3). **Supervised
+   session** — A-05 criteria 3 and 4 remain, on the identity-verified process.
 5. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
 6. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate

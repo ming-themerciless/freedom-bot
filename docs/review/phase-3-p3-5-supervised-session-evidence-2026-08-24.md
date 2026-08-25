@@ -271,7 +271,10 @@ loss) is documentation not yet written.
 
 ---
 
-### SP-22 partial — the break-glass boundary observed at the route, not only in the frame
+### SP-22 — the break-glass boundary observed at the route, not only in the frame
+
+**Completed 2026-08-25.** The navigation half was observed on 2026-08-24; the
+import-apply half on 2026-08-25, recorded at the end of this section.
 
 **Added after the §4 procedure closed**, because §4 evidenced only the presentation
 half of A-05 criterion 6. A withheld navigation link is not an enforced boundary.
@@ -302,15 +305,61 @@ holding a break-glass session, the result was the denial page. **Had the first
 result been recorded, this document would carry a pass for a test performed
 signed-out.**
 
-**Still not observed:** the **import-apply** half of criterion 6. R-46
-(`POST /v1/council/jobs/{job_id}/apply`) and R-41
-(`POST /v1/admin/snapshots/{snapshot_id}/folder`) are POST routes requiring a job or
-snapshot identifier, so they cannot be exercised from a browser address bar, and
-exercising them from the command line would require handling the operator's session
-cookie — which A-8 forbids recording and which the reviewer should not do. They
-remain covered by `tests/web/test_break_glass_login.py` and the TC-BG-05 rows, at
-suite level only. R-40's refusal does mean the emergency administrator cannot reach
-the import surface through the application at all.
+**Completed 2026-08-25 — the import-apply half of criterion 6 is now observed.**
+R-41 and R-46 are POST routes taking an identifier, so they cannot be driven from a
+browser address bar, and driving them from a shell would mean handling the
+operator's session cookie — which A-8 forbids recording and which the reviewer must
+not do. Both constraints are met by issuing the requests **from inside the
+already-authenticated page**: the browser attaches the HttpOnly cookie itself, so it
+is never read, copied, printed or recorded, and the CSRF value is taken from the
+hidden field the page had already rendered and is likewise never recorded.
+
+Executed by the Operations Owner from `/v1/admin/role-capabilities`, holding a live
+break-glass session, on the identity-verified process PID 3785672 (see the
+post-remediation operational addendum §2). Path identifiers were **synthetic**
+well-formed UUIDs — `00000000-0000-4000-8000-000000000001` — naming no real
+snapshot and no real job. Bodies were minimal and form-encoded, carrying the valid
+CSRF value.
+
+| Route | Path | Time (UTC) | Status | Refusal |
+|---|---|---|---|---|
+| R-41 | `POST /v1/admin/snapshots/{synthetic}/folder` | 2026-08-25T05:22:31.435Z | **403** | `emergency_surface_refused` |
+| R-46 | `POST /v1/council/jobs/{synthetic}/apply` | 2026-08-25T05:22:31.608Z | **403** | `emergency_surface_refused` |
+
+**Both are passes, and at a stricter point than criterion 6 asks for.**
+`emergency_surface_refused` is raised by the **first** statement in
+`application/web/access_control.py:318-319` — N-65's continuity-surface check, which
+`authorize()` evaluates *before* the route's capability requirement, deliberately,
+"so a break-glass session on a Council route is refused for being emergency-scoped
+rather than for lacking Council". The refusal therefore proves more than that the
+caller lacked import-apply authority: it proves the continuity surface excluded the
+route outright, before the requirement was consulted and long before any handler ran.
+
+**Why neither result is a false pass.** The preamble
+(`adapters/web/import_routes.py:150-230`) refuses in a fixed order — session, then
+origin and content type and body bound, then CSRF, then capability — so each way of
+failing early is distinguishable from this outcome by its own observable:
+
+- a sessionless attempt answers `401`, or `303` on a navigation route;
+- a foreign origin answers `403 origin_invalid`;
+- a wrong content type answers `415`, and a missing length `411`;
+- a bad or absent CSRF value answers `403` with a JSON body of exactly
+  `{"error": "csrf_invalid"}`, from step 3, **before** step 5 is reached.
+
+None of those was observed; both routes answered `403 emergency_surface_refused`,
+which only step 5 produces. Nor did either request reach object lookup: a handler
+that had run would have answered `snapshot_absent`, `job_absent` or
+`object_not_reachable` for a synthetic identifier naming nothing, and neither did.
+That absence is the criterion-6 property — the route refuses **before** it looks the
+object up, so an emergency administrator cannot use it to discover whether an
+identifier exists.
+
+The earlier §4 observation that R-40 (`/v1/council/snapshots`) is refused already
+showed the emergency administrator cannot *navigate* to the import surface. These
+two rows show the mutating endpoints refuse even when addressed directly, with a
+valid session and a valid CSRF value. Criterion 6 no longer rests on suite-level
+evidence alone; `tests/web/test_break_glass_login.py` and the TC-BG-05 rows now
+corroborate an observation rather than substitute for one.
 
 ---
 
@@ -705,15 +754,18 @@ at 09:33Z and resumed the same day.
 **A-05 does not close on this session.** Criteria 1, 2, 2a and 5 are evidenced by
 §4. **Criterion 8** (recovery grant issued, used once, replay and expiry refused)
 **is evidenced by SP-21**, with the `revoke` / `invalidate_all` path still Not
-Run. **Criterion 6** is evidenced in full for presentation and for the three GET
-routes SP-22 observed; its two POST routes (R-41, R-46) remain suite-only, which
-the independent review records as F3 and asks to be observed on the deployed
-build before criterion 6 is used for closure. **Criteria 3 (retiring below two is
+Run. **Criterion 6** is evidenced **in full as of 2026-08-25**: presentation, the
+three GET routes SP-22 observed on 2026-08-24, and the two POST routes R-41 and
+R-46 observed on 2026-08-25 against the identity-verified deployed process, each
+answering `403 emergency_surface_refused` from N-65's continuity-surface check
+before any handler ran. **F3 is answered**; criterion 6 no longer rests on
+suite-level evidence. **Criteria 3 (retiring below two is
 refused), 4 (startup and `/healthz` below and at the threshold), 9 (custody,
 replacement, loss) and 10 (Security Reviewer confirmation) are Not Run.**
 
-**Six findings from this session bear on A-05 and are undispositioned:** S-4,
-S-5, S-6, S-7, S-9 and — for criterion 6's remaining half — the SP-22 gap. S-5 and
+**Five findings from this session bear on A-05 and are undispositioned:** S-4,
+S-5, S-6, S-7 and S-9. The sixth — the SP-22 gap on criterion 6's remaining half,
+recorded as F3 — was **closed by observation on 2026-08-25** (see SP-22 above). S-5 and
 S-6 go to criterion 7 (limiter, audit, correlation, logout/revocation) directly,
 and the independent review holds both **blocking** for it; S-9 goes to criterion
 8's forensic quality without disturbing SP-21's behavioural proof.
