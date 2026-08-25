@@ -410,6 +410,58 @@ operational addendum §5 for what criterion 4 therefore requires.
 
 ---
 
+### SP-24 — startup and `/healthz` below and at the two-credential threshold
+
+**Added 2026-08-25.** A-05 criterion 4, and §9.2's A-4/A-5 rows. **Partial: the
+non-production half is observed; the production-refusal half is not.**
+
+Observed against a **disposable database** (`freedom_dev`, empty and unused before
+this: no schema, no rows), migrated to head `0013`, seeded with a protected
+administrator account and synthetic credential records. No real credential, no
+authenticator and no staging or production data was involved, and the staging
+portal was untouched throughout. The build observed is the deployed one.
+
+| # | State | Environment | Startup | `/healthz` |
+|---|---|---|---|---|
+| 1 | **1 enabled credential** (below) | `development` | **starts normally** | `200`, `status: ok`, every check `true` |
+| 2 | **2 enabled credentials** (at) | `development` | starts normally | `200`, `status: ok`, every check `true` |
+
+**The two `/healthz` bodies are byte-identical**, and so are the two startup logs.
+`diff` reports no difference. One credential and two are indistinguishable from
+outside the process.
+
+**The check does run.** Called directly against the one-credential state, with the
+same settings the process builds, `run_resource_checks` returns:
+
+```text
+environment       : development
+is_production     : False
+warnings returned : 1
+  [S-15] the protected administrator account has 1 enabled WebAuthn credential(s);
+         N-13 requires at least 2. Enroll them with
+         `python -m tools.webauthn_enrollment` before the portal is exposed.
+startup refused   : no — run_resource_checks returned instead of raising
+```
+
+So the condition is detected, and a warning object describing it exactly is
+produced. **Nothing then surfaces it.** The lifespan assigns the result to
+`composition.startup_warnings` (`adapters/web/app.py:470`), and that attribute is
+read by **no route, service, repository or control** — the composition's own
+docstring says so (`adapters/web/composition.py:312`), and a repository-wide search
+finds no reader outside `tests/`. It is never logged, never printed and never
+reaches VM-16. This is recorded as finding **F6**; see the operational addendum §5.3.
+
+**What is Not Run:** the production half of A-4 — that a *production-class* startup
+**refuses** below two (S-15 as a `ConfigurationProblem` rather than a warning). It
+was not observed because `is_production` is true only for `WEB_ENVIRONMENT=production`,
+and the configuration pins each environment to its own database name
+(`adapters/database/config.py:14-19`), so observing it requires a database named
+`freedom_production`. Creating one — even disposably — on the staging host was
+judged to need an explicit decision rather than a reviewer's discretion, and it has
+not been taken. **Criterion 4 therefore remains open.**
+
+---
+
 ### A-4 corroboration — the same shell, two authorities, observed back to back
 
 The continuity shell was compared against an ordinary session on the same deployed

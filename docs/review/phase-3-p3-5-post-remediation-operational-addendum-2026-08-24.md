@@ -325,8 +325,8 @@ permitted, and §5 names the two reads added today and the columns they selected
 
 ## 5. Handover Step 5 — remaining A-05 procedures
 
-**Criterion 3 complete. Criterion 4 analysed and blocked on a decision.
-Criteria 9 and 10 not started.**
+**Criterion 3 complete. Criterion 4 half-observed and blocked on one decision.
+F6 raised. Criteria 9 and 10 not started.**
 
 ### 5.1 Criterion 3 — observed 2026-08-25
 
@@ -351,65 +351,132 @@ that *presenting* a retired credential is refused at login — a dead credential
 cannot be used. Criterion 3 is that a **live** credential cannot be made dead while
 it is the second-to-last one. Both now exist.
 
-### 5.2 Criterion 4 — why it cannot be observed the obvious way
+### 5.2 Criterion 4 — executed on a disposable database; one half remains
 
-Criterion 4 asks for startup and `/healthz` readiness behavior **below** and **at**
-the two-credential threshold. Getting below the threshold is the whole difficulty,
-and SP-23 is precisely why: the application refuses to take itself there. `retire`
-is the only route to disabling a credential, it has no `--force`, no override
-subcommand and no lower-privileged path, and it refuses at two. The code names the
-only remaining route explicitly — "database-owner action outside the application".
+Authorised by the Operations Owner on 2026-08-25 and executed the same day.
+Recorded as **SP-24** in the evidence document.
 
-So there are exactly two ways to observe the below-threshold state:
+Getting *below* the threshold is the whole difficulty, and SP-23 is why: the
+application refuses to take itself there. `retire` is the only route to disabling
+a credential, it has no `--force` and no override, and it refuses at two. The code
+names the only remaining route — "database-owner action outside the application".
+So the two options were direct action against Peter's real credentials, which the
+handover forbids and which the N-13 floor exists to prevent, or a disposable
+database. The second was taken.
 
-1. **Direct database action against the real staging account** — disable one of
-   Peter's live credentials, observe, restore. This is the one thing the handover
-   forbids: *"Do not jeopardize actual recovery access."* It is also the action the
-   N-13 floor exists to prevent, so performing it to test the floor is
-   self-defeating. **Not recommended.**
-2. **A disposable database seeded below the threshold**, with the real deployed
-   build and a production-class environment setting. Nothing real is touched: no
-   credential of Peter's is modified, no recovery access is at risk, and the code
-   under observation is the deployed code rather than a test double.
+**Target:** `freedom_dev` — empty and unused before this, with no schema and no
+rows, on the same host. Migrated to head `0013`, seeded with a protected
+administrator account and synthetic credential records. No real credential, no
+authenticator, no staging data and no production data was involved. The staging
+portal was untouched and stayed up throughout; the observations ran a second
+process on port 8099.
 
-**Option 2 is the recommendation**, with its limitation stated rather than hidden:
-§9.3 of the readiness plan says A-05 is "not closable on … a passing unit test", and
-a disposable-database startup run sits closer to that line than a staging
-observation does. The judgment of whether it satisfies criterion 4 belongs to the
-**designated Security Reviewer**, not to the reviewer producing it. It is offered as
-an observation with a named limitation, not as a closure.
+| # | State | Environment | Startup | `/healthz` |
+|---|---|---|---|---|
+| 1 | 1 enabled credential (below) | `development` | starts normally | `200`, `status: ok`, all checks `true` |
+| 2 | 2 enabled credentials (at) | `development` | starts normally | `200`, `status: ok`, all checks `true` |
 
-### 5.3 A finding criterion 4 surfaced: `/healthz` cannot report this shortfall
+The two health bodies are **byte-identical** and so are the two startup logs.
 
-§9.2's A-4 row asks to prove "production-class startup refuses below two (S-15)
-**and that `/healthz` reports the shortfall**". The second half **cannot be
-satisfied as written**, and this appears to be a real gap rather than a wording
-problem:
+**Not Run: the production half.** §9.2's A-4 row asks for a *production-class*
+startup **refusing** below two. `is_production` is true only for
+`WEB_ENVIRONMENT=production`, and `adapters/database/config.py:14-19` pins each
+environment to its own database name, so observing that refusal requires a
+database literally named **`freedom_production`**. Creating one on the staging
+host — even to drop it minutes later — is not a reviewer's call: it manufactures
+the exact artifact the `EXPECTED_DATABASES` rail exists to keep distinct from
+non-production, and a database with that name outliving its purpose is a hazard to
+whoever meets it next. **The decision is put to the Operations Owner and the
+Security Reviewer rather than taken.** Until it is, **criterion 4 remains open.**
 
-- The credential count is checked by `_check_break_glass_credentials`
-  (`application/web/startup.py:169-199`), which runs inside `run_resource_checks`
-  — **startup only**.
-- `build_health_view` (`application/web/startup.py:~232-280`) builds VM-16's closed
-  check vocabulary — `database`, `migrations`, `artifact_store`,
-  `worker_heartbeat`, `expired_leases`, `identity_provider`, `kill_switch`. There
-  is **no** break-glass credential check among them, and VM-16's vocabulary is
-  closed, so one cannot appear without being added.
-- S-15 is a refusal **only in production**; outside it, it is a startup *warning*
-  (`startup.py:15-17`, stated deliberately: a development host has no hardware
-  keys).
+### 5.3 F6 — the two-credential shortfall is detected and then reported to nobody
 
-The consequence on a staging host: an account holding **one** enabled credential
-starts normally, emits a warning that scrolls past once at boot, and then answers
-`/healthz` with `status: ok` and every check green — indefinitely. An operator
-polling the endpoint built for exactly this question cannot see that the platform is
-one hardware failure from an unrecoverable administrator account.
+The previous revision of this addendum recorded that `/healthz` cannot report the
+credential shortfall. Executing SP-24 showed the situation is **worse than that**,
+and the correction is worth stating plainly: it is not that one channel is missing.
+It is that **no channel exists at all** outside production.
 
-**This is the same shape as S-4 and as the `worker_heartbeat` trap**: a health
-endpoint that cannot report a condition an operator would reach for it to learn.
-S-4 was raised as a finding and fixed. This one is raised here for the Security
-Reviewer, with no change proposed — the frontend and route surface are frozen, VM-16
-is a closed accepted vocabulary, and adding a check to it is a contract change that
-needs its own decision, not a drive-by fix during evidence work.
+The check runs and produces exactly the right words. Called against the
+one-credential state with the settings the process builds:
+
+```text
+warnings returned : 1
+  [S-15] the protected administrator account has 1 enabled WebAuthn credential(s);
+         N-13 requires at least 2.
+```
+
+And then that warning goes nowhere:
+
+- the lifespan assigns it to `composition.startup_warnings`
+  (`adapters/web/app.py:470`);
+- `adapters/web/composition.py:312` describes that attribute as "diagnostic output
+  no route, service, repository or control reads", which is accurate — a
+  repository-wide search finds **no reader outside `tests/`**;
+- it is never logged, never printed to stdout or stderr, and never reaches VM-16;
+- `build_health_view` has no credential check, and VM-16's vocabulary is closed;
+- and S-15 is a refusal only in production.
+
+The observed consequence, on a staging or development host: an administrator
+account down to **one** credential starts normally, emits nothing anywhere, and
+answers `/healthz` with `status: ok` and every check green — permanently, and
+byte-identically to a healthy two-credential account. The only place the condition
+is ever stated is the enrollment tool's own output at the moment of enrollment,
+which is a transcript line in a terminal that has since scrolled away.
+
+**This is the third instance of one pattern in this package**, which is why it is
+raised as a finding rather than a note. S-4 was a health check that reported a
+literal instead of asking. `worker_heartbeat` reported `true` through 58 crash
+loops of a dead worker. F6 detects a condition correctly and discards it. In each
+case an operator consults the endpoint built for the question and is told nothing
+is wrong.
+
+**No fix is proposed here.** The route surface is frozen, VM-16 is an accepted
+closed vocabulary, and adding a check to it is a contract change that needs its own
+decision — not a drive-by edit during evidence work. Recording the finding is the
+work; deciding what to do about it is the Security Reviewer's and the Acceptance
+Authority's.
+
+### 5.3.1 Host state left behind by SP-24
+
+Stated so it is not discovered later and mistaken for something real:
+
+- `freedom_dev` now holds the schema at head `0013`, one **synthetic** protected
+  administrator account and two **synthetic** credential records
+  (`synthetic-one`, `synthetic-two`) whose credential id and public key are
+  invented base64url text and correspond to no authenticator. It was empty before.
+  Nothing points at this database; the staging portal uses `freedom_staging`.
+- The synthetic environment file used for the observation is in the session
+  scratch directory, not the repository, and contains freshly generated throwaway
+  keys and no real secret.
+- No process was left running; port 8099 is free.
+
+### 5.3.2 An error made while setting SP-24 up, and its cost
+
+`freedom_test` — the disposable database the portal suite runs against — was
+dropped in the first setup attempt, before it was established that this account
+cannot recreate one: `foundry` has `rolcreatedb = false`, and `createdb` failed
+after the `dropdb` had already succeeded. The database is **gone and cannot be
+restored without the Operations Owner**:
+
+```text
+sudo -u postgres createdb --owner=foundry freedom_test
+```
+
+That is the same form `infra/staging/setup-portal-host.sh:138` uses, and `foundry`
+is the owner `freedom_dev` and `freedom_staging` already have.
+
+Consequences, stated fully:
+
+- **The portal suite cannot run until it is restored.** `tests/web` requires
+  `TEST_DATABASE_URL` pointing at it. The commits made after this point were
+  therefore verified only by the bot suite and by inspection, and that limitation
+  is recorded in each of their messages rather than left implicit.
+- **Nothing else is affected.** `freedom_test` is used by the test suite alone. The
+  staging portal (`freedom_staging`), the worker, the staging data and every
+  observation recorded in this addendum are untouched — the suite figures in §1.2
+  were produced before this happened.
+- Once restored, `alembic upgrade head` against it and a full `tests/web` run
+  should reproduce **2330 passed, 80 skipped**, and that re-run should be recorded.
 
 ### 5.4 Criteria 9 and 10, and the staging re-observations
 
@@ -561,7 +628,7 @@ class of failure will keep requiring a human until that access changes.
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
-| A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; 4, 9, 10 outstanding |
+| A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; criterion 4 half-observed (SP-24); 4, 9, 10 outstanding |
 | I-06, A-06 | **Open** |
 | R-23 | **Active** |
 | Phase 3 gate | **Open** |
@@ -578,16 +645,19 @@ class of failure will keep requiring a human until that access changes.
    §4.3).
 4. ~~SP-22's R-41 and R-46 denials~~ and ~~A-05 criterion 3~~ — **done
    2026-08-25** (§3, §5.1).
-5. **Decision needed** — whether criterion 4 may be satisfied by a
-   disposable-database observation (§5.2). The Security Reviewer's call, not the
-   Operations Owner's and not the producing reviewer's.
-6. **Security Reviewer** — the §5.3 `/healthz` gap: a one-credential account
-   reports fully healthy outside production.
-7. **Operations Owner + supervised session** — the §5.4 staging re-observations,
+5. **Operations Owner** — restore the test database, which this work destroyed
+   (§5.3.2): `sudo -u postgres createdb --owner=foundry freedom_test`. The portal
+   suite cannot run until then.
+6. **Decision needed** — whether a disposable database named `freedom_production`
+   may be created and dropped on this host to observe criterion 4's remaining
+   production-refusal half (§5.2). Not a reviewer's call to make alone.
+7. **Security Reviewer** — finding **F6** (§5.3): a below-threshold credential
+   count is detected and then reported to nobody outside production.
+8. **Operations Owner + supervised session** — the §5.4 staging re-observations,
    starting with the provider-outage acceptance test for S-4.
-8. **Security Reviewer** — the A-05 readiness recommendation, only once the
+9. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
-9. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate
+10. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate
    decision, separately and last.
 
 No credential, assertion, challenge, cookie, token, token hash, CSRF value,
