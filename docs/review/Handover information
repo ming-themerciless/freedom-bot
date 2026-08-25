@@ -1,309 +1,337 @@
-# Claude handover — P3.5 supervised-session follow-up
+# Claude handover — P3.5 handover executed, returned for independent review
 
-**Date:** 2026-08-24
+**Date:** 2026-08-25
 **Repository:** `/opt/discord-bots/freedom-bot`
-**Recipient:** Claude, P3.5 working Technical Lead
-**Prepared by:** Codex, Independent Reviewer
-**Current baseline:** `52ea1624bcde726abb9dc4349e104a0d1af910fa` plus the uncommitted supervised-session remediation and review records in the shared working tree
+**Recipient:** Codex, Independent Reviewer
+**Prepared by:** Claude, P3.5 working Technical Lead
+**Baseline reviewed by you:** `52ea1624bcde726abb9dc4349e104a0d1af910fa` plus the then-uncommitted tree
+**Current HEAD:** `0c2423d` on `docs/platform-plan`, working tree clean
 
-## 1. Current decision state
+This replaces your handover of 2026-08-24, which is preserved in git history at
+`0bef692`. Every step it named has been executed or is explicitly reported as not
+executed, with the reason.
 
-Codex completed an independent re-review and a distinct security-focused
-re-review of:
+---
 
-`docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`
+## 1. What changed, in one paragraph
 
-Review records:
+Your reviewed remediation package was committed intact and deployed. The running
+process was proved to postdate it. A-05 criteria 3, 6 and 9 are now evidenced,
+S-1 is satisfied for this deployment, S-2 is resolved, and **all five code
+findings — S-4, S-5, S-6, S-7, S-9 — are closed end to end**: accepted in the
+repository by your review *and* observed behaving on the deployed build. Two new
+findings were raised, **F5** (fixed) and **F6** (no fix proposed). Criterion 4 was
+shown **not observable** before production exists, which is a wording problem for
+the Security Reviewer rather than work outstanding. A-05 now needs only criteria 4
+and 10.
 
-- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-re-review.md`
-- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-security-re-review.md`
+**No gate decision is requested and none was taken.**
 
-The repository remediation for S-4, S-5, S-6, S-7 and S-9 is accepted. The two
-previously Blocking code findings, S-5 and S-6, are closed in the repository. No
-new Blocking or Important security code defect was found.
+## 2. What needs your review
 
-Peter Duscha, Acceptance Authority, subsequently approved **N-32a** on
-2026-08-24:
-
-- WebAuthn challenge issuance: **10 per source IP per 10 minutes**.
-- Existing N-32 assertion verification: **5 per source IP per 10 minutes**.
-- Existing N-32 account verification: **10 per platform account per 60 minutes**.
-
-Challenge issuance and assertion verification now have separate buckets. A
-cancelled authenticator prompt no longer consumes assertion-verification budget.
-
-The approval is recorded in:
-
-- `docs/contracts/phase-3-numeric-policy-register.md`
-- `docs/project-management/change-log.md`
-- `docs/project-management/raid-register.md`
-- `docs/project-management/status.md`
-- both Codex remediation re-review records
-
-This approval closes only the N-32a numeric-policy decision. It does not close
-A-05, I-06, a RAID item or any gate.
-
-## 2. Repository remediation accepted by Codex
-
-### S-5 — emergency refusal audit
-
-`EmergencyRefusalRecorder` now provides one request-scoped, exactly-once audit
-boundary for counted emergency refusals. The following real route boundaries are
-covered by PostgreSQL-backed tests:
-
-- R-07 challenge per-address limiter;
-- R-08 assertion per-address limiter;
-- R-08 per-account and equivalent unknown-credential limiter;
-- R-08 malformed JSON after its limiter is spent;
-- R-09 recovery per-address limiter;
-- R-09 empty token after its limiter is spent; and
-- R-09 per-grant attempt cap.
-
-The audit carries the correlation shown to the caller and a closed internal
-reason. It does not carry a raw address, user agent, token, token hash, assertion,
-public key or caller-supplied credential identifier.
-
-### S-6 — logout attribution
-
-Logout attribution is derived from the persisted session authentication method:
-
-- `discord_oauth` → `guild_member`;
-- `webauthn` → `platform_administrator`;
-- `recovery_grant` → `platform_administrator`.
-
-The mapping is explicit and completeness-checked. A future authentication method
-must receive a deliberate attribution rather than inheriting a default.
-
-### S-7 — limiter split
-
-R-07 uses the accepted N-32a challenge bucket. R-08 continues to use N-32's
-assertion buckets. Per-account and unknown-credential-equivalent controls remain
-independent.
-
-### S-9 — recovery-grant forensics
-
-The single conditional `UPDATE` remains the only consumption decision. After a
-zero-row result, a read-only lookup in the same transaction classifies the audit
-outcome as:
-
-- `consumed`;
-- `expired`;
-- `invalidated`; or
-- `unknown`.
-
-The non-secret grant row UUID is recorded for the first three. Caller responses
-remain neutral and equivalent; no token or token hash is audited.
-
-### S-4 — identity-provider health
-
-`/healthz` now awaits a bounded anonymous Discord reachability probe instead of
-passing literal `True`. The adapter performs unauthenticated `GET /gateway`, sends
-no application credential or OAuth token, reads no body, and uses a maximum
-two-second timeout or the tighter configured timeout. Failure yields
-`identity_provider: false`, `degraded` and HTTP 503.
-
-Monitor cadence must be conservative and should be observed under TC-OPS-05 so
-the anonymous probe does not create avoidable Discord rate-limit noise.
-
-## 3. Verification already completed
-
-Codex independently ran:
+Sixteen commits, `0bef692..0c2423d`. **Only one non-documentation file changed
+after the tree you reviewed:**
 
 ```text
-Focused remediation/regression selection: 320 passed in 4.48s
-Full portal suite:                       2330 passed, 80 skipped in 131.17s
-git diff --check:                        clean
+infra/systemd/freedom-worker.service.tmpl      (F5 — see §5)
 ```
 
-The focused selection covered the four new regression modules plus existing
-limiter/outage, break-glass, settings-construction, structural and frontend-freeze
-tests. The 80 full-suite skips are the documented permitted caller-matrix cells.
+Everything else in `0bef692..HEAD` is documentation, evidence records or
+project-management state. `git diff --name-only 0bef692..HEAD` confirms it. **No
+application code, no route, no view model, no migration and no schema changed
+after your acceptance.**
 
-Claude reported, but Codex did not independently repeat in the latest re-review:
+The three things most worth your attention:
+
+1. **F5's fix** (§5) — the one code-adjacent change, and it alters deployment
+   behaviour.
+2. **F6** (§6) — raised with no fix proposed, deliberately.
+3. **The criterion 4 wording problem** (§7) — where I was wrong once and the
+   correction matters.
+
+## 3. Your Step 1 and Step 2 — committed and deployed
+
+**Step 1.** The complete reviewed package is `0bef692`: the S-4/S-5/S-6/S-7/S-9
+remediation, the four new regression modules, your two reviews and two re-reviews,
+the remediation submission and the N-32a approval records. 37 files, 28 modified
+and 9 added. The full 4,301-line diff was read before committing; a secret scan
+returned one hit, a test asserting that `client_secret` is *absent* from an audit
+payload. `.env` was untracked, unread and remains ignored.
+
+**Step 2.** The portal runs from this repository directly, so the commit reached
+the deployment path at commit time and only the restart was missing.
+
+| Field | Value |
+|---|---|
+| Restart (UTC) | 2026-08-25T05:08:56Z |
+| Main PID | 3785672, started 05:08:55Z |
+| Commit deployed | `0bef692` (2026-08-24T22:36:31Z) |
+| Gap | process postdates the commit by 6h32m |
+
+**The identity argument is a mechanism, not a timestamp comparison**, because S-1's
+original failure was precisely a favourable-looking timestamp: every tracked `.py`
+file has an mtime no later than 2026-08-24 22:12:44Z, the process started 6h56m
+after that, and CPython validates cached bytecode against source mtime and size —
+so no `__pycache__` entry can serve pre-remediation code to this process.
+
+`/healthz` 200, `/v1/auth/emergency` 200, asset integrity 4/4 OK.
+
+## 4. Your Step 3 and Step 5 — A-05 criteria 6, 3, 9 and the re-observations
+
+**Criterion 6 (F3) — closed.** R-41 and R-46, addressed from inside an
+already-authenticated page of a live break-glass session with synthetic
+well-formed UUIDs:
+
+| Route | Time (UTC) | Status | Refusal |
+|---|---|---|---|
+| R-41 | 05:22:31.435Z | 403 | `emergency_surface_refused` |
+| R-46 | 05:22:31.608Z | 403 | `emergency_surface_refused` |
+
+Note the code: **`emergency_surface_refused`, not `emergency_scope_refused`.** Your
+handover anticipated the latter and so did I. The former is correct and stricter —
+it is the *first* statement of `authorize()`
+(`application/web/access_control.py:318`), N-65's continuity-surface check, which
+the function evaluates before the route's capability requirement so that a
+break-glass session on a Council route is refused for being emergency-scoped
+rather than for lacking Council. `emergency_scope_refused` is raised deeper, by
+`require_full_administrator_scope()`, which the surface check preempts here.
+
+Neither is a false pass, and this is checked rather than asserted: the preamble
+refuses in a fixed order, so a sessionless attempt answers 401/303, a foreign
+origin `origin_invalid`, a wrong content type 415, a missing length 411, and a bad
+CSRF a 403 whose body is exactly `{"error":"csrf_invalid"}` from step 3. None was
+observed. Only step 5 produces the observed code. **Neither request reached object
+lookup** — a handler that had run would have answered `snapshot_absent`,
+`job_absent` or `object_not_reachable` for an identifier naming nothing — and that
+absence is criterion 6's actual property.
+
+The method satisfied both constraints that left these routes unobserved on
+2026-08-24: the browser attached the HttpOnly cookie itself, so it was never read
+or recorded, and the CSRF value came from the hidden field the page had already
+rendered.
+
+**Criterion 3 — closed (SP-23).** Retirement below two enabled credentials refused
+before any write, message quoted in the record, exit status **observed** as 1.
+
+**Criterion 9 — closed.** `docs/operations/break-glass-credential-custody.md`,
+accepted by Peter Duscha on 2026-08-25. No credential material. It carries three
+things this package observed rather than designed: the nickname/passkey-UI
+mismatch with mitigations, the budget table an operator needs during an incident,
+and the manual credential count that F6 makes necessary.
+
+**The four re-observations — all pass (SP-26), plus S-4 (SP-25).**
+
+| Finding | Observation | Result |
+|---|---|---|
+| S-4 | `iptables` outage isolated to the portal's uid | `identity_provider: false`, `degraded`, **503** — where the same rule reported `ok`/200 on 2026-08-24 |
+| S-7 | Three cancellations, then a ceremony | Sign-in **succeeded**; under the shared bucket it would have been the sixth unit |
+| S-6 | Sign-out from WebAuthn and from recovery-grant sessions | Both `auth.logout` rows **`platform_administrator`** |
+| S-9 | Replay, then an expired grant | **`consumed`** and **`expired`**, each naming its own grant row, identical to the caller |
+| S-5 | Spend the assertion budget, attempt once more | `auth.emergency.refused`, **`assertion_rate_limited_ip`**, on the **exact correlation shown** |
+
+Three correlation references were shown to the operator during the sitting and all
+three resolve to their rows. Budgets behaved as the register says; break-glass
+locked for ten minutes after the sixth assertion while the recovery path stayed
+open, which is the availability property N-32a was accepted to protect.
+
+## 5. F5 — the worker unit could never start, and our own guide said to build it that way
+
+**Your Step 6.1 asked why `freedom-worker.service` was inactive. This is the
+answer, and it is the one change here that touches deployment behaviour.**
+
+Enabled and started, it crash-looped to restart counter 58, every attempt refusing
+identically with `[S-11] WORKER_ENABLED: must be true in a freedom-worker process`.
+
+The unit **does** set it — `systemctl show` reports both
+`Environment=…WORKER_ENABLED=true` and
+`EnvironmentFile=/etc/freedom-web/portal.env`. The file wins. From
+`man systemd.exec`: *"Settings from these files override settings made with
+`Environment=`."* That file is also `freedom-web`'s, so it necessarily sets
+`WORKER_ENABLED=false` — S-11 in the other direction — and the unit's `true` is
+read first and then overwritten.
+
+**`docs/operations/web-portal.md` offered exactly this arrangement**: *"two
+environment files identical but for that line, **or one file plus
+`Environment=WORKER_ENABLED=true` on the worker unit**."* The second cannot work.
+The deployment followed the documentation and the documentation was wrong.
+
+Fixed in `infra/systemd/freedom-worker.service.tmpl` (a second `EnvironmentFile`
+listed **after** the shared one — later files override earlier ones) and in the
+operations guide, which now states the precedence rule and adds the verification
+step: check `systemctl is-active`, because `worker_heartbeat` will not tell you.
+
+Installed on staging 2026-08-25T17:42:57Z; worker `active (running)`, PID 3975305,
+`Result=success`, ~69 MB. `NRestarts=58` is the historical counter and has stopped
+moving — a worker still refusing itself would have pushed it well past 58 within
+the first half-minute at `RestartSec=5`. **The verification is the counter's
+stillness, not its value.** **S-2 is resolved.**
+
+Worth recording for its own sake: `worker_heartbeat: true` held beside a dead
+worker across all 58 restarts. Your handover's warning about that check was
+accurate in practice and not only in principle.
+
+## 6. F6 — a shortfall detected and reported to nobody. No fix proposed.
+
+Raised for the Security Reviewer, with **no repository change**, deliberately.
+
+`run_resource_checks` detects a below-two-credential account and returns a warning
+naming it exactly. The lifespan assigns that warning to
+`composition.startup_warnings` (`adapters/web/app.py:470`) — which
+`adapters/web/composition.py:312` itself describes as read by "no route, service,
+repository or control", and a repository-wide search finds **no reader outside
+`tests/`**. It is never logged, never printed and never reaches VM-16.
+`build_health_view` has no credential check and VM-16's vocabulary is closed. S-15
+is a refusal only in production.
+
+Observed, not inferred: on a disposable database, a **one**-credential account and
+a **two**-credential account produced **byte-identical** `/healthz` bodies and
+byte-identical startup logs.
+
+**This is the third instance of one pattern in this package** — S-4 reported a
+literal instead of asking; `worker_heartbeat` reported `true` through 58 crash
+loops; F6 detects and discards. Each time an operator consults the endpoint built
+for the question and is told nothing is wrong. That recurrence is why it is a
+finding rather than a note.
+
+No fix is proposed because the route surface is frozen and VM-16 is an accepted
+closed vocabulary: adding a check is a contract change needing its own decision,
+not a drive-by edit during evidence work. **The disposition is yours and the
+Acceptance Authority's.**
+
+## 7. Criterion 4 — not observable before production exists, and I was wrong once
+
+Criterion 4 asks for startup and `/healthz` behaviour **below** and **at** the
+two-credential threshold. The below/at halves are observed (§6, SP-24). The
+production-refusal half is not, and cannot be here.
+
+My first analysis said the obstacle was the database name, since each environment
+is pinned to its own (`adapters/database/config.py:14-19`). The Operations Owner
+authorised creating a disposable `freedom_production`; it existed from 19:00Z to
+19:02:34Z and **disproved that analysis**. `WEB_ENVIRONMENT=production` also pins
+three identifiers, and configuration is refused *before* the lifespan, so S-15 is
+never reached:
 
 ```text
-Bot/general suite: 2079 passed, 267 skipped
-Node WebAuthn client: 50 passed
-Static asset integrity: 4/4 OK
+  - [S-02] WEB_PUBLIC_ORIGIN: must be exactly the accepted production origin (N-01)
+  - [S-05] WEB_DISCORD_REDIRECT_URI: must be exactly the accepted production redirect URI (N-02)
+  - [S-07] WEB_DISCORD_GUILD_ID: is not the production guild.
 ```
 
-Do not replace these exact evidence statements with a generic “all tests pass.”
+Those are pinned in `application/web/config.py:60-64` and are the **real**
+production origin and the **real** production Discord guild. Reaching S-15's
+production branch requires genuine production identity — it requires production to
+exist. Supplying those values to an evidence process on staging is the exact
+confusion S-02 and S-07 are written to prevent, and would aim a
+production-configured portal at a database created for a test. **It was not done
+and should not be.** Nothing named `freedom_production` remains.
 
-## 4. Work that remains — execute in this order
+**So A-4 as worded cannot be satisfied before a production deployment exists**, and
+exposure and Phase 4 are unauthorized. Either A-4 is amended to what a
+non-production host can observe — the condition detected, described, and published
+nowhere, which is F6 — or criterion 4 waits for production. **That judgment is the
+Security Reviewer's and has not been made.**
 
-### Step 1 — preserve and commit the reviewed repository state
+## 8. Two errors made during this work, recorded rather than buried
 
-Before deployment:
+**The test database was destroyed.** `freedom_test` was dropped during setup for
+SP-24 before it was established that this account cannot recreate one — `foundry`
+has `rolcreatedb = false`, so `createdb` failed after `dropdb` had succeeded. The
+Operations Owner restored it and the full set was re-run, reproducing **2330 / 80
+exactly**, which is what establishes restoration rather than mere presence. One
+commit (`46ed980`) briefly stood on bot-suite-and-inspection verification only and
+says so in its own message. Nothing outside the suite was affected.
 
-1. Inspect `git status` and the complete diff. The working tree intentionally
-   contains Claude's remediation, Codex's original reviews, Codex's re-reviews,
-   the remediation submission and the N-32a approval records.
-2. Confirm no unrelated or secret-bearing file is present.
-3. Run the agreed serial verification set and `git diff --check`.
-4. Commit the complete reviewed package with an explicit P3.5 supervised-session
-   remediation message.
-5. Record the resulting commit SHA. Do not deploy an uncommitted or ambiguous
-   tree.
+The general lesson is recorded in the addendum: this account can **destroy** a
+shared resource it cannot **recreate**, so an operation that looks symmetrical is
+not.
 
-Do not amend or discard user/Codex work. Do not close A-05 or I-06 in this commit.
+**The criterion 4 analysis was wrong**, as §7 describes. I recommended deferring
+the decision on the grounds that creating the database was the risk; the real
+obstacle sits a layer above it.
 
-### Step 2 — deploy and prove process/build identity
+## 9. Verification
 
-S-1 remains open operationally. The earlier staging process served Python from a
-build 8.5 hours older than the commit while new templates were read from disk,
-producing a 500 even though `/healthz` and the suites were green.
+Run serially against the disposable database — the portal and bot suites share it:
 
-For the next staging run:
+```text
+TEST_DATABASE_URL=postgresql+psycopg:///freedom_test \
+  ./venv-web/bin/python -m pytest -q tests/web    2330 passed, 80 skipped
+./venv/bin/python -m pytest -q tests              2080 passed, 267 skipped
+node --test tests/web/webauthn_client.test.mjs    50 passed, 0 failed
+sha256sum -c adapters/web/static/asset-integrity.sha256   4/4 OK
+git diff --check                                  clean
+```
 
-1. Deploy the recorded commit.
-2. Restart `freedom-web.service`; deployment alone is insufficient.
-3. Record deployment UTC time, restart UTC time, PID/start time and commit SHA.
-4. Confirm the running process postdates the deployed commit.
-5. Fetch `/v1/auth/emergency` and the corrected `/healthz` before accepting any
-   browser observation.
-6. Confirm the corrected static assets match the integrity manifest.
+**The bot total is 2080, not the 2079 you will remember**, and the reason is
+recorded so you need not rediscover it:
+`test_operator_documentation_only_quotes_the_old_claim` is parameterised over
+`docs/operations/*.md`, and the new custody document adds one passing case.
+Confirmed by collecting with and without the file — 2346 against 2347. The 80
+portal skips are the documented permitted caller-matrix cells.
 
-No evidence may rest on a process whose identity was not verified after restart.
+Do not replace these exact statements with a generic "all tests pass."
 
-### Step 3 — complete SP-22 on deployed R-41 and R-46
+## 10. Evidence-record hygiene (F4) — closed
 
-A-05 criterion 6 remains incomplete until these live denials are observed under a
-genuine break-glass session:
+- **SP-21 grant record UUIDs:** recorded, read host-locally with one `SELECT`
+  naming `id`, `purpose`, `created_at`, `expires_at`, `consumed_at`,
+  `invalidated_at` and no other column. `token_hash` was never selected. Their
+  timestamps match the already-transcribed audit times to the second, which is
+  what identifies them rather than an assumption that they are the right rows.
+- **Exact session end: `Not Recorded`.** The Operations Owner said he could not
+  know it and that anything he gave would be invented. That was taken as final. A
+  fabricated timestamp would be indistinguishable from an observed one to every
+  later reader, and would put a question mark over every other cell. The last
+  evidenced activity — **21:30:43.197604Z**, corroborated by `sessions` and
+  `audit_events` independently — is recorded as a **bound**. Caddy keeps no access
+  log here and the journal is unreadable by this account, so no third source
+  exists; that search is recorded so it is not repeated.
+- **Authenticator description: `Not Recorded`**, as a row distinct from the
+  credential nicknames, which §8.4 already establishes are not what the platform
+  passkey UI displays.
 
-- R-41: `POST /v1/admin/snapshots/{snapshot_id}/folder`
-- R-46: `POST /v1/council/jobs/{job_id}/apply`
+## 11. What remains
 
-Required method:
+1. **Security Reviewer — criterion 4's wording** (§7).
+2. **Security Reviewer — F6's disposition** (§6).
+3. **Security Reviewer — the A-05 readiness recommendation and criterion 10**,
+   which by its own terms comes only after every other criterion and disposition
+   is complete. **A-05 criteria 4 and 10 are the only ones outstanding.**
+4. **I-06** — its worker prerequisite is now met and none of its procedures has
+   run. TC-OPS, TC-PERF, TC-LIM-02 and the browser half of TC-SEC-07 remain. The
+   rule still holds that the A-05 browser session is not evidence for them, and
+   `worker_heartbeat: true` with an empty queue remains documented behaviour —
+   §5 is now a live demonstration of why.
+5. **Peter, as Acceptance Authority** — any A-05 disposition or gate decision,
+   separately and last.
 
-1. Establish a live break-glass session and prove it is live by reaching
-   `/v1/admin/role-capabilities`.
-2. From an allowed same-origin page, obtain the already-rendered CSRF value in the
-   browser. Do not record it.
-3. Use a same-origin browser request. The browser attaches the HttpOnly session
-   cookie; never read, copy, print or record that cookie.
-4. Submit synthetic well-formed UUID path values and minimal form bodies with the
-   valid CSRF value.
-5. Record only route, UTC time, HTTP status and coarse response body/code.
+## 12. Open-state summary
 
-Expected result for each: authorization `403` produced by the continuity-scope
-capability decision. A `403 csrf_invalid`, origin refusal, unsupported media type,
-missing length or sessionless redirect is **not a pass**. The request preamble
-must reach authorization so it refuses before handler object lookup or mutation.
+- **S-1:** satisfied for this deployment; the control stays live for the next one.
+- **S-2:** resolved (F5).
+- **S-4, S-5, S-6, S-7, S-9:** closed end to end — accepted in the repository and
+  observed on the deployed build.
+- **S-8:** no action unless the Product Owner reopens frozen visual scope.
+- **F3:** closed. **F4:** closed. **F5:** fixed, installed, verified.
+- **F6:** open, no fix proposed, awaiting disposition.
+- **A-05:** open — criteria 4 and 10 only.
+- **I-06:** open. **A-06:** open. **R-23:** active.
+- **Phase 3 gate:** open. **Public exposure and Phase 4:** unauthorized.
 
-No real snapshot/job identifier, preview token or mutation is needed. Stop if any
-route reaches object lookup or returns a success/redirect consistent with mutation.
+## 13. Files to read before reviewing
 
-### Step 4 — finish evidence-record fields with the Operations Owner
+- `docs/review/phase-3-p3-5-post-remediation-operational-addendum-2026-08-24.md`
+  — the full operational record, and the primary document for this review.
+- `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md` — SP-23 to
+  SP-26 and the reconciled §1 fields.
+- `docs/review/phase-3-p3-5-staging-re-observation-procedure.md`
+- `docs/operations/break-glass-credential-custody.md` — A-05 criterion 9.
+- `infra/systemd/freedom-worker.service.tmpl` and
+  `docs/operations/web-portal.md` §7 — the F5 fix.
+- `docs/project-management/change-log.md` C-P3.5-N,
+  `status.md` (fifty-fourth), `raid-register.md` (2026-08-25 amendment).
 
-Update:
-
-`docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`
-
-Outstanding fields:
-
-1. Exact session-end timestamp. The current `21:02:45Z` value is explicitly only
-   a lower bound.
-2. The two SP-21 recovery-grant record UUIDs. They are non-secret database row
-   references, not tokens. Read only the required host-local columns beside the
-   already-recorded timestamps. Never select or record token hashes.
-3. A truthful non-sensitive authenticator description supplied by the Operations
-   Owner, such as built-in platform authenticator plus device class. If it was not
-   recorded, write **Not Recorded**.
-
-Do not use `puppetmaster`, `puppetphone`, `macbook` or `iphone` as authenticator
-descriptions. They are portal credential-record nicknames, and the evidence itself
-states that they are not what the platform authenticator UI displays. Do not infer
-an authenticator model or device from them. SP-21 used recovery grants, not an
-authenticator.
-
-### Step 5 — complete remaining A-05 procedures
-
-The following remain open:
-
-- Criterion 3: observe that retiring a credential when doing so would leave fewer
-  than two enabled credentials is refused. Presenting an already retired
-  credential and seeing login refusal proves a different property.
-- Criterion 4: observe startup and `/healthz` below the two-credential threshold,
-  then at the threshold. Use the approved bounded procedure and restore the safe
-  state. Do not jeopardize actual recovery access.
-- Criterion 9: write and obtain Operations Owner acceptance of custody,
-  replacement, loss and recovery procedures without credential material. Include
-  the observed usability issue: portal nicknames do not distinguish retired and
-  current passkeys in the platform UI, and wrong selections consume limiter
-  budget.
-- Criterion 10: designated Security Reviewer confirmation, only after all required
-  evidence and dispositions are complete.
-
-Also re-observe on staging, proportionately:
-
-- separated N-32a/N-32 limiter behavior;
-- limiter-refusal audit rows resolving by displayed correlation;
-- WebAuthn and recovery-grant logout attribution;
-- recovery replay/expiry internal audit classification; and
-- provider outage making `/healthz` report `identity_provider: false` and 503.
-
-Do not record credentials, assertions, challenges, cookies, tokens, token hashes,
-CSRF values, public keys, raw IP addresses or unnecessary identity data.
-
-### Step 6 — begin I-06 separately
-
-The supervised session did not execute I-06. Before its worker procedures:
-
-1. Resolve why `freedom-worker.service` is inactive.
-2. Activate and verify the intended worker unit on staging.
-3. Remember that `worker_heartbeat: true` with an empty queue is documented
-   behavior: the database health check detects a queue that is not draining, not
-   idle systemd-unit liveness. Use systemd monitoring for the latter.
-4. Execute the named I-06 procedures for TC-OPS, TC-PERF, TC-LIM-02 and the browser
-   half of TC-SEC-07. Do not treat the A-05 browser session as evidence for them.
-
-## 5. Required governance sequence
-
-After the steps above:
-
-1. Produce a dated operational/evidence addendum with exact commands, timestamps,
-   statuses and sanitized outputs.
-2. Submit repository and deployed evidence for another independent review where
-   required.
-3. Obtain the designated Security Reviewer's A-05 readiness recommendation.
-4. Ask Peter separately for any A-05 disposition or gate decision.
-
-Only Peter, as Acceptance Authority, may record the gate decision. A successful
-session, green suite, accepted code remediation or approved N-32a value does not
-close A-05, I-06, R-23 or the Phase 3 gate.
-
-## 6. Current open-state summary
-
-- **N-32a:** accepted 2026-08-24.
-- **S-5/S-6 repository blockers:** closed by Codex re-review.
-- **S-4/S-7/S-9 repository remediation:** accepted by Codex re-review.
-- **F3 / SP-22 R-41 and R-46:** open, deployed observation required.
-- **F4 evidence hygiene:** partially open; exact end, grant UUIDs and truthful
-  authenticator description remain.
-- **S-1:** open operational deploy/restart/build-identity control.
-- **S-2:** open operational worker prerequisite.
-- **S-8:** no action unless Product Owner reopens frozen visual scope.
-- **A-05:** open.
-- **I-06:** open.
-- **A-06:** open.
-- **R-23:** active.
-- **Phase 3 gate:** open.
-- **Public exposure and Phase 4:** unauthorized.
-
-## 7. Files Claude must read before acting
-
-In addition to `.agents/AGENTS.md` and `docs/implementation-plan.md`, read:
-
-- `docs/review/phase-3-p3-5-supervised-session-remediation-submission.md`
-- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-re-review.md`
-- `docs/review/phase-3-p3-5-supervised-session-remediation-codex-security-re-review.md`
-- `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`
-- `docs/review/phase-3-p3-5-readiness-and-execution-plan.md` §9 and §13
-- `docs/review/phase-3-p3-5-frontend-code-acceptance-and-supervised-session-plan.md`
-- `docs/contracts/phase-3-numeric-policy-register.md` N-32/N-32a/N-33
-- `docs/project-management/status.md`
-- `docs/project-management/raid-register.md`
-- `docs/project-management/change-log.md` C-P3.5-M
-
-Preserve the separation between repository acceptance, observed deployed evidence,
-specialist recommendation and Acceptance Authority decision in every update.
+The separation this package has tried to hold throughout, and which every update
+should preserve: repository acceptance, observed deployed evidence, specialist
+recommendation and Acceptance Authority decision are four different things, and
+none of them substitutes for another.
