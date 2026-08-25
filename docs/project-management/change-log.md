@@ -6829,6 +6829,84 @@ closed.**
   addition. A-05, I-06, R-23 and the Phase 3 gate all remain open; public exposure
   and Phase 4 remain unauthorized.
 
+## C-P3.5-N — Handover executed: deployment identity, criterion 6 and 3 observed, worker root-caused, S-4 closed end to end
+
+**Date:** 2026-08-25 · **Requester:** Claude, P3.5 working Technical Lead ·
+**Status:** **Handover steps 1, 2, 3 and 6 complete; steps 4 and 5 partial. Two
+new findings raised (F5, F6), one fixed. No RAID item and no gate closed.**
+
+Executes `docs/review/Handover information` (Codex, Independent Reviewer,
+2026-08-24). Full operational record:
+`docs/review/phase-3-p3-5-post-remediation-operational-addendum-2026-08-24.md`.
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05
+  (criteria 3, 4, 6, 9), I-06 (worker prerequisite), S-1, S-2; N-13, N-65, S-11,
+  S-15, VM-16; the Phase 3 gate.
+- **Reason and alternatives considered:** the handover named six ordered steps,
+  each blocked on the one before it. Deployment identity had to be proved before
+  any browser observation could be trusted (S-1's original failure was a process
+  serving code older than the commit under test while every suite was green), so
+  no evidence was gathered until the restarted process was shown to postdate the
+  deployed commit by a mechanism argument rather than a favourable timestamp.
+- **Added/removed scope:** the reviewed remediation package was committed intact
+  as `0bef692`. Two repository fixes were added that the handover did not
+  anticipate, both for F5: `infra/systemd/freedom-worker.service.tmpl` and the
+  worker section of `docs/operations/web-portal.md`. One new operations document,
+  `docs/operations/break-glass-credential-custody.md`, answers A-05 criterion 9.
+  No route, no view model, no migration and no schema change.
+- **Dependency and critical-path effect:** **A-05 criterion 6 is now evidenced in
+  full** — R-41 and R-46 both refused `403 emergency_surface_refused` from N-65's
+  continuity-surface check before any handler object lookup, which answers F3.
+  **Criterion 3 is evidenced** (SP-23): retiring below two enabled credentials is
+  refused before any write, exit status 1. **Criterion 9 is drafted and accepted.**
+  Criterion 4 is half-observed (SP-24) and blocked on one decision. **S-1 is
+  satisfied for this deployment** and **S-2 is resolved.** I-06's worker
+  prerequisite is met; its named procedures are untouched.
+- **Estimate/forecast and capacity effect:** no forecast change. The remaining
+  A-05 work is four staging re-observations in one planned sitting, criterion 4's
+  deferred decision, and the Security Reviewer's criterion-10 confirmation.
+- **New or changed risks:** two findings, neither previously known.
+  **F5** — `freedom-worker.service` could never have started: the unit set
+  `Environment=WORKER_ENABLED=true` while reading the shared portal
+  `EnvironmentFile`, and `systemd.exec(5)` gives the file precedence, so the
+  shared file's `WORKER_ENABLED=false` (required there by S-11 in the other
+  direction) silently won and the worker refused itself on every start. The
+  arrangement came from this repository's own operations guide, which offered it
+  explicitly; the guide was wrong and is corrected. Fixed, installed and verified
+  running.
+  **F6** — a below-threshold credential count is detected and then reported to
+  nobody outside production. `run_resource_checks` produces a warning naming the
+  shortfall exactly; the lifespan assigns it to `composition.startup_warnings`,
+  which no route, service, repository or control reads; it is never logged and
+  never reaches VM-16, and S-15 is a refusal only in production. A staging account
+  down to one credential answers `/healthz` byte-identically to a healthy one.
+  **No fix is proposed** — the route surface is frozen and VM-16 is an accepted
+  closed vocabulary, so adding a check is a contract change needing its own
+  decision. Raised for the Security Reviewer.
+- **Testing, migration, security and operational effect:** full portal suite 2330
+  passed / 80 skipped, bot suite 2079 passed / 267 skipped, `node --test` 50
+  passed, asset integrity 4/4 OK, `git diff --check` clean. No migration.
+  Operationally: the portal was restarted onto the reviewed commit, the worker was
+  fixed and started for the first time, and one `iptables` outage rule was applied
+  and removed within a single sitting to run S-4's acceptance test. **S-4 is now
+  closed end to end** — under a real provider outage isolated to the portal's
+  service account, `/healthz` reported `identity_provider: false`, `degraded` and
+  `503`, where the same rule on the same host had reported `ok`/`200` on
+  2026-08-24. One incident is recorded in full: `freedom_test`, the disposable
+  suite database, was dropped and could not be recreated by the working account
+  (`rolcreatedb = false`); the Operations Owner restored it and the full
+  verification set was re-run, reproducing 2330 / 80 exactly.
+- **Product Owner recommendation:** none sought; this executes an accepted
+  handover rather than proposing scope.
+- **Technical Lead and specialist reviews:** none yet for this package. The
+  observations, the two new findings and the criterion 9 document are submitted
+  for independent review, and criterion 10 remains explicitly outstanding.
+- **Acceptance Authority decision:** **none requested, and none recorded.** Peter
+  Duscha accepted the criterion 9 custody documentation on 2026-08-25 and
+  authorised the criterion 4 disposable-database observation; neither closes a
+  RAID item. A-05, I-06, A-06, R-23 and the Phase 3 gate all remain open. Public
+  exposure and Phase 4 remain unauthorized.
+
 ## Required fields for later entries
 
 Every material entry must identify:

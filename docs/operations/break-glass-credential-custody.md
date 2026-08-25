@@ -209,9 +209,17 @@ Plan emergency work in that unit. Know what you intend to do before you sign in.
 | Field | Value |
 |---|---|
 | Author | Claude (working Technical Lead), 2026-08-25 |
-| Accepted by | **Pending** — Operations Owner |
-| Date accepted | **Pending** |
+| Accepted by | **Peter Duscha, Operations Owner** |
+| Date accepted | **2026-08-25** |
 | Review | Contains no credential material; A-05 criterion 9 |
 
-This document closes A-05 criterion 9 **only when the Operations Owner records
-acceptance above**. It closes no other criterion and no gate.
+Accepted as written, including §2's statement that **host access is the real
+perimeter** — that anyone with operator sudo on the target host can enroll a
+credential for the protected account, so host access and the passkeys are one
+control rather than two. That is a blunt thing to say about a trust model and it
+was put to the Operations Owner explicitly rather than left implied.
+
+**A-05 criterion 9 is satisfied by this document and its acceptance.** It closes
+no other criterion, no RAID item and no gate. Criterion 10 — the designated
+Security Reviewer's confirmation — is separate and remains outstanding, and by its
+own terms comes only after every other criterion and disposition is complete.

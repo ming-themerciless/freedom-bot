@@ -325,8 +325,8 @@ permitted, and §5 names the two reads added today and the columns they selected
 
 ## 5. Handover Step 5 — remaining A-05 procedures
 
-**Criterion 3 complete. Criterion 4 half-observed and blocked on one decision.
-F6 raised. Criteria 9 and 10 not started.**
+**Criteria 3 and 9 complete. Criterion 4 half-observed and blocked on one
+decision. F6 raised. Criterion 10 not started.**
 
 ### 5.1 Criterion 3 — observed 2026-08-25
 
@@ -514,9 +514,12 @@ this account should confirm it can rebuild it **before** removing it.
 
 ### 5.4 Criteria 9 and 10, and the staging re-observations
 
-**Criterion 9 is drafted, 2026-08-25**, as
-`docs/operations/break-glass-credential-custody.md`, and awaits the Operations
-Owner's acceptance — which is what closes the criterion, not the writing of it. It
+**Criterion 9 is satisfied, 2026-08-25.**
+`docs/operations/break-glass-credential-custody.md` was written and **accepted by
+Peter Duscha, Operations Owner**, the same day — including §2's statement that host
+access is the real perimeter rather than a separate control, which was put to him
+explicitly. Acceptance is what closes the criterion, not the writing of it. The
+document
 contains no credential material: no credential id, public key, COSE bytes, PIN,
 biometric, recovery token or token hash.
 
@@ -539,6 +542,13 @@ design:
   the `list` command and a cadence.
 
 `docs/operations/web-portal.md` §4.1 now points at it.
+
+**The bot suite total moves from 2079 to 2080 because of this document**, and the
+reason is recorded so a reviewer comparing figures does not have to rediscover it:
+`tests/test_storage_claim_vocabulary.py::test_operator_documentation_only_quotes_the_old_claim`
+is parameterised over `docs/operations/*.md`, so a new operations document adds one
+case. It passes. Collected tests go from 2346 to 2347; the skip count is unchanged
+at 267.
 
 **Criterion 10** is the designated Security Reviewer's confirmation, and by its
 own terms comes only after every other criterion and disposition is complete.
@@ -718,7 +728,7 @@ class of failure will keep requiring a human until that access changes.
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
-| A-05 | **Open** — criteria 3 and 6 complete; criterion 4 half-observed (SP-24); criterion 9 drafted and awaiting acceptance; 4, 9, 10 outstanding |
+| A-05 | **Open** — criteria 3, 6 and 9 complete; criterion 4 half-observed (SP-24); **criteria 4 and 10 outstanding** |
 | I-06, A-06 | **Open** |
 | R-23 | **Active** |
 | Phase 3 gate | **Open** |

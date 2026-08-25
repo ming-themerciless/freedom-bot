@@ -1,6 +1,62 @@
 # Project status
 
-Status date: 2026-08-24 (fifty-third update: Codex independent and security
+Status date: 2026-08-25 (fifty-fourth update: the Codex handover was executed.
+The reviewed remediation is committed and deployed, and the running process is
+proved to postdate it. A-05 criteria 3, 6 and 9 are now evidenced; criterion 4 is
+half-observed. S-1 is satisfied for this deployment, S-2 is resolved, and S-4 is
+closed end to end under a real provider outage. Two new findings were raised, F5
+and F6; F5 is fixed. A-05, I-06, A-06, R-23 and the Phase 3 gate remain open. No
+public exposure or Phase 4 start is authorized.)
+
+Update 2026-08-25 (fifty-fourth) — handover executed; three A-05 criteria evidenced; two findings raised.
+
+- **The reviewed package is committed and deployed.** `0bef692` carries the
+  accepted S-4/S-5/S-6/S-7/S-9 remediation, both Codex re-reviews and the N-32a
+  approval records. The portal was restarted onto it, and the running process is
+  proved to postdate the commit by a mechanism rather than a favourable
+  timestamp: every tracked source file predates the process start, and CPython
+  validates cached bytecode against source mtime and size, so no `__pycache__`
+  entry can serve pre-remediation code. **S-1 is satisfied for this deployment.**
+- **A-05 criterion 6 is evidenced in full.** R-41 and R-46, addressed directly
+  from inside an authenticated page of a live break-glass session with synthetic
+  identifiers, both refused `403 emergency_surface_refused` — N-65's
+  continuity-surface check, which `authorize()` evaluates *before* the route's
+  capability requirement and long before any handler object lookup. **F3 is
+  answered.**
+- **Criterion 3 is evidenced.** Retiring below two enabled credentials is refused
+  before any write, exit status 1. This is a different property from the
+  already-recorded refusal of a *retired* credential at login: it is that a
+  **live** credential cannot be made dead while it is the second-to-last one.
+- **Criterion 9 is satisfied.** `docs/operations/break-glass-credential-custody.md`
+  documents custody, replacement, loss and recovery without credential material,
+  and Peter Duscha accepted it on 2026-08-25.
+- **S-4 is closed end to end.** Under a real provider outage isolated to the
+  portal's service account — the same `iptables` method as 2026-08-24 — `/healthz`
+  reported `identity_provider: false`, `degraded` and `503`. The same rule on the
+  same host reported `ok` and `200` throughout the outage a day earlier. The
+  isolation was re-proved in both directions and the rule removed in the same
+  sitting.
+- **S-2 is resolved, and its cause was ours.** `freedom-worker.service` had never
+  started, and could not have: the unit set `Environment=WORKER_ENABLED=true`
+  while reading the shared portal `EnvironmentFile`, and systemd gives the file
+  precedence, so the shared file's required `WORKER_ENABLED=false` silently won.
+  **The arrangement came from this repository's own operations guide**, which
+  offered it explicitly. Recorded as **F5**; the guide and the unit template are
+  corrected, and the worker is running.
+- **F6 raised, no fix proposed.** A below-threshold credential count is detected
+  and then reported to nobody outside production: the warning is assigned to
+  `composition.startup_warnings`, which nothing reads, is never logged, and never
+  reaches VM-16. A staging account down to one credential answers `/healthz`
+  byte-identically to a healthy one. This is the third instance of one pattern
+  after S-4 and `worker_heartbeat`, which is why it is a finding rather than a
+  note. The route surface is frozen and VM-16 is an accepted closed vocabulary,
+  so the disposition is the Security Reviewer's.
+- **No gate moved.** Criterion 4's production half is deferred pending a decision
+  it is not a reviewer's to take; criterion 10, four staging re-observations and
+  every I-06 procedure remain outstanding. Public exposure and Phase 4 remain
+  unauthorized.
+
+Previous status date: 2026-08-24 (fifty-third update: Codex independent and security
 re-reviews accepted the supervised-session repository remediation, and Peter
 Duscha, Acceptance Authority, accepted N-32a at 10 WebAuthn challenge issuances
 per source IP per 10 minutes. The accepted challenge budget is separate from

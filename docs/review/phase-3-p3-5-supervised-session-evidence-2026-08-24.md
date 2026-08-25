@@ -921,9 +921,12 @@ R-46 observed on 2026-08-25 against the identity-verified deployed process, each
 answering `403 emergency_surface_refused` from N-65's continuity-surface check
 before any handler ran. **F3 is answered**; criterion 6 no longer rests on
 suite-level evidence. **Criterion 3** (retiring below two is
-refused) **is evidenced by SP-23** as of 2026-08-25. **Criteria 4 (startup and
-`/healthz` below and at the threshold), 9 (custody, replacement, loss) and 10
-(Security Reviewer confirmation) are Not Run.**
+refused) **is evidenced by SP-23**, and **criterion 9** (custody, replacement,
+loss and recovery) by
+`docs/operations/break-glass-credential-custody.md`, accepted by the Operations
+Owner — both 2026-08-25. **Criterion 4 is half-observed** (SP-24): below and at the
+threshold on a disposable database, with its production-refusal half deferred.
+**Criteria 4 and 10 (Security Reviewer confirmation) remain outstanding.**
 
 **Five findings from this session bear on A-05 and are undispositioned:** S-4,
 S-5, S-6, S-7 and S-9. The sixth — the SP-22 gap on criterion 6's remaining half,
