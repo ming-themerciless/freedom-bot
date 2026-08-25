@@ -73,7 +73,13 @@ startup after configuration is built:
 
 **S-15 is a warning outside production**, because the credentials are hardware
 and a development host has none. It is reported rather than swallowed: the
-warning is on the composition, and `/healthz` reports the same condition.
+process logs it at startup (`startup warning S-15: …`), and `/healthz` reports the
+same condition as `break_glass_credentials`.
+
+**Corrected 2026-08-25 (F6).** That sentence used to be true of the intention and
+false of the code — the warning was assigned to an attribute nothing read, so a
+staging account down to one credential started in silence and answered `/healthz`
+byte-identically to a healthy one. Both channels now exist.
 
 ### 2.2 Encryption key rotation
 
@@ -727,7 +733,8 @@ identity, no queue contents.
 {"status": "ok",
  "checks": {"database": true, "migrations": true, "artifact_store": true,
             "worker_heartbeat": true, "expired_leases": true,
-            "identity_provider": true, "kill_switch": true},
+            "identity_provider": true, "kill_switch": true,
+            "break_glass_credentials": true},
  "version": "phase-3-p3.1", "environment": "production"}
 ```
 
@@ -742,6 +749,13 @@ and what each one actually observes is worth knowing before it wakes somebody:
 |---|---|---|
 | `worker_heartbeat` | the age of the oldest `queued` job | something has been waiting longer than one lease plus one reaper interval (60 + 15 s), i.e. **nothing is draining the queue** |
 | `expired_leases` | the age of the oldest expired lease still `running` | the same bound is exceeded, i.e. **the reaper is not running** |
+| `break_glass_credentials` | whether the protected administrator holds at least two enabled WebAuthn credentials (N-13) | fewer than two are enabled, the protected account does not exist yet, or the question could not be asked — i.e. **the emergency route cannot be used**, and the portal must not be exposed |
+
+**Expect `degraded` and `503` on a host where nobody has enrolled yet.** That is
+not a fault in the endpoint; it is the endpoint answering the question A-05 exists
+to close. A portal whose emergency route has no credential behind it is not ready
+to be exposed, and the health check now says so instead of reporting `ok` and
+leaving the fact in a terminal that has since scrolled away.
 
 Two limits, stated rather than implied:
 
@@ -801,6 +815,30 @@ Use one of these instead:
    load-bearing: *"If the same variable is set twice from these files, the files
    will be read in the order they are specified and the later setting will override
    the earlier setting."*
+
+**The supported installer provisions the second arrangement** (corrected
+2026-08-25, C1). `infra/staging/setup-portal-host.sh` writes
+`/etc/freedom-web/worker.env` — one line, `WORKER_ENABLED=true`, owned
+`root:freedomweb` at mode `0640`, no secret in it — and substitutes that path into
+the unit's `__WORKER_ENVIRONMENT_FILE__`. It creates the file only when absent; an
+existing one is confirmed rather than rewritten, and the installer **refuses** if
+its effective `WORKER_ENABLED` is anything but `true`, because an existing file
+saying `false` would reinstate this exact defect silently. The earlier
+`Environment=WORKER_ENABLED=true` line the installer used to append is gone, and
+the installer will not install a unit that still carries an unsubstituted
+`__PLACEHOLDER__`.
+
+After `daemon-reload` the installer asks systemd for the effective configuration
+rather than trusting the file it just wrote, and so should you:
+
+```bash
+systemctl show -p EnvironmentFiles freedom-worker.service
+#   EnvironmentFiles=/etc/freedom-web/portal.env (ignore_errors=no)
+#   EnvironmentFiles=/etc/freedom-web/worker.env (ignore_errors=no)
+```
+
+Two lines, **in that order**. The second one is the one that wins. A single line,
+or the two reversed, is a worker that will refuse itself with S-11 on every start.
 
 Whichever is used, verify it rather than assume it: `systemctl is-active
 freedom-worker` after a start, because `/healthz`'s `worker_heartbeat` **will not

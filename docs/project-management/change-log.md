@@ -6907,6 +6907,85 @@ Executes `docs/review/Handover information` (Codex, Independent Reviewer,
   RAID item. A-05, I-06, A-06, R-23 and the Phase 3 gate all remain open. Public
   exposure and Phase 4 remain unauthorized.
 
+## C-P3.5-O — Codex C1/C2 remediation: the staging installer reproduces the F5 repair, and `/healthz` reports the credential shortfall
+
+**Date:** 2026-08-25 · **Requester:** Claude, P3.5 working Technical Lead ·
+**Status:** **Both High findings answered in the repository. C2 carries a contract
+correction that is proposed, not approved. No RAID item closed and no gate moved.**
+
+Answers `docs/review/Handover information` (Codex, Independent Reviewer,
+2026-08-25, *changes requested*). Return package:
+`docs/review/phase-3-p3-5-codex-c1-c2-remediation-2026-08-25.md`.
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05
+  (criterion 4), S-2, findings F5 and F6; N-13, S-11, S-15, VM-16; the view-model
+  contract (`C2-1`) and the operational contract §5; the Phase 3 gate.
+- **Reason and alternatives considered:** Codex raised two High findings. **C1**:
+  the F5 repair reached the unit template and the operations guide but not
+  `infra/staging/setup-portal-host.sh`, the template's only executable consumer, so
+  the supported provisioning path would have produced a worker unit carrying a
+  literal `EnvironmentFile=__WORKER_ENVIRONMENT_FILE__` and the same losing
+  `Environment=WORKER_ENABLED=true`. No alternative was considered: the finding is
+  correct. **C2**: F6 is nonconformance with the written A-05 A-4 step, and Codex
+  named two permitted paths — implement an approved reporting-contract change, or
+  formally amend A-4. **The first was chosen.** Amending A-4 would accept a manual
+  credential count as the only channel for the condition on exactly the hosts where
+  S-15 is deliberately a warning rather than a refusal, and would close the third
+  instance of one pattern (S-4, `worker_heartbeat`, F6) by lowering the question
+  rather than answering it.
+- **Added/removed scope:** the installer gains a worker environment-file step, the
+  `__WORKER_ENVIRONMENT_FILE__` substitution, a refusal to install a unit whose
+  directives still carry a placeholder, and an effective-configuration check against
+  systemd; it loses the appended `Environment=WORKER_ENABLED=true` and the
+  `install_unit` parameter that carried it. `/healthz` gains one check name; the
+  lifespan gains a log line for the warnings it already held. Thirteen new tests in
+  two modules, one existing test seeded. **No route, no view-model field, no status
+  code, no template, no migration, no schema change, no new dependency.**
+- **Dependency and critical-path effect:** **nothing closes.** F5/S-2 are
+  repository-remediated and wait on Codex's re-review plus one root-held step — the
+  supported installer re-run on the staging host, with `systemctl`/`journalctl` as
+  the liveness evidence rather than `/healthz`'s `worker_heartbeat`. A-05 criterion
+  4 stays open on both halves: the production refusal is unobservable before an
+  authorized production deployment, and the `/healthz` half now exists in the
+  repository but has been observed on no host and its contract change is unapproved.
+  Criterion 10 is untouched.
+- **Estimate/forecast and capacity effect:** no forecast change. The added work is
+  one authorized root sitting on the staging host, and two review decisions.
+- **New or changed risks:** **the contract correction `C2-1` is the material one.**
+  `VIEW_MODEL_VERSION` stays `vm-1` — a name is added to a closed vocabulary,
+  nothing is removed, renamed or narrowed, which is additive under the view-model
+  contract §1 rule 5 and follows the `expired_leases` precedent. Two consequences
+  are stated rather than left to be discovered. **Disclosure:** a reader of
+  `/healthz` learns that the protected administrator holds fewer than two enabled
+  credentials. The endpoint is loopback-bound (N-50), refused by the Caddy site
+  before its catch-all proxy (C35-02) and unpublished, and it already discloses
+  environment, version and kill-switch state; the assessment is that a boolean
+  readable only from the loopback port is a smaller risk than the condition being
+  invisible, but that judgment is the Security Reviewer's. **Availability:** any
+  host without enrolment now answers `degraded` and `503`, staging included until
+  A-05's ceremony happens.
+- **Testing, migration, security and operational effect:** portal suite 2338 passed
+  / 80 skipped (baseline 2330/80), bot suite 2085 passed / 267 skipped (baseline
+  2080/267) and 2352 passed with the disposable database configured, `node --test`
+  50 passed, asset integrity 4/4 OK, `git diff --check` clean. Both suites were run
+  serially against the one shared disposable database. Both regression sets were
+  falsified against the reviewed code: C1's four fail against the installer as
+  reviewed, C2's seven of eight fail against the pre-change modules. No migration.
+  Operationally, nothing on the staging host was changed by this package: the
+  installer was **not** re-run, no unit was rewritten, and no service was restarted.
+  The generated worker unit was compared against the running one and is identical in
+  every directive.
+- **Product Owner recommendation:** none sought; this is remediation of an
+  independent reviewer's findings rather than a scope proposal.
+- **Technical Lead and specialist reviews:** **outstanding.** Codex's re-review of
+  C1 and C2 is requested. The Security Reviewer's review of the `C2-1` reporting
+  contract change — its disclosure and availability effects — is required before
+  A-05 criterion 4 or criterion 10 can move.
+- **Acceptance Authority decision:** **none requested and none taken.** The `C2-1`
+  contract correction is **proposed** and awaits Peter Duscha's decision. A-05,
+  I-06, A-06, R-23 and the Phase 3 gate all remain open; public exposure and Phase 4
+  remain unauthorized.
+
 ## Required fields for later entries
 
 Every material entry must identify:

@@ -1,12 +1,73 @@
 # Project status
 
-Status date: 2026-08-25 (fifty-fourth update: the Codex handover was executed.
-The reviewed remediation is committed and deployed, and the running process is
-proved to postdate it. A-05 criteria 3, 6 and 9 are now evidenced; criterion 4 is
-half-observed. S-1 is satisfied for this deployment, S-2 is resolved, and S-4 is
-closed end to end under a real provider outage. Two new findings were raised, F5
-and F6; F5 is fixed. A-05, I-06, A-06, R-23 and the Phase 3 gate remain open. No
-public exposure or Phase 4 start is authorized.)
+Status date: 2026-08-25 (fifty-fifth update: Codex's independent review requested
+changes on two High findings, and both are answered in the repository. C1 — the F5
+repair reached the unit template but not the installer that fills it in — is
+remediated, and the installer now reproduces the manually repaired worker unit
+directive for directive. C2 — F6 is a failure of the written A-05 A-4 requirement,
+not a new preference — is answered by implementing the health contract change
+rather than amending the criterion; the change is **proposed, not approved**.
+**Nothing is closed:** F5/S-2 await re-review and a host re-run of the installer,
+A-05 criteria 4 and 10 remain open, and the C2 contract change awaits the
+Acceptance Authority and the Security Reviewer. No public exposure or Phase 4
+start is authorized.)
+
+Update 2026-08-25 (fifty-fifth) — Codex requested changes; C1 remediated, C2 implemented as a proposed contract change.
+
+- **Codex requested changes on the executed handover.** Two High findings. The
+  full return package is
+  `docs/review/phase-3-p3-5-codex-c1-c2-remediation-2026-08-25.md`.
+- **C1 — the F5 repair was not integrated into the staging installer.** The
+  corrected template asked for a second environment-file placeholder that
+  `infra/staging/setup-portal-host.sh` had never heard of, so the supported
+  provisioning path would have written a literal
+  `EnvironmentFile=__WORKER_ENVIRONMENT_FILE__` into `/etc/systemd/system` and kept
+  appending the same losing `Environment=WORKER_ENABLED=true`. The finding is
+  correct and the cause is worth naming: a unit template is an input to a program,
+  and nothing in the suite connected the two. The installer now defines and writes
+  `/etc/freedom-web/worker.env` (one line, `root:freedomweb`, `0640`), substitutes
+  the placeholder, appends no `Environment=` line, refuses to install a unit whose
+  directives still carry a placeholder, and asks systemd for the effective
+  configuration after `daemon-reload`. Five repository tests render each unit
+  through the installer's own substitutions; four of them fail against the
+  installer as reviewed.
+- **The generated unit is the deployed unit.** Rendering the template through the
+  corrected installer and comparing against the running, manually repaired
+  `freedom-worker.service`: every directive identical, differing only in comment
+  text. The repository can now reproduce the repair it could not reproduce on
+  2026-08-25.
+- **F5 and S-2 are not closed.** They are remediated in the repository and await
+  Codex's re-review and one root-held step: re-running the supported installer on
+  the staging host and observing `freedom-worker` active from the journal — not
+  from `/healthz`'s `worker_heartbeat`, which cannot tell an idle worker from an
+  absent one.
+- **C2 — F6 is a failure of A-4, not a new concern.** Accepted. Of the two paths
+  Codex offered, this package takes the first: `/healthz` gains
+  `break_glass_credentials`, false while the protected administrator holds fewer
+  than two enabled credentials, and the lifespan logs the S-15 warning it used to
+  only assign. Amending A-4 instead would have accepted a manual credential count
+  as the only channel on exactly the hosts where S-15 is deliberately not a
+  refusal, and would have closed the third instance of one pattern — S-4,
+  `worker_heartbeat`, F6 — by lowering the question.
+- **The contract change is additive and proposed, not approved.**
+  `VIEW_MODEL_VERSION` stays `vm-1`: a name is added to a closed vocabulary,
+  nothing is removed, renamed or narrowed. No route, view-model field, status code,
+  template, migration or schema changes. The check carries a boolean, never the
+  count, and is re-asked on every request rather than remembered from startup.
+  Approval and the security review of its disclosure and availability effects are
+  the Acceptance Authority's and the Security Reviewer's.
+- **Expect `degraded` and `503` on any host where nobody has enrolled**, including
+  staging until A-05's ceremony. That is the endpoint answering the question A-05
+  exists to close, and it is documented where an operator will read it.
+- **A-05 criterion 4 remains open.** Its `/healthz` half now exists in the
+  repository and has been observed on no host; its production-refusal half stays
+  unobservable before an authorized production deployment. Criterion 10 is
+  untouched.
+- **Verification.** Portal suite 2338 passed / 80 skipped (baseline 2330/80), bot
+  suite 2085 passed / 267 skipped (baseline 2080/267) and 2352 passed with the
+  disposable database configured, `node --test` 50 passed, asset integrity 4/4 OK,
+  `git diff --check` clean. Both suites were run serially against the one shared
+  disposable database. No migration.
 
 Update 2026-08-25 (fifty-fourth) — handover executed; three A-05 criteria evidenced; two findings raised.
 

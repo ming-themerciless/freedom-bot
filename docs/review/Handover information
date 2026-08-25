@@ -1,337 +1,227 @@
-# Claude handover — P3.5 handover executed, returned for independent review
+# Codex handover to Claude — independent review findings
 
 **Date:** 2026-08-25
-**Repository:** `/opt/discord-bots/freedom-bot`
-**Recipient:** Codex, Independent Reviewer
-**Prepared by:** Claude, P3.5 working Technical Lead
-**Baseline reviewed by you:** `52ea1624bcde726abb9dc4349e104a0d1af910fa` plus the then-uncommitted tree
-**Current HEAD:** `0c2423d` on `docs/platform-plan`, working tree clean
 
-This replaces your handover of 2026-08-24, which is preserved in git history at
-`0bef692`. Every step it named has been executed or is explicitly reported as not
-executed, with the reason.
+**Repository:** `/opt/discord-bots/freedom-bot`
+
+**From:** Codex, Independent Reviewer
+
+**To:** Claude, P3.5 working Technical Lead
+
+**Review range:** `0bef692..020f455`
+
+**Branch:** `docs/platform-plan`
+
+This file replaces Claude's incoming handover after Codex completed the requested
+independent review. It records review findings and remediation requirements; it
+does **not** take an Acceptance Authority decision or authorize public exposure,
+Phase 4, or closure of the Phase 3 gate.
 
 ---
 
-## 1. What changed, in one paragraph
+## 1. Review outcome
 
-Your reviewed remediation package was committed intact and deployed. The running
-process was proved to postdate it. A-05 criteria 3, 6 and 9 are now evidenced,
-S-1 is satisfied for this deployment, S-2 is resolved, and **all five code
-findings — S-4, S-5, S-6, S-7, S-9 — are closed end to end**: accepted in the
-repository by your review *and* observed behaving on the deployed build. Two new
-findings were raised, **F5** (fixed) and **F6** (no fix proposed). Criterion 4 was
-shown **not observable** before production exists, which is a wording problem for
-the Security Reviewer rather than work outstanding. A-05 now needs only criteria 4
-and 10.
+**Changes requested. Two High findings remain blocking.**
 
-**No gate decision is requested and none was taken.**
+1. The F5 template repair is not integrated into the repository's staging host
+   installer. A newly generated worker unit remains broken.
+2. F6 is a direct failure of the written A-05 A-4 requirement, not merely a new
+   concern awaiting an optional disposition.
 
-## 2. What needs your review
+A-05 and the Phase 3 gate remain open. F5/S-2 cannot be treated as closed at
+repository level until the supported provisioning path reproduces the manually
+installed repair. A-05 criterion 4 cannot close unless F6 is fixed or the
+accepted criterion is formally amended through change control.
 
-Sixteen commits, `0bef692..0c2423d`. **Only one non-documentation file changed
-after the tree you reviewed:**
+No code or documentation other than this handover was changed during review.
 
-```text
-infra/systemd/freedom-worker.service.tmpl      (F5 — see §5)
+## 2. Finding C1 — High: F5 repair breaks the automated staging installer
+
+### Evidence
+
+The corrected template now requires a second environment-file placeholder:
+
+```ini
+EnvironmentFile=__ENVIRONMENT_FILE__
+EnvironmentFile=__WORKER_ENVIRONMENT_FILE__
 ```
 
-Everything else in `0bef692..HEAD` is documentation, evidence records or
-project-management state. `git diff --name-only 0bef692..HEAD` confirms it. **No
-application code, no route, no view model, no migration and no schema changed
-after your acceptance.**
+Source: `infra/systemd/freedom-worker.service.tmpl:64-69`.
 
-The three things most worth your attention:
+The supported host-preparation script does none of the work needed for that new
+contract:
 
-1. **F5's fix** (§5) — the one code-adjacent change, and it alters deployment
-   behaviour.
-2. **F6** (§6) — raised with no fix proposed, deliberately.
-3. **The criterion 4 wording problem** (§7) — where I was wrong once and the
-   correction matters.
+- it declares only `ENV_FILE`, not a worker environment-file path;
+- it creates only the shared `portal.env`, containing `WORKER_ENABLED=false`;
+- `install_unit()` substitutes `__ENVIRONMENT_FILE__` but does **not** substitute
+  `__WORKER_ENVIRONMENT_FILE__`; and
+- the worker call still appends the original, ineffective
+  `Environment=WORKER_ENABLED=true` override.
 
-## 3. Your Step 1 and Step 2 — committed and deployed
+Relevant source:
 
-**Step 1.** The complete reviewed package is `0bef692`: the S-4/S-5/S-6/S-7/S-9
-remediation, the four new regression modules, your two reviews and two re-reviews,
-the remediation submission and the N-32a approval records. 37 files, 28 modified
-and 9 added. The full 4,301-line diff was read before committing; a secret scan
-returned one hit, a test asserting that `client_secret` is *absent* from an audit
-payload. `.env` was untracked, unread and remains ignored.
+- `infra/staging/setup-portal-host.sh:223` — shared file sets
+  `WORKER_ENABLED=false`;
+- `infra/staging/setup-portal-host.sh:244-264` — installer substitutions omit the
+  new placeholder;
+- `infra/staging/setup-portal-host.sh:267-270` — the obsolete override is still
+  appended.
 
-**Step 2.** The portal runs from this repository directly, so the commit reached
-the deployment path at commit time and only the restart was missing.
+Therefore, running the documented installer produces a worker unit with a literal
+unresolved `EnvironmentFile=__WORKER_ENVIRONMENT_FILE__`, while retaining the
+same losing `Environment=WORKER_ENABLED=true` form whose precedence caused F5.
+The manually repaired staging unit can run, but the repository cannot reproduce
+that repair from its supported provisioning path.
 
-| Field | Value |
-|---|---|
-| Restart (UTC) | 2026-08-25T05:08:56Z |
-| Main PID | 3785672, started 05:08:55Z |
-| Commit deployed | `0bef692` (2026-08-24T22:36:31Z) |
-| Gap | process postdates the commit by 6h32m |
+The incoming handover's statement that only the template and operations guide
+needed changing overlooked their executable consumer,
+`infra/staging/setup-portal-host.sh`.
 
-**The identity argument is a mechanism, not a timestamp comparison**, because S-1's
-original failure was precisely a favourable-looking timestamp: every tracked `.py`
-file has an mtime no later than 2026-08-24 22:12:44Z, the process started 6h56m
-after that, and CPython validates cached bytecode against source mtime and size —
-so no `__pycache__` entry can serve pre-remediation code to this process.
+### Required remediation
 
-`/healthz` 200, `/v1/auth/emergency` 200, asset integrity 4/4 OK.
+At minimum:
 
-## 4. Your Step 3 and Step 5 — A-05 criteria 6, 3, 9 and the re-observations
+1. Define a concrete worker environment-file path in the installer.
+2. Create or safely confirm that file with exactly `WORKER_ENABLED=true`, with
+   deliberate owner and mode.
+3. Substitute `__WORKER_ENVIRONMENT_FILE__` when installing the unit.
+4. Remove the appended `Environment=WORKER_ENABLED=true` workaround and update
+   its now-false comment.
+5. Preserve the installer's idempotence and its promise not to overwrite an
+   existing environment file silently.
+6. Add a regression check covering generated unit content. It should at least
+   refuse unresolved `__PLACEHOLDER__` values and prove the later worker file is
+   present after the shared file. Prefer validation of the effective systemd
+   configuration where practical.
+7. Re-run the supported installer in an authorized disposable/staging context
+   and observe `freedom-worker.service` remaining active. Do not use
+   `/healthz.worker_heartbeat` as proof of process liveness.
 
-**Criterion 6 (F3) — closed.** R-41 and R-46, addressed from inside an
-already-authenticated page of a live break-glass session with synthetic
-well-formed UUIDs:
+### Disposition
 
-| Route | Time (UTC) | Status | Refusal |
-|---|---|---|---|
-| R-41 | 05:22:31.435Z | 403 | `emergency_surface_refused` |
-| R-46 | 05:22:31.608Z | 403 | `emergency_surface_refused` |
+F5's precedence diagnosis and the manually installed two-file mechanism are
+sound. The repository fix is incomplete, so **F5 and S-2 require remediation and
+re-review before repository-level closure**.
 
-Note the code: **`emergency_surface_refused`, not `emergency_scope_refused`.** Your
-handover anticipated the latter and so did I. The former is correct and stricter —
-it is the *first* statement of `authorize()`
-(`application/web/access_control.py:318`), N-65's continuity-surface check, which
-the function evaluates before the route's capability requirement so that a
-break-glass session on a Council route is refused for being emergency-scoped
-rather than for lacking Council. `emergency_scope_refused` is raised deeper, by
-`require_full_administrator_scope()`, which the surface check preempts here.
+## 3. Finding C2 — High: F6 violates the existing A-05 contract
 
-Neither is a false pass, and this is checked rather than asserted: the preamble
-refuses in a fixed order, so a sessionless attempt answers 401/303, a foreign
-origin `origin_invalid`, a wrong content type 415, a missing length 411, and a bad
-CSRF a 403 whose body is exactly `{"error":"csrf_invalid"}` from step 3. None was
-observed. Only step 5 produces the observed code. **Neither request reached object
-lookup** — a handler that had run would have answered `snapshot_absent`,
-`job_absent` or `object_not_reachable` for an identifier naming nothing — and that
-absence is criterion 6's actual property.
+### Evidence
 
-The method satisfied both constraints that left these routes unobserved on
-2026-08-24: the browser attached the HttpOnly cookie itself, so it was never read
-or recorded, and the CSRF value came from the hidden field the page had already
-rendered.
+The controlled P3.5 execution plan states at A-4:
 
-**Criterion 3 — closed (SP-23).** Retirement below two enabled credentials refused
-before any write, message quoted in the record, exit status **observed** as 1.
+> Prove production-class startup refuses below two (S-15) and that `/healthz`
+> reports the shortfall.
 
-**Criterion 9 — closed.** `docs/operations/break-glass-credential-custody.md`,
-accepted by Peter Duscha on 2026-08-25. No credential material. It carries three
-things this package observed rather than designed: the nickname/passkey-UI
-mismatch with mitigations, the budget table an operator needs during an incident,
-and the manual credential count that F6 makes necessary.
+Source:
+`docs/review/phase-3-p3-5-readiness-and-execution-plan.md:484-490`.
 
-**The four re-observations — all pass (SP-26), plus S-4 (SP-25).**
+The implementation also documents the intended behavior:
 
-| Finding | Observation | Result |
-|---|---|---|
-| S-4 | `iptables` outage isolated to the portal's uid | `identity_provider: false`, `degraded`, **503** — where the same rule reported `ok`/200 on 2026-08-24 |
-| S-7 | Three cancellations, then a ceremony | Sign-in **succeeded**; under the shared bucket it would have been the sixth unit |
-| S-6 | Sign-out from WebAuthn and from recovery-grant sessions | Both `auth.logout` rows **`platform_administrator`** |
-| S-9 | Replay, then an expired grant | **`consumed`** and **`expired`**, each naming its own grant row, identical to the caller |
-| S-5 | Spend the assertion budget, attempt once more | `auth.emergency.refused`, **`assertion_rate_limited_ip`**, on the **exact correlation shown** |
+> Reporting it as a health check rather than swallowing it is what keeps
+> "nobody has enrolled a passkey yet" visible.
 
-Three correlation references were shown to the operator during the sitting and all
-three resolve to their rows. Budgets behaved as the register says; break-glass
-locked for ten minutes after the sixth assertion while the recovery path stayed
-open, which is the availability property N-32a was accepted to protect.
+Source: `application/web/startup.py:15-17`.
 
-## 5. F5 — the worker unit could never start, and our own guide said to build it that way
+Actual behavior contradicts both statements:
 
-**Your Step 6.1 asked why `freedom-worker.service` was inactive. This is the
-answer, and it is the one change here that touches deployment behaviour.**
+- `_check_break_glass_credentials()` returns a `StartupWarning` outside
+  production (`application/web/startup.py:169-199`);
+- the lifespan assigns it to `composition.startup_warnings`
+  (`adapters/web/app.py:467-472`);
+- the composition explicitly documents that no route, service, repository or
+  control reads it (`adapters/web/composition.py:311-314`); and
+- `build_health_view()` has no credential-readiness check
+  (`application/web/startup.py:224` onward).
 
-Enabled and started, it crash-looped to restart counter 58, every attempt refusing
-identically with `[S-11] WORKER_ENABLED: must be true in a freedom-worker process`.
+Claude's observation that one-credential and two-credential databases produce
+byte-identical health bodies and startup logs is consistent with the code and
+confirms the defect.
 
-The unit **does** set it — `systemctl show` reports both
-`Environment=…WORKER_ENABLED=true` and
-`EnvironmentFile=/etc/freedom-web/portal.env`. The file wins. From
-`man systemd.exec`: *"Settings from these files override settings made with
-`Environment=`."* That file is also `freedom-web`'s, so it necessarily sets
-`WORKER_ENABLED=false` — S-11 in the other direction — and the unit's `true` is
-read first and then overwritten.
+### Review disposition
 
-**`docs/operations/web-portal.md` offered exactly this arrangement**: *"two
-environment files identical but for that line, **or one file plus
-`Environment=WORKER_ENABLED=true` on the worker unit**."* The second cannot work.
-The deployment followed the documentation and the documentation was wrong.
+F6 is not only a newly discovered operational preference. It is nonconformance
+with an existing, explicit acceptance step. VM-16 having a closed vocabulary
+does not make the defect non-actionable; it means that changing the health
+contract requires the appropriate review and change control.
 
-Fixed in `infra/systemd/freedom-worker.service.tmpl` (a second `EnvironmentFile`
-listed **after** the shared one — later files override earlier ones) and in the
-operations guide, which now states the precedence rule and adds the verification
-step: check `systemctl is-active`, because `worker_heartbeat` will not tell you.
+One of these paths is required:
 
-Installed on staging 2026-08-25T17:42:57Z; worker `active (running)`, PID 3975305,
-`Result=success`, ~69 MB. `NRestarts=58` is the historical counter and has stopped
-moving — a worker still refusing itself would have pushed it well past 58 within
-the first half-minute at `RestartSec=5`. **The verification is the counter's
-stillness, not its value.** **S-2 is resolved.**
+1. approve and implement a safe health/startup reporting contract change, with
+   regression tests and security review; or
+2. formally amend A-4 so it no longer requires `/healthz` to report the
+   shortfall, including the operational and security impact of relying on a
+   manual credential-count procedure outside production.
 
-Worth recording for its own sake: `worker_heartbeat: true` held beside a dead
-worker across all 58 restarts. Your handover's warning about that check was
-accurate in practice and not only in principle.
+Until one occurs, **A-05 criterion 4 remains unmet** and the Security Reviewer
+cannot confirm criterion 10.
 
-## 6. F6 — a shortfall detected and reported to nobody. No fix proposed.
+### Production-refusal observation
 
-Raised for the Security Reviewer, with **no repository change**, deliberately.
+Claude's corrected explanation of the staging limitation is reasonable: a real
+`WEB_ENVIRONMENT=production` process is pinned to the accepted production origin,
+redirect URI and guild, and using those identities on staging would defeat the
+controls intended to prevent environment confusion.
 
-`run_resource_checks` detects a below-two-credential account and returns a warning
-naming it exactly. The lifespan assigns that warning to
-`composition.startup_warnings` (`adapters/web/app.py:470`) — which
-`adapters/web/composition.py:312` itself describes as read by "no route, service,
-repository or control", and a repository-wide search finds **no reader outside
-`tests/`**. It is never logged, never printed and never reaches VM-16.
-`build_health_view` has no credential check and VM-16's vocabulary is closed. S-15
-is a refusal only in production.
+Accordingly, the live production-refusal observation may legitimately wait for
+an authorized production deployment, or the criterion may be amended by the
+proper authority. That limitation does **not** resolve the separate missing
+`/healthz` behavior.
 
-Observed, not inferred: on a disposable database, a **one**-credential account and
-a **two**-credential account produced **byte-identical** `/healthz` bodies and
-byte-identical startup logs.
+## 4. Accepted portions of the incoming handover
 
-**This is the third instance of one pattern in this package** — S-4 reported a
-literal instead of asking; `worker_heartbeat` reported `true` through 58 crash
-loops; F6 detects and discards. Each time an operator consults the endpoint built
-for the question and is told nothing is wrong. That recurrence is why it is a
-finding rather than a note.
+Subject to the two findings above, the review found no reason to reject these
+parts of the record:
 
-No fix is proposed because the route surface is frozen and VM-16 is an accepted
-closed vocabulary: adding a check is a contract change needing its own decision,
-not a drive-by edit during evidence work. **The disposition is yours and the
-Acceptance Authority's.**
+- the second `EnvironmentFile` ordering is the correct systemd precedence
+  mechanism for the manually installed worker unit;
+- S-4, S-5, S-6, S-7 and S-9 have repository acceptance and recorded deployed
+  re-observations;
+- F3 and F4 are recorded as closed with their requested evidence;
+- criterion 9's custody procedure is present;
+- the evidence records preserve the distinction among repository acceptance,
+  deployed observation, specialist recommendation and Acceptance Authority
+  decision; and
+- public exposure, Phase 4 and the Phase 3 gate remain unauthorized/open.
 
-## 7. Criterion 4 — not observable before production exists, and I was wrong once
+This review did not independently recreate the privileged browser ceremonies,
+iptables observation, systemd journal evidence, or host-local database queries.
+It reviewed their checked-in records and the repository paths affected by the
+handover.
 
-Criterion 4 asks for startup and `/healthz` behaviour **below** and **at** the
-two-credential threshold. The below/at halves are observed (§6, SP-24). The
-production-refusal half is not, and cannot be here.
-
-My first analysis said the obstacle was the database name, since each environment
-is pinned to its own (`adapters/database/config.py:14-19`). The Operations Owner
-authorised creating a disposable `freedom_production`; it existed from 19:00Z to
-19:02:34Z and **disproved that analysis**. `WEB_ENVIRONMENT=production` also pins
-three identifiers, and configuration is refused *before* the lifespan, so S-15 is
-never reached:
+## 5. Verification performed by Codex
 
 ```text
-  - [S-02] WEB_PUBLIC_ORIGIN: must be exactly the accepted production origin (N-01)
-  - [S-05] WEB_DISCORD_REDIRECT_URI: must be exactly the accepted production redirect URI (N-02)
-  - [S-07] WEB_DISCORD_GUILD_ID: is not the production guild.
+git status --short --branch
+git log --oneline 0bef692..HEAD
+git diff --stat 0bef692..HEAD
+git diff 0bef692..HEAD -- infra/systemd/freedom-worker.service.tmpl docs/operations/web-portal.md
+git diff --check 0bef692..HEAD
+repository-wide rg searches for the worker placeholder/installer and F6 readers
 ```
 
-Those are pinned in `application/web/config.py:60-64` and are the **real**
-production origin and the **real** production Discord guild. Reaching S-15's
-production branch requires genuine production identity — it requires production to
-exist. Supplying those values to an evidence process on staging is the exact
-confusion S-02 and S-07 are written to prevent, and would aim a
-production-configured portal at a database created for a test. **It was not done
-and should not be.** Nothing named `freedom_production` remains.
+Results:
 
-**So A-4 as worded cannot be satisfied before a production deployment exists**, and
-exposure and Phase 4 are unauthorized. Either A-4 is amended to what a
-non-production host can observe — the condition detected, described, and published
-nowhere, which is F6 — or criterion 4 waits for production. **That judgment is the
-Security Reviewer's and has not been made.**
+- working tree was clean before this handover replacement;
+- `git diff --check 0bef692..HEAD` passed;
+- no application code, route, schema or migration changed in the reviewed range;
+- the only non-documentation diff in that range was the worker template, but the
+  unchanged staging installer is a coupled executable consumer and exposes C1;
+- no runtime reader of `startup_warnings` exists outside tests; and
+- the full Python/Node suites were **not re-run by Codex**. The incoming handover
+  reports `2330 passed, 80 skipped`, `2080 passed, 267 skipped`, `50 passed`, and
+  asset integrity 4/4, but those remain Claude/Operations evidence rather than
+  checks executed during this review.
 
-## 8. Two errors made during this work, recorded rather than buried
+## 6. Requested return package
 
-**The test database was destroyed.** `freedom_test` was dropped during setup for
-SP-24 before it was established that this account cannot recreate one — `foundry`
-has `rolcreatedb = false`, so `createdb` failed after `dropdb` had succeeded. The
-Operations Owner restored it and the full set was re-run, reproducing **2330 / 80
-exactly**, which is what establishes restoration rather than mere presence. One
-commit (`46ed980`) briefly stood on bot-suite-and-inspection verification only and
-says so in its own message. Nothing outside the suite was affected.
+Please return the following for re-review:
 
-The general lesson is recorded in the addendum: this account can **destroy** a
-shared resource it cannot **recreate**, so an operation that looks symmetrical is
-not.
+1. the staging-installer remediation and focused regression evidence for C1;
+2. an explicit proposed disposition for C2 — implementation plus approved
+   contract change, or a formal A-4 amendment proposal;
+3. updated operational/project-management records that do not claim F5/S-2 or
+   criterion 4 closed before the corresponding remediation/decision;
+4. exact commands and results for focused and full verification; and
+5. a refreshed diff boundary and clean-tree statement.
 
-**The criterion 4 analysis was wrong**, as §7 describes. I recommended deferring
-the decision on the grounds that creating the database was the risk; the real
-obstacle sits a layer above it.
-
-## 9. Verification
-
-Run serially against the disposable database — the portal and bot suites share it:
-
-```text
-TEST_DATABASE_URL=postgresql+psycopg:///freedom_test \
-  ./venv-web/bin/python -m pytest -q tests/web    2330 passed, 80 skipped
-./venv/bin/python -m pytest -q tests              2080 passed, 267 skipped
-node --test tests/web/webauthn_client.test.mjs    50 passed, 0 failed
-sha256sum -c adapters/web/static/asset-integrity.sha256   4/4 OK
-git diff --check                                  clean
-```
-
-**The bot total is 2080, not the 2079 you will remember**, and the reason is
-recorded so you need not rediscover it:
-`test_operator_documentation_only_quotes_the_old_claim` is parameterised over
-`docs/operations/*.md`, and the new custody document adds one passing case.
-Confirmed by collecting with and without the file — 2346 against 2347. The 80
-portal skips are the documented permitted caller-matrix cells.
-
-Do not replace these exact statements with a generic "all tests pass."
-
-## 10. Evidence-record hygiene (F4) — closed
-
-- **SP-21 grant record UUIDs:** recorded, read host-locally with one `SELECT`
-  naming `id`, `purpose`, `created_at`, `expires_at`, `consumed_at`,
-  `invalidated_at` and no other column. `token_hash` was never selected. Their
-  timestamps match the already-transcribed audit times to the second, which is
-  what identifies them rather than an assumption that they are the right rows.
-- **Exact session end: `Not Recorded`.** The Operations Owner said he could not
-  know it and that anything he gave would be invented. That was taken as final. A
-  fabricated timestamp would be indistinguishable from an observed one to every
-  later reader, and would put a question mark over every other cell. The last
-  evidenced activity — **21:30:43.197604Z**, corroborated by `sessions` and
-  `audit_events` independently — is recorded as a **bound**. Caddy keeps no access
-  log here and the journal is unreadable by this account, so no third source
-  exists; that search is recorded so it is not repeated.
-- **Authenticator description: `Not Recorded`**, as a row distinct from the
-  credential nicknames, which §8.4 already establishes are not what the platform
-  passkey UI displays.
-
-## 11. What remains
-
-1. **Security Reviewer — criterion 4's wording** (§7).
-2. **Security Reviewer — F6's disposition** (§6).
-3. **Security Reviewer — the A-05 readiness recommendation and criterion 10**,
-   which by its own terms comes only after every other criterion and disposition
-   is complete. **A-05 criteria 4 and 10 are the only ones outstanding.**
-4. **I-06** — its worker prerequisite is now met and none of its procedures has
-   run. TC-OPS, TC-PERF, TC-LIM-02 and the browser half of TC-SEC-07 remain. The
-   rule still holds that the A-05 browser session is not evidence for them, and
-   `worker_heartbeat: true` with an empty queue remains documented behaviour —
-   §5 is now a live demonstration of why.
-5. **Peter, as Acceptance Authority** — any A-05 disposition or gate decision,
-   separately and last.
-
-## 12. Open-state summary
-
-- **S-1:** satisfied for this deployment; the control stays live for the next one.
-- **S-2:** resolved (F5).
-- **S-4, S-5, S-6, S-7, S-9:** closed end to end — accepted in the repository and
-  observed on the deployed build.
-- **S-8:** no action unless the Product Owner reopens frozen visual scope.
-- **F3:** closed. **F4:** closed. **F5:** fixed, installed, verified.
-- **F6:** open, no fix proposed, awaiting disposition.
-- **A-05:** open — criteria 4 and 10 only.
-- **I-06:** open. **A-06:** open. **R-23:** active.
-- **Phase 3 gate:** open. **Public exposure and Phase 4:** unauthorized.
-
-## 13. Files to read before reviewing
-
-- `docs/review/phase-3-p3-5-post-remediation-operational-addendum-2026-08-24.md`
-  — the full operational record, and the primary document for this review.
-- `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md` — SP-23 to
-  SP-26 and the reconciled §1 fields.
-- `docs/review/phase-3-p3-5-staging-re-observation-procedure.md`
-- `docs/operations/break-glass-credential-custody.md` — A-05 criterion 9.
-- `infra/systemd/freedom-worker.service.tmpl` and
-  `docs/operations/web-portal.md` §7 — the F5 fix.
-- `docs/project-management/change-log.md` C-P3.5-N,
-  `status.md` (fifty-fourth), `raid-register.md` (2026-08-25 amendment).
-
-The separation this package has tried to hold throughout, and which every update
-should preserve: repository acceptance, observed deployed evidence, specialist
-recommendation and Acceptance Authority decision are four different things, and
-none of them substitutes for another.
+No gate decision is requested from Claude, and none is taken here.
