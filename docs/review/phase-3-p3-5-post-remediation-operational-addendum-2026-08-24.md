@@ -432,8 +432,8 @@ when the answer is "no".
 
 ## 6. Handover Step 6 — I-06 prerequisite: why the worker never started
 
-**Root cause found 2026-08-25. Raised as finding F5. The fix is in the repository;
-installing it needs the Operations Owner.**
+**Root cause found, fixed and verified running on staging, 2026-08-25. Raised as
+finding F5. S-2 is resolved.**
 
 ### 6.1 What was observed
 
@@ -500,17 +500,33 @@ Two repository changes, both committed:
   incident shows is necessary: check `systemctl is-active freedom-worker`, because
   `/healthz`'s `worker_heartbeat` **will not** tell you.
 
-**Still to do, and it needs the Operations Owner** (root-owned unit, password
-sudo):
+### 6.3.1 Installed and verified on staging, 2026-08-25
 
-1. Create the small second environment file — one line, `WORKER_ENABLED=true`,
-   readable by the `freedomweb` account and holding nothing secret.
-2. Add the second `EnvironmentFile=` line to
-   `/etc/systemd/system/freedom-worker.service`, **after** the existing one, and
-   remove the ineffective `Environment=WORKER_ENABLED=true` stanza.
-3. `sudo systemctl daemon-reload && sudo systemctl restart freedom-worker.service`
-4. Verify with `systemctl is-active freedom-worker.service` — **not** with
-   `/healthz`.
+The Operations Owner created `/etc/freedom-web/worker.env` (one line,
+`WORKER_ENABLED=true`, `root:freedomweb`, mode `640`, nothing secret), installed
+the corrected unit — the previous one kept as
+`freedom-worker.service.bak-f5` — and reloaded and restarted.
+
+| Field | Value |
+|---|---|
+| Active state | **`active (running)`** |
+| Main PID | **3975305** |
+| Process start (UTC) | **2026-08-25 17:42:56Z** |
+| `ExecMainStartTimestamp` | 2026-08-25 17:42:57Z |
+| `Result` | `success` |
+| Resident size | ~69 MB, well under the `MemoryMax=1G` N-47 guard |
+
+**`NRestarts=58` is the historical counter and is the useful number here, not a
+concern.** It is the total since the unit was loaded and is not reset by a manual
+restart; it stopped at 58 — the count the crash loop reached before the fix. Each
+failed start died inside about a second against `RestartSec=5`, so a worker still
+refusing itself would have pushed the counter well past 58 within the first
+half-minute. It did not move, and the PID observed at 29 seconds of uptime is the
+one systemd started. That is the verification: the counter's *stillness*, not its
+value.
+
+Verified with `systemctl is-active` and `systemctl show`, **not** with `/healthz`,
+for the reason in §6.4.
 
 ### 6.4 Two things this incident demonstrates, beyond the fix itself
 
@@ -540,8 +556,9 @@ class of failure will keep requiring a human until that access changes.
 | N-32a | Accepted 2026-08-24; no configuration change needed to deploy it (§2.3) |
 | S-5, S-6 | Closed in the repository by Codex re-review |
 | S-4, S-7, S-9 | Repository remediation accepted and now **running**; deployed *behavioural* observation still outstanding (§5) |
+| I-06 worker prerequisite | **Met 2026-08-25** (§6.3.1) |
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
-| S-2 | **Root-caused 2026-08-25 as F5** — repository fix committed; the unit and its new environment file still need installing by the Operations Owner (§6.3) |
+| S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
 | A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; 4, 9, 10 outstanding |
@@ -553,9 +570,9 @@ class of failure will keep requiring a human until that access changes.
 ## 8. What is needed next, and from whom
 
 1. ~~Restart `freedom-web.service`~~ — **done 2026-08-25T05:08:56Z** (§2).
-2. **Operations Owner** — install the F5 fix and verify the worker (§6.3),
-   unblocking I-06's worker procedures. Verify with `systemctl is-active`, not
-   with `/healthz`.
+2. ~~Install the F5 fix and verify the worker~~ — **done 2026-08-25T17:42:57Z**
+   (§6.3.1). I-06's worker prerequisite is met; its named procedures (TC-OPS,
+   TC-PERF, TC-LIM-02, the browser half of TC-SEC-07) remain to be executed.
 3. **Operations Owner** — supply the exact session-end timestamp and a truthful
    authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
    §4.3).
