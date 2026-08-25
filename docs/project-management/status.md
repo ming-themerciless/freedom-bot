@@ -1,6 +1,30 @@
 # Project status
 
-Status date: 2026-08-25 (fifty-sixth update: Codex re-reviewed the C1/C2
+Status date: 2026-08-25 (fifty-seventh update: Codex accepted the C3/C4
+repository remediation with no blocking finding. Its one Low diagnostic finding
+is corrected: the byte-exact sentinel now preserves `cat`'s read-failure status,
+suppresses raw stderr and emits the controlled refusal, with an executable
+regression. **Nothing is closed:** F5/S-2 still await the authorized installer run,
+A-05 criteria 4 and 10 remain open, and the C2 contract change still awaits the
+Acceptance Authority. No public exposure or Phase 4 start is authorized.)
+
+Update 2026-08-25 (fifty-seventh) — C3/C4 accepted; Low read-failure diagnostic corrected.
+
+- **C3 and C4 repository remediation accepted.** Codex found no blocking defect:
+  strict worker-file validation and the corrected redundancy/readiness semantics
+  stand. The C2 boolean health signal remains recommended for approval.
+- **Low diagnostic correction.** `worker_env_file_problem` appended a sentinel to
+  preserve trailing newlines, but the sentinel's successful `printf` hid a failed
+  `cat`; the file was still refused, with the wrong content-mismatch explanation
+  and raw `cat` stderr. The substitution now exits with `cat`'s status, suppresses
+  raw stderr and emits only `could not be read.`. A twenty-second C3 regression
+  exercises an unreadable regular file and asserts status, stdout and empty stderr.
+- **Boundaries unchanged.** The supported installer still needs its authorized
+  staging run and direct worker evidence. The C2 build still needs deployment and
+  observation, the Acceptance Authority's contract decision, and A-05 criteria 4
+  and 10.
+
+Status date before this update: 2026-08-25 (fifty-sixth update: Codex re-reviewed the C1/C2
 remediation, accepted both core mechanisms and recommended approving the health
 contract change, and requested changes on two further findings. C3 — an existing
 worker environment file was confirmed only for the value of `WORKER_ENABLED`, so a

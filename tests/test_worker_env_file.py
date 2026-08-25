@@ -219,6 +219,38 @@ def test_an_unexpected_owner_or_group_is_refused(worker_env):
     assert "reconfigure itself" in problem
 
 
+def test_an_unreadable_regular_file_gets_the_controlled_read_refusal(tmp_path):
+    """The newline sentinel must not hide `cat`'s failure status.
+
+    The validator runs as this non-root test account. Mode 000 is supplied as the
+    expected mode so ownership/mode validation deliberately passes and the read
+    itself is the first failing operation.
+    """
+    unreadable = _write(tmp_path / "worker.env", CONFORMING, 0o000)
+    owner = pwd.getpwuid(os.getuid()).pw_name
+    group = grp.getgrgid(os.getgid()).gr_name
+    completed = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'. "$1"; worker_env_file_problem "$2" "$3" "$4" "$5"',
+            "bash",
+            str(LIBRARY),
+            str(unreadable),
+            owner,
+            group,
+            "0",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout.strip() == "could not be read."
+    assert completed.stderr == ""
+
+
 # ---------------------------------------------------------------------------
 # The installer uses it
 # ---------------------------------------------------------------------------

@@ -19,6 +19,17 @@ open; the C2 health-contract change remains **proposed**, and Codex's
 recommendation to approve it is recorded as a specialist recommendation rather than
 an approval.
 
+**Post-review correction, 2026-08-25.** Codex accepted the C3 and C4 repository
+remediations with no blocking finding and identified one Low diagnostic defect:
+the newline-preserving sentinel `printf` hid `cat`'s failure status, so an
+unreadable regular file was refused for a content mismatch and leaked `cat`'s raw
+stderr instead of producing the validator's controlled `could not be read.`
+message. The substitution now preserves `cat`'s status explicitly and suppresses
+its raw stderr; a twenty-second C3 test reaches the read path with an unreadable
+regular file and requires the exact controlled refusal on stdout and empty stderr.
+This correction changes no accepted file, no validation success case and no gate
+state.
+
 ---
 
 ## 1. Summary
@@ -117,7 +128,7 @@ override, and a WORKER_ENABLED that is not true is F5 reinstated.
 
 ### 2.4 The regressions execute the check
 
-`tests/test_worker_env_file.py`, 21 cases, each running
+`tests/test_worker_env_file.py`, 22 cases, each running
 `worker_env_file_problem` in bash against a file it created. The previous
 regression asserted that creation statements existed in the script text, which — as
 the finding says — is not the same as running what the operator's host will run.
@@ -128,6 +139,7 @@ the finding says — is not the same as running what the operator's host will ru
 | content | extra variables (C3's example), duplicate assignments ending in `true`, a comment line, `false`, `TRUE`, empty, no final newline, a trailing blank line, leading whitespace |
 | shape | a symlink resolving to a conforming file, a directory, a missing path |
 | ownership and mode | five modes (`644`, `660`, `666`, `600`, `444`) and a wrong group |
+| read failure | an unreadable regular file produces only the controlled `could not be read.` refusal; the newline sentinel does not hide `cat`'s status |
 | wiring | the installer sources the library, calls it with `root`, the service group and `640`, refuses rather than repairs, and no longer contains the last-assignment-wins `sed` |
 
 The refusal messages are asserted, not only the exit status: the one for extra

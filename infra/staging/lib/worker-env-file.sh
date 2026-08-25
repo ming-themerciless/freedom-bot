@@ -74,7 +74,11 @@ worker_env_file_problem() {
     # Byte-exact, trailing newlines included. A command substitution alone would
     # strip them and quietly accept a file with none, or with three.
     local content
-    content="$(cat "$path"; printf x)" || {
+    # Preserve `cat`'s status across the sentinel `printf`. Without the explicit
+    # exit, the substitution reports only `printf`'s success and an unreadable
+    # file is misdiagnosed as a content mismatch. Suppress `cat`'s raw stderr so
+    # the operator receives this function's stable refusal sentence instead.
+    content="$(cat "$path" 2>/dev/null; read_status=$?; printf x; exit "$read_status")" || {
         printf 'could not be read.\n'
         return 1
     }

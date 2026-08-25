@@ -2,6 +2,19 @@
 
 Status date: 2026-08-25
 
+## P3.5 C3/C4 acceptance and Low diagnostic correction — 2026-08-25
+
+- Codex accepted the C3 and C4 repository remediations with no blocking finding
+  and retained its recommendation to approve C2's boolean health-contract change.
+- One Low issue was corrected directly: the newline sentinel in
+  `worker_env_file_problem` previously masked `cat`'s failure status. An unreadable
+  file was still refused, but with a content-mismatch message and raw stderr. The
+  validator now preserves the read status, emits only its controlled refusal, and
+  has an executable unreadable-file regression.
+- **No RAID closure follows.** F5/S-2 still require the authorized supported-
+  installer run and direct worker evidence. A-05 criteria 4 and 10 remain open,
+  and C2 still requires the Acceptance Authority's decision.
+
 ## P3.5 re-review amendment (C3/C4) — 2026-08-25
 
 Recorded after Codex re-reviewed the C1/C2 remediation over `020f455..78dfb67`.
