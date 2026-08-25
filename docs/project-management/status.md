@@ -51,9 +51,16 @@ Update 2026-08-25 (fifty-fourth) — handover executed; three A-05 criteria evid
   after S-4 and `worker_heartbeat`, which is why it is a finding rather than a
   note. The route surface is frozen and VM-16 is an accepted closed vocabulary,
   so the disposition is the Security Reviewer's.
-- **No gate moved.** Criterion 4's production half is deferred pending a decision
-  it is not a reviewer's to take; criterion 10, four staging re-observations and
-  every I-06 procedure remain outstanding. Public exposure and Phase 4 remain
+- **Criterion 4's production half is not observable before production exists.**
+  Tested 2026-08-25 rather than assumed: `WEB_ENVIRONMENT=production` pins the
+  public origin, the OAuth redirect URI and the Discord guild to their **real**
+  production values, and configuration is refused before the lifespan runs — so
+  S-15's production branch is never reached. The obstacle is not the database
+  name, which was the earlier analysis and was wrong. Either A-4 is amended to
+  what a non-production host can observe, or criterion 4 stays open until
+  production configuration exists; that is the Security Reviewer's judgment.
+- **No gate moved.** Criteria 4 and 10, four staging re-observations and every
+  I-06 procedure remain outstanding. Public exposure and Phase 4 remain
   unauthorized.
 
 Previous status date: 2026-08-24 (fifty-third update: Codex independent and security

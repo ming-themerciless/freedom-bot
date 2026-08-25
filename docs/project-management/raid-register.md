@@ -17,10 +17,16 @@ record: `docs/review/phase-3-p3-5-post-remediation-operational-addendum-2026-08-
   satisfied**: `docs/operations/break-glass-credential-custody.md`, accepted by
   Peter Duscha on 2026-08-25. **Criterion 4 is half-observed** (SP-24) — below and
   at the threshold on a disposable database, both starting normally with
-  byte-identical `/healthz` bodies; its production-refusal half is **deferred**,
-  because observing it requires a database named `freedom_production` and creating
-  one on this host is not a reviewer's decision to take. **Criteria 4 and 10
-  remain the only A-05 criteria outstanding.**
+  byte-identical `/healthz` bodies. **Its production half is not observable before
+  a production deployment exists**, established by attempting it on 2026-08-25:
+  `WEB_ENVIRONMENT=production` pins the public origin, OAuth redirect URI and
+  Discord guild to their real production values, and configuration is refused
+  before the lifespan runs, so S-15's production branch is never reached. The
+  earlier analysis — that only a database named `freedom_production` was needed —
+  was wrong, and the disposable database created to test it was dropped two
+  minutes later. Either A-4 is amended to what a non-production host can observe,
+  or criterion 4 stays open until production exists; the judgment is the Security
+  Reviewer's. **Criteria 4 and 10 remain the only A-05 criteria outstanding.**
 - **S-1 is satisfied for this deployment.** The portal was restarted onto commit
   `0bef692` and the running process (PID 3785672) is proved to postdate it by a
   mechanism rather than a favourable timestamp: every tracked source file predates

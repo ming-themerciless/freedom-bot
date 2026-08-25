@@ -451,14 +451,48 @@ docstring says so (`adapters/web/composition.py:312`), and a repository-wide sea
 finds no reader outside `tests/`. It is never logged, never printed and never
 reaches VM-16. This is recorded as finding **F6**; see the operational addendum §5.3.
 
-**What is Not Run:** the production half of A-4 — that a *production-class* startup
-**refuses** below two (S-15 as a `ConfigurationProblem` rather than a warning). It
-was not observed because `is_production` is true only for `WEB_ENVIRONMENT=production`,
-and the configuration pins each environment to its own database name
-(`adapters/database/config.py:14-19`), so observing it requires a database named
-`freedom_production`. Creating one — even disposably — on the staging host was
-judged to need an explicit decision rather than a reviewer's discretion, and it has
-not been taken. **Criterion 4 therefore remains open.**
+**The production half of A-4 is Not Run, and — established 2026-08-25 — it is
+*not observable on this host at all*.** The reason is not the one first recorded
+here, and the correction matters more than the original guess.
+
+The first analysis held that observing a production-class refusal required only a
+database named `freedom_production`, because each environment is pinned to its own
+database name (`adapters/database/config.py:14-19`). The Operations Owner
+authorised creating one disposably, it was created at **19:00Z** and dropped at
+**19:02:34Z**, and in those two minutes the attempt established that the database
+name was **never the binding constraint**.
+
+`WEB_ENVIRONMENT=production` also pins three identifiers to their real production
+values, and the portal refuses configuration before the lifespan — so before S-15
+is ever evaluated:
+
+```text
+The web portal refuses to start: 3 configuration problem(s).
+  - [S-02] WEB_PUBLIC_ORIGIN: must be exactly the accepted production origin (N-01)
+  - [S-05] WEB_DISCORD_REDIRECT_URI: must be exactly the accepted production
+           redirect URI (N-02); it is registered at the provider.
+  - [S-07] WEB_DISCORD_GUILD_ID: is not the production guild. A production process
+           pointed at a staging guild would authorize the wrong community.
+```
+
+Those values are pinned in source (`application/web/config.py:60-64`) and are the
+**real** production origin and the **real** production Discord guild. Reaching
+S-15's production branch therefore requires a process configured with genuine
+production identity — which is to say, it requires production to exist. Supplying
+those values to an evidence process on the staging host is precisely the confusion
+S-02 and S-07 are written to prevent, and would point a production-configured
+portal at a database created for a test.
+
+**Consequence for the criterion.** A-05 criterion 4 and §9.2's A-4 row, as worded,
+cannot be satisfied before a production deployment exists — and public exposure and
+Phase 4 are unauthorized. Either the row is amended to what a non-production host
+can actually observe (recorded above: the condition detected, a warning produced,
+and **nothing published** — finding F6), or criterion 4 stays open until production
+configuration exists. **That is the Security Reviewer's judgment and it has not been
+made.** Criterion 4 remains open.
+
+No production identifier was configured, no production-class process was started,
+and nothing named `freedom_production` remains on the host.
 
 ---
 

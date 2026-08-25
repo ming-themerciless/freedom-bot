@@ -378,16 +378,51 @@ process on port 8099.
 
 The two health bodies are **byte-identical** and so are the two startup logs.
 
-**Not Run: the production half.** §9.2's A-4 row asks for a *production-class*
-startup **refusing** below two. `is_production` is true only for
-`WEB_ENVIRONMENT=production`, and `adapters/database/config.py:14-19` pins each
-environment to its own database name, so observing that refusal requires a
-database literally named **`freedom_production`**. Creating one on the staging
-host — even to drop it minutes later — is not a reviewer's call: it manufactures
-the exact artifact the `EXPECTED_DATABASES` rail exists to keep distinct from
-non-production, and a database with that name outliving its purpose is a hazard to
-whoever meets it next. **The decision is put to the Operations Owner and the
-Security Reviewer rather than taken.** Until it is, **criterion 4 remains open.**
+### 5.2.1 The production half is not observable here, and my first analysis was wrong
+
+The Operations Owner authorised creating a disposable `freedom_production`
+database on 2026-08-25. It was created at **19:00Z** and dropped at **19:02:34Z**,
+and those two minutes were worth spending because they disproved the analysis that
+motivated them.
+
+**The database name was never the binding constraint.** `WEB_ENVIRONMENT=production`
+also pins three identifiers to their real production values, and configuration is
+refused *before* the lifespan runs — so before S-15 is evaluated at all:
+
+```text
+The web portal refuses to start: 3 configuration problem(s).
+  - [S-02] WEB_PUBLIC_ORIGIN: must be exactly the accepted production origin (N-01)
+  - [S-05] WEB_DISCORD_REDIRECT_URI: must be exactly the accepted production
+           redirect URI (N-02); it is registered at the provider.
+  - [S-07] WEB_DISCORD_GUILD_ID: is not the production guild.
+```
+
+Those are pinned in source (`application/web/config.py:60-64`) and are the **real**
+production origin and the **real** production Discord guild. Reaching S-15's
+production branch needs a process holding genuine production identity — which is to
+say it needs production to exist. Supplying those values to an evidence process on
+the staging host is exactly the confusion S-02 and S-07 are written to prevent, and
+would aim a production-configured portal at a database created for a test. **It was
+not done and should not be.**
+
+**What this means for the criterion.** A-05 criterion 4 and §9.2's A-4 row, as
+worded, cannot be satisfied before a production deployment exists — and public
+exposure and Phase 4 are unauthorized. So either the row is amended to what a
+non-production host can observe (§5.2's table, plus F6: detected, described, and
+published nowhere), or criterion 4 stays open until production configuration
+exists. **That judgment is the Security Reviewer's and has not been made.**
+Criterion 4 remains open.
+
+**Host state:** no production identifier was configured, no production-class
+process started, and nothing named `freedom_production` remains. Verified after the
+drop.
+
+**Worth stating plainly:** I recommended deferring this decision on the grounds
+that creating the database was the risk. The Operations Owner overrode the
+deferral, and the exercise showed my stated reason was the wrong one — the real
+obstacle sits a layer above the database. The two-minute window cost nothing and
+replaced a guess with a fact, which is the better outcome; but the record should
+show that the guess was mine and that it was wrong.
 
 ### 5.3 F6 — the two-credential shortfall is detected and then reported to nobody
 
@@ -728,7 +763,7 @@ class of failure will keep requiring a human until that access changes.
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
-| A-05 | **Open** — criteria 3, 6 and 9 complete; criterion 4 half-observed (SP-24); **criteria 4 and 10 outstanding** |
+| A-05 | **Open** — criteria 3, 6 and 9 complete; criterion 4 half-observed and its production half shown **not observable before production exists** (§5.2.1); **criteria 4 and 10 outstanding** |
 | I-06, A-06 | **Open** |
 | R-23 | **Active** |
 | Phase 3 gate | **Open** |
@@ -747,9 +782,10 @@ class of failure will keep requiring a human until that access changes.
    2026-08-25** (§3, §5.1).
 5. ~~Restore the test database~~ — **done 2026-08-25**; full verification set
    re-run and reproducing §1.2 exactly (§5.3.2).
-6. **Decision needed** — whether a disposable database named `freedom_production`
-   may be created and dropped on this host to observe criterion 4's remaining
-   production-refusal half (§5.2). Not a reviewer's call to make alone.
+6. **Security Reviewer** — criterion 4's wording. Its production half cannot be
+   observed before a production deployment exists (§5.2.1), so either A-4 is
+   amended to what a non-production host can show, or criterion 4 stays open
+   until production configuration exists.
 7. **Security Reviewer** — finding **F6** (§5.3): a below-threshold credential
    count is detected and then reported to nobody outside production.
 8. **Operations Owner + supervised session** — the four remaining staging
