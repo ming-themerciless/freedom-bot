@@ -766,10 +766,43 @@ be quick while a worker holding a 60-second lease should drain.
 
 It runs the **same code from the same virtualenv** as `freedom-web` and reads the
 same variables. The two differ by `WORKER_ENABLED`, and each process refuses the
-other's value (S-11, both directions). In practice: two environment files
-identical but for that line, or one file plus `Environment=WORKER_ENABLED=true`
-on the worker unit. `infra/systemd/freedom-worker.service.tmpl` is the unit, and
-the three numbers in it each have a reason written beside them.
+other's value (S-11, both directions).
+
+**Corrected 2026-08-25 (F5).** This paragraph used to offer two ways to arrange
+that: "two environment files identical but for that line, or one file plus
+`Environment=WORKER_ENABLED=true` on the worker unit." **The second one cannot
+work**, and a staging deployment built on it left the worker crash-looping on S-11
+from the day the unit was installed until the day someone read the journal.
+
+The reason is a systemd precedence rule. `systemd.exec(5)`, on `EnvironmentFile=`:
+
+> Settings from these files override settings made with `Environment=`.
+
+The one shared file is also `freedom-web`'s, so it sets `WORKER_ENABLED=false`.
+An `Environment=WORKER_ENABLED=true` line on the worker unit is read first and
+then **overwritten** by the file, and the worker refuses itself with S-11 on every
+start. The unit reads as though it is configured correctly, which is what made
+this expensive to see: `systemctl show` reports both settings, and nothing in the
+unit says which one wins.
+
+Use one of these instead:
+
+1. **Two complete environment files**, one per unit, identical but for that line.
+2. **The shared file plus a small second file listed after it** on the worker
+   unit — the arrangement `infra/systemd/freedom-worker.service.tmpl` now carries.
+   The second file holds `WORKER_ENABLED=true` and nothing secret. Order is
+   load-bearing: *"If the same variable is set twice from these files, the files
+   will be read in the order they are specified and the later setting will override
+   the earlier setting."*
+
+Whichever is used, verify it rather than assume it: `systemctl is-active
+freedom-worker` after a start, because `/healthz`'s `worker_heartbeat` **will not
+tell you** — it reports whether the queue is draining, and an empty queue drains
+trivially whether or not any worker exists — see the `/healthz` check table
+above, where `worker_heartbeat` is *the age of the oldest queued job*.
+
+`infra/systemd/freedom-worker.service.tmpl` is the unit, and the three numbers in
+it each have a reason written beside them.
 
 The worker exposes **no listener at all**. It is reached by nothing; it reaches
 PostgreSQL over the loopback socket and the restricted artifact store on disk,

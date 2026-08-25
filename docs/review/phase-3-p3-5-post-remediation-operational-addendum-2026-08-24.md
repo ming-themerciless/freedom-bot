@@ -341,9 +341,10 @@ Enroll a replacement first.
 
 Refused at `tools/webauthn_enrollment.py:212`, **before any write**. Nothing was
 retired; the account still holds two enabled credentials. §9.2's A-3 row also asks
-for the exit status, which is `EXIT_REFUSED = 1` by definition
-(`tools/web_operator.py:32`) and should be captured from the shell rather than
-cited from the source to satisfy the row as written.
+for the exit status; it was **observed** as `1`, matching `EXIT_REFUSED`
+(`tools/web_operator.py:32`), captured from the shell rather than cited from the
+source. The command was re-run to capture it and refused identically, which also
+shows the refusal is stable rather than a first-attempt artifact.
 
 Note this is **not** the same fact §4 recorded on 2026-08-24. That observation was
 that *presenting* a retired credential is refused at login — a dead credential
@@ -429,46 +430,104 @@ when the answer is "no".
 
 ---
 
-## 6. Handover Step 6 — I-06 prerequisite: why the worker is inactive
+## 6. Handover Step 6 — I-06 prerequisite: why the worker never started
 
-**Diagnosed. Activation requires the Operations Owner.**
+**Root cause found 2026-08-25. Raised as finding F5. The fix is in the repository;
+installing it needs the Operations Owner.**
 
-`freedom-worker.service` is **installed and correct but was never started**:
+### 6.1 What was observed
+
+`freedom-worker.service` was `disabled` and had **never** run — `Result=success`,
+`NRestarts=0`, empty `ExecMainStartTimestamp`. Enabled and started by the
+Operations Owner at 05:15Z, it did not come up: it crash-looped, reaching restart
+counter 58 before being stopped. Every attempt failed identically:
 
 ```text
-$ systemctl show freedom-worker.service -p UnitFileState -p ActiveState \
-    -p SubState -p Result -p ExecMainStatus -p ExecMainStartTimestamp -p NRestarts
-  UnitFileState=disabled
-  ActiveState=inactive
-  SubState=dead
-  Result=success
-  ExecMainStatus=0
-  ExecMainStartTimestamp=
-  NRestarts=0
+python[…]: The web portal refuses to start: 1 configuration problem(s).
+           Variable names are given; values never are.
+  - [S-11] WORKER_ENABLED: must be true in a freedom-worker process. It is the one
+    variable that distinguishes this process from freedom-web, and a worker started
+    with it false would claim no job while appearing to run.
+systemd[1]: freedom-worker.service: Main process exited, code=exited, status=1/FAILURE
 ```
 
-`Result=success` with `NRestarts=0` and an **empty** `ExecMainStartTimestamp`
-means this is not a crash, not a restart loop and not a failed dependency: the
-main process has never run. `UnitFileState=disabled` means it will not start at
-boot either. The installed unit file matches
-`infra/systemd/freedom-worker.service.tmpl` with the placeholders filled and one
-appended `[Service] Environment=WORKER_ENABLED=true` stanza, which is the
-documented difference between the worker and the portal.
+Exit `1` is `tools/freedom_worker.py`'s documented "configuration refused".
 
-`journalctl -u freedom-worker.service` returned no entries, but the review
-account is in neither `adm` nor `systemd-journal`, so **that particular output is
-not evidence of anything** — the `systemctl show` fields above are, and they are
-sufficient.
+### 6.2 Root cause: a systemd precedence rule, and documentation that got it wrong
 
-Activation (`sudo systemctl enable --now freedom-worker.service`) needs the same
-password grant Step 2 does. S-2 therefore remains open as an operational item,
-not a code defect.
+The installed unit **does** set the variable. `systemctl show` reports both:
 
-Restating the handover's warning because it is the trap this diagnosis invites:
-`worker_heartbeat: true` alongside a dead unit — visible in §2.1's `/healthz`
-output above — is **documented behavior**. That check asks whether the queue is
-draining, not whether the unit is alive. An empty queue drains trivially. Use
-systemd for unit liveness.
+```text
+Environment=PYTHONUNBUFFERED=1 WORKER_ENABLED=true
+EnvironmentFiles=/etc/freedom-web/portal.env (ignore_errors=no)
+```
+
+And the file wins. From this host's own `man systemd.exec`, on `EnvironmentFile=`:
+
+> Settings from these files override settings made with `Environment=`.
+
+`/etc/freedom-web/portal.env` is **also `freedom-web`'s** environment file, so it
+necessarily sets `WORKER_ENABLED=false` — S-11 refuses a web process that claims
+jobs, in the other direction. The worker unit's `Environment=WORKER_ENABLED=true`
+is therefore read first and then overwritten by the shared file, and the worker
+refuses itself with S-11 on every start, forever.
+
+**The deployment was built on documented advice, and the advice was wrong.**
+`docs/operations/web-portal.md` said, of the two processes: *"In practice: two
+environment files identical but for that line, **or one file plus
+`Environment=WORKER_ENABLED=true` on the worker unit**."* The second arrangement
+cannot work for the reason above. This is not an operator error.
+
+What made it expensive to see is that the unit reads as though it is configured
+correctly. `systemctl show` reports both settings and nothing states which wins;
+the only place the truth appears is the journal, which the review account cannot
+read (§6.4).
+
+### 6.3 The fix, and what remains to do
+
+Two repository changes, both committed:
+
+- `infra/systemd/freedom-worker.service.tmpl` now carries a **second**
+  `EnvironmentFile=__WORKER_ENVIRONMENT_FILE__`, listed **after** the shared one,
+  holding `WORKER_ENABLED=true` and nothing secret. Ordering is the mechanism:
+  *"If the same variable is set twice from these files, the files will be read in
+  the order they are specified and the later setting will override the earlier
+  setting."* The reasoning is written into the unit beside it, so the next person
+  to edit it cannot reintroduce the `Environment=` form without reading why it
+  fails.
+- `docs/operations/web-portal.md` no longer offers the arrangement that cannot
+  work, states why, gives the two that do, and adds the verification step this
+  incident shows is necessary: check `systemctl is-active freedom-worker`, because
+  `/healthz`'s `worker_heartbeat` **will not** tell you.
+
+**Still to do, and it needs the Operations Owner** (root-owned unit, password
+sudo):
+
+1. Create the small second environment file — one line, `WORKER_ENABLED=true`,
+   readable by the `freedomweb` account and holding nothing secret.
+2. Add the second `EnvironmentFile=` line to
+   `/etc/systemd/system/freedom-worker.service`, **after** the existing one, and
+   remove the ineffective `Environment=WORKER_ENABLED=true` stanza.
+3. `sudo systemctl daemon-reload && sudo systemctl restart freedom-worker.service`
+4. Verify with `systemctl is-active freedom-worker.service` — **not** with
+   `/healthz`.
+
+### 6.4 Two things this incident demonstrates, beyond the fix itself
+
+**`worker_heartbeat: true` beside a dead worker is documented behavior, and it
+held throughout.** The check asks whether the queue is draining, not whether the
+unit is alive, and an empty queue drains trivially. Across the entire crash-loop —
+58 restarts — `/healthz` reported `status: ok` with `worker_heartbeat: true`. The
+handover warned about exactly this trap and it is worth recording that the warning
+was accurate in practice, not just in principle.
+
+**A journal the reviewer cannot read is a real constraint on diagnosis, not a
+formality.** §6 of the previous revision of this addendum correctly declined to
+treat an empty `journalctl` as evidence, because the review account is in neither
+`adm` nor `systemd-journal`. The `systemctl show` fields were enough to establish
+*that* the worker had never run; they were not enough to establish *why*, and the
+cause was one line in a log only the Operations Owner could fetch. Diagnosing this
+class of failure will keep requiring a human until that access changes.
 
 ---
 
@@ -482,7 +541,7 @@ systemd for unit liveness.
 | S-5, S-6 | Closed in the repository by Codex re-review |
 | S-4, S-7, S-9 | Repository remediation accepted and now **running**; deployed *behavioural* observation still outstanding (§5) |
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
-| S-2 | **Open** — worker installed, never started, disabled at boot |
+| S-2 | **Root-caused 2026-08-25 as F5** — repository fix committed; the unit and its new environment file still need installing by the Operations Owner (§6.3) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
 | A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; 4, 9, 10 outstanding |
@@ -494,8 +553,9 @@ systemd for unit liveness.
 ## 8. What is needed next, and from whom
 
 1. ~~Restart `freedom-web.service`~~ — **done 2026-08-25T05:08:56Z** (§2).
-2. **Operations Owner** — enable and verify `freedom-worker.service` (§6),
-   unblocking I-06's worker procedures.
+2. **Operations Owner** — install the F5 fix and verify the worker (§6.3),
+   unblocking I-06's worker procedures. Verify with `systemctl is-active`, not
+   with `/healthz`.
 3. **Operations Owner** — supply the exact session-end timestamp and a truthful
    authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
    §4.3).

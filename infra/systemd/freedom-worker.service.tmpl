@@ -40,7 +40,33 @@ WorkingDirectory=__REPOSITORY_ROOT__
 # The same virtualenv and the same code as freedom-web. The processes differ by
 # WORKER_ENABLED and by nothing else, and each refuses the other's value.
 ExecStart=__REPOSITORY_ROOT__/venv-web/bin/python -m tools.freedom_worker
+# ## Why `WORKER_ENABLED=true` is a **file** here and not an `Environment=` line
+#
+# This is the defect that kept this unit from ever starting once (2026-08-25, F5),
+# and it is a systemd precedence rule rather than anything about this application.
+# `systemd.exec(5)`, on `EnvironmentFile=`:
+#
+#     Settings from these files override settings made with Environment=.
+#
+# The shared portal environment file sets `WORKER_ENABLED=false`, because it is
+# also `freedom-web`'s file and S-11 refuses a web process that claims jobs. So an
+# `Environment=WORKER_ENABLED=true` line on this unit is read **first** and then
+# overwritten by the file, and the worker refuses itself with S-11 on every start —
+# silently, in the sense that the unit looks correctly configured to anyone reading
+# it.
+#
+# The mechanism that does work is a second file, listed **after** the shared one:
+#
+#     If the same variable is set twice from these files, the files will be read in
+#     the order they are specified and the later setting will override the earlier
+#     setting.
+#
+# `__WORKER_ENVIRONMENT_FILE__` therefore holds exactly one line —
+# `WORKER_ENABLED=true` — and nothing secret. Its whole job is to state the one
+# variable that distinguishes this process from `freedom-web`, in the only place
+# systemd will let it win. **Order matters: it must come second.**
 EnvironmentFile=__ENVIRONMENT_FILE__
+EnvironmentFile=__WORKER_ENVIRONMENT_FILE__
 Environment=PYTHONUNBUFFERED=1
 User=__SERVICE_USER__
 Group=__SERVICE_GROUP__

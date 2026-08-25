@@ -375,6 +375,8 @@ $ … -m tools.webauthn_enrollment retire --operator "Peter Duscha" \
 
 Refused: retiring this credential would leave 1, below the minimum of 2 (N-13).
 Enroll a replacement first.
+
+exit=1
 ```
 
 The account held exactly **two** enabled credentials at the time — the state `list`
@@ -391,7 +393,11 @@ locking themselves out.
 
 The refusal is raised in `tools/webauthn_enrollment.py:212`, **before any write**,
 and its message states the resulting count, the minimum and the policy (N-13). The
-tool's refusal exit status is `EXIT_REFUSED = 1` (`tools/web_operator.py:32`).
+exit status was **observed** as `1`, matching `EXIT_REFUSED`
+(`tools/web_operator.py:32`) — recorded from the shell rather than cited from the
+source, which is what §9.2's A-3 row asks for. The command was run a second time to
+capture it; it refused identically, which also demonstrates the refusal is stable
+rather than a first-attempt artifact.
 
 **The floor is absolute through the application.** There is no `--force`, no
 override subcommand and no lower-privileged path — `retire` is the only route to
