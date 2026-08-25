@@ -465,18 +465,52 @@ sudo -u postgres createdb --owner=foundry freedom_test
 That is the same form `infra/staging/setup-portal-host.sh:138` uses, and `foundry`
 is the owner `freedom_dev` and `freedom_staging` already have.
 
-Consequences, stated fully:
+**Restored 2026-08-25 by the Operations Owner**, with that command, and the
+full verification set re-run serially to prove it:
 
-- **The portal suite cannot run until it is restored.** `tests/web` requires
-  `TEST_DATABASE_URL` pointing at it. The commits made after this point were
-  therefore verified only by the bot suite and by inspection, and that limitation
-  is recorded in each of their messages rather than left implicit.
-- **Nothing else is affected.** `freedom_test` is used by the test suite alone. The
+```text
+$ TEST_DATABASE_URL=postgresql+psycopg:///freedom_test \
+    ./venv-web/bin/python -m pytest -q tests/web
+  2330 passed, 80 skipped in 135.01s
+
+$ ./venv/bin/python -m pytest -q tests
+  2079 passed, 267 skipped in 14.57s
+
+$ node --test tests/web/webauthn_client.test.mjs
+  tests 50 | pass 50 | fail 0
+
+$ sha256sum -c adapters/web/static/asset-integrity.sha256
+  4/4 OK
+
+$ git diff --check
+  clean
+```
+
+**2330 / 80 reproduces §1.2 exactly**, which is what establishes the database is
+genuinely restored rather than merely present: the suite builds its own schema, and
+an incompletely restored target would not have produced the same totals and the
+same 80 documented caller-matrix skips.
+
+Consequences, stated fully and now closed:
+
+- **The portal suite could not run while it was missing.** One commit
+  (`46ed980`) was verified by the bot suite and inspection only, and says so in its
+  own message rather than leaving the limitation implicit. The suite has since been
+  re-run against it and the figures above are that re-run.
+- **Nothing else was affected.** `freedom_test` is used by the test suite alone. The
   staging portal (`freedom_staging`), the worker, the staging data and every
-  observation recorded in this addendum are untouched — the suite figures in §1.2
-  were produced before this happened.
-- Once restored, `alembic upgrade head` against it and a full `tests/web` run
-  should reproduce **2330 passed, 80 skipped**, and that re-run should be recorded.
+  observation recorded in this addendum were untouched throughout — the §1.2 figures
+  predate the incident and the figures above postdate the restoration, and they
+  agree.
+- **What it cost:** one command from the Operations Owner, and one commit that
+  briefly stood on narrower verification than the standard this package holds
+  itself to.
+
+**The lesson worth keeping** is not "be careful with `dropdb`". It is that the
+account doing this work can *destroy* a shared resource it cannot *recreate* —
+`rolcreatedb = false` while `DROP DATABASE` on an owned database is permitted — so
+an operation that looks symmetrical is not. Anything that drops a database from
+this account should confirm it can rebuild it **before** removing it.
 
 ### 5.4 Criteria 9 and 10, and the staging re-observations
 
@@ -645,9 +679,8 @@ class of failure will keep requiring a human until that access changes.
    §4.3).
 4. ~~SP-22's R-41 and R-46 denials~~ and ~~A-05 criterion 3~~ — **done
    2026-08-25** (§3, §5.1).
-5. **Operations Owner** — restore the test database, which this work destroyed
-   (§5.3.2): `sudo -u postgres createdb --owner=foundry freedom_test`. The portal
-   suite cannot run until then.
+5. ~~Restore the test database~~ — **done 2026-08-25**; full verification set
+   re-run and reproducing §1.2 exactly (§5.3.2).
 6. **Decision needed** — whether a disposable database named `freedom_production`
    may be created and dropped on this host to observe criterion 4's remaining
    production-refusal half (§5.2). Not a reviewer's call to make alone.
