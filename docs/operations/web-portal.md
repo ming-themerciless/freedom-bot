@@ -526,6 +526,13 @@ rejected it.
   --operator "…" --credential <record uuid> --reason "…"
 ```
 
+**Custody, replacement, loss and recovery** — who holds these credentials, how to
+rotate one, and what to do when one or all of them are gone — are in
+[`break-glass-credential-custody.md`](break-glass-credential-custody.md) (A-05
+criterion 9). Read it before you need it; it includes the manual check that tells
+you whether you are down to one credential, which nothing in the running system
+will tell you (finding F6).
+
 ### 4.2 Last resort: a recovery grant
 
 When every enrolled credential is lost:

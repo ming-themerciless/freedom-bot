@@ -514,13 +514,34 @@ this account should confirm it can rebuild it **before** removing it.
 
 ### 5.4 Criteria 9 and 10, and the staging re-observations
 
-Criterion 9 (custody, replacement, loss and recovery, documented without credential
-material) is unwritten. It must include the usability observation §8.4 already
-records: portal nicknames do not distinguish retired from current passkeys in the
-platform UI, and a wrong selection consumes limiter budget.
+**Criterion 9 is drafted, 2026-08-25**, as
+`docs/operations/break-glass-credential-custody.md`, and awaits the Operations
+Owner's acceptance — which is what closes the criterion, not the writing of it. It
+contains no credential material: no credential id, public key, COSE bytes, PIN,
+biometric, recovery token or token hash.
 
-Criterion 10 is the designated Security Reviewer's confirmation, and by its own
-terms comes only after every other criterion and disposition is complete.
+It covers custody, replacement and rotation, loss in three degrees (one lost, one
+possibly compromised, all lost) and the case where host access is lost too. Three
+things in it come from what this package actually observed rather than from the
+design:
+
+- **The usability problem, given its own section with mitigations.** Portal
+  nicknames are not what the platform passkey UI displays; on 2026-08-24 the
+  operator selected a *retired* credential during a genuine rehearsal because his
+  authenticator listed dead and live ones identically. The most effective
+  mitigation is the one most often skipped — delete retired passkeys from the
+  device when you retire them in the portal.
+- **What a mistake costs**, as a table of the accepted budgets, including that a
+  cancelled prompt no longer spends verification budget since S-7. The practical
+  line an operator needs is *five real attempts per ten minutes from one location*.
+- **The manual credential count**, because of F6. The document states plainly that
+  nothing in the running system will tell you that you are down to one, and gives
+  the `list` command and a cadence.
+
+`docs/operations/web-portal.md` §4.1 now points at it.
+
+**Criterion 10** is the designated Security Reviewer's confirmation, and by its
+own terms comes only after every other criterion and disposition is complete.
 
 The proportionate staging re-observations the handover lists still need the
 Operations Owner. One is worth scheduling first because it is the acceptance test
@@ -662,7 +683,7 @@ class of failure will keep requiring a human until that access changes.
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
 | F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
-| A-05 | **Open** — criteria 3 and 6 completed 2026-08-25; criterion 4 half-observed (SP-24); 4, 9, 10 outstanding |
+| A-05 | **Open** — criteria 3 and 6 complete; criterion 4 half-observed (SP-24); criterion 9 drafted and awaiting acceptance; 4, 9, 10 outstanding |
 | I-06, A-06 | **Open** |
 | R-23 | **Active** |
 | Phase 3 gate | **Open** |
