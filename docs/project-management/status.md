@@ -1,6 +1,36 @@
 # Project status
 
-Status date: 2026-08-25 (fifty-seventh update: Codex accepted the C3/C4
+Status date: 2026-08-25 (fifty-eighth update: filesystem-layout migration
+preparation is the only active work. The accepted target is
+`/opt/freedom-blades/{platform,runtime,reference,workspace}` with service data at
+`/srv/freedom-blades` and configuration at `/etc/freedom-blades`. Active scripts,
+templates, examples and operations guides are prepared; historical evidence is
+unchanged. The cutover has not run. No service, data or privileged host path has
+been changed.)
+
+Update 2026-08-25 (fifty-eighth) — product-owned filesystem layout prepared; cutover held.
+
+- **Administrative scope only.** The repository directory stops presenting the
+  platform as a Discord bot. Process names, databases, roles, accounts, DNS and
+  the Git remote are unchanged.
+- **Prepared target.** Repository `/opt/freedom-blades/platform`; virtual
+  environments below `/opt/freedom-blades/runtime`; offline actor exports below
+  `/opt/freedom-blades/reference`; artifacts and kill switch below
+  `/srv/freedom-blades`; environment files below `/etc/freedom-blades`.
+- **Reproducible and reversible.** Active deployment files carry the new paths,
+  a regression refuses legacy roots in that active set, and
+  `docs/operations/filesystem-layout-migration.md` gives preconditions, fresh-
+  virtualenv preparation, cutover, direct verification, rollback and delayed
+  cleanup. Historical review records retain the paths that were true when their
+  evidence was collected.
+- **Hold point.** No directory has moved, no virtual environment has been
+  created, and no service or Caddy configuration has changed. Cutover requires
+  focused/full verification followed by the Operations Owner's privileged
+  maintenance authorization.
+- **Existing gates unchanged.** F5/S-2 and A-05 remain open; this administrative
+  rename cannot close operational or security evidence.
+
+Status date before this update: 2026-08-25 (fifty-seventh update: Codex accepted the C3/C4
 repository remediation with no blocking finding. Its one Low diagnostic finding
 is corrected: the byte-exact sentinel now preserves `cat`'s read-failure status,
 suppresses raw stderr and emits the controlled refusal, with an executable

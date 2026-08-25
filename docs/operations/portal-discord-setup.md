@@ -81,7 +81,7 @@ whole class of "why can't it see my roles" problem later.
 Open the configuration file:
 
 ```
-sudo nano /etc/freedom-web/portal.env
+sudo nano /etc/freedom-blades/portal.env
 ```
 
 Find these four lines and replace the `__FILL_IN...__` text after the `=` with

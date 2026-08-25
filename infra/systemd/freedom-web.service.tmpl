@@ -43,7 +43,7 @@ After=network-online.target postgresql.service
 [Service]
 Type=simple
 WorkingDirectory=__REPOSITORY_ROOT__
-ExecStart=__REPOSITORY_ROOT__/venv-web/bin/python -m uvicorn tools.portal_server:application \
+ExecStart=__WEB_VENV__/bin/python -m uvicorn tools.portal_server:application \
     --factory \
     --host 127.0.0.1 \
     --port __PORT__ \

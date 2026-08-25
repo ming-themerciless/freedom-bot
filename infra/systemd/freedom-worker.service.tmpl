@@ -39,7 +39,7 @@ Type=simple
 WorkingDirectory=__REPOSITORY_ROOT__
 # The same virtualenv and the same code as freedom-web. The processes differ by
 # WORKER_ENABLED and by nothing else, and each refuses the other's value.
-ExecStart=__REPOSITORY_ROOT__/venv-web/bin/python -m tools.freedom_worker
+ExecStart=__WEB_VENV__/bin/python -m tools.freedom_worker
 # ## Why `WORKER_ENABLED=true` is a **file** here and not an `Environment=` line
 #
 # This is the defect that kept this unit from ever starting once (2026-08-25, F5),

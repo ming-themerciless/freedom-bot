@@ -63,7 +63,7 @@ So the count is a **manual** check. Run it on a schedule you actually keep —
 monthly, and after any device change:
 
 ```bash
-sudo bash /opt/discord-bots/freedom-bot/infra/staging/portal-run.sh \
+sudo bash /opt/freedom-blades/platform/infra/staging/portal-run.sh \
   -m tools.webauthn_enrollment list --operator "<your name>"
 ```
 
@@ -85,7 +85,7 @@ one failure away from §5.
    year:
 
 ```bash
-sudo bash /opt/discord-bots/freedom-bot/infra/staging/portal-run.sh \
+sudo bash /opt/freedom-blades/platform/infra/staging/portal-run.sh \
   -m tools.webauthn_enrollment retire --operator "<your name>" \
   --credential <record UUID from list> --reason "<why>"
 ```
@@ -168,7 +168,7 @@ Treat "left unlocked in a hotel room" as compromised.
 This is what recovery grants exist for, and they require host access:
 
 ```bash
-sudo bash /opt/discord-bots/freedom-bot/infra/staging/portal-run.sh \
+sudo bash /opt/freedom-blades/platform/infra/staging/portal-run.sh \
   -m tools.emergency_recovery issue --operator "<your name>" --reason "<why>"
 ```
 

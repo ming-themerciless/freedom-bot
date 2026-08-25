@@ -27,10 +27,10 @@
 
 set -euo pipefail
 
-REPO_ROOT="/opt/discord-bots/freedom-bot"
-ENV_FILE="/etc/freedom-web/portal.env"
+REPO_ROOT="/opt/freedom-blades/platform"
+ENV_FILE="/etc/freedom-blades/portal.env"
 SERVICE_USER="freedomweb"
-PYTHON="${REPO_ROOT}/venv-web/bin/python"
+PYTHON="/opt/freedom-blades/runtime/venv-web/bin/python"
 
 die() { printf '\nREFUSED: %s\n' "$*" >&2; exit 1; }
 

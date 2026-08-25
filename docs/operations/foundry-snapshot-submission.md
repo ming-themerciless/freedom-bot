@@ -161,7 +161,7 @@ a log or this document.
 # which filesystem holds every exported Actor's mechanics. It must be a real
 # path with no symlinked component, owned by the service account, granting
 # nothing to group or other. See §5.6 — the service refuses to start otherwise.
-FREEDOM_SNAPSHOT_ARTIFACT_ROOT=/srv/freedom/snapshots
+FREEDOM_SNAPSHOT_ARTIFACT_ROOT=/srv/freedom-blades/snapshots
 
 # One entry per principal, ';'-separated:
 #   <id>|<scope>[,<scope>]|<sha256 of the secret, hex>
@@ -491,7 +491,7 @@ needs the maintainer present.
 `freedom-web`; ADR 0009 records why. For a supervised rehearsal:
 
 ```bash
-FREEDOM_SNAPSHOT_ARTIFACT_ROOT=/srv/freedom/snapshots \
+FREEDOM_SNAPSHOT_ARTIFACT_ROOT=/srv/freedom-blades/snapshots \
 FREEDOM_SNAPSHOT_PRINCIPALS='foundry-the-guild|foundry:snapshot:submit|<sha256>' \
 FREEDOM_SNAPSHOT_ALLOWED_ORIGINS='https://foundry1.example.org' \
 APP_ENVIRONMENT=test DATABASE_URL='postgresql+psycopg:///freedom_test' \
@@ -563,7 +563,7 @@ directory in between, and each operation would follow the name to it.
 **The root is now a file descriptor, not a path.** It is opened once with
 `O_DIRECTORY | O_NOFOLLOW`, its type, owner and mode are proved through that
 descriptor, and every later operation resolves its name *relative to it*. A
-replacement of `/srv/freedom/snapshots` after the service starts therefore
+replacement of `/srv/freedom-blades/snapshots` after the service starts therefore
 redirects nothing: creation, publication, reads and the directory `fsync` all
 continue to act on the directory that was approved.
 
@@ -698,7 +698,7 @@ is asserted, not merely intended.
 
 **A genuine environmental prerequisite remains, and it cannot be isolated away:**
 the ancestor rule is a statement about the host, so the *deployment* must satisfy
-it. `/srv` and `/srv/freedom` must be owned by `root` or by the service account.
+it. `/srv` and `/srv/freedom-blades` must be owned by `root` or by the service account.
 A host whose `/` or `/tmp` is owned by a third account will refuse to start, and
 that is the intended behaviour, not a test-environment problem.
 
@@ -707,18 +707,18 @@ path an operator configured — widening or narrowing it is an authority it was
 never granted — so an unsafe state is a refusal and the operator fixes it:
 
 ```bash
-sudo chown "$(id -un freedom):$(id -gn freedom)" /srv/freedom/snapshots
-sudo chmod 0700 /srv/freedom/snapshots
-sudo find /srv/freedom/snapshots -maxdepth 1 -type f -name '*.json' \
+sudo chown "$(id -un freedom):$(id -gn freedom)" /srv/freedom-blades/snapshots
+sudo chmod 0700 /srv/freedom-blades/snapshots
+sudo find /srv/freedom-blades/snapshots -maxdepth 1 -type f -name '*.json' \
   -exec chmod 0600 {} +
 
 # root_ancestor_untrusted: the directories *above* the store. Each must be owned
 # by root or by the service account, and must not be writable by others unless
 # it carries the sticky bit (which is why /tmp is acceptable and a shared
 # 0777 parent is not).
-namei -l /srv/freedom/snapshots
-sudo chown root:root /srv /srv/freedom
-sudo chmod 0755 /srv /srv/freedom
+namei -l /srv/freedom-blades/snapshots
+sudo chown root:root /srv /srv/freedom-blades
+sudo chmod 0755 /srv /srv/freedom-blades
 ```
 
 If a repair policy should ever become this process's job, that is a change to
@@ -740,7 +740,7 @@ application use case:
 
 ```bash
 # Retain while a Council review may still need it; then delete deliberately.
-rm /srv/freedom/snapshots/<checksum>.json
+rm /srv/freedom-blades/snapshots/<checksum>.json
 ```
 
 The checksum, provenance and audit record survive the deletion: the platform can
@@ -766,7 +766,7 @@ holds and the database does not:
 
 ```bash
 # Every artifact the store holds, by checksum.
-find /srv/freedom/snapshots -maxdepth 1 -type f -name '*.json' -printf '%f\n' \
+find /srv/freedom-blades/snapshots -maxdepth 1 -type f -name '*.json' -printf '%f\n' \
   | sed 's/\.json$//' | sort > /tmp/held.txt
 
 # Every checksum the database claims. Read-only.
@@ -810,7 +810,7 @@ Find them the same read-only way as unclaimed artifacts:
 # Leftover temporaries older than an hour. The age bound matters: a
 # `.incoming-*` file that is seconds old is probably a submission in flight, and
 # removing it would break a live upload.
-find /srv/freedom/snapshots -maxdepth 1 -type f -name '.incoming-*' -mmin +60 \
+find /srv/freedom-blades/snapshots -maxdepth 1 -type f -name '.incoming-*' -mmin +60 \
   -printf '%f\t%s bytes\t%TY-%Tm-%Td %TH:%TM\t%n links\n'
 ```
 
@@ -825,10 +825,10 @@ Confirm before removing, rather than trusting the name:
 
 ```bash
 # Is there a published artifact holding the other link? `%i` is the inode.
-find /srv/freedom/snapshots -maxdepth 1 -type f -printf '%i\t%n\t%f\n' | sort -n
+find /srv/freedom-blades/snapshots -maxdepth 1 -type f -printf '%i\t%n\t%f\n' | sort -n
 
 # What the leftover hashes to, and whether the database claims it. Read-only.
-sha256sum /srv/freedom/snapshots/<the .incoming- name>
+sha256sum /srv/freedom-blades/snapshots/<the .incoming- name>
 psql -tAq freedom -c "SELECT id, received_at FROM foundry_snapshots \
    WHERE checksum = '<that hash>';"
 ```
@@ -916,7 +916,7 @@ the endpoint, the credential, the artifact store and the database are wired up,
 so a failure during the rehearsal is about Foundry rather than about the server.
 
 ```bash
-cd /opt/discord-bots/freedom-bot
+cd /opt/freedom-blades/platform
 WORK=$(mktemp -d)
 
 # A generated secret and the digest configuration holds.
@@ -1195,12 +1195,12 @@ is dealt with, so there is no pressure to be quick.
 ```bash
 # What is actually there. `--dereference` is deliberately absent: if it is a
 # symlink, the link itself is the finding.
-ls -ln /srv/freedom/snapshots/<checksum>.json
-stat /srv/freedom/snapshots/<checksum>.json
+ls -ln /srv/freedom-blades/snapshots/<checksum>.json
+stat /srv/freedom-blades/snapshots/<checksum>.json
 
 # Is it the artifact its name claims? The service already decided it is not;
 # this is what you show someone else.
-sha256sum /srv/freedom/snapshots/<checksum>.json
+sha256sum /srv/freedom-blades/snapshots/<checksum>.json
 
 # Does the database claim this checksum? Read-only.
 psql -tAq freedom -c \

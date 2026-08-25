@@ -63,7 +63,7 @@ freedom-blades-test.rpgworld.org {
 	#
 	# Delete this handler the moment both passkeys are enrolled.
 	handle /enrol* {
-		root * /opt/discord-bots/freedom-bot/infra/ceremony
+		root * /opt/freedom-blades/platform/infra/ceremony
 		rewrite * /passkey-registration.html
 		file_server
 	}

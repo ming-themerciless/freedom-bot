@@ -7047,6 +7047,43 @@ Answers `docs/review/Handover information` (Codex, Independent Reviewer,
   I-06, A-06, R-23 and the Phase 3 gate all remain open; public exposure and Phase 4
   remain unauthorized.
 
+## C-P3.5-Q — prepare the product-owned filesystem layout
+
+**Date:** 2026-08-25 · **Requester / Product Owner:** Peter Duscha ·
+**Status:** preparation implemented; privileged cutover not executed
+
+- **Affected requirement, milestone and release:** administrative repository
+  strategy in implementation-plan §2.1; P3.5 operations. No product scope,
+  authorization, schema or release criterion changes.
+- **Reason:** `/opt/discord-bots/freedom-bot` describes the platform as its
+  original Discord adapter and adds a parent layer that owns no unrelated
+  product. Peter requested one Freedom Blades root with explicit subdirectories.
+- **Scope:** active paths move to `/opt/freedom-blades` (`platform`, `runtime`,
+  `reference`, `workspace`), `/srv/freedom-blades`, and
+  `/etc/freedom-blades`. Service names, databases, roles, accounts, DNS and Git
+  remote names remain unchanged. Historical evidence retains historical paths.
+- **Dependencies and critical path:** feature work pauses until preparation,
+  host cutover and direct verification finish. Root access and a short service
+  maintenance window are required.
+- **Estimate/capacity:** one preparation change and one supervised host sitting;
+  rollback remains available until an observation period is released.
+- **Risks:** stale hard-coded paths, moved Python-environment shebangs, partial
+  service configuration, accidental directory merges, and premature deletion of
+  rollback material. Controls are active-path regression tests, fresh virtual
+  environments, absent-target preconditions, systemd/Caddy validation, direct
+  journals/endpoints, and delayed cleanup.
+- **Testing/migration/security/operations:** no data-format migration and no
+  secret-content change. `docs/operations/filesystem-layout-migration.md` is the
+  cutover and rollback procedure. Persistent artifacts remain under `/srv` and
+  secrets under `/etc` with their existing ownership contracts.
+- **Product Owner recommendation:** proceed with the prepared layout before more
+  feature work.
+- **Technical/specialist review:** repository preparation and verification are
+  performed by Codex; operational results remain to be observed.
+- **Acceptance Authority decision:** Peter explicitly requested preparation and
+  migration on 2026-08-25. This authorizes the administrative work, not closure
+  of F5/S-2, A-05, or the Phase 3 gate.
+
 ## Required fields for later entries
 
 Every material entry must identify:

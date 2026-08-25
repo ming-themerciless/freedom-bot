@@ -22,8 +22,8 @@ Read alongside:
 ## 1. The portal has its own virtualenv
 
 ```bash
-python3 -m venv /opt/discord-bots/venv-web
-/opt/discord-bots/venv-web/bin/pip install -r requirements-web.txt
+python3 -m venv /opt/freedom-blades/runtime/venv-web
+/opt/freedom-blades/runtime/venv-web/bin/pip install -r requirements-web.txt
 ```
 
 `./venv-web` is a symlink to it. The Discord bot's virtualenv is **not** touched:
@@ -831,7 +831,7 @@ Use one of these instead:
 
 **The supported installer provisions the second arrangement** (corrected
 2026-08-25, C1). `infra/staging/setup-portal-host.sh` writes
-`/etc/freedom-web/worker.env` — one line, `WORKER_ENABLED=true`, owned
+`/etc/freedom-blades/worker.env` — one line, `WORKER_ENABLED=true`, owned
 `root:freedomweb` at mode `0640`, no secret in it — and substitutes that path into
 the unit's `__WORKER_ENVIRONMENT_FILE__`. It creates the file only when absent; an
 existing one is confirmed rather than rewritten, and the installer **refuses** if
@@ -846,8 +846,8 @@ rather than trusting the file it just wrote, and so should you:
 
 ```bash
 systemctl show -p EnvironmentFiles freedom-worker.service
-#   EnvironmentFiles=/etc/freedom-web/portal.env (ignore_errors=no)
-#   EnvironmentFiles=/etc/freedom-web/worker.env (ignore_errors=no)
+#   EnvironmentFiles=/etc/freedom-blades/portal.env (ignore_errors=no)
+#   EnvironmentFiles=/etc/freedom-blades/worker.env (ignore_errors=no)
 ```
 
 Two lines, **in that order**. The second one is the one that wins. A single line,

@@ -34,7 +34,7 @@ The visual prototype consists of seven static HTML pages using pure local HTML5,
 To serve the prototype locally using a simple Python HTTP server:
 
 ```bash
-# From the repository root (/opt/discord-bots/freedom-bot):
+# From the repository root (/opt/freedom-blades/platform):
 python3 -m http.server 8080 --directory design-prototype
 ```
 

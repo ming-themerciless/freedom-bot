@@ -5,8 +5,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/discord-bots/freedom-bot
-ExecStart=/opt/discord-bots/venv/bin/python main.py
+WorkingDirectory=/opt/freedom-blades/platform
+ExecStart=/opt/freedom-blades/runtime/venv-bot/bin/python main.py
 User=discordbot
 Group=discordbot
 Environment=PYTHONUNBUFFERED=1

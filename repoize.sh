@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/opt/discord-bots/freedom-bot"
+ROOT="/opt/freedom-blades/platform"
 cd "$ROOT"
 
 # --- .gitignore ---
@@ -57,8 +57,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/discord-bots/freedom-bot
-ExecStart=/opt/discord-bots/venv/bin/python main.py
+WorkingDirectory=/opt/freedom-blades/platform
+ExecStart=/opt/freedom-blades/runtime/venv-bot/bin/python main.py
 User=discordbot
 Group=discordbot
 Environment=PYTHONUNBUFFERED=1
@@ -77,8 +77,8 @@ Modularer Py-Cord-Bot mit Google Sheets.
 ## Quickstart
 
 ```bash
-python3 -m venv /opt/discord-bots/venv
-source /opt/discord-bots/venv/bin/activate
+python3 -m venv /opt/freedom-blades/runtime/venv-bot
+source /opt/freedom-blades/runtime/venv-bot/bin/activate
 pip install -U pip
 pip install -r requirements.txt
 cp .env.example .env   # Werte ausfüllen (Token, IDs, Google)

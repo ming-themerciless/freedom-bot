@@ -2,6 +2,25 @@
 
 Status date: 2026-08-25
 
+## Filesystem-layout migration hold — 2026-08-25
+
+- The accepted target is `/opt/freedom-blades` with `platform`, `runtime`,
+  `reference` and `workspace` responsibilities; `/srv/freedom-blades` owns
+  persistent service paths and `/etc/freedom-blades` owns configuration.
+- **Risk controlled:** Python environments are recreated, never moved, because
+  entry-point shebangs embed their absolute creation path. Every move refuses an
+  existing target; directory trees are never merged. Historical evidence is not
+  mechanically rewritten.
+- **Rollback:** stop the three Freedom services, restore backed-up unit/Caddy
+  files, move the four trees to their exact legacy locations, reload, and repeat
+  direct service/journal/endpoint checks. Old runtime content remains until the
+  observation hold is released.
+- **Open until observed:** active path preparation and focused tests do not prove
+  a host cutover. The item remains open until the Operations Owner records the
+  new directory inventory, systemd/Caddy effective paths, all expected service
+  states and journals, endpoints and asset integrity.
+
+
 ## P3.5 C3/C4 acceptance and Low diagnostic correction — 2026-08-25
 
 - Codex accepted the C3 and C4 repository remediations with no blocking finding

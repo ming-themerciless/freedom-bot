@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="/opt/discord-bots/freedom-bot"
+REPO_ROOT="/opt/freedom-blades/platform"
 SITE_SOURCE="${REPO_ROOT}/infra/caddy/freedom-blades-test.caddy"
 SITE_TARGET="/etc/caddy/freedom-blades-test.caddy"
 CADDYFILE="/etc/caddy/Caddyfile"

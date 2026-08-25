@@ -41,21 +41,22 @@ set -euo pipefail
 # --------------------------------------------------------------------------
 # Settings (D-c and D-d of the P3.5 plan)
 # --------------------------------------------------------------------------
-REPO_ROOT="/opt/discord-bots/freedom-bot"
+REPO_ROOT="/opt/freedom-blades/platform"
+WEB_VENV="/opt/freedom-blades/runtime/venv-web"
 SERVICE_USER="freedomweb"
 SERVICE_GROUP="freedomweb"
 DB_NAME="freedom_staging"
 DB_OWNER="foundry"          # existing schema owner; distinct from the runtime role
 DB_RUNTIME_ROLE="freedomweb" # matches SERVICE_USER so PostgreSQL peer auth needs no password
 PORT="8001"
-ENV_DIR="/etc/freedom-web"
+ENV_DIR="/etc/freedom-blades"
 ENV_FILE="${ENV_DIR}/portal.env"
 # The worker's one-line file, listed **after** the shared one on the worker unit.
 # It is the only place systemd will let `WORKER_ENABLED=true` win over the shared
 # file's required `false` — see the Worker environment file step below (F5).
 WORKER_ENV_FILE="${ENV_DIR}/worker.env"
-KILL_SWITCH_DIR="/srv/freedom/web"
-ARTIFACT_ROOT="/srv/freedom/snapshots"
+KILL_SWITCH_DIR="/srv/freedom-blades/web"
+ARTIFACT_ROOT="/srv/freedom-blades/snapshots"
 # The TEST address, and it must not be the production one: S-02 refuses a
 # non-production process that claims the accepted production origin (N-01),
 # because a staging process on the production origin would receive production
@@ -76,7 +77,7 @@ step "Preflight"
 # --------------------------------------------------------------------------
 [ "$(id -u)" -eq 0 ] || die "run this with sudo."
 [ -d "$REPO_ROOT" ] || die "$REPO_ROOT does not exist."
-[ -x "$REPO_ROOT/venv-web/bin/python" ] || die "the portal virtualenv is missing."
+[ -x "$WEB_VENV/bin/python" ] || die "the portal virtualenv is missing at $WEB_VENV."
 command -v psql >/dev/null || die "psql is not installed."
 systemctl is-active --quiet postgresql@16-main || die "PostgreSQL is not running."
 
@@ -309,6 +310,7 @@ install_unit() {
     # than not running this script at all.
     local staged="${installed}.staged.$$"
     sed -e "s|__REPOSITORY_ROOT__|${REPO_ROOT}|g" \
+        -e "s|__WEB_VENV__|${WEB_VENV}|g" \
         -e "s|__ENVIRONMENT_FILE__|${ENV_FILE}|g" \
         -e "s|__WORKER_ENVIRONMENT_FILE__|${WORKER_ENV_FILE}|g" \
         -e "s|__SERVICE_USER__|${SERVICE_USER}|g" \

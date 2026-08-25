@@ -33,8 +33,8 @@ no credential was read.**
 
    ┌──────────────────────────────────────────────────────┐
    │ freedom-bot        systemd, user discordbot          │
-   │   /opt/discord-bots/venv/bin/python main.py          │
-   │   WorkingDirectory /opt/discord-bots/freedom-bot     │
+   │   /opt/freedom-blades/runtime/venv-bot/bin/python main.py          │
+   │   WorkingDirectory /opt/freedom-blades/platform     │
    │   outbound only: Discord Gateway, Google Sheets API   │
    └──────────────────────────────────────────────────────┘
 ```
@@ -102,7 +102,7 @@ string. This is acceptable for one bot on one host; it does not scale to a web
 app, a worker and a database URL. Phase 1 should move to systemd
 `EnvironmentFile=` with `0600` permissions at minimum, or a credential store.
 
-**F-6 — No shared venv isolation.** The bot runs from `/opt/discord-bots/venv`,
+**F-6 — No shared venv isolation.** The bot runs from `/opt/freedom-blades/runtime/venv-bot`,
 one directory above the repository and symlinked in as `venv`. A second Python
 service sharing that venv would couple their dependency sets. `freedom-web` needs
 its own.
@@ -297,7 +297,7 @@ this application**, where previously nothing flowed between them at all.
                                            │
                           ┌────────────────┴─────────────────┐
                           ▼                                  ▼
-              /srv/freedom/snapshots               PostgreSQL
+              /srv/freedom-blades/snapshots               PostgreSQL
               restricted artifact store         checksum + provenance
               0700 dir, 0600 files              (no artifact bytes)
 ```

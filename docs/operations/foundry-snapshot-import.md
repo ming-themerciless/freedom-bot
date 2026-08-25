@@ -57,7 +57,7 @@ Never commit an artifact to this repository. `.gitignore` excludes
 APP_ENVIRONMENT=development \
 DATABASE_URL='postgresql+psycopg:///freedom_dev' \
   ./venv/bin/python -m tools.bootstrap_manager \
-    --snapshot /srv/freedom/snapshots/the-guild-2026-08-02.json
+    --snapshot /srv/freedom-blades/snapshots/the-guild-2026-08-02.json
 ```
 
 A rehearsal parses, validates, reconciles and prints a report. It writes
@@ -97,7 +97,7 @@ Read the report before doing anything else:
 APP_ENVIRONMENT=staging \
 DATABASE_URL='postgresql+psycopg:///freedom_staging' \
   ./venv/bin/python -m tools.bootstrap_manager \
-    --snapshot /srv/freedom/snapshots/the-guild-2026-08-02.json \
+    --snapshot /srv/freedom-blades/snapshots/the-guild-2026-08-02.json \
     --bootstrap --supervisor "Peter Duscha"
 ```
 
