@@ -18,7 +18,12 @@ Passed rows, §8.2 listed criterion 8 as Not Run after SP-21 evidenced it, and
 single timestamped observation, and none of it is corrected by *changing* one:
 every fact below is drawn from elsewhere in this same document, and the two
 things that could only come from the host — an exact session-end timestamp and
-the SP-21 grant record UUIDs — are marked **outstanding** rather than filled in.
+the SP-21 grant record UUIDs — were marked **outstanding** rather than filled in.
+**Resolved 2026-08-25:** the grant record UUIDs were read host-locally and are now
+in SP-21. The exact session end is recorded as **Not Recorded**, with the last
+evidenced activity — 21:30:43.197604Z, corroborated by two independent tables —
+given as a lower bound. The Operations Owner could not supply the exact time and
+declined to estimate one, which is the correct outcome.
 
 ---
 
@@ -27,7 +32,7 @@ the SP-21 grant record UUIDs — are marked **outstanding** rather than filled i
 | Field | Value |
 |---|---|
 | Session start (UTC) | 2026-08-24T08:29:24Z |
-| Session end (UTC) | 2026-08-24 — **exact end time still outstanding**, with a raised lower bound. §4.2 and §4.3 ran in two sittings, suspended 09:33Z and resumed the same day. SP-21's expiry refusal at 21:02:45Z was the latest timestamp this document recorded; a host-local read of `audit_events` on 2026-08-24 (below) shows four later rows — two ordinary `discord_oauth` login/logout pairs at **21:30:04Z, 21:30:07Z, 21:30:18Z and 21:30:43Z**, after the deliberate provider outage had been restored — so the lower bound is now **21:30:43.196749Z**. Whether those four rows are the session's closing normal-login check or unrelated later use is not something the audit stream states, so this remains a **lower bound and not the end**. The accepted evidence rules ask for exact timestamps, and only the Operations Owner can supply this one |
+| Session end (UTC) | **Not Recorded.** The exact end was not captured while the session ran, and the Operations Owner has stated he cannot supply it from memory. It is therefore **not** recorded, rather than reconstructed or estimated — a fabricated timestamp in an evidence record is worse than an acknowledged gap, because no later reader can tell the two apart. What the host *can* prove is recorded instead: the **last evidenced portal activity on 2026-08-24 was 21:30:43.197604Z**, a sign-out. Two independent tables agree and neither holds anything later that day — `sessions` (last `last_seen_at` 21:30:41.153332Z; `revoked_at` 21:30:43.197604Z, reason `logout`) and `audit_events` (last row `auth.logout` at 21:30:43.196749Z). The four rows after SP-21's 21:02:45Z expiry refusal are two ordinary `discord_oauth` login/logout pairs, after the deliberate provider outage was restored; whether they are the session's closing normal-login check or unrelated later use is not something either table states. Caddy keeps no access log on this host and the systemd journal is not readable by the review account, so no third source exists. **This is a lower bound on the end, not the end** |
 | Commit under test | `0c95e72bc9a3c274b5683161b17ceb0fe53f8902` ("Complete Phase 3.5 portal remediation package", 2026-08-24T01:31:54Z) |
 | Branch | `docs/platform-plan` |
 | Working tree | clean (`git status --short` empty) |

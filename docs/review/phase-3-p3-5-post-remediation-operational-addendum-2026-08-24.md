@@ -266,7 +266,8 @@ administrator cannot use it to learn whether an identifier exists.
 
 ## 4. Handover Step 4 — evidence-record fields
 
-**Two of three fields completed. One requires the Operations Owner.**
+**All three fields resolved 2026-08-25** — two by host-local reads, one as an
+honest **Not Recorded**.
 Updated file: `docs/review/phase-3-p3-5-supervised-session-evidence-2026-08-24.md`.
 
 ### 4.1 SP-21 grant record UUIDs — recorded
@@ -286,24 +287,38 @@ document to the second. That correspondence is what identifies them as SP-21's
 two grants; they were not selected by assuming it. §9.2's A-9 row is satisfied
 and no deviation needs approving.
 
-### 4.2 Exact session end — still outstanding, lower bound raised
+### 4.2 Exact session end — resolved as **Not Recorded**, 2026-08-25
 
-The evidence document recorded 21:02:45Z as an explicit lower bound. A read of
-`audit_events` (`occurred_at`, `action`, `actor_capability`, and the
-`auth_method` payload key only) shows four later rows on 2026-08-24:
+The Operations Owner was asked for the exact end and answered that he could not
+know it, and that anything he gave would be invented. **That is the correct answer
+and it was taken as final.** A fabricated timestamp in an evidence record is worse
+than an acknowledged gap: every later reader would see it as an observation, and
+nothing in the document would distinguish it from one.
 
-```text
-21:30:04.288396  auth.login.succeeded  guild_member  discord_oauth
-21:30:07.716529  auth.logout           guild_member  discord_oauth
-21:30:18.380136  auth.login.succeeded  guild_member  discord_oauth
-21:30:43.196749  auth.logout           guild_member  discord_oauth
-```
+The field is therefore **Not Recorded**, in the same form the handover prescribes
+for the authenticator description. What the host can prove is recorded beside it.
 
-Two ordinary Discord logins and sign-outs, after the deliberate provider outage
-was restored. The lower bound is therefore **21:30:43.196749Z**. Whether those
-rows are the session's closing normal-login check or unrelated later use is not
-something the audit stream states, so the field stays a lower bound. **Only the
-Operations Owner can supply the exact end**, and it has not been invented.
+**The last evidenced portal activity on 2026-08-24 was 21:30:43.197604Z**, a
+sign-out, and two independent tables agree:
+
+| Source | Last row on 2026-08-24 |
+|---|---|
+| `sessions` | `last_seen_at` 21:30:41.153332Z, `revoked_at` **21:30:43.197604Z**, reason `logout` |
+| `audit_events` | `auth.logout` at **21:30:43.196749Z** |
+
+Neither holds anything later that day. The four rows after SP-21's 21:02:45Z
+expiry refusal are two ordinary `discord_oauth` login/logout pairs, after the
+deliberate provider outage was restored; whether they are the session's closing
+normal-login check or unrelated later use is not something either table states.
+
+**No third source exists.** Caddy keeps no access log on this host — its log
+directory is empty — and the systemd journal is not readable by the review
+account. The two database tables are the whole of the available evidence, and they
+bound the end without establishing it.
+
+`sessions` was read for `auth_method`, `created_at`, `last_seen_at`, `revoked_at`
+and `revocation_reason` only. `token_hash`, `client_ip_hash`, `user_agent_digest`
+and `privilege_fingerprint` were **not** selected.
 
 ### 4.3 Authenticator description — **Not Recorded**
 
@@ -778,7 +793,7 @@ class of failure will keep requiring a human until that access changes.
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
 | F3 / SP-22 R-41, R-46 | **Closed by observation 2026-08-25** — both `403 emergency_surface_refused` before handler object lookup (§3) |
-| F4 evidence hygiene | Grant UUIDs recorded; **exact session end and authenticator description outstanding** |
+| F4 evidence hygiene | **Closed 2026-08-25.** Grant UUIDs recorded; exact session end and authenticator description both **Not Recorded**, with the last evidenced activity given as a bound (§4.2, §4.3) |
 | A-05 | **Open** — criteria 3, 6 and 9 complete; criterion 4 half-observed and its production half shown **not observable before production exists** (§5.2.1); **criteria 4 and 10 outstanding** |
 | I-06, A-06 | **Open** |
 | R-23 | **Active** |
@@ -791,9 +806,9 @@ class of failure will keep requiring a human until that access changes.
 2. ~~Install the F5 fix and verify the worker~~ — **done 2026-08-25T17:42:57Z**
    (§6.3.1). I-06's worker prerequisite is met; its named procedures (TC-OPS,
    TC-PERF, TC-LIM-02, the browser half of TC-SEC-07) remain to be executed.
-3. **Operations Owner** — supply the exact session-end timestamp and a truthful
-   authenticator description, or confirm the latter stays `Not Recorded` (§4.2,
-   §4.3).
+3. ~~Supply the exact session-end timestamp and an authenticator description~~ —
+   **resolved 2026-08-25**: both are `Not Recorded`, the session end bounded by
+   two independent tables (§4.2, §4.3). F4 is closed.
 4. ~~SP-22's R-41 and R-46 denials~~ and ~~A-05 criterion 3~~ — **done
    2026-08-25** (§3, §5.1).
 5. ~~Restore the test database~~ — **done 2026-08-25**; full verification set
