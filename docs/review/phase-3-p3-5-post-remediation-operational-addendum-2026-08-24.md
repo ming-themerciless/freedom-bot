@@ -543,12 +543,46 @@ design:
 **Criterion 10** is the designated Security Reviewer's confirmation, and by its
 own terms comes only after every other criterion and disposition is complete.
 
-The proportionate staging re-observations the handover lists still need the
-Operations Owner. One is worth scheduling first because it is the acceptance test
-for the S-4 remediation itself: with the portal's Discord service account faulted,
-`/healthz` must report `identity_provider: false`, `status: degraded` and HTTP
-**503**. §2.3 shows the probe is running; this would show it answering correctly
-when the answer is "no".
+### 5.5 The S-4 acceptance test — passed 2026-08-25 (SP-25)
+
+The one re-observation that had to happen before any of the others, because it is
+the behavioural proof that the S-4 remediation works deployed rather than in the
+suite. Executed by the Operations Owner at his own console against PID 3785672,
+using the **unchanged** method from the 2026-08-24 session — one `iptables` OUTPUT
+rule matched on the portal service account's uid — which is what makes the two
+comparable. Only the build differs.
+
+| State | `identity_provider` | `status` | HTTP |
+|---|---|---|---|
+| Provider reachable | `true` | `ok` | `200` |
+| **Provider unreachable** | **`false`** | **`degraded`** | **`503`** |
+| Rule removed | `true` | `ok` | `200` |
+
+The middle row is the finding inverted. The same rule on the same host produced
+`true` and `200` throughout the outage on 2026-08-24; it now reports the outage and
+degrades the endpoint. §2.3's latency corroboration is superseded by this — the
+probe is not merely running, it answers correctly when the answer is "no".
+
+Isolation was re-proved rather than assumed: the portal account got `000` — the
+local `REJECT` answering immediately, not a timeout — while the live bot under a
+different uid got `200`. The rule was removed in the same sitting, `/healthz`
+returned to `ok`/`200`, and that was confirmed independently afterwards. The worker
+runs as the same account and was unaffected, as expected for a process that makes
+no outbound network call (N-50); it was still `active` on PID 3975305 after the
+test.
+
+### 5.6 Staging re-observations still outstanding
+
+Four of the handover's list remain **Not Run**, and none of them is urgent in the
+way S-4's was:
+
+- separated N-32a/N-32 limiter behaviour on the deployed build;
+- limiter-refusal audit rows resolving by the correlation the caller was shown;
+- WebAuthn and recovery-grant logout attribution;
+- recovery replay/expiry internal audit classification.
+
+Each needs a break-glass session and deliberately spends limiter budget, so they
+belong in one planned sitting rather than piecemeal.
 
 ---
 
@@ -677,7 +711,8 @@ class of failure will keep requiring a human until that access changes.
 | Serial verification set | **Re-run and green**, figures in §1.2 |
 | N-32a | Accepted 2026-08-24; no configuration change needed to deploy it (§2.3) |
 | S-5, S-6 | Closed in the repository by Codex re-review |
-| S-4, S-7, S-9 | Repository remediation accepted and now **running**; deployed *behavioural* observation still outstanding (§5) |
+| S-4 | **Closed end to end 2026-08-25** — remediation accepted, deployed, and behaviourally proven under a real provider outage (§5.5, SP-25) |
+| S-7, S-9 | Repository remediation accepted and running; deployed *behavioural* re-observation still outstanding (§5.6) |
 | I-06 worker prerequisite | **Met 2026-08-25** (§6.3.1) |
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
@@ -707,8 +742,9 @@ class of failure will keep requiring a human until that access changes.
    production-refusal half (§5.2). Not a reviewer's call to make alone.
 7. **Security Reviewer** — finding **F6** (§5.3): a below-threshold credential
    count is detected and then reported to nobody outside production.
-8. **Operations Owner + supervised session** — the §5.4 staging re-observations,
-   starting with the provider-outage acceptance test for S-4.
+8. **Operations Owner + supervised session** — the four remaining staging
+   re-observations in §5.6, in one planned sitting. The S-4 acceptance test that
+   headed this list is **done** (§5.5).
 9. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
 10. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate

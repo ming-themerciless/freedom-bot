@@ -462,6 +462,47 @@ not been taken. **Criterion 4 therefore remains open.**
 
 ---
 
+### SP-25 — the provider outage is reported, which is S-4's acceptance test
+
+**Added 2026-08-25.** The behavioural proof that the S-4 remediation works in the
+world rather than in the suite. Executed by the Operations Owner at his own
+console, against the identity-verified deployed process (PID 3785672).
+
+The method is **unchanged** from the A-2 evidence above — one `iptables` OUTPUT
+rule matched on the portal service account's uid — which is what makes the two
+observations comparable. The only thing that differs between them is the build.
+
+| # | State | `identity_provider` | `status` | HTTP |
+|---|---|---|---|---|
+| 1 | Provider reachable | `true` | `ok` | `200` |
+| 2 | **Provider unreachable** | **`false`** | **`degraded`** | **`503`** |
+| 3 | Rule removed | `true` | `ok` | `200` |
+
+**Row 2 is the whole finding, inverted.** On 2026-08-24 the same rule, on the same
+host, produced `identity_provider: true` and `200` throughout — the check an
+operator consults during a Discord outage reported that Discord was fine. It now
+reports the outage, degrades the whole view, and answers `503`.
+
+**The isolation is as narrow as it was**, re-proved rather than assumed: the portal
+account could not reach Discord (`000`, the local `REJECT` answering immediately
+rather than a timeout) while the live bot, running under a different uid, reached
+it normally (`200`). Inbound traffic was untouched and the database is a Unix
+socket, so nothing but the portal's outbound HTTPS was affected.
+
+**State restored.** The rule was removed in the same sitting and `/healthz`
+returned to `ok`/`200`, confirmed independently afterwards. The worker — which runs
+as the same `freedomweb` account — was unaffected throughout, as expected: it makes
+no outbound network call at all (N-50), and it was still `active` on the same PID
+after the test.
+
+This closes the S-4 half of the staging re-observations. The remaining
+re-observations in the handover's Step 5 list — separated N-32a/N-32 limiter
+behaviour, limiter-refusal audit rows resolving by displayed correlation, WebAuthn
+and recovery-grant logout attribution, and recovery replay/expiry classification —
+are **Not Run**.
+
+---
+
 ### A-4 corroboration — the same shell, two authorities, observed back to back
 
 The continuity shell was compared against an ordinary session on the same deployed
@@ -582,6 +623,26 @@ the unavailability is unambiguous rather than slow.
 
 **The outage is evidenced here and not from `/healthz`**, which reports
 `identity_provider: true` throughout — see finding S-4.
+
+**Re-observed 2026-08-25, after the S-4 remediation, and the result is now the
+opposite.** Same method, same rule, same host, on the identity-verified deployed
+process PID 3785672. `/healthz` reported the outage:
+
+```text
+{"status":"degraded","checks":{...,"identity_provider":false,...},
+ "environment":"staging"}
+http=503
+```
+
+Isolation was re-proved before the observation and remains as narrow as it was:
+
+| Probe | Result |
+|---|---|
+| `sudo -u freedomweb curl … https://discord.com/api/v10/gateway` | **`000`** — the portal's own identity cannot reach Discord |
+| `sudo -u discordbot curl … https://discord.com/api/v10/gateway` | **`200`** — the live bot is unaffected |
+
+With the rule removed, `/healthz` returned to `status: ok`, `identity_provider:
+true`, HTTP `200`. See SP-25.
 
 ---
 
