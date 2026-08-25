@@ -1,16 +1,58 @@
 # Project status
 
-Status date: 2026-08-25 (fifty-fifth update: Codex's independent review requested
-changes on two High findings, and both are answered in the repository. C1 — the F5
-repair reached the unit template but not the installer that fills it in — is
-remediated, and the installer now reproduces the manually repaired worker unit
-directive for directive. C2 — F6 is a failure of the written A-05 A-4 requirement,
-not a new preference — is answered by implementing the health contract change
-rather than amending the criterion; the change is **proposed, not approved**.
-**Nothing is closed:** F5/S-2 await re-review and a host re-run of the installer,
-A-05 criteria 4 and 10 remain open, and the C2 contract change awaits the
-Acceptance Authority and the Security Reviewer. No public exposure or Phase 4
-start is authorized.)
+Status date: 2026-08-25 (fifty-sixth update: Codex re-reviewed the C1/C2
+remediation, accepted both core mechanisms and recommended approving the health
+contract change, and requested changes on two further findings. C3 — an existing
+worker environment file was confirmed only for the value of `WORKER_ENABLED`, so a
+file carrying extra assignments would have been adopted and would have overridden
+portal configuration — is remediated with a strict, executable validation. C4 — the
+documentation equated "fewer than two credentials" with "the emergency route cannot
+be used", which is false for exactly one — is corrected everywhere it appeared.
+**Nothing is closed:** F5/S-2 still wait on the authorized installer run on the
+staging host, A-05 criteria 4 and 10 remain open, and the C2 contract change still
+awaits the Acceptance Authority. No public exposure or Phase 4 start is
+authorized.)
+
+Update 2026-08-25 (fifty-sixth) — Codex re-review: C1/C2 mechanisms accepted, C3 and C4 remediated.
+
+- **Codex accepted both core mechanisms.** The installer now connects the worker
+  template to its executable consumer, the generated unit agrees with the deployed
+  one at directive level, and the C2 health check is boolean-only, fresh,
+  fail-closed and discloses no credential material. **Codex recommends approving
+  the additive C2 health-contract change** once C4's language is corrected — a
+  specialist recommendation, not the Acceptance Authority's approval.
+- **C3 (High) — an existing `worker.env` was not safely confirmed.** The check
+  read the last `WORKER_ENABLED=` assignment and accepted the file if it said
+  `true`. Because the worker unit reads that file **after** the shared portal file,
+  every other assignment in it overrides the portal's: a file carrying
+  `WEB_DATABASE_URL=…` and `WORKER_ARTIFACT_ROOT=…` above a `WORKER_ENABLED=true`
+  passed, silently redirecting the worker's database and artifact store. Ownership,
+  mode and symlink shape were not checked at all.
+- **C3 is remediated with a validation that can be executed.** The check now
+  refuses anything but a regular file (never a symlink), owned `root` and the
+  service group at mode `0640`, whose complete content is exactly one line reading
+  `WORKER_ENABLED=true` with a final newline. It lives in
+  `infra/staging/lib/worker-env-file.sh` so that 21 tests run the operator's own
+  check rather than grepping the script for statements — extra variables,
+  duplicates, comments, `false`, wrong case, empty, missing and extra newlines,
+  five wrong modes, a wrong group, a symlink, a directory and a missing file. The
+  installer still refuses rather than repairing, and still never overwrites.
+- **C4 (Medium) — "cannot be used" was wrong for one credential.** A single
+  enabled credential still authenticates; it is below N-13's redundancy floor, and
+  a lost or broken key is then a lockout. Telling an operator mid-incident that the
+  authenticator in their hand is unusable would be worse than telling them nothing.
+  The guide now carries a three-state table (two or more / exactly one / none or no
+  account), and the claim is corrected in the health check's docstrings, the
+  lifespan comment, the S-15 rationale in the configuration contract, the VM-16
+  block, the earlier return package and this register. A test asserts the corrected
+  wording so the next edit cannot quietly restore it.
+- **Nothing closed.** F5/S-2 remain pending the authorized installer re-run on the
+  staging host and Codex's re-review; A-05 criterion 4 stays open on both halves;
+  criterion 10 is untouched; the C2 contract change remains proposed.
+- **Verification.** Portal suite 2339 passed / 80 skipped, bot suite 2106 passed /
+  267 skipped and 2373 with the disposable database configured, `node --test` 50
+  passed, asset integrity 4/4 OK, `git diff --check` clean. Both suites run
+  serially against the one shared disposable database.
 
 Update 2026-08-25 (fifty-fifth) — Codex requested changes; C1 remediated, C2 implemented as a proposed contract change.
 

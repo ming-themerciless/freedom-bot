@@ -9,7 +9,7 @@ exactly the right words —
 — and then handed them to `composition.startup_warnings`, which no route, service,
 repository or control read. It was never logged. It never reached VM-16. Outside
 production, where S-15 is a warning rather than a refusal because the credentials
-are hardware, a portal whose emergency route could not be used started normally and
+are hardware, a portal below break-glass's redundancy floor started normally and
 answered `/healthz` with `status: ok` and every check green, byte-identically to a
 healthy two-credential portal, permanently.
 
@@ -23,6 +23,7 @@ credential.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -70,12 +71,19 @@ def _check(body: dict, name: str) -> bool:
 async def test_healthz_reports_the_shortfall_below_two_credentials(
     client, migrated_database, credentials
 ):
-    """A-05 A-4's second half. Zero is a shortfall too, and for the same reason.
+    """A-05 A-4's second half. Both states below the floor answer `false`.
 
-    `0` is not "not yet bootstrapped, therefore fine": until the first enrollment
-    the protected account does not exist, break-glass has no account to
-    authenticate, and a Discord outage locks the administrator out. That is the
-    exact hazard S-15 exists for, so it is reported rather than excused.
+    They are below it for different reasons, and the boolean deliberately does not
+    distinguish them (2026-08-25, C4). `0` is not "not yet bootstrapped, therefore
+    fine": the protected account does not exist, break-glass has no account to
+    authenticate, and a Discord outage locks the administrator out. `1` **still
+    authenticates** — that key signs in, and during an outage it may be the path an
+    operator uses — but it is one loss away from the same lockout, so N-13's
+    redundancy floor is unmet and the portal is not ready to be exposed.
+
+    What the operator is told about the difference lives in the operations guide,
+    where someone reading it mid-incident will find it; what `/healthz` carries is
+    readiness, which is one bit.
     """
     _seed(migrated_database, credentials)
 
@@ -174,6 +182,34 @@ async def test_the_health_body_publishes_no_credential_count_or_material(
     assert all(isinstance(value, bool) for value in body["checks"].values())
     for leak in ("synthetic", "credential_id", "public_key", "nickname", "N-13", "S-15", "1 enabled"):
         assert leak not in raw, f"the response disclosed {leak!r}"
+
+
+def test_the_operations_guide_separates_not_redundant_from_cannot_authenticate():
+    """C4, 2026-08-25. The boolean is one bit; the guide owes the operator three states.
+
+    The guide said fewer than two credentials meant "the emergency route cannot be
+    used". True of zero and of no protected account, **false of exactly one** — a
+    single enabled credential still signs in, and during a Discord outage it may be
+    the path actually taken. Telling an operator mid-incident that the authenticator
+    in their hand is unusable is worse than telling them nothing, so the corrected
+    language is asserted rather than trusted to survive the next edit.
+    """
+    guide = (
+        Path(__file__).resolve().parents[2] / "docs" / "operations" / "web-portal.md"
+    ).read_text()
+    section = guide[guide.index("**Read `false` as \"not ready\", not as \"no way in\"**"):]
+    section = section[: section.index("Two limits, stated rather than implied")]
+
+    assert "break-glass still works" in section, (
+        "the one-credential row must say the remaining authenticator still signs in"
+    )
+    assert "cannot succeed at all" in section, (
+        "the zero-credential row must say break-glass cannot authenticate"
+    )
+    assert "redundancy floor" in guide
+    assert "the emergency route cannot be used" not in guide, (
+        "the C4 claim must not return: it is false for exactly one credential"
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,43 @@
 
 Status date: 2026-08-25
 
+## P3.5 re-review amendment (C3/C4) — 2026-08-25
+
+Recorded after Codex re-reviewed the C1/C2 remediation over `020f455..78dfb67`.
+Return package:
+`docs/review/phase-3-p3-5-codex-c3-c4-remediation-2026-08-25.md`.
+
+- **Both C1 and C2 core mechanisms were accepted**, and Codex **recommends
+  approving** the additive C2 health-contract change once C4's language is
+  corrected. That is a specialist recommendation and is recorded as one: it is not
+  the Acceptance Authority's approval, which remains outstanding.
+- **C3 (High) — an existing worker environment file was not safely confirmed.**
+  The check accepted any file whose last `WORKER_ENABLED=` assignment said `true`.
+  The worker unit reads that file **after** the shared portal file, so every other
+  assignment in it overrides the portal's: extra `WEB_DATABASE_URL` and
+  `WORKER_ARTIFACT_ROOT` lines above a conforming last line would have been adopted
+  silently, redirecting the worker's database and artifact store. Ownership, mode
+  and symlink shape were unchecked. **Remediated**: the file must be a regular file
+  (never a symlink), owned `root` and the service group at mode `0640`, with
+  complete content of exactly one line reading `WORKER_ENABLED=true`. The check
+  lives in `infra/staging/lib/worker-env-file.sh` so 21 tests execute the
+  operator's own validation rather than grepping the installer. It still refuses
+  rather than repairs, and still never overwrites.
+- **C4 (Medium) — a documentation defect with incident consequences.** "Fewer than
+  two credentials" was described as "the emergency route cannot be used". That is
+  true of zero and of no protected account, and **false of exactly one**: a single
+  enabled credential still authenticates. During an outage an operator could have
+  been told the authenticator in their hand was unusable. Corrected to readiness
+  against N-13's redundancy floor, with the three states written out, in the
+  operations guide, the health check's docstrings, the lifespan comment, the S-15
+  rationale in the configuration and dependency contract, the VM-16 block, the
+  earlier return package and this register. The boolean's behaviour is unchanged,
+  and a test now asserts the corrected wording.
+- **Nothing closed.** F5/S-2 remain pending the authorized installer re-run on the
+  staging host and Codex's re-review of this package. A-05 criterion 4 remains open
+  on both halves and criterion 10 is untouched. The C2 contract change remains
+  **proposed**.
+
 ## P3.5 independent-review remediation amendment — 2026-08-25
 
 Recorded after Codex's independent review of `0bef692..020f455` requested changes
@@ -238,7 +275,7 @@ Review and gate record:
 | A-02 | A guarded disposable PostgreSQL environment remains available, including a restricted runtime role that can be assumed for denial evidence | Operations Owner | Confirm before every database gate | **Partly validated 2026-08-02.** The disposable database `freedom_test` and the owner/test login `foundry` are available. The temporary restricted role `freedom_runtime_test` now **exists** and can be assumed: it is `NOLOGIN`, non-superuser, cannot create roles or databases, cannot replicate, cannot bypass RLS, and `foundry` is a member able to `SET ROLE freedom_runtime_test`. Role creation is therefore no longer an evidence gap. **Validated 2026-08-05:** the template was corrected for the retained schema, and `tests/test_runtime_grants_live.py` applies it and proves `UPDATE`, `DELETE` and `TRUNCATE` denial **directly under the role** (`SET ROLE freedom_runtime_test`) against real PostgreSQL, including after hostile `PUBLIC` drift — 13 tests, no skips in the 2026-08-05 run. Nothing outstanding on this assumption; it remains subject to the environment continuing to exist before each database gate. **Re-confirmed 2026-08-14** before P3.1: `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test'` resolves through `assert_disposable_target` under `UNIX_SOCKET_ONLY`, and `verify_connected_unix_socket_target` proves `current_database() = 'freedom_test'` with both `inet_server_addr()` and `inet_client_addr()` null. P3.1's full database evidence ran against it |
 | A-03 | Maintainers can provide a supervised immutable Foundry snapshot rehearsal | Data Owner | Required before Phase 2 gate | **Validated 2026-08-09 and closed for Phase 2.** Rehearsal A used a real 35-Actor non-live folder; Rehearsal B previewed the real 32-Actor active folder with every Actor accounted for, zero errors, zero warnings and zero unexplained identity discrepancy. The Data Owner attestation was signed 2026-08-10. No artifact or real Actor payload was committed. |
 | A-04 | The legacy Sheet-backed bot remains the rollback implementation until approved cutover | Operations Owner | Validate at each Phase 5 cutover | Active |
-| A-05 | The Server Administrator's protected platform account is established and at least two WebAuthn credentials are enrolled **before** the portal is exposed publicly | Operations Owner / Security Reviewer | P3.1 operator documentation and the startup check S-15; enrollment is host-local (C-03). Deadline: before any staging or production exposure | **Open, and substantially advanced on 2026-08-25** — criteria 1, 2, 2a, 3, 5, 6, 7, 8 and 9 are now evidenced; **only criteria 4 (both halves: the production refusal is deferred until a production deployment exists, and the `/healthz` half's contract change is implemented but unapproved and unobserved) and 10 (Security Reviewer confirmation) remain**. Introduced by the P3.0 package 2026-08-13. P3.1 delivered the mechanism on 2026-08-14: `tools.webauthn_enrollment` creates the protected account on first enrolment and refuses to retire below two credentials, S-15 refuses production startup below two. **`/healthz` did not report the shortfall at all** (F6): outside production the condition was detected and then published nowhere. The reporting contract change that answers A-4 is implemented on 2026-08-25 under Codex finding C2 — `/healthz` carries `break_glass_credentials` and the lifespan logs the S-15 warning — but it is **proposed, not approved**, has been observed on no host, and **criterion 4 stays open**; and `docs/operations/web-portal.md` §4.1 records the ordering. **The assumption itself is still unvalidated**, because no credential has been enrolled on any host. Until it holds, the emergency route exists but cannot be used, so a Discord outage would lock the administrator out |
+| A-05 | The Server Administrator's protected platform account is established and at least two WebAuthn credentials are enrolled **before** the portal is exposed publicly | Operations Owner / Security Reviewer | P3.1 operator documentation and the startup check S-15; enrollment is host-local (C-03). Deadline: before any staging or production exposure | **Open, and substantially advanced on 2026-08-25** — criteria 1, 2, 2a, 3, 5, 6, 7, 8 and 9 are now evidenced; **only criteria 4 (both halves: the production refusal is deferred until a production deployment exists, and the `/healthz` half's contract change is implemented but unapproved and unobserved) and 10 (Security Reviewer confirmation) remain**. Introduced by the P3.0 package 2026-08-13. P3.1 delivered the mechanism on 2026-08-14: `tools.webauthn_enrollment` creates the protected account on first enrolment and refuses to retire below two credentials, S-15 refuses production startup below two. **`/healthz` did not report the shortfall at all** (F6): outside production the condition was detected and then published nowhere. The reporting contract change that answers A-4 is implemented on 2026-08-25 under Codex finding C2 — `/healthz` carries `break_glass_credentials` and the lifespan logs the S-15 warning — but it is **proposed, not approved**, has been observed on no host, and **criterion 4 stays open**; and `docs/operations/web-portal.md` §4.1 records the ordering. **The assumption itself is still unvalidated**, because no credential has been enrolled on any host. Until the first enrolment the emergency route exists with nothing to authenticate, so a Discord outage would lock the administrator out; after one enrolment it authenticates but is one lost key from the same outcome, which is the redundancy N-13 requires (C4, 2026-08-25) |
 | A-06 | PostgreSQL is an acceptable substrate for the job queue and the cross-process rate limiter, so no second datastore is introduced | Technical Lead | P3.3 concurrency and restart evidence (TC-JOB-02…08) and the P3.5 staging rehearsal | **Open** — introduced by the P3.0 package 2026-08-13; the dependency proposal rests on it. P3.1 exercised the limiter half: `test_the_limiter_counts_across_processes` proves two engines sharing one database enforce one budget |
 | A-07 | The three deviations P3.1 declares against the accepted P3.0 contracts are acceptable as implemented | Technical Lead / Security Reviewer | Codex independent and security review at P3.G1, then Peter's decision | **Open** — introduced by P3.1 on 2026-08-14. (1) `role_capability_mappings.created_by_account_id` is nullable, constrained by `CHECK (created_by_account_id IS NOT NULL OR protected)`, because the migration inserts the protected row when no account exists; schema §8 states `Null: no`. (2) `WEB_SECRET_KEY_CLIENT_DIGEST` is added to the configuration contract's named set, because the schema specifies a *salted* address hash and an unkeyed one is reversible. (3) `webauthn_challenges` is added, because SM-03 requires a challenge row and schema §9 lists no table for it. Each is recorded in `docs/review/phase-3-p3-1-submission.md` §8 |
 

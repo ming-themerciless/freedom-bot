@@ -473,8 +473,8 @@ def _portal_lifespan(
                 )
                 # **F6, corrected 2026-08-25 (C2).** The warnings were assigned
                 # here and read by nothing — not a route, not a control, not a
-                # log line — so a portal whose emergency route could not be used
-                # started in silence. They are S-15's message and carry no
+                # log line — so a portal below break-glass readiness started in
+                # silence. They are S-15's message and carry no
                 # credential, no identifier and no configuration value, only a
                 # refusal code and a count of enrolled authenticators, so the
                 # operator watching the service start learns what the process

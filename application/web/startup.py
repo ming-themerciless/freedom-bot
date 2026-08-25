@@ -186,8 +186,12 @@ def _check_break_glass_credentials(
     The protected role-capability *mapping* is inserted by migration 0006, but
     the protected *account* is created the first time the Server Administrator
     authenticates or by C-03 enrollment. Until then break-glass has no account to
-    authenticate, and starting a portal whose emergency route cannot be used is
-    starting a portal that will lock its administrator out.
+    authenticate, and starting a portal that cannot authenticate its administrator
+    is starting a portal that will lock them out.
+
+    **The threshold above that is redundancy, not usability** (2026-08-25, C4). One
+    enabled credential still signs in; it is refused in production because a single
+    key is one loss away from the lockout above, not because it does not work.
     """
     count = _enabled_credential_count(engine)
     if count >= MINIMUM_ENROLLED_CREDENTIALS:
@@ -284,10 +288,9 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
         HealthCheck(name="kill_switch", ok=_kill_switch_absent(settings.kill_switch_file))
     )
     # **F6, corrected 2026-08-25 (C2).** S-15 is a refusal in production and a
-    # warning elsewhere, and the warning went nowhere — so the one condition that
-    # decides whether the emergency route can be used at all was invisible on
-    # exactly the hosts where it is allowed to be false. A-05 A-4 requires
-    # `/healthz` to report the shortfall; this is where it reports it.
+    # warning elsewhere, and the warning went nowhere — so break-glass readiness
+    # was invisible on exactly the hosts where it is allowed to be short. A-05 A-4
+    # requires `/healthz` to report the shortfall; this is where it reports it.
     #
     # Queried fresh rather than read from the startup warning: a credential
     # retired an hour after startup is the same shortfall, and a health endpoint
@@ -377,16 +380,23 @@ def _worker_liveness(engine, database_ok: bool) -> tuple[bool, bool]:
 
 
 def _break_glass_ready(engine) -> bool:
-    """N-13's floor, as a boolean and nothing more.
+    """N-13's **redundancy floor**, as a boolean and nothing more.
+
+    `False` means *not ready*, and it is worth being exact about what it does not
+    mean (2026-08-25, C4). Two or more enabled credentials satisfy N-13. **One
+    still authenticates** — that key can sign in, and during a Discord outage it
+    may be the path an operator actually uses — but a single key is one loss away
+    from a lockout, so the portal is not ready to be exposed. Zero, or no protected
+    account at all, is the state where break-glass genuinely cannot authenticate.
+    All three below the floor answer `False`, and the operations guide carries the
+    distinction for the person reading it during an incident.
 
     A failure to *ask* is reported as not-ready for the same reason `_worker_liveness`
     reports `False` when the database is unreachable: a check that could not run has
     not passed, and "ok" would be an answer this process does not have.
 
-    The count itself never leaves this function. `False` says the portal is not
-    ready to be exposed, which is the operator's cue; how many credentials the
-    protected administrator holds — one, or none, or none because the account does
-    not exist yet — is a detail the enrollment tool states on the host to the
+    The count itself never leaves this function. How many credentials the protected
+    administrator holds is a detail the enrollment tool states on the host to the
     person running it, and VM-16 has never carried a count of anything.
     """
     try:

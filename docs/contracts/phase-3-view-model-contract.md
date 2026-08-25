@@ -42,7 +42,9 @@ to `HealthCheck.name`.
   byte-identically to a healthy one, permanently. A-05 A-4 requires `/healthz` to
   report the shortfall, so the contract that made it impossible is the thing that
   had to change. The check carries a **boolean**, like every other one: `false`
-  says the portal is not ready to be exposed, and the number of credentials the
+  says the portal is not ready to be exposed — readiness against N-13's redundancy
+  floor, not a claim that break-glass cannot authenticate (see the VM-16 block, and
+  the C4 correction of 2026-08-25) — and the number of credentials the
   administrator holds stays off this endpoint.
 
 - **D-03-6** — VM-22 `DeniedView` is new in §8: the safe denial body gains a view
@@ -859,10 +861,14 @@ HealthCheck(name: Literal["database","migrations","artifact_store","worker_heart
     "break_glass_credentials"], ok: bool)
 ```
 
-`break_glass_credentials` is **added 2026-08-25** (C2-1 above, finding F6): `false`
-when the protected administrator account holds fewer than N-13's two enabled
-WebAuthn credentials, when it does not exist yet, or when the question could not be
-asked. It is the same condition S-15 refuses production startup for, reported for
+`break_glass_credentials` is **added 2026-08-25** (C2-1 above, finding F6). It
+reports **readiness against N-13's redundancy floor**: `false` when the protected
+administrator account holds fewer than two enabled WebAuthn credentials, when it
+does not exist yet, or when the question could not be asked. `false` does not mean
+break-glass cannot authenticate — one enabled credential still signs in and is
+below the floor (corrected 2026-08-25, C4); it means the portal is not ready to be
+exposed, and `docs/operations/web-portal.md` §6 carries the distinction for an
+operator reading it during an incident. It is the same condition S-15 refuses production startup for, reported for
 every host where S-15 is only a warning — and for every moment after startup, since
 a credential retired an hour later is the same shortfall. Like every check here it
 is a boolean: **not** the count.

@@ -16,6 +16,16 @@ requested. Two High findings remain blocking.*
 No gate decision is taken here and none is requested of me. Public exposure,
 Phase 4 and the Phase 3 gate remain unauthorized and open. A-05 remains open.
 
+**Corrected 2026-08-25 after Codex's re-review (finding C4).** This package
+described the below-two state as one in which "the emergency route cannot be used".
+That is true of zero enabled credentials and of a protected account that does not
+exist yet, and **false of exactly one**: a single enabled credential still
+authenticates, and during a Discord outage it may be the path an operator actually
+uses. Every such claim in this document now reads as readiness against N-13's
+redundancy floor. The boolean's behaviour is unchanged; only the description was
+wrong. The follow-up package is
+`docs/review/phase-3-p3-5-codex-c3-c4-remediation-2026-08-25.md`.
+
 ---
 
 ## 1. What the two findings asked for, and what this package does
@@ -130,7 +140,8 @@ approval rather than assuming it.
 
 A-4 is an accepted acceptance step of an open RAID assumption, written before the
 code and describing a property an operator needs: that the portal states, on the
-channel built for the question, that its emergency route cannot be used. Amending
+channel built for the question, that break-glass is below the readiness floor
+N-13 sets. Amending
 it would mean accepting that the only channel for that condition outside production
 is a manual credential count — a procedure with no failure mode that anyone would
 notice, on exactly the hosts where S-15 is deliberately *not* a refusal. The

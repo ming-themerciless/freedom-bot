@@ -6986,6 +6986,67 @@ Answers `docs/review/Handover information` (Codex, Independent Reviewer,
   I-06, A-06, R-23 and the Phase 3 gate all remain open; public exposure and Phase 4
   remain unauthorized.
 
+## C-P3.5-P — Codex C3/C4 remediation: an existing worker file is confirmed completely, and readiness stops being described as usability
+
+**Date:** 2026-08-25 · **Requester:** Claude, P3.5 working Technical Lead ·
+**Status:** **Both re-review findings answered. Codex recommends approving the C2
+health-contract change; that approval is still outstanding. No RAID item closed and
+no gate moved.**
+
+Answers `docs/review/Handover information` (Codex, Independent Reviewer,
+2026-08-25, re-review of `020f455..78dfb67`, *changes requested*). Return package:
+`docs/review/phase-3-p3-5-codex-c3-c4-remediation-2026-08-25.md`.
+
+- **Affected requirement, milestone and release:** Milestone P3.5; RAID A-05
+  (criterion 4), S-2, findings F5/F6; S-11, S-15, N-13, VM-16; the configuration
+  and dependency contract's S-15 rationale row; the Phase 3 gate.
+- **Reason and alternatives considered:** **C3** — the existing-file branch
+  confirmed only the value of `WORKER_ENABLED`, and for this file that is the wrong
+  shape of check. The worker unit reads it after the shared portal file, so every
+  assignment in it overrides the portal's; a file carrying `WEB_DATABASE_URL` and
+  `WORKER_ARTIFACT_ROOT` above a conforming last line was accepted, and ownership,
+  mode and symlink shape were not examined at all. The alternative — repairing a
+  nonconforming file — was rejected: this script's promise is that it never
+  overwrites an environment file, and a script that silently corrects one is a
+  script that can silently destroy one. It refuses and names the fault instead.
+  **C4** — the description of the below-two state was wrong in a way that matters
+  during an incident, and the correct statement is narrower than the one it
+  replaces.
+- **Added/removed scope:** one new file, `infra/staging/lib/worker-env-file.sh`,
+  holding the validation as a sourceable function; the installer sources it during
+  preflight and calls it on an existing file. 21 new tests in
+  `tests/test_worker_env_file.py` that **execute** that function, plus one in
+  `tests/web/test_break_glass_health_reporting.py` over the corrected wording. No
+  application-code behaviour changes: C4 is entirely documentation, comments and
+  docstrings. No route, view model, migration or schema change.
+- **Dependency and critical-path effect:** none moved. F5/S-2 stay pending the
+  authorized installer re-run on the staging host; A-05 criterion 4 stays open on
+  both halves; criterion 10 is untouched.
+- **Estimate/forecast and capacity effect:** no forecast change.
+- **New or changed risks:** the C3 finding retires a real one — a `worker.env`
+  left behind by any earlier process could have reconfigured the worker's database
+  and artifact store through a file the installer reported as confirmed. The
+  remaining risk is unchanged and stated: the installer has still not been run on
+  the staging host, so its behaviour there is inferred from the repository and from
+  the deployed unit's directives, not observed.
+- **Testing, migration, security and operational effect:** portal suite 2339
+  passed / 80 skipped, bot suite 2106 passed / 267 skipped and 2373 passed with the
+  disposable database configured, `node --test` 50 passed, asset integrity 4/4 OK,
+  `git diff --check` clean; both suites run serially against the one shared
+  disposable database. The C3 validation is falsified against its predecessor:
+  Codex's own example file is accepted by the old check and refused by the new one.
+  No migration. Nothing on the staging host was changed by this package.
+- **Product Owner recommendation:** none sought; this is remediation of an
+  independent reviewer's findings.
+- **Technical Lead and specialist reviews:** Codex accepted the C1 and C2 core
+  mechanisms on 2026-08-25 and **recommended approving the additive C2
+  health-contract change** after C4's correction — recorded as a specialist
+  recommendation, not an approval. Codex's re-review of C3 and C4 is requested.
+- **Acceptance Authority decision:** **none requested and none taken.** The `C2-1`
+  contract correction remains proposed and awaits Peter Duscha's decision. A-05,
+  I-06, A-06, R-23 and the Phase 3 gate all remain open; public exposure and Phase 4
+  remain unauthorized.
+
 ## Required fields for later entries
 
 Every material entry must identify:

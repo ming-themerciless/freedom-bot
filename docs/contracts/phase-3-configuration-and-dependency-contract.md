@@ -516,7 +516,7 @@ offending variable, and never its value — when any of these holds:
 | S-12 | `WORKER_ARTIFACT_ROOT` fails the existing Phase 2 checks (ownership, mode, symlink-free, hard links, trusted ancestors) | Unchanged Phase 2 behaviour, re-used |
 | S-13 | The bot's `config.py` is importable from the web process's module graph | Enforced by a test as well (delivery plan §3) |
 | S-14 | Alembic head does not match the database's current revision | A process serving a schema it was not built for is a data-integrity risk |
-| S-15 | Production, and the protected administrator account has fewer than two enabled WebAuthn credentials (N-13) | Starting a portal whose emergency route cannot be used is starting a portal that will lock its administrator out |
+| S-15 | Production, and the protected administrator account has fewer than two enabled WebAuthn credentials (N-13) | Starting a portal below break-glass's redundancy floor is starting a portal one lost key away from locking its administrator out. **Rationale corrected 2026-08-25 (C4):** this column read "whose emergency route cannot be used", which is true of zero credentials and of no protected account, and false of exactly one — a single enabled credential still authenticates. The refusal threshold is unchanged |
 
 S-15 is a **warning, not a refusal, in staging and development**, because the
 credentials are hardware and a development host has none.
