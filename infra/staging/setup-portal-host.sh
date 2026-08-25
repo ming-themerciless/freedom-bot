@@ -83,6 +83,14 @@ systemctl is-active --quiet postgresql@16-main || die "PostgreSQL is not running
 for protected in $PROTECTED_DATABASES; do
     [ "$DB_NAME" = "$protected" ] && die "$DB_NAME is a protected database."
 done
+# The existing-worker-file validation (C3) lives in a sourceable library because a
+# check nobody can execute is a check nobody can falsify; tests/test_worker_env_file.py
+# runs this exact function.
+WORKER_ENV_LIBRARY="${REPO_ROOT}/infra/staging/lib/worker-env-file.sh"
+[ -r "$WORKER_ENV_LIBRARY" ] || die "$WORKER_ENV_LIBRARY is missing; the worker environment file could not be validated."
+# shellcheck source=lib/worker-env-file.sh
+. "$WORKER_ENV_LIBRARY"
+
 say "root, repository, virtualenv and PostgreSQL all present."
 say "target database: ${DB_NAME} (not a protected name)."
 
@@ -261,16 +269,20 @@ step "Worker environment file"
 # unit, because later files override earlier ones. It holds that single line and
 # nothing secret; the unit's `__WORKER_ENVIRONMENT_FILE__` placeholder is
 # substituted with this path below.
-if [ -f "$WORKER_ENV_FILE" ]; then
+if [ -e "$WORKER_ENV_FILE" ] || [ -L "$WORKER_ENV_FILE" ]; then
     # Confirmed rather than overwritten, in keeping with this script's promise
-    # about the shared file — but confirmed *for the property that matters*,
-    # since an existing file setting `false` would reinstate the F5 defect
-    # silently and this script would have "succeeded".
-    effective="$(sed -n 's/^[[:space:]]*WORKER_ENABLED=//p' "$WORKER_ENV_FILE" | tail -n 1)"
-    [ "$effective" = "true" ] || die "$WORKER_ENV_FILE exists but its effective WORKER_ENABLED is '${effective:-unset}'. \
-The worker unit reads this file last, so that value wins and freedom-worker would refuse itself (S-11). \
-Fix or remove the file; this script will not overwrite it."
-    skip "$WORKER_ENV_FILE — left exactly as it is (WORKER_ENABLED=true confirmed)"
+    # about the shared file — and confirmed **completely**, not just for the value
+    # of WORKER_ENABLED (C3, 2026-08-25). This file is read after the shared one,
+    # so anything in it overrides the portal's configuration; the only file this
+    # script will adopt is one that is exactly what it would have written itself.
+    # `worker_env_file_problem` is in a sourceable library because a check nobody
+    # can execute is a check nobody can falsify — see tests/test_worker_env_file.py.
+    problem="$(worker_env_file_problem "$WORKER_ENV_FILE" root "$SERVICE_GROUP" 640)" \
+        && skip "$WORKER_ENV_FILE — left exactly as it is (verified: one line, root:${SERVICE_GROUP}, 0640)" \
+        || die "$WORKER_ENV_FILE ${problem}
+This script will not overwrite it. Inspect it, then either correct it to a single
+line reading WORKER_ENABLED=true owned root:${SERVICE_GROUP} at mode 0640, or
+remove it and re-run — this script will write it correctly."
 else
     mkdir -p "$ENV_DIR"; chmod 750 "$ENV_DIR"
     printf 'WORKER_ENABLED=true\n' > "$WORKER_ENV_FILE"

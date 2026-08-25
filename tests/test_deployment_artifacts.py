@@ -308,7 +308,14 @@ def test_the_installer_provisions_the_worker_environment_file_it_substitutes():
         "the worker file needs a deliberate owner"
     )
     # Idempotence: an existing file is confirmed, never silently rewritten — the
-    # same promise this script makes about the shared environment file.
-    assert 'if [ -f "$WORKER_ENV_FILE" ]; then' in installer, (
-        "the installer must check for an existing worker environment file first"
+    # same promise this script makes about the shared environment file. The
+    # existence test covers a symlink too (C3): `-f` alone follows the link and
+    # would answer for its target, so a link would have fallen through to the
+    # creation branch and been written *through*.
+    assert 'if [ -e "$WORKER_ENV_FILE" ] || [ -L "$WORKER_ENV_FILE" ]; then' in installer, (
+        "the installer must check for an existing worker environment file first, "
+        "symlinks included"
     )
+    # What that branch then does is C3's subject and is executed, not grepped, by
+    # tests/test_worker_env_file.py.
+    assert "worker_env_file_problem" in installer
