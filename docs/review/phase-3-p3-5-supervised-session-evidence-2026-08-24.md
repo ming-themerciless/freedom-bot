@@ -529,11 +529,99 @@ as the same `freedomweb` account — was unaffected throughout, as expected: it 
 no outbound network call at all (N-50), and it was still `active` on the same PID
 after the test.
 
-This closes the S-4 half of the staging re-observations. The remaining
-re-observations in the handover's Step 5 list — separated N-32a/N-32 limiter
-behaviour, limiter-refusal audit rows resolving by displayed correlation, WebAuthn
-and recovery-grant logout attribution, and recovery replay/expiry classification —
-are **Not Run**.
+This closes the S-4 half of the staging re-observations. The remaining four were
+executed the same day and are recorded as **SP-26**.
+
+---
+
+### SP-26 — the four remaining re-observations, on the deployed build
+
+**Added 2026-08-25.** Executed by the Operations Owner in one sitting against the
+identity-verified deployed process (PID 3785672, commit `0bef692`), following
+`docs/review/phase-3-p3-5-staging-re-observation-procedure.md`. Each confirms that
+a remediation accepted by review behaves as accepted **on the deployed build** —
+the standard SP-25 set for S-4.
+
+Audit rows below were read host-locally from `audit_events`, selecting
+`occurred_at`, `action`, `actor_capability`, the `reason`/`auth_method`/
+`grant_record_id` payload keys and `correlation_id`. No token, token hash,
+assertion, challenge, cookie, credential id or address was selected or recorded.
+
+#### S-7 — challenge and assertion budgets are separate
+
+The ceremony was **cancelled at the authenticator three times**, then completed.
+The completion **succeeded** (19:26:00Z).
+
+Under the shared bucket this replaced, three cancellations plus one ceremony would
+have spent five of five per-address units and the sign-in would have been refused
+`rate_limited`. That it succeeded is the observation: a cancelled prompt now costs
+an *issuance*, not a *guess*. **Pass.**
+
+#### S-6 — logout attribution is derived, not assumed
+
+| Time (UTC) | action | actor_capability | auth_method |
+|---|---|---|---|
+| 19:27:25 | `auth.logout` | **`platform_administrator`** | `webauthn` |
+| 19:29:34 | `auth.logout` | **`platform_administrator`** | `recovery_grant` |
+
+Both sessions signed out as the authority they actually held. Before the fix every
+logout was written `guild_member`, including — as the 2026-08-24 session observed
+directly — a recovery-grant session holding no proven guild membership at all. Five
+further `auth.logout` rows during the S-5 observation below all read
+`platform_administrator` as well. **Pass, on both authentication methods.**
+
+#### S-9 — a replay and an expiry are classified differently
+
+| Time (UTC) | reason | grant record | grant's own history |
+|---|---|---|---|
+| 19:29:58 | **`consumed`** | `57487999-…` | created 19:28:37, consumed 19:29:16 |
+| 19:44:49 | **`expired`** | `0c557cbe-…` | created 19:32:17, expired 19:42:17, never consumed |
+
+The second refusal came 2m32s past that grant's `expires_at`. Each row names its
+own non-secret grant row id and **neither carries a token or a token hash**.
+
+**Both refusals were identical to the caller** — the same neutral sentence and a
+correlation reference, confirmed by the operator, who could not tell them apart in
+the browser. That indistinguishability is the security property; the distinction
+exists in the audit and nowhere else. **Pass.**
+
+#### S-5 — a limiter refusal is audited, and its reference resolves
+
+This is the finding the package began with: the limiter short-circuits returned a
+`429` carrying a correlation reference and wrote **nothing**, so the emergency
+audit stream fell silent at exactly the point the defensive control activated.
+
+Five verifications were spent (19:51:36 → 19:52:24, each followed by a sign-out),
+then a sixth attempted:
+
+| Time (UTC) | action | reason | correlation |
+|---|---|---|---|
+| 19:52:37 | `auth.emergency.refused` | **`assertion_rate_limited_ip`** | `a80287b2-…` |
+
+**The correlation is exactly the reference the operator was shown**, and the row
+exists. Before the remediation there would be no row at all and that reference
+would resolve to nothing. **Pass.**
+
+#### Every reference resolved
+
+Four references were shown to the operator during this sitting and every one
+resolves to its row:
+
+| Reference | Resolves to |
+|---|---|
+| `cb7e6020-…` | `auth.emergency.refused`, `consumed` |
+| `21901bb4-…` | `auth.emergency.refused`, `expired` |
+| `a80287b2-…` | `auth.emergency.refused`, `assertion_rate_limited_ip` |
+
+**Budget consumed, and it behaved as the register says:** 4 challenges and 6
+assertions per address, 3 recovery redemptions across two ten-minute windows, and
+roughly 7 assertions against the per-account hour. The break-glass path locked for
+ten minutes after 19:52:37 exactly as designed, and the recovery path stayed
+available throughout.
+
+**Every deployed re-observation the handover asked for is now complete.** S-4, S-5,
+S-6, S-7 and S-9 are each accepted in the repository *and* observed behaving on the
+deployed build.
 
 ---
 

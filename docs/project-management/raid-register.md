@@ -57,10 +57,16 @@ record: `docs/review/phase-3-p3-5-post-remediation-operational-addendum-2026-08-
   after S-4 and `worker_heartbeat`. The route surface is frozen and VM-16 is an
   accepted closed vocabulary, so the disposition belongs to the Security Reviewer
   and the Acceptance Authority, not to a drive-by fix during evidence work.
+- **All five code findings are closed end to end.** S-4, S-5, S-6, S-7 and S-9 are
+  each accepted in the repository **and** observed behaving on the deployed build
+  (SP-25, SP-26, 2026-08-25). S-5 is the finding the package began with — limiter
+  refusals answering `429` with a correlation reference and writing nothing — and
+  every reference shown to the operator during the re-observation sitting resolves
+  to its audit row. **No deployed re-observation remains outstanding.**
 - **R-23 remains Active**, unchanged: still one browser on one platform.
-- **No Phase 3 gate or exposure decision is made**, and none is requested. Four
-  staging re-observations, criterion 4's deferred half and criterion 10 all remain
-  outstanding. Public exposure and Phase 4 remain unauthorized.
+- **No Phase 3 gate or exposure decision is made**, and none is requested.
+  Criterion 4's wording, criterion 10 and every I-06 procedure remain outstanding.
+  Public exposure and Phase 4 remain unauthorized.
 
 ## P3.5 supervised-session remediation amendment — 2026-08-24
 

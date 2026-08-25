@@ -616,18 +616,34 @@ runs as the same account and was unaffected, as expected for a process that make
 no outbound network call (N-50); it was still `active` on PID 3975305 after the
 test.
 
-### 5.6 Staging re-observations still outstanding
+### 5.6 The four remaining staging re-observations — all passed 2026-08-25 (SP-26)
 
-Four of the handover's list remain **Not Run**, and none of them is urgent in the
-way S-4's was:
+Executed by the Operations Owner in one sitting against PID 3785672, following
+`docs/review/phase-3-p3-5-staging-re-observation-procedure.md`. **All four pass.**
 
-- separated N-32a/N-32 limiter behaviour on the deployed build;
-- limiter-refusal audit rows resolving by the correlation the caller was shown;
-- WebAuthn and recovery-grant logout attribution;
-- recovery replay/expiry internal audit classification.
+| Finding | Observation | Result |
+|---|---|---|
+| **S-7** | Three cancellations at the authenticator, then a ceremony | Sign-in **succeeded** 19:26:00Z. Under the shared bucket this would have been the sixth unit and refused |
+| **S-6** | Sign-out from a WebAuthn session and from a recovery-grant session | Both `auth.logout` rows read **`platform_administrator`**, not `guild_member` |
+| **S-9** | Replay a consumed grant, then submit an expired one | **`consumed`** and **`expired`**, each naming its own non-secret grant row; identical to the caller |
+| **S-5** | Spend the assertion budget, then attempt once more | `auth.emergency.refused`, **`assertion_rate_limited_ip`**, on the **exact correlation** the operator was shown |
 
-Each needs a break-glass session and deliberately spends limiter budget, so they
-belong in one planned sitting rather than piecemeal.
+**S-5 is the one worth dwelling on**, because it is where the package started. The
+limiter short-circuits used to answer `429` with a correlation reference and write
+nothing — the emergency audit stream falling silent precisely when the defensive
+control fired, while the interface went on handing the operator references that
+resolved to no row. Three references were shown during this sitting and **all
+three resolve**.
+
+**The budgets behaved as the register says.** Four challenges and six assertions
+per address, three recovery redemptions across two ten-minute windows, roughly
+seven assertions against the per-account hour. Break-glass locked for ten minutes
+after the sixth assertion, as designed, and the recovery path stayed available
+throughout — which is the availability property N-32a exists to protect.
+
+**Every deployed re-observation the handover asked for is complete.** S-4, S-5,
+S-6, S-7 and S-9 are each accepted in the repository *and* observed behaving on
+the deployed build. Nothing in the handover's Step 5 re-observation list remains.
 
 ---
 
@@ -757,7 +773,7 @@ class of failure will keep requiring a human until that access changes.
 | N-32a | Accepted 2026-08-24; no configuration change needed to deploy it (§2.3) |
 | S-5, S-6 | Closed in the repository by Codex re-review |
 | S-4 | **Closed end to end 2026-08-25** — remediation accepted, deployed, and behaviourally proven under a real provider outage (§5.5, SP-25) |
-| S-7, S-9 | Repository remediation accepted and running; deployed *behavioural* re-observation still outstanding (§5.6) |
+| S-5, S-6, S-7, S-9 | **Closed end to end 2026-08-25** — accepted in the repository and observed behaving on the deployed build (§5.6, SP-26) |
 | I-06 worker prerequisite | **Met 2026-08-25** (§6.3.1) |
 | S-1 | **Satisfied for this deployment** — restarted 2026-08-25T05:08:56Z; PID 3785672 postdates commit `0bef692…` by 6h32m, proven in §2.2. The control stays live for every future deployment |
 | S-2 | **Resolved 2026-08-25** — root-caused as F5, fixed in the repository, installed on staging, worker `active (running)` as PID 3975305 (§6.3.1) |
@@ -788,9 +804,8 @@ class of failure will keep requiring a human until that access changes.
    until production configuration exists.
 7. **Security Reviewer** — finding **F6** (§5.3): a below-threshold credential
    count is detected and then reported to nobody outside production.
-8. **Operations Owner + supervised session** — the four remaining staging
-   re-observations in §5.6, in one planned sitting. The S-4 acceptance test that
-   headed this list is **done** (§5.5).
+8. ~~The four remaining staging re-observations~~ — **all passed 2026-08-25**
+   (§5.6, SP-26). No deployed re-observation remains outstanding.
 9. **Security Reviewer** — the A-05 readiness recommendation, only once the
    evidence and dispositions above are complete.
 10. **Peter Duscha, Acceptance Authority** — any A-05 disposition or gate

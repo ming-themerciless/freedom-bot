@@ -59,8 +59,14 @@ Update 2026-08-25 (fifty-fourth) — handover executed; three A-05 criteria evid
   name, which was the earlier analysis and was wrong. Either A-4 is amended to
   what a non-production host can observe, or criterion 4 stays open until
   production configuration exists; that is the Security Reviewer's judgment.
-- **No gate moved.** Criteria 4 and 10, four staging re-observations and every
-  I-06 procedure remain outstanding. Public exposure and Phase 4 remain
+- **All five code findings are now closed end to end.** S-4, S-5, S-6, S-7 and
+  S-9 are each accepted in the repository **and** observed behaving on the
+  deployed build (SP-25, SP-26). S-5 is the one the package began with: limiter
+  refusals used to answer `429` with a correlation reference and write nothing.
+  Three references were shown to the operator during the re-observation sitting
+  and all three resolve to their audit rows.
+- **No gate moved.** Criterion 4 (blocked on wording, not work), criterion 10 and
+  every I-06 procedure remain outstanding. Public exposure and Phase 4 remain
   unauthorized.
 
 Previous status date: 2026-08-24 (fifty-third update: Codex independent and security
