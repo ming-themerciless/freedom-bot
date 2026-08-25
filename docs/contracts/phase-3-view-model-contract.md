@@ -28,6 +28,23 @@ in this document, all additive under §1 rule 5. `VIEW_MODEL_VERSION` stays
   implementation's docstring claimed the field had been *"Recorded in the P3.2
   submission"*; it had not, and the claim is corrected in the code rather than the
   accepted P3.2 submission being edited to manufacture the provenance.
+**Corrected 2026-08-25 under the accepted C2 contract correction, for finding
+F6.** One item, additive under §1 rule 5. `VIEW_MODEL_VERSION` stays `vm-1`:
+nothing is removed, nothing is renamed, and no enum is narrowed — a name is added
+to `HealthCheck.name`.
+
+- **C2-1** — VM-16 gains a `break_glass_credentials` check. S-15 detects a
+  protected administrator account holding fewer than N-13's two enabled
+  credentials, and outside production — where it is a warning rather than a
+  refusal, because the credentials are hardware — that detection reached nobody:
+  the warning was assigned to `startup_warnings`, which no route, service,
+  repository or control read. A one-credential staging account answered `/healthz`
+  byte-identically to a healthy one, permanently. A-05 A-4 requires `/healthz` to
+  report the shortfall, so the contract that made it impossible is the thing that
+  had to change. The check carries a **boolean**, like every other one: `false`
+  says the portal is not ready to be exposed, and the number of credentials the
+  administrator holds stays off this endpoint.
+
 - **D-03-6** — VM-22 `DeniedView` is new in §8: the safe denial body gains a view
   model of its own carrying `state` and a closed-vocabulary `reason` and nothing
   else. It replaces VM-02 as the generic denial carrier at every portal and import
@@ -838,8 +855,17 @@ HealthView(
     environment: Literal["development","test","staging","production"],
 )
 HealthCheck(name: Literal["database","migrations","artifact_store","worker_heartbeat",
-    "expired_leases","identity_provider","kill_switch"], ok: bool)
+    "expired_leases","identity_provider","kill_switch",
+    "break_glass_credentials"], ok: bool)
 ```
+
+`break_glass_credentials` is **added 2026-08-25** (C2-1 above, finding F6): `false`
+when the protected administrator account holds fewer than N-13's two enabled
+WebAuthn credentials, when it does not exist yet, or when the question could not be
+asked. It is the same condition S-15 refuses production startup for, reported for
+every host where S-15 is only a warning — and for every moment after startup, since
+a credential retired an hour later is the same shortfall. Like every check here it
+is a boolean: **not** the count.
 
 No connection string, no host, no credential, no counts of players, no identity,
 no queue contents. `environment` is included deliberately: the single most useful

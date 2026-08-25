@@ -16,6 +16,15 @@ S-15 is a **warning, not a refusal, outside production**: the credentials are
 hardware and a development host has none. Reporting it as a health check rather
 than swallowing it is what keeps "nobody has enrolled a passkey yet" visible.
 
+**That sentence described an intention rather than the code until 2026-08-25
+(finding F6, correction C2).** The warning was returned, assigned to
+`composition.startup_warnings`, and read by nothing: no route, no log line, no
+health check. A staging account down to one credential started normally and
+answered `/healthz` byte-identically to a healthy two-credential one, permanently.
+`build_health_view` now carries `break_glass_credentials`, and the lifespan logs
+every warning it is handed, so the sentence above is now two mechanisms rather
+than a claim.
+
 ## Why S-14 exists at all
 
 A process serving a schema it was not built for is a data-integrity risk, and the
@@ -274,6 +283,22 @@ def build_health_view(settings: WebSettings, engine, *, provider_ok: bool) -> He
     checks.append(
         HealthCheck(name="kill_switch", ok=_kill_switch_absent(settings.kill_switch_file))
     )
+    # **F6, corrected 2026-08-25 (C2).** S-15 is a refusal in production and a
+    # warning elsewhere, and the warning went nowhere — so the one condition that
+    # decides whether the emergency route can be used at all was invisible on
+    # exactly the hosts where it is allowed to be false. A-05 A-4 requires
+    # `/healthz` to report the shortfall; this is where it reports it.
+    #
+    # Queried fresh rather than read from the startup warning: a credential
+    # retired an hour after startup is the same shortfall, and a health endpoint
+    # answering from a snapshot taken at boot would say the portal is ready
+    # because it was ready once.
+    checks.append(
+        HealthCheck(
+            name="break_glass_credentials",
+            ok=database_ok and _break_glass_ready(engine),
+        )
+    )
 
     status = "ok" if all(check.ok for check in checks) else "degraded"
     return HealthView(
@@ -349,6 +374,25 @@ def _worker_liveness(engine, database_ok: bool) -> tuple[bool, bool]:
     worker_ok = oldest_queued is None or float(oldest_queued) <= tolerance
     leases_ok = oldest_expired is None or float(oldest_expired) <= tolerance
     return worker_ok, leases_ok
+
+
+def _break_glass_ready(engine) -> bool:
+    """N-13's floor, as a boolean and nothing more.
+
+    A failure to *ask* is reported as not-ready for the same reason `_worker_liveness`
+    reports `False` when the database is unreachable: a check that could not run has
+    not passed, and "ok" would be an answer this process does not have.
+
+    The count itself never leaves this function. `False` says the portal is not
+    ready to be exposed, which is the operator's cue; how many credentials the
+    protected administrator holds — one, or none, or none because the account does
+    not exist yet — is a detail the enrollment tool states on the host to the
+    person running it, and VM-16 has never carried a count of anything.
+    """
+    try:
+        return _enabled_credential_count(engine) >= MINIMUM_ENROLLED_CREDENTIALS
+    except Exception:  # noqa: BLE001 - the answer is a boolean either way
+        return False
 
 
 def _kill_switch_absent(kill_switch_file) -> bool:

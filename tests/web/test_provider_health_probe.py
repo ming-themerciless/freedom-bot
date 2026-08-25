@@ -29,6 +29,7 @@ from adapters.web.discord_provider import (
     HEALTH_PROBE_TIMEOUT_SECONDS,
     DiscordIdentityProvider,
 )
+from tests.web.conftest import enroll_credential, make_account
 from tests.web_fixtures import web_settings
 
 PROBE_PATH = "/gateway"
@@ -151,8 +152,28 @@ async def test_the_probe_is_bounded_more_tightly_than_an_ordinary_request(tmp_pa
 
 
 @pytest.mark.database
-async def test_healthz_reports_the_provider_as_reachable_when_it_is(client, provider):
-    """The ordinary case, and proof the question is asked at all."""
+async def test_healthz_reports_the_provider_as_reachable_when_it_is(
+    client, provider, migrated_database
+):
+    """The ordinary case, and proof the question is asked at all.
+
+    **Seeded since 2026-08-25 (C2).** `200` here means *every* check passed, and
+    one of them is now `break_glass_credentials` — so the ordinary case is a portal
+    with the two enrolled credentials N-13 requires, not an empty database. The
+    shortfall answer has its own regressions in
+    `tests/web/test_break_glass_health_reporting.py`.
+    """
+    with migrated_database.begin() as connection:
+        account_id = make_account(connection, protected=True, label="Server Administrator")
+        for index in range(2):
+            enroll_credential(
+                connection,
+                account_id,
+                credential_id=f"probe-credential-{index}".encode(),
+                public_key=f"probe-public-key-{index}".encode(),
+                nickname=f"probe-{index}",
+            )
+
     response = await client.get("/healthz")
 
     assert response.status_code == 200

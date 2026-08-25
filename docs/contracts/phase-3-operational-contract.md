@@ -250,6 +250,7 @@ unverified (§4.1).
 | Signal | Source | Contains |
 |---|---|---|
 | Liveness / readiness | `/healthz` (VM-16) | Check names, pass/fail, environment, version |
+| **Break-glass credential readiness** | `/healthz` check `break_glass_credentials` (VM-16) | Boolean only. `false` while the protected administrator holds fewer than two enabled credentials (N-13) — the condition S-15 refuses production startup for, reported on the hosts where it is only a warning. Added 2026-08-25 for finding F6: it was detected at startup and published nowhere |
 | Job queue depth, oldest queued age | Counts over `reconciliation_jobs` | Numbers only |
 | Attempt duration, requeue count | Job timestamps | Numbers only |
 | **Oldest expired lease still `running`** | `max(now() - lease_expires_at) WHERE state = 'running' AND lease_expires_at < now()` | Number only. This is the reaper's liveness signal: the corrected N-43 makes the reaper the only writer of the expiry transition, so a stalled reaper is the one way a job can sit unterminated (SM-05). It should never exceed `N-23 + N-44` |

@@ -927,6 +927,18 @@ HealthCheckName = Literal[
     "expired_leases",
     "identity_provider",
     "kill_switch",
+    #: **Added 2026-08-25** under the accepted C2 contract correction, for finding
+    #: F6. S-15 detects a protected administrator account below N-13's two enabled
+    #: credentials and, outside production, that detection reached nobody: the
+    #: warning was assigned to `startup_warnings`, which nothing read. A one-
+    #: credential account answered `/healthz` byte-identically to a healthy one.
+    #: Additive under §1 rule 5 — no name is removed, renamed or narrowed, so
+    #: `VIEW_MODEL_VERSION` stays `vm-1`.
+    #:
+    #: It carries a **boolean**, like every other check. Not the count: how many
+    #: credentials the protected administrator holds is not a fact this endpoint
+    #: needs to publish to state that the portal is not ready to be exposed.
+    "break_glass_credentials",
 ]
 
 

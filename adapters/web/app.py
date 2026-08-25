@@ -37,6 +37,7 @@ against the parsed contract rather than two that have to be kept in step.
 """
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -470,6 +471,19 @@ def _portal_lifespan(
                 composition.startup_warnings = await run_in_threadpool(
                     run_resource_checks, authority.settings, composition.engine
                 )
+                # **F6, corrected 2026-08-25 (C2).** The warnings were assigned
+                # here and read by nothing — not a route, not a control, not a
+                # log line — so a portal whose emergency route could not be used
+                # started in silence. They are S-15's message and carry no
+                # credential, no identifier and no configuration value, only a
+                # refusal code and a count of enrolled authenticators, so the
+                # operator watching the service start learns what the process
+                # already knew. `/healthz` reports the same condition for every
+                # moment after this one.
+                for warning in composition.startup_warnings:
+                    logging.getLogger("freedom.web").warning(
+                        "startup warning %s: %s", warning.refusal, warning.message
+                    )
             yield
         except BaseException as failure:
             # Not `finally`, because the two paths differ in one way that matters:
