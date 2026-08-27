@@ -7160,6 +7160,509 @@ not started.
 - **Evidence:**
   `docs/review/phase-3-gate-disposition-2026-08-25.md`.
 
+## C-P3.5-T — Three P3.5 decisions recorded: real Foundry data in staging, the TC-PERF-02 repeat-run method, and the A-05 criterion 4 split
+
+**Date:** 2026-08-25 · **Requester / Acceptance Authority / Data Owner / Security
+Reviewer:** Peter Duscha · **Prepared by:** Claude, working Technical Lead ·
+**Status:** all three decided and recorded. **Nothing is closed, no RAID
+disposition moved, and no host action is authorized by this entry.**
+
+### Affected requirement, milestone and release
+
+P3.5 gate-evidence package. RAID **I-06** (staging/browser/device evidence),
+**A-05** (protected administrator and credentials) and **A-06** (PostgreSQL as
+job-queue and limiter substrate). Traceability contract §17 rows **TC-PERF-01**,
+**TC-PERF-02** and **TC-OPS-03**. Execution-plan §§8.2, 11.2, 11.4 and 13.2. No
+release boundary, phase order or roadmap item changes.
+
+### The three decisions
+
+| ID | Decision | Deciding role |
+|---|---|---|
+| **D-l** | A real `the-guild` Actor folder may be submitted to `freedom_staging` as a **supervised operational input** for TC-PERF-01/02 and TC-OPS-03 | **Data Owner** |
+| **D-m** | TC-PERF-02's apply is measured as **one real run reported as n = 1**, plus two bounded-synthetic runs | **Acceptance Authority** |
+| **D-n** | A-05 criterion 4 splits into **4a** (observable, retained) and **4b** (production refusal, **moved to the deployment gate**) | **Security Reviewer** |
+
+### Reason, and alternatives considered
+
+- **D-l.** The traceability contract §17 requires a **real** 32-Actor folder for
+  TC-PERF-01 and a **real**-folder apply for TC-PERF-02, while execution-plan §8.2
+  said "synthetic snapshot artifacts only" and §11.4 said "never a real Actor
+  payload". The two cannot both hold. *Alternative considered and rejected:*
+  satisfy the rows synthetically. Rejected because the accepted contract and the
+  P3.5 handover both state that a synthetic Actor apply **is not evidence**, and
+  because the known weakness of the existing synthetic benchmark — Actors ~233×
+  smaller than real ones (RA-5) — is precisely what makes a synthetic measurement
+  untrustworthy here.
+- **D-m.** §11.2 asked for three apply runs. `uq_snapshot_imports_applied_input`
+  and `snapshot_imports.request_key` make runs 2 and 3 against one input return
+  the already-committed effect as a **duplicate** — the commit fence working as
+  designed. *Alternatives considered:* (a) three distinct real folder
+  submissions — rejected as three times the data exposure and operator time for
+  variance on a figure whose value is its realism, not its precision; (c)
+  truncating staging import tables between runs — rejected as a privileged
+  mutation repeated mid-measurement, which changes the conditions it is meant to
+  hold constant.
+- **D-n.** Criterion 4's production half cannot be observed before production
+  exists, and A-05 gates the exposure that would create production. *Alternative
+  considered and rejected:* hold criterion 4 open until production configuration
+  exists — rejected because it makes A-05 permanently unclosable and therefore
+  makes the gate it guards unreachable, which is not what the criterion was
+  written to do.
+
+### Added and removed scope
+
+**Added:** a supervised snapshot-transport step before TC-OPS-03 and TC-PERF-01/02
+(inventory finding N-3 — the deployed portal exposes no submission route); one
+throwaway disposable-database observation for criterion 4a; a named go-live check
+at the deployment gate for 4b. **Removed:** nothing. **Superseded:** §8.2's
+synthetic-only Foundry rule, **for TC-PERF-01/02 and TC-OPS-03 only** — it stands
+unchanged for every other procedure and artifact.
+
+### Dependency and critical-path effect
+
+**SP-11, SP-15, SP-16 and A-06's input rule move from `Blocked` to `Not Run`** —
+roughly two of the four-and-a-half attended hours are released. A-05 moves from
+**two** criteria outstanding to **one** open criterion (4a, executable) plus
+criterion 10 (the Security Reviewer's final confirmation, which by its own terms
+comes last). **SG-2 is now the only thing gating execution of every remaining
+I-06 procedure.** The Phase 3 gate remains open and the critical path is unchanged
+in shape.
+
+### Estimate, forecast and capacity effect
+
+No change to the accepted 3/5/8-day implementer range. D-m **reduces** attended
+time by avoiding two extra real submissions. D-n **adds** roughly fifteen attended
+minutes (criterion 4a) and moves an unbounded, currently unsatisfiable obligation
+off the P3.5 critical path onto the deployment gate. No calendar date is committed;
+availability windows (P-7) are still not recorded.
+
+### New or changed risks
+
+- **Real character-sheet data now enters `freedom_staging`.** Mitigated by the
+  Rehearsal A/B discipline, binding here: never committed; no Actor name, payload
+  or warning text in any artifact; artifact shredded and import tables truncated
+  at teardown; screenshots synthetic-only. The Data Owner authorized this
+  explicitly and noted the payload is character-sheet data.
+- **TC-PERF-02's real figure is single-sample and must be reported as such.** The
+  risk is a reader treating n = 1 as a median. Mitigated by requiring the
+  submission to state it as single-sample, with variance carried by the synthetic
+  pair and the shaping method recorded alongside (§11.4).
+- **4b becomes an obligation owed elsewhere.** The risk is that it is forgotten at
+  go-live. **Mitigated concretely rather than by intention:** it is landed as
+  `docs/contracts/phase-3-operational-contract.md` §7 **item 10**, added by
+  addition, carrying its provenance (D-n / C-P3.5-T) and the reason it cannot be
+  observed earlier. Item 9 already required S-01…S-15 to be demonstrated failing;
+  item 10 names S-15's production branch separately because it is the one member of
+  that set no staging process can produce.
+- **Unchanged:** N-13 still requires two enabled credentials and still refuses
+  retirement below two. No control is weakened by any of the three decisions.
+
+### Testing, migration, security and operational effect
+
+No schema, migration, route, view-model or numeric-policy change. No application
+code changes. `VIEW_MODEL_VERSION` is unaffected. Criterion 4a runs a **second,
+throwaway** process against the disposable `freedom_dev` with **synthetic**
+credential records; the deployed staging portal is untouched and the protected
+account's real credentials are never manipulated. The transport step for D-l is
+supervised, targets staging only, and adds no route to the deployed proxy without
+SG-2.
+
+### Product Owner recommendation
+
+Recommended by Claude, working Technical Lead, in
+`docs/review/phase-3-p3-5-evidence-inventory-2026-08-25.md` §§6 (findings N-2,
+N-4) and 3.1 (criterion 4). The folder choice within D-l — `Characters (active)`
+as primary, the inactive folder additionally only if it holds more than 32
+Actors — was taken by the Technical Lead under the execution plan's §2 audience
+rule after the Data Owner expressed no preference, and is recorded in §0.2 D-l
+rather than referred back.
+
+### Technical Lead and specialist reviews
+
+D-n's premise was **verified in code on 2026-08-25**, not carried forward on
+trust: `WebEnvironment.is_production` is `PRODUCTION` alone
+(`application/web/config.py:431`); S-15 appends a `ConfigurationProblem` only
+`if settings.environment.is_production` and otherwise a `StartupWarning`
+(`application/web/startup.py:205-212`). This confirms the 2026-08-24 addendum
+§5.2.1 analysis. **Neither Codex review pass has seen these three decisions.**
+Both required P3.5 passes — the independent implementation/evidence review and the
+distinct security-focused review — remain outstanding and will see them.
+
+### Dated Acceptance Authority decision
+
+- **D-l — accepted by Peter Duscha, Data Owner, 2026-08-25.**
+- **D-m — accepted by Peter Duscha, Acceptance Authority, 2026-08-25.**
+- **D-n — accepted by Peter Duscha, accountable Security Reviewer, 2026-08-25.**
+
+**Explicitly not granted by this entry:** SG-2, SG-3, any privileged or host
+action, public exposure, closure of I-06, A-05, A-06 or R-23, the Phase 3 gate,
+or any Phase 4 work.
+
+### How each decision is reversed
+
+Peter's stated requirement is that these remain changeable later. Each is
+reversible on its own, and none silently invalidates evidence already collected:
+
+| Decision | Reversal | What it costs |
+|---|---|---|
+| **D-l** | Restore §8.2's synthetic-only rule to cover all procedures. | TC-PERF-01/02 and TC-OPS-03 return to **Blocked** and I-06 cannot close. Any real-folder measurement already taken remains **true and citable as an observation**, but stops being admissible evidence for those rows. The teardown obligations — shredding, truncation — are unaffected and still apply. |
+| **D-m** | Require three real runs. | Needs three distinct real folder submissions and three operator sittings. A single-sample figure already recorded stays valid as one of the three. |
+| **D-n** | Delete 4a/4b and restore the struck-through criterion-4 wording (kept in place for exactly this purpose, execution plan §13.2). | A-05 returns to Open on criterion 4 until a production deployment exists, reinstating the circularity. **No 4a evidence is invalidated:** a below/at observation under the staging marker remains true whatever the criterion is named. |
+
+### Evidence
+
+`docs/review/phase-3-p3-5-evidence-inventory-2026-08-25.md` §§3.1, 6, 8, 10 ·
+`docs/review/phase-3-p3-5-readiness-and-execution-plan.md` §0.2 rows **D-l**,
+**D-m**, **D-n** and §13.2 criterion 4 (amended by addition) ·
+`docs/project-management/raid-register.md` A-05 row ·
+`docs/project-management/status.md` updates sixty-three to sixty-five.
+
+## C-P3.5-U — D-n corrected after Codex finding B-1: S-15's pre-exposure observation stays inside A-05
+
+**Date:** 2026-08-26 · **Prepared by:** Claude, working Technical Lead ·
+**Reviewer whose finding forced it:** Codex, interim review 2026-08-26, finding
+**B-1 (Blocking)** · **Status:** implemented; **requires Peter Duscha's
+confirmation as accountable Security Reviewer**, because it supersedes a decision
+he recorded.
+
+**This entry supersedes the 4b half of D-n (C-P3.5-T). D-l, D-m and 4a are
+unaffected.**
+
+### Affected requirement, milestone and release
+
+RAID **A-05** closure criterion 4. `phase-3-p3-5-readiness-and-execution-plan.md`
+§13.2 and §0.2. `phase-3-operational-contract.md` §7 items 9 and 10. No release
+boundary, phase order or roadmap change.
+
+### What was wrong
+
+D-n moved S-15's production-refusal evidence out of A-05 to the deployment gate,
+arguing that the refusal requires `WEB_ENVIRONMENT=production` while A-05 gates
+public exposure, so the criterion could never close.
+
+**The argument treated "production-marked" and "publicly exposed" as the same
+event. They are not**, and the whole amendment rested on that conflation. A
+production-marked process can be exercised with **no listener at all**:
+`run_resource_checks` is a plain function (`application/web/startup.py:80`), so
+S-15's production branch is reachable without uvicorn, without a bind and without
+a route. S-02, S-05 and S-07 requiring the accepted production identity make such
+an exercise **more** controlled, not public.
+
+**The consequence, stated plainly: D-n weakened a security precondition while
+appearing to resolve a circularity that did not exist.** It also left operational
+contract §7 internally inconsistent — item 9 required S-01…S-15 to be
+demonstrated failing while item 10 asserted S-15 could not be observed before
+that gate.
+
+### The correction
+
+| Half | Before (D-n) | After (D-o) |
+|---|---|---|
+| **4a** | Staging-marker below/at threshold observation | **Unchanged** |
+| **4b** | Moved to the deployment gate; **not** an A-05 criterion | **Stays an A-05 closure criterion**, discharged by the new guarded exercise **SP-27** |
+| **4c** | — | Deployment-gate re-observation retained as **defence in depth**, explicitly *additional* to 4b and never a substitute |
+| §7 items 9/10 | Item 10 implicitly narrowed item 9 | **Reconciled explicitly**: item 9 stands unqualified; item 10 is a re-observation; neither substitutes for 4b |
+
+**SP-27, the guarded exercise**, is defined in full at §13.2 criterion 4b:
+a disposable `freedom_production` database seeded with **synthetic** credential
+records and never restored from real data; outbound egress blocked by the
+`iptables` rule already proven by SP-25; `run_resource_checks` called **directly**
+so no socket is ever opened; the literal S-15 refusal recorded; the at-threshold
+pass recorded; then database dropped, rule removed, environment file deleted.
+**No credential material, no real client secret and no value from a live
+production system is recorded.** Owner: Peter authorizes and supervises, ~20
+minutes.
+
+### Reason and alternatives considered
+
+*Alternative rejected:* hold the original D-n. Rejected because a Blocking review
+finding identified a false premise, and the amendment's only justification was
+that premise. *Alternative rejected:* revert to the unamended criterion 4 and stop
+there. Rejected because it would leave the criterion's wording unchanged while
+the practical question — *how* is the production branch observed safely — stayed
+unanswered, which is what produced the bad amendment in the first place.
+
+### Dependency, estimate and risk effect
+
+**A-05 gains one executable criterion rather than losing one.** Attended time
+rises by roughly 20 minutes (SP-27); nothing else in the run sheet moves. **Risk
+is reduced**, not added: the pre-exposure S-15 evidence is restored, and the
+deployment gate keeps a re-observation it would not otherwise have had. The new
+risk introduced is the exercise itself — a production-identity configuration
+existing briefly on this host — and it is controlled by the no-listener design,
+the synthetic-only database, the egress block and the recorded teardown.
+
+### Testing, migration, security and operational effect
+
+No schema, migration, route, view-model, numeric-policy or application-code
+change. `VIEW_MODEL_VERSION` unaffected. **N-13 is unchanged** and retirement
+below two is still refused. SP-27 touches no production service and no real data.
+
+### Technical Lead and specialist reviews
+
+Raised by **Codex** as Blocking finding B-1 in the 2026-08-26 interim review.
+Remediated by Claude the same day. **Returns to Codex for re-review.**
+
+### Dated Acceptance Authority decision
+
+**Outstanding.** D-n was approved by Peter Duscha as accountable Security Reviewer
+on 2026-08-25; this correction **supersedes the half of it that he approved** and
+therefore requires his confirmation. It is implemented rather than held because it
+**re-imposes** a control he had agreed to relax — remediation toward the accepted
+baseline after a Blocking finding, not a new relaxation — but it is not treated as
+decided until he records it.
+
+### How to reverse
+
+Restore D-n's wording, and 4b returns to the deployment gate. **This reversal
+should not be taken without disposing of B-1**, because it reinstates the finding.
+
+### Evidence
+
+`phase-3-p3-5-readiness-and-execution-plan.md` §13.2 criterion 4a/4b/4c and §0.2
+row **D-o** · `phase-3-operational-contract.md` §7 items 9–10 and the reconciliation
+that follows them · `phase-3-p3-5-codex-interim-review-2026-08-26.md` finding B-1.
+
+## C-P3.5-V — the P3.5 authority decisions of 2026-08-26, and the two criteria they had to repair first
+
+**Date:** 2026-08-26 · **Requested by:** Claude, working Technical Lead, in
+`docs/review/phase-3-p3-5-authority-request-2026-08-26.md` · **Decided by:**
+Peter Duscha, in the roles named against each item · **Status:** decided and
+recorded; the repository changes it authorizes are applied.
+
+### What was decided
+
+| # | Item | Role | Decision |
+|---|---|---|---|
+| 1 | **D-o** and change-log **C-P3.5-U** — S-15's pre-exposure observation returns to A-05 | Security Reviewer | **Confirmed** |
+| 2 | **SG-2** — the staging build and its named procedures | Operations Owner | **Granted** |
+| 3 | **SG-3 extension** — M-1b and M-1c only, with his presence at every assigned step | Operations Owner | **Granted** |
+| 4 | Deploy the reviewed **N-7** fix by service restart, and re-run **SP-12** over a fresh journal interval | Operations Owner | **Authorized** |
+| 5 | **SP-27** exactly as specified | Operations Owner and Security Reviewer | **Authorized** |
+| 6 | Window | Delivery Lead | **Today, 2026-08-26**, excluding 20:30–22:30 MET |
+| 7 | **D-p** — A-05 criterion 4a's disposition | Security Reviewer | **Option 1** |
+| 8 | **D-q** — SP-10's instrument | Operations Owner | **Route A** |
+
+Items 2–5 are **authorizations**, not baseline amendments, and are recorded in
+the execution plan's §0.2 checkpoint table. Items 1, 7 and 8 change accepted
+material and are the substance of this entry.
+
+### Affected requirement, milestone and release
+
+RAID **A-05** closure criterion 4a · `phase-3-p3-5-readiness-and-execution-plan.md`
+§0.2 and §13.2 · `infra/postgresql/backup-restore-drill.sh` and its stated
+refusal · RAID **I-06** procedure SP-10. **No release boundary, phase order or
+roadmap change**, and no change to any authentication, authorization,
+persistence, route or view-model contract.
+
+### D-p — A-05 criterion 4a was not executable as written
+
+**The defect.** Criterion 4a required the threshold observation "under
+`WEB_ENVIRONMENT=staging`" **and** "on a **disposable** database with
+**synthetic** credential records". Those cannot both hold.
+`DatabaseSettings.from_mapping` binds each environment to exactly one database
+name (`adapters/database/config.py:66`), so a staging-marked process must target
+`freedom_staging` — on this host the **deployed** staging database, holding the
+protected account's two **real** credentials, which the same criterion forbids
+manipulating. **Established by observing the refusal (S-01), not by reading the
+rule.**
+
+This is the same shape as Codex finding B-1: two halves of one criterion that
+cannot both be satisfied. It was found while building the harness *for* the
+criterion, which is the argument for building harnesses before sittings rather
+than during them.
+
+**The decision.** Option 1: take the observation under the **`development`**
+marker against the disposable `freedom_dev`, with synthetic credential records.
+
+**Why this weakens nothing.** S-15 branches on `settings.environment.is_production`
+alone (`application/web/startup.py:205-212`), and `WebEnvironment.is_production`
+is `PRODUCTION` alone (`config.py:431`). `development` and `staging` therefore
+take the **identical** branch — the warning path — and the observation is the
+same observation. The live `environment: staging` marker is separately evidenced
+on the deployed portal by `/healthz` (inventory O-2).
+
+**What it gives up, recorded rather than glossed:** no observation of the
+threshold *under the staging marker itself*, and no running portal process
+answering `/healthz` with `break_glass_credentials:false`. The false state is
+evidenced by the S-15 warning instead.
+
+**Declined:** option 2, a throwaway second PostgreSQL cluster carrying a
+disposable `freedom_staging` — satisfies the wording literally, costs a cluster
+and a new moving part on the host; option 3, temporarily disabling one real
+credential on deployed staging — **excluded by the criterion's own text**, and
+not recommended.
+
+**How to reverse.** Restore criterion 4a's `staging` wording and adopt option 2;
+no evidence collected under option 1 is invalidated, because the branch observed
+is the same one.
+
+### D-q — the backup/restore drill had no staging target
+
+**The defect.** SP-10 is TC-OPS-02's **staging half**, and
+`infra/postgresql/backup-restore-drill.sh` refused any target but `freedom_dev`
+and `freedom_test` **by design**, stating that refusal in its own header. The
+procedure had no instrument.
+
+**The decision.** Route A: the script accepts `freedom_staging` behind **two
+independent, non-default signals** — `FREEDOM_DRILL_ALLOW_STAGING=1` **and**
+`FREEDOM_DRILL_STAGING_CONFIRM=freedom_staging` — with a loud banner when the
+path is taken. **Production keeps no override at all.**
+
+**This is a real weakening of a stated invariant**, and is recorded as one. It
+was taken because plan §14.3 requires "restore tests, not merely backup success
+messages": route A keeps the automatic table-and-row inventory comparison that
+makes TC-OPS-02 a *verified* restore, where route B — a hand-run procedure with
+no falsifying test — would not.
+
+**Fencing, and a defect fixed while the file was open.** The permitted-database
+list was previously written twice, once for the requested name and once for the
+**connected** name; the second is the security-relevant copy. It is now computed
+once and used by both gates. Every connection proof — the libpq-configuration
+refusals, the `PGHOSTADDR` refusal, the loopback-TCP refusal, the Unix-socket
+requirement and the landed-database comparison — is untouched and still runs
+before anything is dumped or dropped.
+
+**Applied 2026-08-26** with three falsifying tests in
+`tests/test_database_backup_restore.py`: staging refused without **both**
+signals; production refused **with** them; and the staging name gate shown to
+**open** — proved without ever drilling staging, by supplying both signals plus a
+hostile `PGHOSTADDR` and asserting exit `3` (connection refused, nothing touched)
+rather than exit `2` (name refused). Suite: **33 passed**.
+
+**How to reverse.** Restore the two `case` statements and delete the three tests;
+SP-10 then returns to route B and its evidence is correspondingly weaker.
+
+### Impact
+
+- **Scope:** unchanged. **Estimate:** unchanged; the two repairs cost about an
+  hour of preparation already spent.
+- **Risk:** D-q is a deliberate reduction in one script's refusal surface,
+  bounded by two signals, a banner, an unchanged production refusal and three
+  tests. D-p removes no observation and changes no threshold.
+- **Testing:** three tests added; bot suite **2420 passed** after the change.
+- **Migration and operations:** none. No schema, no service, no configuration.
+
+### Evidence
+
+`phase-3-p3-5-authority-request-2026-08-26.md` §§0, 5a, 5b ·
+`phase-3-p3-5-readiness-and-execution-plan.md` §0.2 rows **D-o**, **P-3**,
+**P-4**, **D-p**, **D-q** · `phase-3-p3-5-c8-staging-drill-guard-proposal.md` ·
+`phase-3-p3-5-supervised-run-sheets.md` §13 findings **N-10** and **N-11** ·
+`infra/postgresql/backup-restore-drill.sh` · `tests/test_database_backup_restore.py`.
+
+## C-P3.5-W — the 2026-08-26 evening decisions: the gate-off window and the performance bounds
+
+**Date:** 2026-08-26 · **Requested by:** Claude, working Technical Lead ·
+**Decided by:** Peter Duscha · **Status:** decided, recorded, and executed the
+same evening.
+
+### What was decided
+
+| # | Item | Role | Decision |
+|---|---|---|---|
+| 1 | **D-r** — how the staging proxy gate is handled for the browser evidence run | Operations Owner | **Option 1: a tightly bounded gate-off window** |
+| 2 | **D-s** — the two performance latency bounds that had no accepted figure | Acceptance Authority | **Accepted as proposed** |
+
+### Affected requirement, milestone and release
+
+RAID **I-06** procedures SP-14 and SP-23 · **A-06** criterion 2 and TC-PERF-03 ·
+`phase-3-p3-5-readiness-and-execution-plan.md` §0.2 and §11.3 ·
+`tools/snapshot_perf_harness.py`. **No release boundary, phase order or roadmap
+change**, and no change to any authentication, authorization, persistence, route
+or view-model contract.
+
+### D-r — the bounded gate-off window
+
+**The problem.** The staging site sits behind a Caddy `basic_auth` gate. The
+deployed site file states that the gate "must be gone before the final
+security-header evidence run", because a `401` in front of the application is not
+the response the accepted contract describes and TC-SEC-07 must observe the
+application's own answers. Without removing it, M-5's early-response case would
+have recorded **Caddy's** answer as the application's — evidence that looked
+complete and was wrong.
+
+**The decision.** A tightly bounded window covering the browser evidence, gate
+restored immediately afterwards, **both times recorded**. Written up as procedure
+**SP-29**.
+
+**What was accepted:** for the window's duration an unreviewed build is reachable
+by anyone who knows the hostname, which Certificate Transparency published at
+issuance. **What still protected it:** the application's own controls — Discord
+OAuth, guild and role verification, CSRF, origin and host checks, the
+authentication limiter and the kill switch — which are the controls under test.
+
+**Resequencing this forced, on safety grounds:** M-2, the kill-switch sitting, was
+moved **ahead** of the window, because the kill switch is that window's emergency
+stop and proving it works before removing the outer protection is the right order
+rather than the convenient one.
+
+**Executed 2026-08-26: open `21:24:46Z`, closed `22:01:01Z` — 36 minutes.** Gate
+removed with `caddy validate` reporting valid, public routes answering `303` with
+no `401`; gate restored, valid, `401` back. A stop condition was written in and
+not needed: had the window threatened to outlast the session, it would have been
+closed and reopened another day.
+
+**Declined:** an address allowlist (rejected originally because the responsive
+checks need a laptop **and** a phone on mobile data), and keeping the gate while
+recording TC-SEC-07's browser half `Not Run`.
+
+### D-s — the two latency bounds
+
+**The problem.** Execution plan §11.3 requires every bound to be stated before the
+run it judges. Three of the five performance bounds are accepted policy — N-47,
+N-45 and change-log C-11's throughput criterion — and were cited. **Two had no
+accepted figure anywhere in the numeric register**: `/healthz` latency and the
+Council job-status poll latency, both measured while a preview is running.
+
+**The decision.** Accepted as proposed:
+
+| Bound | Limit |
+|---|---|
+| **TC-PERF-03a** | `/healthz` p95 ≤ 500 ms, max ≤ 2000 ms |
+| **TC-PERF-03b** | job-status poll p95 ≤ 1000 ms, max ≤ 3000 ms |
+
+**The rationale, and the framing that made it decidable.** These are **not speed
+targets**. The worker is a separate process at N-41's concurrency of 1, so a
+preview should barely touch the portal; the bound is a **tripwire for that design
+assumption**. A miss would mean the worker *is* blocking the portal, which is an
+architectural problem rather than a performance one. It also matters
+operationally: a monitor that sees health time out may alert, or an operator may
+restart the portal mid-job. 2000 ms sits well inside N-51's 30-second read
+timeout, and a health check slower than that is useless to the monitor it exists
+for.
+
+**Explicitly accepted with the decision: a miss is investigated, never relaxed** —
+the execution plan's standing stop rule.
+
+**Applied to `tools/snapshot_perf_harness.py`** the same evening: both bounds now
+print as `ACCEPTED` citing this decision. The test that asserted they were
+`proposed` was rewritten rather than deleted, so the mechanism that flags an
+**unaccepted** bound is still exercised — accepting these did not quietly remove
+the guard.
+
+**Measured against them the same evening:** 984 samples across four job windows,
+zero non-200 responses, every p95 ≤ 51 ms. One 1,561 ms maximum during a
+27-second apply is recorded as a signal within bound, not as a pass to be
+forgotten.
+
+### Impact
+
+- **Scope:** unchanged. **Estimate:** unchanged.
+- **Risk:** D-r accepted a bounded, supervised exposure of an unreviewed build and
+  closed it in the same session. D-s set two numbers where none existed, framed so
+  that a miss is a finding.
+- **Testing:** the harness's bounds test rewritten; 12 passing.
+- **Migration and operations:** none.
+
+### Evidence
+
+`phase-3-p3-5-readiness-and-execution-plan.md` §0.2 rows **D-r** and **D-s** ·
+`phase-3-p3-5-supervised-run-sheets.md` §12A (SP-29) ·
+`phase-3-p3-5-staging-and-operations-evidence.md` §§5I, 5J ·
+`tools/snapshot_perf_harness.py` · `tests/test_snapshot_perf_harness.py`.
+
 ## Required fields for later entries
 
 Every material entry must identify:

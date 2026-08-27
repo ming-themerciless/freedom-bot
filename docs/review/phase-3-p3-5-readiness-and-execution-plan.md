@@ -66,8 +66,17 @@ mutation and for the credential ceremony.
 | **D-i — Cloudflare mode** | ~~DNS-only ("grey cloud").~~ **Corrected the same day to proxied ("orange") in both testing and production** (F-10). | 2026-08-23 | Proxied mode puts Cloudflare's address in the right-most `X-Forwarded-For` entry, which is the one N-34 trusts, so the per-address authentication limiter (N-30/N-31) would count every visitor as one. **The correction:** the host's TLS is a Cloudflare **Origin CA** wildcard, trusted by Cloudflare and by nothing else, so a DNS-only record would fail in every browser. Proxied is therefore mandatory, and the true-visitor-address rewrite is a *testing* requirement, not a go-live one. It is implemented in `infra/caddy/freedom-blades-portal.caddy.tmpl`. |
 | **D-j — test address, corrected** | **`freedom-blades-test.rpgworld.org`** with `WEB_ENVIRONMENT=staging`. Production keeps `freedom-blades.rpgworld.org` with `WEB_ENVIRONMENT=production`. | 2026-08-23 | **D-h was not a free choice: S-02 refuses it.** A non-production process claiming the accepted production origin (N-01) is refused at startup, because it would receive production cookies and OAuth callbacks — verified by observing the refusal, not by reading the rule. One label under `rpgworld.org`, so the existing `*.rpgworld.org` origin certificate covers it with no new certificate. **Cost:** F-8 returns in its original form — passkeys enrolled at the test address are bound to that relying-party identifier and cannot authenticate against production, so go-live needs a second ten-minute browser ceremony rather than a copy-paste. A-05's criterion 2a stands as written. |
 | **D-k — `/v1` URL prefix** | **Retained unchanged.** | 2026-08-23 | Questioned by the Acceptance Authority on first use and resolved in favour of the accepted contract. The prefix is not cosmetic: `/v1/*` is the browser boundary (cookie sessions, CSRF, HTML) and `/api/v1/*` the machine boundary (service principals, no cookies), so the path states which authentication model applies — and the deployed Foundry module 1.0.7 has its submission path compiled in. Changing it would touch 22 routes across 66 files **and reopen P3.0–P3.4**, whose route inventory is accepted gate evidence. R-04 `/auth/discord/callback` remains the one deliberate exception, fixed by N-02 because it is registered at the provider. |
-| P-3 — SG-2 | Not yet requested | — | Staging build remains unauthorized. |
-| P-4 — SG-3 | Not yet requested | — | Credential ceremony remains unauthorized. |
+| **D-l — real Foundry data in staging** | **Approved by Peter Duscha, Data Owner.** A real `the-guild` Actor folder may be submitted to `freedom_staging` as a **supervised operational input** for TC-PERF-01/02 and TC-OPS-03. The Operations Owner noted the payload is character-sheet data only, and offered either the active or an inactive-characters folder, expressing no preference. | 2026-08-25 | **Resolves the §8.2 / §17 conflict recorded as inventory finding N-4.** §8.2's "synthetic snapshot artifacts only" is superseded **for the named performance and end-to-end procedures only**; it stands unchanged everywhere else. The Rehearsal A/B discipline binds: never committed, no Actor name, payload or warning text in any artifact, artifact shredded and staging import tables truncated at teardown. **Technical Lead's decision on which folder, taken under the §2 audience rule:** `Characters (active)` is the primary, because it is the folder the traceability contract names and the only one carrying a real baseline (32 Actors, 16,287,185 bytes, preview 9.566 s, Rehearsal B). The inactive folder is submitted **as well** only if its Actor count exceeds 32, in which case it is a free second real data point closer to the N-20 bound; its count is read from the folder-selection dialog during M-7a, not requested separately. |
+| **D-m — TC-PERF-02 repeat runs** | **Option (b), as recommended.** One **real**-folder apply, reported honestly as **n = 1**, plus two **bounded-synthetic** applies for repeatability. | 2026-08-25 | **Resolves inventory finding N-2.** §11.2's "three runs" cannot be satisfied against one input: `uq_snapshot_imports_applied_input` and `snapshot_imports.request_key` make runs 2 and 3 return the already-committed effect as a duplicate — the fence working as designed. The real measurement is therefore single-sample and **must be reported as single-sample**, never as a median of three. Variance is carried by the synthetic pair, whose shape is stated with the measurement so a reviewer can judge it (§11.4). |
+| **D-n — A-05 criterion 4** | ~~Split approved by Peter Duscha, accountable Security Reviewer.~~ **The 4b half was superseded on 2026-08-26 by D-o**, after Codex Blocking finding B-1; 4a stands. Recorded unaltered below because it is the decision as taken. Criterion 4 becomes **4a** (startup and `/healthz` observed below and at the N-13 threshold under `WEB_ENVIRONMENT=staging`, on a disposable database with synthetic credential records) and **4b** (S-15's production refusal, **moved to the deployment gate**, not an A-05 closure criterion). | 2026-08-25 | **Resolves the criterion-4 circularity carried unresolved since the 2026-08-24 addendum §8 item 6.** Verified in code rather than assumed: `WebEnvironment.is_production` is `PRODUCTION` alone (`config.py:431`) and S-15 refuses only in production (`startup.py:205-212`), so no staging-marked process can observe the refusal; and `WEB_ENVIRONMENT=production` is itself refused on this host by S-02/S-05/S-07 before the lifespan runs. A-05 gates exposure, so a criterion satisfiable only after exposure can never close. **Full text, rationale, non-effects and the reversal procedure are in §13.2 criterion 4, amended by addition with the original wording struck through rather than deleted.** N-13 is unchanged; nothing is waived; 4b is owed at the deployment gate. |
+| **D-o — A-05 criterion 4, corrected** | **Supersedes D-n's 4b half after Codex Blocking finding B-1.** **4b stays an A-05 closure criterion**, discharged by the new guarded exercise **SP-27**; the deployment-gate check becomes **4c**, defence in depth and never a substitute. 4a is unchanged. **Implemented, and CONFIRMED by Peter Duscha as Security Reviewer on 2026-08-26.** | 2026-08-26 | **D-n rested on a false premise: it treated "production-marked" and "publicly exposed" as the same event.** They are not — `run_resource_checks` is a plain function (`application/web/startup.py:80`), so S-15's production branch is reachable with **no listener, no bind and no route**, and S-02/S-05/S-07 make such an exercise more controlled rather than public. D-n therefore **weakened a security precondition** while appearing to resolve a circularity that did not exist, and left operational contract §7 item 10 contradicting item 9. Corrected in §13.2 criterion 4, with §7 items 9 and 10 now reconciled explicitly. Full account in change-log **C-P3.5-U**. |
+| **P-3 — SG-2** | **GRANTED by Peter Duscha, Operations Owner.** | 2026-08-26 | Releases SP-01…SP-06, SP-08…SP-19, SP-28 and plan-SP-23 — every remaining I-06 procedure. Granted together with a specific authorization to **deploy the reviewed N-7 fix by service restart** and re-run **SP-12** over a fresh journal interval, and to run **SP-27** as written. Requested in `phase-3-p3-5-authority-request-2026-08-26.md`. |
+| **P-4 — SG-3 extension** | **GRANTED by Peter Duscha, Operations Owner**, with his presence for every assigned step. | 2026-08-26 | The 2026-08-24 SG-3 grant and its ceremony (SP-07, SP-20…SP-22) stand and are not repeated. This extension covers only **M-1b** (criterion 4a) and **M-1c/SP-27** (criterion 4b), both on disposable databases with **synthetic** credential records. No real credential is manipulated. |
+| **P-5 — second N-7/N-13 deployment** | **AUTHORIZED by Peter Duscha, Operations Owner**, choosing option A. | 2026-08-26 | Deploys the **N-13** remediation — the keyed client-address pseudonym — by a second service restart, followed by a second fresh-interval **SP-12** re-run. **Distinct from C-P3.5-V item 4**, which authorized only the *reviewed* N-7 fix; this code has **not** been seen by Codex, and that was stated when the option was put. Chosen over deferral because the nine remaining sittings would otherwise write many more prohibited plaintext addresses into the journal before the fix landed. **Rollback limitation recorded rather than glossed:** the only saved rollback is the **pre-N-7** build, so restoring it would reinstate the credential leak; the primary recovery path is therefore forward, supported by a clean import under the runtime interpreter and 68 passing regression tests. |
+| **D-s — the two performance latency bounds** | **Accepted as proposed by Peter Duscha, Acceptance Authority.** `/healthz` p95 ≤ 500 ms and max ≤ 2000 ms; job-status poll p95 ≤ 1000 ms and max ≤ 3000 ms, both while a preview is running. | 2026-08-26 | §11.3 requires every bound to be stated before the run it judges. Three of the five are accepted policy (N-47, N-45, C-11's throughput) and were cited; **these two had no accepted figure anywhere**. They are **tripwires for a design assumption, not speed targets**: the worker is a separate process at N-41 concurrency 1, so a preview should barely touch the portal, and a miss would mean it *is* blocking — an architectural problem. **Accepted with the explicit condition that a miss is investigated, never relaxed.** Applied to `tools/snapshot_perf_harness.py`, which now prints them as `ACCEPTED`; the test asserting they were `proposed` was rewritten so the guard that flags an unaccepted bound survives. Change-log **C-P3.5-W**. |
+| **D-r — the staging gate-off window** | **Option 1, approved by Peter Duscha, Operations Owner.** A **tightly bounded** window with the Caddy `basic_auth` gate removed, covering M-5, M-6 and the M-7 block, the gate restored immediately afterwards, **both times recorded**. | 2026-08-26 | **Resolves finding N-14.** The deployed site file already required it — a `401` in front of the application is not the response the accepted contract describes, and TC-SEC-07 must observe the application's own answers (`infra/caddy/freedom-blades-test.caddy:24-26`). Without it, M-5's early-response case would have recorded **Caddy's** answer as the application's, and a mid-flight challenge could have corrupted the M-7b apply or the M-7c measurement. **What is accepted:** for the window's duration the staging build is reachable by anyone who knows the hostname, which Certificate Transparency published at issuance — so the gate's removal is a real, if brief, exposure of an unreviewed build. **What still protects it:** the application's own controls, which are the ones under test — Discord OAuth, guild and role verification, CSRF, origin and host checks, the authentication limiter, and the kill switch. Options 2 (an address allowlist, rejected originally because the responsive checks need a laptop **and** a phone on mobile data) and 3 (keep the gate, record TC-SEC-07's browser half `Not Run`) were declined. Recorded as procedure **SP-29**. |
+| **D-p — A-05 criterion 4a, made executable** | **Option 1, approved by Peter Duscha as Security Reviewer.** The threshold observation is taken under the **`development`** marker on the disposable `freedom_dev` with synthetic credentials, not under `staging`. | 2026-08-26 | **Resolves finding N-10.** The criterion as written could not be satisfied: `DatabaseSettings` binds each environment to exactly one database name (`adapters/database/config.py:66`), so a staging-marked process must target `freedom_staging` — the deployed database holding the protected account's two **real** credentials, which the same criterion forbids manipulating. Observed refusing (**S-01**), not inferred. **Nothing is weakened:** S-15 branches on `settings.environment.is_production` alone (`startup.py:205-212`), so `development` and `staging` take the **identical** path, and the live `environment: staging` marker is already evidenced by `/healthz` on the deployed portal (O-2). **What the option gives up, recorded rather than glossed:** no observation of the threshold under the staging marker itself, and no running portal answering `/healthz` with `break_glass_credentials:false`. Options 2 (a throwaway second PostgreSQL cluster) and 3 (temporarily disabling a real credential — excluded by the criterion's own text) were declined. Change-log **C-P3.5-V**. |
+| **D-q — SP-10's instrument** | **Route A, approved by Peter Duscha as Operations Owner.** `backup-restore-drill.sh` accepts `freedom_staging` behind two independent, non-default signals. | 2026-08-26 | **Resolves finding N-11.** The script refused any target but `freedom_dev`/`freedom_test` **by design**, so SP-10 — TC-OPS-02's staging half — had no instrument. Route A keeps the automatic before/after inventory comparison that makes TC-OPS-02 a *verified* restore rather than a successful dump (plan §14.3: "restore tests, not merely backup success messages"). **It does weaken a stated invariant**, and is fenced accordingly: `FREEDOM_DRILL_ALLOW_STAGING=1` **and** `FREEDOM_DRILL_STAGING_CONFIRM=freedom_staging`, neither a default, with a loud banner; **production keeps no override at all**. Applied 2026-08-26 with three falsifying tests. Route B (a manual procedure, no test) was declined. Change-log **C-P3.5-V**. |
 
 ---
 
@@ -724,8 +733,76 @@ decision.
    record starts at zero. A-05 still does not close until a real login against
    the production database has succeeded (F-8).
 3. Retirement below two is **observed being refused**.
-4. Startup and `/healthz` readiness behavior is observed both below and at the
-   threshold.
+4. ~~Startup and `/healthz` readiness behavior is observed both below and at the
+   threshold.~~ **Superseded 2026-08-25 by decision D-n (change-log C-P3.5-T),
+   approved by Peter Duscha as accountable Security Reviewer.** The original
+   wording is retained above, struck through rather than deleted, so a reviewer
+   can see exactly what changed. It is replaced by 4a and 4b:
+
+4a. **Startup behaviour and `/healthz` readiness are observed both below and at
+   the N-13 threshold under `WEB_ENVIRONMENT=staging`**, on the deployed build,
+   capturing the S-15 **warning** and the accepted C2-1 `break_glass_credentials`
+   boolean. Executed against a **disposable** database with **synthetic**
+   credential records: the protected account's real credentials are never
+   manipulated, because `retire` refuses below two (N-13, criterion 3) and the
+   only other route would be a database-owner action against Peter's own
+   credentials, which the P3.5 handover forbids.
+
+4b. **S-15's production-class refusal is observed before exposure**, in the
+   guarded exercise defined as **SP-27** below. **This remains an A-05 closure
+   criterion.**
+
+   **Corrected 2026-08-26 after Codex interim finding B-1 (change-log
+   C-P3.5-U).** The version approved on 2026-08-25 moved this evidence out of
+   A-05 to the deployment gate, on the argument that S-15's refusal needs
+   production configuration and A-05 gates public exposure. **That argument was
+   wrong, and the error is worth naming precisely: it treated "production-marked"
+   and "publicly exposed" as the same event.** They are not. A production-marked
+   process can be exercised with no listener at all, against a guarded disposable
+   database. S-02, S-05 and S-07 requiring the accepted production identity make
+   such an exercise **more** controlled, not public. Moving the only observation
+   of S-15 past A-05 would therefore have **weakened a security precondition**
+   while appearing to resolve a circularity that did not exist.
+
+   **SP-27 — the guarded pre-exposure exercise.** Owner: Peter (authorizes and
+   supervises) with Claude. Estimated 20 minutes. **No socket is ever opened.**
+
+   1. Create a **disposable** `freedom_production` database — the name
+      `EXPECTED_DATABASES` requires for this environment — migrate it to head,
+      and seed a protected administrator account holding **fewer than two**
+      enabled credentials, using **synthetic** credential records. **It is never
+      a copy of, and never restored from, any real data.**
+   2. Block outbound egress for the exercising account with the single
+      `iptables` OUTPUT rule already proven by SP-25, so no live Discord contact
+      is possible even accidentally.
+   3. Build production-marked settings — the accepted production origin, redirect
+      URI and guild ID are **identifiers, not secrets**; the client secret is a
+      syntactically valid placeholder, never the real one — and call
+      **`run_resource_checks(settings, engine)` directly**
+      (`application/web/startup.py:80`). **This is the whole reason the exercise
+      is safe: `run_resource_checks` is a plain function, so S-15 is reached
+      without uvicorn, without a bind, and without a route. There is no listener
+      to expose, so no public traffic can reach it and no production cookie or
+      OAuth callback can be delivered to it.**
+   4. Record the literal `ConfigurationProblem` naming **S-15**.
+   5. Seed the second synthetic credential and repeat, recording that the check
+      now passes.
+   6. **Teardown:** drop the database, remove the egress rule, delete the
+      temporary environment file. Record each as done.
+
+   **Never recorded:** credential material, the real client secret, any real
+   account, or any value from a live production system.
+
+4c. **A deployment-gate re-observation is retained as defence in depth**, at
+   `docs/contracts/phase-3-operational-contract.md` §7 **item 10**. It is an
+   *addition* to 4b, **never a replacement for it**: A-05 does not close on a
+   promise that something will be checked later.
+
+   **How to reverse 4a/4b/4c.** Restore the struck-through wording above and
+   A-05 returns to a single criterion 4 requiring both observations, which is
+   substantively what 4a and 4b now require together. No evidence collected under
+   4a or 4b is invalidated by that reversal.
+
 5. Emergency login succeeds with Discord simulated unavailable.
 6. Break-glass is proven to grant **Platform Administrator only** — never
    Council, character ownership or import-apply authority, by implication or by

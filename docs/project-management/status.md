@@ -1,9 +1,1115 @@
 # Project status
 
-Status date: 2026-08-25 (sixty-second update: the Phase 3 gate was audited after
-C2 acceptance. Mandatory P3.5 staging, browser, operations and performance
-evidence remains incomplete, so Phase 3 cannot close and Phase 4 implementation
-cannot start.)
+Status date: 2026-08-26 (eighty-ninth update: documentation brought current across
+every register and evidence artifact; full verification set re-run green.)
+
+Status date before this update: 2026-08-26 (eighty-eighth update: the synthetic performance and
+recovery run. Worker peak memory measured for the first time — 17.9% of N-47 at
+realistic size, 47.1% at the N-20 ceiling. SP-15 synthetic halves, SP-16 and SP-17
+all pass. D-m's real n=1 apply still owed.)
+
+Status date before this update: 2026-08-26 (eighty-seventh update: S-12 passed at the seventh attempt.
+The SP-29 gate-off window ran 36 bounded minutes and the browser evidence found two
+things automated tests could not — HSTS missing against the accepted contract, and
+a live CSP violation from HTMX.)
+
+Status date before this update: 2026-08-26 (eighty-sixth update: SP-10 re-run on staging — the N-20
+fix verified where the defect was reachable. Same drill, same database: services
+now start clean instead of crash-looping. S-12 recorded Not Run after six
+attempts, every failure the observer's.)
+
+Status date before this update: 2026-08-26 (eighty-fifth update: SP-27 executed. A-05 criterion 4b is
+Met — S-15's production refusal observed before exposure, with no listener, inside
+a verified network namespace. A-05 is down to criterion 10 alone.)
+
+Status date before this update: 2026-08-26 (eighty-fourth update: A-05 criterion 4a met. And this
+package's own procedure caused an operator-visible outage — N-21 — by reusing a
+uid-scoped firewall rule under an account that runs far more than the thing under
+test. SP-27 not executed; criterion 4b still Open.)
+
+Status date before this update: 2026-08-26 (eighty-third update: N-20 remediated as options 2+3 —
+the drill now re-applies the runtime grants and fails when a privilege present
+before is missing after. The first version of the fix was itself wrong and was
+caught by an unrelated test failing.)
+
+Status date before this update: 2026-08-26 (eighty-second update: M-4 executed. SP-10 passed as a
+procedure and found N-20 — the documented restore silently drops the runtime
+role's privileges, and both units crash-looped until the grants were re-applied.
+S-14 observed on the deployed unit; S-12 remains Not Run after three setup errors.)
+
+Status date before this update: 2026-08-26 (eighty-first update: M-3 executed. SP-13 / TC-LIM-02
+passes with exact parity; SP-08 stands at 11 of 15 refusals, one of them proved on
+the deployed unit. Two run-sheet defects found by executing it, one of which would
+have recorded a refusal as a non-refusal.)
+
+Status date before this update: 2026-08-26 (eightieth update: M-2 executed. SP-09 / TC-OPS-01 passes,
+including the half that matters — the bot and Foundry stayed up while the web
+perimeter was closed. Two run-sheet instructions were wrong and are corrected; the
+portal was not.)
+
+Status date before this update: 2026-08-26 (seventy-ninth update: M-1 executed. SP-02 and SP-03 pass;
+the Discord snowflakes corroborate the separation attestation independently. One
+minor deviation recorded: the environment files are 0640 where the procedure
+specifies 0600.)
+
+Status date before this update: 2026-08-26 (seventy-eighth update: the gate-off window is approved as
+decision D-r and written up as procedure SP-29, bounded by two recorded
+timestamps. The kill-switch sitting is resequenced before it, so the emergency
+stop is proved before the outer protection comes off.)
+
+Status date before this update: 2026-08-26 (seventy-seventh update: the logout 415s are explained —
+the proxy gate, not the application — and chasing them found N-14: the same gate
+would have invalidated TC-SEC-07's evidence run, which the deployed site file
+already said it would.)
+
+Status date before this update: 2026-08-26 (seventy-sixth update: the N-13 fix is deployed and
+TC-OPS-05 **passes** — the first of the nine outstanding rows to close. A separate
+open question is raised: the deployed portal answered POST /v1/auth/logout with
+415 twice, which the shipped sign-out control cannot produce.)
+
+Status date before this update: 2026-08-26 (seventy-fifth update: the N-7 fix is deployed and
+verified on the running portal — the credential class is clean. SP-12's re-run
+found a second prohibited class: the access log records the client IP address in
+plaintext, which operational contract §5 forbids. TC-OPS-05 stays Failed.
+Remediated in the repository; not deployed.)
+
+Status date before this update: 2026-08-26 (seventy-fourth update: Peter Duscha answered all eight
+authority questions. SG-2 and an SG-3 extension are granted, D-o is confirmed,
+and the two defects found yesterday are decided as D-p and D-q. D-q is applied.
+No procedure has run; no RAID disposition moves.)
+
+Status date before this update: 2026-08-26 (seventy-third update: the SG-1-released preparation
+C-5…C-12 is complete — three harnesses, 38 new tests, the run sheets and the C-8
+proposal. It found two defects: A-05 criterion 4a is not executable as written,
+and SP-10 has no instrument. Full suites green. Nothing executed, nothing closed.)
+
+Status date before this update: 2026-08-26 (seventy-second update: the single P3.5 authority request
+is issued to Peter Duscha, covering D-o confirmation, SG-2, an SG-3 extension for
+the two remaining credential procedures, the N-7 deployment and SP-12 re-run, and
+SP-27. Nothing is executed and no disposition moves.)
+
+Status date before this update: 2026-08-26 (seventy-first update: Codex re-reviewed the interim
+remediation and reproduced a credential leak through the N-7 fallback. Corrected:
+the fallback no longer inspects argument structure at all. Tests 27 → 59. No gate
+status changes; TC-OPS-05 remains Failed.)
+
+Status date before this update: 2026-08-26 (seventieth update: the Codex interim review returned one
+Blocking and two Important findings; all three are remediated. The A-05 criterion-4
+amendment is corrected — S-15 pre-exposure evidence returns to A-05 — and the N-7
+redaction now fails closed on any unrecognised record shape. **That last claim was
+false when written**; Codex reproduced a leak through it and it is corrected in the
+seventy-first update.)
+
+Status date before this update: 2026-08-26 (sixty-ninth update: an interim Codex review is requested
+over the three decisions, the A-05 criterion-4 amendment, the N-7 security finding
+and its fix, and the four new artifacts. It is not either mandatory gate pass.)
+
+Status date before this update: 2026-08-26 (sixty-eighth update: the N-7 access-log fix is implemented
+and proved against a real uvicorn, and all four missing P3.5 artifacts now exist.
+Traceability resolves 294 of 318 contract rows to real tests; the 5 unresolved are
+citation gaps, not coverage gaps.)
+
+Status date before this update: 2026-08-26 (sixty-seventh update: SP-12 ran and TC-OPS-05 failed on a
+real credential disclosure in the access log. Remediated in the repository the
+same night, with the leak reproduced before it was fixed; not yet deployed, so
+the row stays Failed until re-observed.)
+
+Status date before this update: 2026-08-26 (sixty-sixth update: the EX-3 migration-rollback and EX-4
+backup/restore rehearsals are executed against the disposable database, with the
+0013 boundary observed refusing and failing closed. A stale-bytecode defect left
+by the filesystem cutover was found and corrected. Full verification set green.)
+
+Status date before this update: 2026-08-25 (sixty-fifth update: A-05 criterion 4 is split into 4a
+(retained, executable) and 4b (moved to the deployment gate). All three P3.5
+decisions are formally recorded, with reversal procedures, as change-log
+C-P3.5-T. SG-2 remains ungranted.)
+
+Status date before this update: 2026-08-25 (sixty-fourth update: the Data Owner approved real Foundry
+data in staging and the Acceptance Authority chose the TC-PERF-02 repeat-run
+method. Four procedures are unblocked. SG-2 is now the only thing gating
+execution of the remaining I-06 procedures.)
+
+Status date before this update: 2026-08-25 (sixty-third update: the P3.5 evidence inventory and
+session run sheet are complete. Nine of thirteen staging-only rows remain Not
+Run, A-05 stands at eight of ten criteria, and four of the five required P3.5
+artifacts do not yet exist. Two Data Owner / Acceptance Authority decisions block
+roughly two hours of the remaining supervised work.)
+
+Update 2026-08-26 (eighty-ninth) — documentation brought current; verification green.
+
+- **Every register and evidence artifact now reflects the day's execution:**
+  change-log **C-P3.5-W** records decisions **D-r** (the bounded gate-off window)
+  and **D-s** (the two performance latency bounds); the execution plan's §0.2
+  checkpoint table carries both; the accessibility evidence carries the second
+  browser session, the exact Chrome build, the skip-link pass, the reduced-motion
+  verification and finding **N-23**; the RAID register carries a close-of-day
+  position for I-06, A-06, A-05 and R-23.
+- **The 2026-08-25 evidence inventory is left as written** and now opens with a
+  superseded-by-execution note, so a reader is not misled by its `Not Run` tables.
+  The authoritative record is the staging/operations evidence §§5A–5J.
+- **Verification set re-run serially:** bot **2424 passed**, web **2415 passed /
+  80 skipped**, asset integrity **4/4**, visual freeze **14/14**, `compileall`
+  clean in both environments, `git diff --check` clean, single Alembic head
+  `0013`. Formatter, linter and type checker remain **not configured**.
+- **The visual freeze still verifies**, which matters because N-23 proposes a
+  `base.html` change and nothing has been applied to the frozen assets.
+- **Position unchanged by this update:** **A-05 Open on criterion 10 alone**;
+  **I-06 and A-06 Open** with most of A-06's evidence now in hand; **R-23** an
+  active accepted residual. **EX-11 and EX-12 are owed. Phase 4 has not begun and
+  remains unauthorized.**
+
+Update 2026-08-26 (eighty-eighth) — the quantity that had never been measured,
+measured.
+
+- **TC-PERF-01: worker peak resident memory.** **184.5 MiB (17.9% of N-47)** at
+  the realistic 16.3 MB corpus; **482.3 MiB (47.1%)** at the 66.7 MB N-20 ceiling.
+  Both inside the 1 GiB guard, the ceiling case with better than 2× headroom.
+  Peak scales at roughly **7× input size** — the ratio worth extrapolating from.
+- **The Operations Owner's framing, adopted:** the real folder holds **32**
+  Actors, so the 131-Actor run answers *"where is the wall?"* rather than
+  predicting load. It would need to roughly quadruple before memory mattered.
+- **TC-PERF-02:** applies of **6.2 s** and **27.0 s**, at 384 and 405 ms/MB across
+  a 4× size difference — **D-m's repeatability pair**, scaling linearly. The
+  second exercised updates against records a previous import created, not only
+  creates. Durable effects matched the preview exactly.
+- **One figure explicitly disqualified:** the 66.7 MB preview's 1179 ms/MB sits
+  just under the bound but is **not a throughput measurement** — it is the run
+  deliberately SIGKILLed, and most of its 79 s is lease-expiry wait. A clean
+  preview at the bound is still owed.
+- **TC-PERF-03 passes** against bounds accepted beforehand (**D-s**): 984 samples,
+  **zero non-200**, every p95 ≤ 51 ms — including through a worker being killed
+  and restarted. **One 1,561 ms maximum recorded as a signal**, 30× the previous
+  max, during a 27-second transaction: portal and worker contending on the
+  database. Within bound, and the number that moves first under a larger apply.
+- **SP-17 passes.** SIGKILL mid-parse, `attempts` 1→2, systemd restart, 60 s lease
+  expiry, reaper requeue, retry completed — **exactly one outcome and no partial
+  state**, with the portal unaffected throughout.
+- **Four refusals observed that were not planned for**, each firing before the
+  next stage could run: idempotency key (1 ms, before the body), size (0.96 ms,
+  *"It was not read"*), admission, and the duplicate-content fence. Nothing was
+  stored by any of them.
+- **N-24 (minor):** the lost-pin runbook tells the operator to run the
+  acceptance-event query after closing an admission — but that query joins
+  `foundry_snapshots`, which teardown had already truncated. Harmless here; in a
+  real recovery it would destroy the query's ability to resolve an acceptance.
+  **The query must run before teardown**, and both the runbook and this package's
+  teardown order should say so.
+- **An accessibility observation from the operator, unprompted:** the
+  reconciliation page's text is too large and overflows at his window width.
+  Recorded for R-23 — feedback from the person who will operate the screen.
+- **Still owed: D-m's real 32-Actor apply, reported as n = 1.** Synthetic Actors
+  parse about **3× faster** than real ones (587 ms/MB in Rehearsal B against
+  192 ms/MB tonight, near-identical byte counts), so tonight's timings are
+  optimistic and are cited as synthetic throughout.
+- **Everything torn down**: import tables truncated, artifacts and fixtures
+  shredded, admission closed, endpoint stopped, audit history retained.
+- **A-06 now has most of its evidence. I-06 advances. A-05 remains Open on
+  criterion 10. Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (eighty-seventh) — S-12 closes; the browser window earns its keep.
+
+- **S-12 Passed at the seventh attempt.** The worker's entry point, run **as
+  `freedomweb`** with the deployed environment files and a permissive artifact
+  root, refused with `ArtifactStorageError: root_not_owned` — the correct branch
+  for that account, the mode branch having already been observed from the owner's.
+  **Both branches of `_require_trusted_root` are now evidenced**, each from the
+  account that makes it fire. **SP-08 stands at 14 of 15**; TC-OPS-04's only
+  remaining gap is **S-13**, which is test-enforced and not observable on a live
+  host.
+- **The six earlier failures diagnosed cleanly, and none was the portal's.**
+  Attempt 6 confirmed the value in `/proc/<pid>/environ` but read `is-active`;
+  attempt 7 read `NRestarts` but never re-confirmed the value had landed.
+  **Neither held both confirmations at once** — which is how a working refusal was
+  mistaken first for a setup error and then for an anomaly.
+- **SP-29 executed: window open `21:24:46Z`, closed `22:01:01Z` — 36 minutes**,
+  bounded at both ends by an observation. Gate removed, `caddy validate` valid,
+  public routes `303` with no `401`; gate restored, valid, `401` back. The kill
+  switch was confirmed available first, which is why M-2 was resequenced ahead.
+- **SP-14 Passed in part.** The N-26 CSP is **byte-identical on normal and error
+  responses**; the early refusal (`400 Unknown host.`) carries the same CSP,
+  `nosniff` and `no-store`, observed **at the origin** because the public path
+  returns Cloudflare's `530` and never reaches our boundary. **TC-SEC-07's
+  specific assertion is evidenced:** a Discord login completed in Chrome
+  **151.0.7922.172** with no `form-action` violation.
+- **N-22 — Important.** The accepted contract gives Caddy **exactly two jobs, TLS
+  and HSTS**, and **HSTS is configured in neither the deployed staging file nor
+  the production template**. Observed on the wire: no `strict-transport-security`
+  on any response. Without it, a first-time visitor typing `http://` can be
+  intercepted before the redirect — the attack HSTS exists to prevent, which the
+  contract already decided to prevent. **Not remediated:** it touches the proxy
+  and the production template, and the `includeSubDomains` question is expressly
+  the Operations Owner's.
+- **N-23 — Minor.** HTMX 2.0.10 injects an inline `<style>` for `.htmx-indicator`
+  and `style-src 'self'` blocks it, on every HTMX page load. **No functional
+  impact** — no template uses `hx-indicator` — but a violation on every load is
+  noise that would **mask a genuine one**. One-line fix proposed, not applied.
+- **Both findings came from running a real engine.** Parsed-DOM automation cannot
+  execute HTMX under an enforcing CSP, and cannot see a header that is absent.
+- **plan-SP-23 partly evidenced:** skip link **Passed** (markup verified,
+  activation observed); `prefers-reduced-motion` **mechanism verified** and its
+  imperceptibility explained — the only motion in the stylesheet is 10 short hover
+  transitions. HTMX-enhanced path and real-engine contrast remain **Not Run**.
+- **TC-UI-08 partly evidenced:** iPhone 15 / iOS 26.6, every view, zoom exercised,
+  no defect — **but 768 and 1280 are not covered**, because a phone offers only its
+  own width. An iPad would cover both bands on real hardware and is queued.
+- **I-06 and A-06 remain Open; A-05 remains Open on criterion 10. Phase 4 remains
+  unauthorized.**
+
+Update 2026-08-26 (eighty-sixth) — N-20's fix verified on staging; S-12 recorded
+honestly.
+
+- **The re-run was owed because `freedom_test` could not prove it.** Only the
+  owner connects there, so nothing depends on a second role's privileges and the
+  original defect was never reachable. `freedom_staging` is the one target with a
+  restricted runtime role.
+- **The result is the contrast.** Same drill, same database, same data — differing
+  only in the remediation:
+
+  | | M-4 | This run |
+  |---|---|---|
+  | `freedomweb` privilege rows after restore | **0** | **99** |
+  | Services | crash-looped to `NRestarts` **35 / 36** | **`NRestarts=0`, running** |
+  | Manual intervention | grants re-applied by hand | **none** |
+
+- **The restored posture is the restricted one, not a widened one:**
+  `INSERT,SELECT,UPDATE` on `sessions` and **`TRUNCATE` still denied**. Data,
+  31 tables, 6/6 guard functions and the append-only refusal all unchanged.
+- **The runtime role was detected rather than configured**, so no per-database
+  mapping exists to fall out of step.
+- **Teardown:** all seven artefacts shredded; they held real credential public
+  keys and identity, none of which is quoted in the evidence.
+- **S-12: Not Run after six attempts, and recorded as such** — not as passed, and
+  not as the finding attempt 6 briefly resembled. Every failure was the observer's:
+  a non-existent path (which `ensure_ready` legitimately creates), five `sed`s
+  against a file where the variable has never existed, and finally reading
+  `is-active` instead of `NRestarts` — **the exact error recorded as N-18 earlier
+  the same day by the same author.** The code path demonstrably refuses that root,
+  in two independent reproductions, so S-12 is probably firing and was
+  mis-observed. **SP-08 stands at 13 of 15; TC-OPS-04 is not complete.**
+- **I-06 and A-06 remain Open. A-05 remains Open on criterion 10 alone. Phase 4
+  remains unauthorized.**
+
+Update 2026-08-26 (eighty-fifth) — SP-27 executed; A-05 criterion 4b closes.
+
+- **The evidence D-o exists for is now an observation rather than an argument.**
+  Codex finding B-1 established that a production-*marked* process is not a
+  publicly *exposed* one. Under the production marker, with **no listener, no
+  bind and no route**, `run_resource_checks` **refused**, naming **S-15** and the
+  N-13 credential floor.
+- **And it passed at two credentials** — the falsification, and the reason the
+  refusal means something. Had it refused at both counts, the refusal would have
+  been about production-marking and would have evidenced nothing about N-13.
+- **The corrected isolation was verified inside the namespace that ran the
+  exercise**, not merely beforehand: `egress: 000` and a working Unix socket.
+  Blast radius one process, and **no firewall rule existed to leave behind** —
+  which is the whole point of the N-21 correction.
+- **The guard was fired deliberately before anything was seeded:** the harness
+  refused the production target outright without `--acknowledge-disposable`. A
+  guard that has never fired is untested.
+- **Preconditions checked, not assumed:** the disposable database was proved
+  **empty of real data** first, and revision 0006's required Discord identifiers
+  were supplied as **synthetic** values — nothing in the exercise reads them, so
+  real production identifiers were deliberately kept out of a throwaway database.
+- **Teardown verified independently:** no `freedom_production` remains, egress
+  outside the namespace was never affected, and no credential material, real
+  account or live-system value was recorded anywhere.
+- **One observation, not a finding:** the harness exits `0` on a refused outcome,
+  because a refusal is the *expected* result below the threshold. Recorded so a
+  reader skimming exit codes does not misread it.
+- **A-05: criteria 1, 2, 2a, 3, 4a, 4b, 5, 6, 7, 8, 9 Met. Only criterion 10
+  remains** — the Security Reviewer's confirmation, which comes last by its own
+  terms. **Criterion 4c stays owed at the deployment gate** as defence in depth.
+- **I-06 and A-06 remain Open. Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (eighty-fourth) — criterion 4a met, and a self-inflicted outage.
+
+- **A-05 criterion 4a: Met.** Executed as M-1b under decision D-p on the
+  disposable `freedom_dev`: below the N-13 threshold S-15 **warns**, at it the
+  same call is **clean**, and the deployed portal's live `/healthz` carries
+  `break_glass_credentials: true` under the accepted C2-1 contract. Both limits
+  are recorded rather than glossed — no observation under the `staging` marker
+  itself, and no portal observed answering `break_glass_credentials: false`.
+- **A minor thing learned by cleaning down:** the protected account **cannot** be
+  deleted while audit history references it. Not a defect — history that could
+  lose its actor to a later delete would not be history.
+- **N-21 — this package's procedure caused an operator-visible outage.** SP-27's
+  egress step reused SP-25's `iptables` rule but retargeted it from `freedomweb`
+  to `foundry`. **`freedomweb` runs the portal and nothing else; `foundry` is the
+  maintainer's login**, running PM2 services, tooling and browser automation. The
+  rule took every one of them off TCP/443 until the Operations Owner diagnosed it
+  and removed it. **He wrote the incident report before this entry existed.**
+- **The reasoning failure, named:** SP-25's rule was safe because of the *account
+  it named*, not its form. The control was reused and the premise that made it
+  safe was discarded without being re-checked. One `ps -u foundry` beforehand
+  would have shown it; it was run afterwards.
+- **No platform service and no data was affected** — the portal and the bot run
+  under different uids and were untouched, and the rule altered no database,
+  credential, artifact or configuration.
+- **Correction:** the uid rule is withdrawn from SP-27 and replaced by per-process
+  **network namespace** isolation, which affects one process and cannot outlive
+  it. **It is not yet verified on this host** — unprivileged user namespaces are
+  disabled and the check needs root — so the revised SP-27 **verifies the
+  isolation as its first step** and stops if either half fails. A control that has
+  not been observed working is an assumption, which is what this finding is about.
+- **SP-27 was not executed. A-05 criterion 4b remains Open**, alongside criterion
+  10. **No residue:** the disposable `freedom_production` database created during
+  the attempt was dropped by the Operations Owner in his own cleanup, verified
+  independently — none of that name remains.
+
+Update 2026-08-26 (eighty-third) — N-20 remediated, and the remediation needed
+remediating.
+
+- **Options 2 + 3, approved by the Operations Owner.** The restore flags are
+  **unchanged** — reverting `--no-privileges` would trade a recoverable state for
+  a restore that aborts mid-incident on a `GRANT` naming an absent role. Instead
+  the drill records the privilege state before the destroy (**3b**), re-applies
+  `runtime-grants.sql.tmpl` after the restore (**5b**), and **fails** when an
+  entry present before is absent after (**6b**).
+- **The runtime role is derived, not configured** — the non-owner, non-`PUBLIC`
+  grantee holding table grants — so no per-database mapping can fall out of step.
+  More than one such role is refused outright rather than guessed at. Schema ACLs
+  are in the inventory too, because the staging failure left `public` with no ACL
+  and a table-only check would have missed it.
+- **The first version of the fix was wrong, and an unrelated test caught it.**
+  Step 6b originally demanded the inventories be *identical*. But 5b re-applies
+  the canonical template to every table, so a database whose grants had drifted
+  ends with **more** entries than it started with — and exact equality fails the
+  drill for having repaired something. **The check now asserts loss, not
+  difference**, which is the property N-20 is about.
+- **Both directions tested.** The falsification copies the drill beside its own
+  template with 5b removed — exactly the pre-N-20 behaviour — and requires it to
+  fail. **That test earned its place twice:** an earlier attempt passed
+  *vacuously*, because a previous broken run had already stripped the grants and
+  left nothing to lose. It now asserts its own precondition instead of trusting
+  the database to be as expected.
+- **Verified live as well as in tests:** with 5b removed the drill exits 1 with
+  the new message; with it, `freedom_test`'s 99 runtime privilege rows survive the
+  round trip. **Suites: bot 2423 passed** (+3), drill file 35 passed.
+- **Owed:** SP-10 should be re-run **once on `freedom_staging`**, the only target
+  with a genuinely restricted runtime role and therefore the only one where the
+  original defect was reachable. Until then the fix is proved on the disposable
+  database only.
+- **Nothing else moved.** I-06, A-05 and A-06 remain Open; **Phase 4 remains
+  unauthorized.**
+
+Update 2026-08-26 (eighty-second) — M-4 executed; SP-10 passed, and found the
+most consequential defect of the day.
+
+- **The backup was checked, not assumed.** `pg_dump` produced 143,986 bytes at
+  mode `0600`, and **`pg_restore -l` listed 241 archive entries** before anything
+  depended on it — plan §14.3's "restore-tested, not reported successful", applied
+  to the backup itself.
+- **The consequence was put to the Operations Owner before the destructive step:**
+  `freedom_staging` holds his only enrolled passkeys, so a failed restore would
+  cost A-05 criteria 1, 2, 2a, 3, 5, 6, 7 and 8 and a fresh SG-3 ceremony. He
+  accepted it against three mitigations.
+- **S-14 observed on the deployed unit** — the portal refused a schema it was not
+  built for, naming both revisions. The `0013 → 0012 → 0013` round trip left the
+  census **identical**.
+- **SP-10 Passed as a procedure.** Backup, destroy, restore, inventory. Verified
+  independently rather than on the script's verdict: 31 tables, census identical,
+  **6/6 guard functions**, 10 triggers, and the append-only trigger observed
+  **still refusing** a DELETE — inside a rolled-back transaction, so the answer
+  cost nothing.
+- **N-20 — Blocking.** After that successful restore, **both units crash-looped
+  to `NRestarts=35`/`36`**. The row inventory was perfect and the platform could
+  not read its own database: the restore dropped `freedomweb`'s privileges
+  entirely and left the `public` schema with no ACL. **A row count cannot see a
+  missing GRANT**, so the drill printed `Restore verified`. In production this is
+  an outage *after* a recovery, at the worst possible moment.
+- **Why the disposable rehearsal missed it:** EX-3 re-applied the runtime grants
+  as a separate later step, so the gap was covered by the next thing in the
+  sequence instead of exposed by it. Two procedures in the right order hid a
+  defect either alone would have shown.
+- **Recovered within the granted authority and verified:** grants re-applied,
+  `freedomweb=INSERT,SELECT,UPDATE` restored, **TRUNCATE still denied**, both
+  units `running`, `/healthz` ok at `17:29:18Z`.
+- **Remediation recommended, not applied:** the drill should re-apply the grants
+  as its final step **and** assert the runtime role's privileges in its
+  comparison. A documented step an operator must remember is exactly what failed
+  here — in a rehearsal, with two people watching.
+- **S-12 Not Run after three attempts**, every failure a setup error and none the
+  portal's: the first was invalidated by N-20 underneath it, the second read a
+  stale journal window, the third failed because `/etc/freedom-blades` is
+  `750 root:root` so the service account cannot even reach its own environment
+  files. **The check is proven to work at code level (`root_permissive`), which is
+  not the deployed evidence TC-OPS-04 asks for, and it is recorded as Not Run.**
+- **N-15 downgraded on that same evidence.** The recommendation to tighten the
+  environment files to `0600` is **withdrawn**: the directory denies the service
+  account traversal, so the group-read bit is unreachable. The original assessment
+  is left in place and corrected rather than silently revised.
+- **SP-08 stands at 12 of 15. TC-OPS-04 is not complete.**
+- **Six rows closed today:** TC-OPS-05, SP-02, SP-03, SP-09/TC-OPS-01, SP-13/
+  TC-LIM-02, SP-10. **I-06, A-05 and A-06 remain Open; Phase 4 remains
+  unauthorized.**
+- **Teardown owed:** `/tmp/sp10-2026-08-26/` holds dumps containing real
+  credential public keys, Discord identity and audit history. Mode `0600`, outside
+  the repository, retained as the rollback of last resort and **to be shredded
+  when today's sittings end.**
+
+Update 2026-08-26 (eighty-first) — M-3 executed; TC-LIM-02 closes, TC-OPS-04 does not.
+
+- **Method changed before execution, with the Operations Owner's agreement.** The
+  sheet's twelve edit-restart cycles would have meant twelve outages against a
+  single backup. Instead: **one** real restart-to-failure for the systemd chain,
+  and the rest through a new reviewable tool, `tools.startup_refusal_probe`, which
+  calls the same function the deployed process calls at startup, against the same
+  environment file, with one variable overridden. **The evidence level is recorded
+  rather than implied:** the probe is configuration-layer evidence and does not
+  claim to cover systemd.
+- **SP-08: eleven of fifteen refusals observed.** S-02, S-05 and S-11 in **both**
+  directions. **S-08 was exercised with the real key values** — the deployed CSRF
+  key set as the cursor key — and the refusal names both variables while printing
+  neither. **S-12 outstanding** (needs the artifact filesystem; scheduled with
+  M-4), S-13 test-enforced, S-14 deferred to M-4, S-15 to SP-27. **TC-OPS-04 is
+  not complete and is not recorded as complete.**
+- **S-11 proved on the deployed unit**, with the refusal text, `Failed with result
+  'exit-code'` and systemd's restart counter climbing to **8** before the file was
+  restored. Recovery verified at `16:31:22Z`.
+- **N-18, and it is the more serious of the two.** `systemctl restart` returned
+  **0** and `systemctl status` showed `active (running)` — 8 ms after start, before
+  the process had evaluated its configuration. **Following this package's own run
+  sheet literally would have recorded a refusal as a non-refusal**, on a service
+  that was crash-looping. Corrected: check `NRestarts` or the journal, seconds
+  later.
+- **N-19 (minor):** the deployed environment file is not shell-sourceable — an
+  unquoted multi-word `WEB_WEBAUTHN_RP_NAME` makes `.` drop the variable silently.
+  It changed nothing here, because no *required* variable was lost and every probe
+  would have said so. Recorded because any procedure that sources the file has the
+  same hole.
+- **SP-13 / TC-LIM-02 Passed, exactly.** `WEB_MAX_REQUEST_BYTES=1048576` against
+  Caddy's `max_size 1MiB`. **The snapshot half is not a gap:** neither side mounts
+  a submission route, which is the accepted design (route contract §1.2), and the
+  production template already fences the future change. Flagged for Codex, because
+  the accepted row names two routes and only one exists.
+- **Five rows closed today:** TC-OPS-05, SP-02, SP-03, SP-09/TC-OPS-01, SP-13/
+  TC-LIM-02. **I-06, A-05 and A-06 remain Open; Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (eightieth) — M-2 executed; TC-OPS-01 closes.
+
+- **SP-09 / TC-OPS-01 Passed.** Every portal route answered **503** while the
+  switch was engaged — **including a mutation route**, so the switch closes writes
+  and not merely reads — with the full N-26 security header set, `Retry-After`,
+  `Cache-Control: no-store` and a maintenance body carrying **no exception detail,
+  no internal path and no identity**. `/static/` served normally. Full recovery
+  verified at `15:47:33Z`.
+- **The half the criterion exists for:** the Operations Owner confirmed the
+  **Discord bot still answered a command** and **Foundry still loaded** while the
+  web perimeter was closed. Loopback observations could never have shown that. A
+  switch that took the community's bot down with the portal would be an outage,
+  not a kill switch.
+- **Two of this package's own instructions were wrong, and the portal was not.**
+  (1) The sheet said to engage as `freedomweb`; the switch directory is
+  `root:freedomweb` with no group write, so it must be **root** — caught before
+  the sitting rather than during it. (2) The sheet expected `/healthz` to answer
+  `200`; it answers **503**, because it carries a `kill_switch` check of its own.
+- **That second one is better behaviour than the criterion asks for.** The
+  accepted rule is only that the switch must not *refuse* `/healthz`, and it does
+  not: the response is health's own verdict, `status: degraded` with
+  `kill_switch: false` and every other check `true`, told apart from the
+  middleware's refusal by its content type and its absence of `Retry-After`. A
+  monitor is therefore told *"deliberately in maintenance"* rather than *"host is
+  gone"*. **I nearly recorded this as a defect and caught it by reading the body
+  rather than the status code.**
+- **N-16 (minor):** the tool's success message names only `/healthz` as staying
+  up, omitting `/static/`, which the accepted D-03 correction added. During an
+  incident that would make correct behaviour look like a second fault. One-line
+  fix offered, **not taken unilaterally**.
+- **N-17 (minor):** the exact engage time was not captured, because the tool
+  writes it into the switch file and the release deletes it. The window is bounded
+  by its recorded start and verified recovery, which satisfies the criterion but
+  is looser than every other timestamp here. The run sheet now takes `date -u`
+  either side of both actions.
+- **Four rows closed today:** TC-OPS-05, SP-02, SP-03, SP-09/TC-OPS-01. **I-06,
+  A-05 and A-06 remain Open; Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (seventy-ninth) — M-1 executed; SP-02 and SP-03 close.
+
+- **SP-02 Passed.** Both environment files are root-owned, not world-readable and
+  outside the repository. The Operations Owner attests the staging secrets share
+  **no value** with production and were generated independently — a statement that
+  cannot be established by inspection and must not be. **Neither file was
+  opened**; only metadata was read, plus four identifier lines by an expression
+  anchored to exact variable names that cannot match the client secret.
+- **N-15, minor deviation.** The files are `0640 root:freedomweb`; SP-02 specifies
+  `0600`. The properties that matter hold. The group bit is unnecessary — systemd
+  reads `EnvironmentFile` as root before dropping to `User=freedomweb` — and close
+  to harmless, because an account already running as `freedomweb` can read the
+  same values from its own `/proc/self/environ`. **Recorded, not repaired**;
+  tightening is the Operations Owner's call and is not urgent.
+- **SP-03 Passed, and the attestation is corroborated rather than merely
+  recorded.** The staging guild is provably not `PRODUCTION_GUILD_ID`, and the
+  redirect URI is the staging origin. **Discord snowflakes carry their own
+  creation time**, so the identifiers date themselves: the staging application,
+  guild and admin role were created **within 48 minutes of one another on
+  2026-08-23** — the day the staging-address decisions were taken — and **3 years
+  8 months after** the production guild. Consistent with a purpose-built test
+  server, inconsistent with a reused production object.
+- **One half rests on attestation and is recorded as doing so:** the *application*
+  cannot be checked against a recorded production value, because the repository
+  records none — there is no `PRODUCTION_CLIENT_ID` constant.
+- **I-06 remains Open.** Criterion 1 still needs the proxy-boundary parity half,
+  SP-13 / TC-LIM-02, which is **Not Run**. Three of the nine outstanding staging
+  rows have now closed today: TC-OPS-05, SP-02 and SP-03.
+
+Update 2026-08-26 (seventy-eighth) — the gate-off window is decided and bounded.
+
+- **D-r: option 1.** A tightly bounded window covering M-5, M-6 and the M-7
+  block, gate restored immediately afterwards, **both times recorded**. Written up
+  as procedure **SP-29** with explicit open and close steps.
+- **What is accepted, stated rather than implied:** for the window's duration an
+  unreviewed build is reachable by anyone who knows the hostname, which
+  Certificate Transparency published at issuance. **What still protects it** are
+  the application's own controls — Discord OAuth, guild and role verification,
+  CSRF, origin and host checks, the authentication limiter and the kill switch —
+  which are the controls under test.
+- **Resequenced on safety grounds: M-2 comes before the window.** The kill switch
+  is the emergency stop for it, and proving it works *before* the outer
+  protection is removed is the right order rather than the convenient one.
+- **A closing stop condition is written in:** if the window would have to stay
+  open past the end of a session, it is closed first and reopened next time. An
+  unbounded window is a different decision from the one approved.
+- **Nothing executed by this update.** No RAID disposition moves; TC-OPS-05
+  stays Passed; **Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (seventy-seventh) — the 415s explained, and the sitting they
+would have spoiled.
+
+- **The password prompt was the proxy gate.** The staging site imports a Caddy
+  `basic_auth` fragment whose username is literally `peter`. **The platform has
+  no password authentication at all** — N-13 forbids a permanent local password
+  — so the prompt could only have come from in front of the application.
+- **Mechanism, offered as a hypothesis rather than a conclusion:** a challenge
+  arriving mid-flight interrupts the form `POST`; the browser's retry keeps the
+  cookies and origin, which is why it reaches the content-type check rather than
+  the authentication one, but arrives **without the body**, so nothing declares a
+  content type and the handler answers `415`. Two retries, two `415`s; the single
+  `401` is a later `POST` after the complete reload.
+- **The sign-out control is not implicated** — it is a plain form with a hidden
+  CSRF field and nothing enhances it — **but nothing here positively proves
+  sign-out works on this build either.** A deliberate one-click check is added to
+  SP-11/M-7b as step 2a. **A-05 criterion 7 is left as it stands**, on the
+  2026-08-24 evidence.
+- **N-14, and it was found by chasing the anomaly rather than by reading the
+  plan.** The deployed site file already says the gate "must be gone before the
+  final security-header evidence run", because a `401` in front of the
+  application is not the response the accepted contract describes. **M-5 as
+  scheduled would have observed Caddy's answer for the early-response case and
+  recorded it as the application's** — evidence that would have looked complete
+  and been wrong.
+- **The higher-stakes consequence:** the same interruption can hit the Council
+  import **apply** in M-7b and the measured apply in M-7c, where it would corrupt
+  a measurement or make a success look like a failure. Both sheets now carry the
+  warning.
+- **A decision is owed** on how the gate-off window is handled; three options are
+  set out in the staging evidence, with a tightly bounded window recommended.
+  `infra/staging/rotate-test-gate.sh` prints a fresh password once if the current
+  one is not to hand.
+- **Nothing else moved.** TC-OPS-05 stays **Passed**; I-06, A-05 and A-06 stay
+  Open; **Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (seventy-sixth) — TC-OPS-05 closes, at the third observation.
+
+- **Deployed under P-5** (a decision distinct from the morning's, because this
+  code is unreviewed by Codex). New PID 328111, observed working at
+  `2026-08-26T14:17:47Z`.
+- **The line that carried both defects now carries neither:**
+  `client-34b16d41 - "GET /auth/discord/callback?<redacted> HTTP/1.1" 303`.
+  22 lines, counts summing back to 22 — complete coverage of the interval. No
+  name, no Discord identity, no character identifier, no token, no plaintext
+  address.
+- **The pseudonym earned its keep:** every access line in the window carries the
+  **same** `client-…` value, so an operator can still see it was one client
+  throughout. That is why the field was pseudonymised rather than deleted.
+- **TC-OPS-05: Failed → Passed.** The first of the nine outstanding staging rows
+  to close, and the only row that was outright failing.
+- **Coverage limit recorded rather than left implicit:** no worker job ran in the
+  observed interval, so worker output during a real preview and apply is still
+  unobserved. SP-12 should be re-observed once after M-7c/M-7d before submission.
+- **A new open question, not a conclusion.** `POST /v1/auth/logout` answered
+  **415 twice** and **401 once**. Reaching 415 means the request carried a
+  session cookie and a valid origin but the wrong content type — which the
+  shipped sign-out control **cannot** produce: it is a plain HTML form with a
+  hidden CSRF field, no JavaScript touches the route, and it carries no
+  `hx-boost`. A stale tab or a hand-made request explains the counts equally
+  well. **If a real sign-out click returns 415, session revocation is broken on
+  the deployed build** — security-relevant, and A-05 criterion 7 currently reads
+  **Met**. Referred to the Operations Owner and to SP-11/M-7b.
+- **Everything else unchanged.** I-06, A-05 and A-06 stay Open; R-23 stays an
+  active accepted residual; **Phase 4 remains unauthorized.**
+
+Update 2026-08-26 (seventy-fifth) — M-1a executed. N-7 is fixed on the deployed
+system, and the same procedure found N-13.
+
+- **The deployment worked and is verified on the running system.** Restart at
+  `2026-08-26T12:26:49Z`, new PID 296069; all three units active; `/healthz` ok
+  with all eight checks true and `environment: staging`; the rollback trigger did
+  not fire. The rollback copy was taken **before** the restart and confirmed to
+  contain no filter, so it really was the pre-fix code.
+- **N-7 is closed on the deployed build.** The callback line now reads
+  `"GET /auth/discord/callback?<redacted> HTTP/1.1" 303 See Other`. The defect
+  SP-12 found on its first run is gone from the running portal, which is what the
+  repository fix alone could not say.
+- **N-13 — and TC-OPS-05 still fails.** The same 21-line journal window (counts
+  summing back to 21, so complete coverage) shows **the client IP address in
+  plaintext** on every access line. **This is not a judgement call:** operational
+  contract §5 prohibits "IP addresses in plaintext" in every metric, log line and
+  dashboard. `--proxy-headers` means it is the **true visitor's** address, on the
+  same line as the OAuth callback.
+- **The cause was mine.** The N-7 filter deliberately preserved the client field
+  and its docstring called that a virtue — written without checking it against
+  §5. One prohibited class was fixed and another left in place while the result
+  was described as safe to read.
+- **Remediated, not deployed.** The client field becomes a **keyed** pseudonym,
+  `client-<8 hex>`. Keyed because an unkeyed digest of an IPv4 address is not
+  pseudonymisation — 2^32 candidates is seconds of compute. The key is per
+  process and never persisted, so correlation holds within one process lifetime
+  and nothing joins across restarts. **This is the pattern the contract already
+  accepts** for rate-limit trips, recorded as a bucket hash.
+- **Tests 59 → 68**, each falsified first, plus a live proof against a real
+  running uvicorn showing the address and the credential both absent while
+  method, path, version and status survive. **Two existing tests were amended**
+  — both asserted the client field was untouched, which is what N-13 changes;
+  they now assert exactly two fields redacted and three provably unchanged.
+- **Suites:** web **2407 passed / 80 skipped** (+9, all this finding's), bot
+  **2420 passed**.
+- **What it needs, and it is not covered by this morning's authorization.**
+  Decision 4 authorized deploying **the reviewed N-7 fix**. This is new code
+  Codex has not seen, so a second restart is a separate decision for the
+  Operations Owner. **TC-OPS-05 stays `Failed`** until it is deployed and SP-12
+  re-runs over a second fresh interval.
+- **Nothing else moved.** I-06, A-05 and A-06 stay Open; R-23 stays an active
+  accepted residual; the Phase 3 gate stays open; **Phase 4 remains
+  unauthorized.**
+
+Update 2026-08-26 (seventy-fourth) — every authority is granted; execution now
+waits only on the operator being at his console.
+
+- **All eight answered** (change-log **C-P3.5-V**): **D-o confirmed** as Security
+  Reviewer; **SG-2 granted**; an **SG-3 extension granted** for M-1b and M-1c with
+  his presence at each; the **N-7 deployment and SP-12 re-run authorized**;
+  **SP-27 authorized** as written; window **today, excluding 20:30–22:30 MET**;
+  criterion 4a **option 1** (**D-p**); SP-10's instrument **route A** (**D-q**).
+- **A grant is not evidence.** Nothing has been executed. **TC-OPS-05 stays
+  Failed**; I-06, A-05 and A-06 stay **Open**; R-23 stays an active accepted
+  residual; the Phase 3 gate stays open; **Phase 4 has not begun and remains
+  unauthorized.**
+- **D-q applied the same day.** `backup-restore-drill.sh` now accepts
+  `freedom_staging` behind **two independent, non-default signals**, with a loud
+  banner and **no override for production at all**. A defect was fixed while the
+  file was open: the permitted-database list was written twice, and the copy that
+  matters for safety is the second one — the one checking where libpq actually
+  landed. It is now computed once and used by both gates. Every existing
+  connection proof is untouched.
+- **Three falsifying tests, and the third is the one that matters:** the staging
+  name gate is shown to **open** without ever drilling staging, by supplying both
+  signals plus a hostile `PGHOSTADDR` and asserting exit **3** (connection
+  refused, nothing touched) rather than exit **2** (name refused). Bot suite:
+  **2420 passed**.
+- **D-p removes no observation.** S-15 branches on `is_production` alone, so the
+  `development` marker takes the identical path a staging-marked process would.
+  What it gives up is recorded rather than glossed: no observation under the
+  staging marker itself, and no portal answering `/healthz` with
+  `break_glass_credentials:false`.
+- **The remaining blocker is physical presence, not authority.** This account is
+  in the `sudo` group but has no password, and is not in `adm`/`systemd-journal`,
+  so it can neither restart a unit nor read the system journal. Every root-level
+  sitting — the N-7 deployment, SP-12, the kill switch, the deliberate-refusal
+  restarts, the staging drill and SP-27's `createdb`/`iptables` — needs the
+  Operations Owner at the console.
+
+Update 2026-08-26 (seventy-third) — the supervised-session preparation is done,
+and preparing it found two defects.
+
+- **Everything in inventory §7 that SG-1 released is now built**, so no sitting is
+  spent on preparation: **C-5** `tests/perf_snapshot_fixtures.py`, **C-6**
+  `tools/snapshot_perf_harness.py`, **C-11/C-12** `tools/breakglass_observation.py`,
+  **C-7/C-9** `phase-3-p3-5-supervised-run-sheets.md`, **C-8**
+  `phase-3-p3-5-c8-staging-drill-guard-proposal.md`. **C-10 stays last.**
+- **N-10 — A-05 criterion 4a is not executable as written.** It asks for the
+  observation "under `WEB_ENVIRONMENT=staging`" **and** "on a **disposable**
+  database". Each environment is bound to exactly one database name
+  (`adapters/database/config.py:66`), so a staging-marked process must target
+  `freedom_staging` — the deployed database holding the protected account's two
+  **real** credentials, which the same criterion forbids manipulating. **Observed
+  refusing (S-01), not inferred from the rule.** The same shape as Codex finding
+  B-1: two halves of one criterion that cannot both hold. **Not resolved here** —
+  three options are recorded and the choice is the Security Reviewer's. The
+  harness refuses `staging` outright until it is taken.
+- **N-11 — SP-10 has no instrument.** `backup-restore-drill.sh` refuses any target
+  but `freedom_dev`/`freedom_test` **by design**, and says so in its header. The
+  C-8 proposal offers a two-signal guard extension with three falsifying tests,
+  **not applied**; route A or route B is Peter's decision with Codex's review.
+- **N-12 — two unexplained tests and four files the tree cannot agree about.** The
+  65 pre-existing bot-suite files collect **2379** today against a recorded
+  **2377**, with no tracked test file modified since. Separately and certainly,
+  four tracked test files are `0600` in the working tree while Git records
+  `100644`. Minor; reported rather than silently repaired, and neither figure is
+  asserted to be the wrong one.
+- **The fixtures are sized from the real observation, not from convenience.**
+  `folder-32` encodes to **16,287,681 bytes** against Rehearsal B's real
+  **16,287,185** — a drift of 496 bytes. The `bound` profile reaches **99.4%** of
+  N-20 at **131 Actors**, which records something worth knowing before the
+  sitting: once Actors are real-sized, **the byte bound binds long before N-20's
+  500-Actor bound**.
+- **Two of the five performance bounds have no accepted figure anywhere** and are
+  printed as `PROPOSED`. They need acceptance **before** the run they judge; the
+  other three are N-47, N-45 and C-11's throughput criterion, cited rather than
+  invented.
+- **Guards falsified, not asserted.** Every refusal in the credential harness is
+  made to fire in a test: no acknowledgement, a non-empty database, a credential
+  it did not create, a database it did not prepare. The production branch is shown
+  refusing with **S-15** below the threshold and passing at it — the second half
+  being the falsification that the refusal is the threshold and not
+  production-marking itself.
+- **Verification:** bot **2417 passed** (38 of the 40 new tests are this
+  package's), web **2398 passed / 80 skipped** unchanged, Foundry module **155
+  pass**, both `compileall` clean, `git diff --check` clean, single Alembic head
+  `0013`, asset and visual-freeze manifests **4/4** and **14/14** OK. Suites run
+  serially (F-6). Formatter, linter and type checker remain **not configured**.
+- **Nothing moved.** No staging procedure ran, no host state or service was
+  changed, no credential was touched, no database outside disposable
+  `freedom_test`/`freedom_dev` was contacted. TC-OPS-05 stays **Failed**; I-06,
+  A-05 and A-06 stay **Open**; R-23 stays an active accepted residual; SG-2 and
+  the SG-3 extension remain ungranted; **Phase 4 has not begun and remains
+  unauthorized**.
+
+Update 2026-08-26 (seventy-second) — the P3.5 authority request is issued; every
+remaining procedure waits on it.
+
+- **One request, six decisions.** `docs/review/phase-3-p3-5-authority-request-2026-08-26.md`
+  asks Peter Duscha, in the roles he holds, to: confirm or reject **D-o** and
+  change-log **C-P3.5-U** as Security Reviewer; grant **SG-2** for the staging
+  build and its named procedures; grant an **SG-3 extension** for the two
+  remaining credential-touching procedures; authorize **deploying the reviewed
+  N-7 fix by service restart** and a **fresh-interval SP-12 re-run**; authorize
+  **SP-27** as written; and confirm the proposed window.
+- **Every procedure carries its owner, duration, rollback trigger and evidence
+  destination**, decomposed into twelve sittings of 15–30 minutes each per D-g,
+  totalling roughly five attended hours.
+- **The N-7 deployment is a service restart and nothing else**, established from
+  the deployed unit: `WorkingDirectory=/opt/freedom-blades/platform`, so the fixed
+  source is already on disk; the unit file is unchanged by the fix; the running
+  process started `2026-08-25T22:46:33Z` while the fix was written
+  `2026-08-26T09:36:51Z`. Rollback is `git show HEAD:tools/portal_server.py` plus
+  a restart — the state running today.
+- **N-9 raised, not silently corrected.** This document says in several places
+  that "SG-3 remains ungranted", while the 2026-08-24 supervised-session evidence
+  §7 records SG-3 **approved that day** and its procedures SP-07, SP-20, SP-21 and
+  SP-22 executed and Passed. **Minor — record accuracy; no evidence is affected**
+  and no procedure ran without authority. The request therefore asks for an SG-3
+  *extension*, not a fresh grant. The historical entries are left as written.
+- **Verified while preparing the request, not asserted:**
+  `tests/web/test_n7_access_log_redaction.py` **59 passed**; `git diff --check`
+  clean; `run_resource_checks` confirmed at `application/web/startup.py:80`;
+  `EXPECTED_DATABASES["production"] == "freedom_production"` confirmed at
+  `adapters/database/config.py:18`.
+- **Nothing moved.** TC-OPS-05 stays **Failed**; I-06, A-05 and A-06 stay **Open**;
+  R-23 stays an **active accepted residual**; SP-27 stays **Not Run**; EX-11 and
+  EX-12 are still owed; the Phase 3 gate stays open; **Phase 4 has not begun and
+  remains unauthorized**. No host state, service, database or credential was
+  touched.
+
+Update 2026-08-26 (seventy-first) — Codex re-review reproduced the N-7 leak;
+I-1 corrected properly, and the earlier remediation's claim was false.
+
+- **The finding is correct.** Codex ran the filter over `record.args` set to a
+  **list** containing the callback target and the credential rendered intact. The
+  previous remediation traversed tuples and mapping values, handed everything else
+  to `_redact` as a scalar, and `_redact` changed only strings — **while its
+  docstring claimed every unrecognised record failed closed.** A false claim in a
+  security control's own documentation is worse than the gap it described.
+- **Not fixed by adding `list` beside `tuple`.** Two further shapes were
+  reproduced beyond the one Codex named: a `set`, and **an object carrying the
+  target only in its `__str__`**. The set of objects that can render a query string
+  is not enumerable, so any enumeration is a claim that becomes false later — the
+  same failure mode, one container along.
+- **The fallback no longer looks at structure.** An unrecognised record is
+  rendered by the filter and the rendered **text** is redacted, then stored with
+  `args = None`. The guarantee is now a property of the output and states in one
+  line: **no character after the first `?` survives.** A record that cannot render
+  becomes a placeholder carrying the exception's *type name* and nothing else —
+  which also closes a second defect, since a malformed record previously carried
+  its `TypeError` into whichever handler formatted it. Attached tracebacks and
+  stacks are redacted the same way.
+- **The pinned path is untouched.** Uvicorn 0.32.1's five-argument access line
+  still loses only its request target, so every ordinary access record keeps its
+  client, method, HTTP version and status code. That is what makes the aggressive
+  fallback affordable.
+- **Tests 27 → 59**, each leaking shape asserted twice — unfiltered to reproduce,
+  filtered to prevent — and every assertion made against the fully rendered
+  `LogRecord.getMessage()` rather than against mutated arguments.
+- **Stale evidence counts corrected** in the inventory's N-7 row and in the
+  sixty-seventh update above, annotated in place with their cause. Historical
+  statements describing the earlier review runs are left as they were.
+- **Suites green:** web **2398** passed / 80 skipped, bot **2377** passed, Foundry
+  module 155 pass. Live uvicorn end-to-end N-7 proof re-run: **PASS**.
+- **Nothing else moved.** TC-OPS-05 remains **Failed** pending deployment and an
+  SP-12 re-run; SP-27 remains Not Run; SG-2 and SG-3 remain ungranted; D-o still
+  awaits Peter's confirmation; the Phase 3 gate remains open; no host state or live
+  service was changed. **Returns to Codex for focused re-review.**
+
+Update 2026-08-26 (seventieth) — Codex interim review returned Changes Requested;
+all three findings remediated.
+
+- **B-1 (Blocking) — accepted, and the reviewer was right.** The D-n amendment
+  rested on treating "production-marked" and "publicly exposed" as the same event.
+  They are not: `run_resource_checks` is a plain function, so S-15's production
+  branch is reachable with **no listener, no bind and no route**. **D-n would have
+  weakened a security precondition while appearing to resolve a circularity that
+  did not exist.**
+- **Corrected as D-o (change-log C-P3.5-U).** **4b returns to A-05** as a closure
+  criterion, discharged by a new guarded exercise **SP-27** — disposable
+  `freedom_production` with synthetic credentials, outbound egress blocked,
+  `run_resource_checks` called directly so no socket is ever opened, then full
+  teardown. **4c** keeps a deployment-gate re-observation as defence in depth,
+  never a substitute. Operational contract §7 items 9 and 10 are now reconciled
+  **explicitly** instead of item 10 narrowing item 9 by implication.
+  **This awaits Peter's confirmation as Security Reviewer**, because it supersedes
+  a decision he recorded — it is implemented rather than held because it
+  **re-imposes** a control the earlier decision relaxed.
+- **I-1 (Important) — remediated, and the fix was found by a failing test.** The
+  N-7 filter passed unrecognised record shapes through untouched and its tests
+  enshrined that, so a uvicorn upgrade could have restored disclosure with the
+  suite green. The precise branch is now gated on the pinned **format contract**
+  rather than the record **shape** — gating on shape was itself unsafe, and the
+  new test proved it by catching a six-argument record whose credential sailed
+  past the redaction. Everything else now **fails closed**. Tests 20 → 27,
+  including a pin on uvicorn's access-log call in both protocol implementations.
+  *(Superseded 2026-08-26: "everything else fails closed" was **not true** — the
+  fallback still enumerated containers and Codex reproduced a leak through a list.
+  Corrected in the seventy-first update; this bullet is left as the claim that was
+  made.)*
+- **I-2 (Important) — corrected.** The inventory's SP-10 row carried a stale
+  sentence claiming EX-3 had never run, contradicting the same row. It was residue
+  from an earlier edit, not a second assessment; the row now distinguishes
+  TC-OPS-02's evidenced disposable half from its Not Run staging half.
+- **Codex confirmed the remaining credits:** D-l's scoping, D-m, SP-04, TC-UI-01/02
+  as satisfying the literal responsive rows without closing R-23, and all five N-8
+  citations. The N-7 severity assessment — including that **no rotation is
+  indicated** — was independently reviewed and upheld.
+- **Suites green:** web **2366** passed / 80 skipped, bot **2377** passed.
+- **Returns to Codex for re-review.** Nothing is closed; TC-OPS-05 remains Failed
+  pending deployment, SG-2 remains ungranted, the Phase 3 gate remains open.
+
+Update 2026-08-26 (sixty-ninth) — interim Codex review requested.
+
+- **Requested, and deliberately scoped.** `phase-3-p3-5-codex-review-request-2026-08-26.md`
+  asks for an independent implementation review plus a distinct security-focused
+  view of N-7. **It is not EX-11 or EX-12 and does not consume them** — both
+  mandatory gate passes remain owed over the completed package, which does not yet
+  exist.
+- **Why now rather than at completion.** Three decisions, an amendment to an
+  accepted A-05 closure criterion, a security finding with its fix, and four new
+  artifacts are the foundation everything subsequent cites. Rework is cheap now.
+- **The request names where the author expects to be wrong**, rather than leaving
+  the reviewer to find it: D-n's criterion amendment; the N-7 severity conclusion
+  that no rotation is indicated; the crediting of SP-04 and TC-UI-01/02 from
+  existing observations; the claim that all five N-8 rows are covered; and the
+  traceability method itself, which produced a wrong figure once and was corrected.
+- **Nothing is committed.** The review request says so and offers to commit
+  unchanged if Codex prefers a fixed revision.
+- **No gate decision is requested or implied.** SG-2 and SG-3 remain ungranted,
+  TC-OPS-05 remains Failed pending deployment, and Phase 4 remains prohibited.
+
+Update 2026-08-26 (sixty-eighth) — the N-7 fix is implemented and proved; all four
+missing P3.5 artifacts now exist.
+
+- **N-7 remediated and proved.** `tools/portal_server.py` installs a
+  `uvicorn.access` filter replacing the query string with `?<redacted>`. **20
+  regression tests**, including a falsification asserting the leak is real without
+  the filter, and an **end-to-end proof against a real running uvicorn**: the
+  credential is present without the filter and absent with it, path preserved.
+  **The unit file is unchanged**, so deployment is a service restart. TC-OPS-05
+  stays **Failed** until deployed and re-observed.
+- **Artifact 2 created** — the final requirements-to-evidence traceability. All
+  **318** accepted contract rows were resolved **mechanically and in both
+  directions**: **294** resolve to a real existing test, **19** are staging,
+  browser or device rows Not Run or partial by evidence level, and **5** have no
+  resolvable citation.
+- **A wrong intermediate figure was checked rather than published.** A first pass
+  searching only for tests naming their contract ID reported **99 uncited rows**.
+  For a large family the contract names the test rather than the reverse, so the
+  figure was wrong in the alarming direction. The corrected bidirectional result
+  is what the artifact reports, and the correction is recorded in it.
+- **Finding N-8, and it is good news.** The five rows with no resolvable citation
+  — TC-AUTH-17, TC-BG-19, TC-MIG-19, TC-MIG-21, TC-MIG-28 — were each chased
+  individually. **Every one has a passing test.** They are **citation gaps, not
+  coverage gaps**; the citations are supplied in the artifact and the accepted
+  contract is left unedited.
+- **Artifact 4 created** — accessibility and browser evidence, with F-1's TC-UI
+  renumbering reconciled against the accepted numbering, TC-UI-03 and TC-UI-05
+  given the citations F-1 showed they lacked, and every row not met at its
+  accepted level recorded as not met.
+- **N-1 resolved without renumbering.** `plan-SP-23` and `evidence-SP-23` are
+  distinguished by name throughout; renumbering timestamped evidence would edit
+  history to tidy a label.
+- **All four previously missing artifacts now exist.** Only the final submission
+  remains unwritten, and it must not be written until the evidence it would
+  summarise exists.
+- **Suites green:** web **2359** passed / 80 skipped, bot **2377** passed.
+- **Still nothing closed.** SG-2 ungranted, nine staging rows Not Run, TC-OPS-05
+  Failed pending deployment, the Phase 3 gate open.
+
+Update 2026-08-26 (sixty-seventh) — SP-12 executed; TC-OPS-05 fails on a real
+credential disclosure, remediated in the repository the same night.
+
+- **SP-12 executed and TC-OPS-05 FAILED.** The Operations Owner reviewed 5535
+  journal lines, reduced to distinct message shapes whose counts sum back to 5535
+  so nothing was sampled. **No name, character or Discord identity appears
+  anywhere.** But the OAuth authorization code and state were being written to the
+  journal in clear text on every successful login — **finding N-7**.
+- **The application was not the leak.** Uvicorn is started with no
+  `--no-access-log` and no log configuration, so its default access logger writes
+  the whole request line including the query string, and R-04
+  `/auth/discord/callback` is the one route that receives credentials as query
+  parameters because that is how the provider redirects.
+- **Severity, stated both ways.** Not an emergency: the observed codes are spent,
+  the flow is PKCE-bound so a code alone cannot be exchanged, and the journal is
+  readable only by root and `adm`/`systemd-journal`. **No client secret, cookie,
+  CSRF token, recovery grant or WebAuthn material appears; no rotation is
+  indicated.** But the criterion is that monitoring carries **no** token data, and
+  the same configuration would behave identically in production.
+- **Remediated in the repository, not yet deployed.** `tools/portal_server.py`
+  installs a `uvicorn.access` filter that replaces the query string with
+  `?<redacted>`, keeping the route identifiable. **The unit file is unchanged**, so
+  deployment is a service restart rather than unit surgery.
+- **The leak was reproduced before it was fixed.** ~~20~~ **59** regression tests
+  including falsifications asserting each leak is real without the filter, plus an
+  end-to-end proof against a real running uvicorn showing the credential present
+  without it and `?<redacted>` with it.
+  *(Count corrected in place 2026-08-26 on Codex's instruction: this row is a
+  current-state record, and the module grew 20 → 27 → 59 across two rounds of
+  finding I-1. The rest of the row stood as written.)*
+- **TC-OPS-05 stays Failed** until the fix is deployed and SP-12 re-run against a
+  fresh journal. That is a result rather than a gap, which is progress.
+- **Why it survived four gates:** P3.1 proved the OAuth flow and P3.4 proved the
+  rendering; neither looked at what the running process writes. Same shape as
+  F-15 and F-16.
+- **Suites green:** web 2359 passed / 80 skipped, bot 2377 passed.
+
+Update 2026-08-26 (sixty-sixth) — the two disposable-database rehearsals are
+executed; one cutover defect found and corrected.
+
+- **EX-3 executed.** `upgrade head → downgrade 0010 → upgrade head` against
+  `freedom_test`, after a pre-migration backup, with the documented rollback costs
+  read **before** the run. The schema round trip is **exact**: 986 lines, zero
+  differences.
+- **The 0013 rollback boundary was observed refusing on a real database**, not
+  only in a unit test. A synthetic committed-but-unpublished apply job was seeded,
+  the downgrade refused with exit status 1 and the documented message, and the
+  database was left **at head, complete and usable** — the guard fails closed.
+  Removing the job reopened the boundary, as the operations document states.
+  Runtime grants were re-applied and re-verified (11 passed).
+- **EX-4 executed.** Backup, checksum, destroy, restore and a table-and-row
+  inventory comparison, over **seeded synthetic rows** so the comparison could
+  fail. Identical across all 31 tables. The restored append-only trigger was then
+  verified **still refusing** a DELETE — a restore that returns rows but not
+  guards would pass a row count and still be a failure.
+- **TC-OPS-02's disposable half is now evidenced. Its staging half (SP-10)
+  remains Not Run.**
+- **Finding N-6, raised and corrected.** The filesystem cutover moved the
+  repository by rename, and `mv` preserves the mtime and size CPython uses to
+  validate cached bytecode — so **163 `.pyc` files still named
+  `/opt/discord-bots/freedom-bot`**, a directory that no longer exists. Six web
+  tests failed with `OSError: could not get source code` and every displayed path
+  named the vanished tree. The caches were cleared; the suite then ran **2339
+  passed, 0 failed**. No source, test or document changed. **The six failures were
+  not product defects**, and file paths quoted from any post-cutover run on this
+  host should be read as naming the pre-cutover tree.
+- **Full verification set green:** web 2339 passed / 80 skipped; bot 2377 passed;
+  Foundry module 155 passed; asset integrity 4/4; visual freeze 14/14; compile
+  clean in both environments; `git diff --check` clean; single linear head `0013`.
+  Formatter, linter and type checker remain **not configured, not run, not
+  passed**.
+- **Artifact 3 of five created** — `phase-3-p3-5-staging-and-operations-evidence.md`,
+  with the staging procedures listed and their result columns **empty**.
+- **Nothing closed.** SG-2 is still ungranted, no staging procedure has run, and
+  the Phase 3 gate remains open.
+
+Update 2026-08-25 (sixty-fifth) — A-05 criterion 4 split; all three P3.5 decisions
+formally recorded as C-P3.5-T.
+
+- **D-n — A-05 criterion 4 split: approved by Peter Duscha as accountable Security
+  Reviewer.** **4a** — startup and `/healthz` observed below and at the N-13
+  threshold under `WEB_ENVIRONMENT=staging`, on a disposable database with
+  synthetic credential records — remains an A-05 closure criterion and is Open and
+  executable. **4b** — S-15's production refusal — moves to the **deployment gate**
+  as a named go-live check. It is owed there, not waived.
+- **The premise was verified in code, not assumed.**
+  `WebEnvironment.is_production` is `PRODUCTION` alone and S-15 refuses only in
+  production, so no staging-marked process can observe that refusal; and
+  `WEB_ENVIRONMENT=production` is itself refused on this host before the lifespan
+  runs. A-05 gates public exposure, so a criterion satisfiable only after exposure
+  could never close.
+- **N-13 is unchanged and no control is weakened.** Two enabled credentials are
+  still required and retirement below two is still refused.
+- **Traceable and reversible by construction.** The original criterion wording is
+  retained **struck through rather than deleted** in execution plan §13.2, with
+  rationale, explicit non-effects and a reversal procedure. All three decisions —
+  D-l, D-m, D-n — carry a per-decision reversal table in change-log **C-P3.5-T**,
+  which also records reasons, alternatives rejected, scope, dependency, risk,
+  security and operational effects.
+- **Neither Codex pass has seen these decisions.** Both required P3.5 review passes
+  remain outstanding and will see them.
+- **A-05 now has one open executable criterion (4a) plus criterion 10.** SG-2 is
+  the only thing gating execution of every remaining I-06 procedure, and it is
+  **not** granted by the D-n approval, which was a wording decision carrying no
+  host authorization.
+
+Update 2026-08-25 (sixty-fourth) — the two blocking P3.5 decisions are taken.
+
+- **D-l — real Foundry data in staging: approved by the Data Owner.** A real
+  `the-guild` Actor folder may be submitted to `freedom_staging` as a supervised
+  operational input for TC-PERF-01/02 and TC-OPS-03, under the Rehearsal A/B
+  discipline: never committed, no Actor name or payload in any artifact, artifact
+  shredded and import tables truncated at teardown. §8.2's synthetic-only rule is
+  superseded **for those procedures only**. `Characters (active)` is the primary
+  folder, being the one the contract names and the only one with a real baseline.
+- **D-m — TC-PERF-02 repeat runs: option (b).** One real-folder apply reported
+  honestly as **n = 1**, plus two bounded-synthetic applies. Three runs against one
+  input is impossible by design: the commit fence returns runs 2 and 3 as
+  duplicates.
+- **Four procedures unblocked.** SP-11, SP-15, SP-16 and the A-06 input rule move
+  from Blocked to Not Run. About two hours of supervised work is released.
+- **A-05 criterion 4 re-analysed against the code, not assumed.**
+  `WebEnvironment.is_production` is `PRODUCTION` alone, so a staging-marked process
+  cannot produce S-15's refusal however it is configured — confirming the earlier
+  analysis and exposing a circular dependency, since A-05 gates the very exposure
+  its criterion 4 needs to exist. Recommendation recorded: split into **4a**
+  (re-observable on a disposable database under the staging marker and the accepted
+  C2-1 health contract, which the existing observation predates) and **4b** (moved
+  to the deployment gate). **Only the Security Reviewer may record that split; it
+  has not been applied.**
+- **Still nothing closed.** No RAID disposition moved, SG-2 remains unrequested,
+  and Phase 4 remains prohibited.
+
+Update 2026-08-25 (sixty-third) — P3.5 evidence inventory produced; nothing closed.
+
+- **The inventory is complete and closes nothing.** Every remaining SP and TC item
+  is recorded with its status under the execution plan's strict vocabulary, the
+  exact existing evidence that bears on it, and what is missing from its full
+  contract. No partial observation was converted into a pass. See
+  `docs/review/phase-3-p3-5-evidence-inventory-2026-08-25.md`.
+- **The environmental blockers are gone; the procedures are not done.** A staging
+  build exists and is healthy, the worker is active, `freedom_staging` is at head
+  `0013` with a genuinely restricted runtime role, and two real passkeys
+  authenticate against the deployed origin. What remains is execution of the named
+  procedures. TC-BG-02's browser half is **Passed**; plan-SP-23's browser work is
+  passed in part and recorded Not Run against its full contract.
+- **Five findings raised, two Important.** `SP-23` now names two different
+  procedures across accepted documents (N-1); TC-PERF-02's three-run method is not
+  executable against one input because the commit fence makes repeats duplicates
+  (N-2); the deployed portal has no snapshot-submission route, so TC-OPS-03 and
+  TC-PERF-01/02 need a supervised transport step first (N-3); the accepted
+  documents conflict on whether a real Foundry folder may be used in staging (N-4,
+  **referred to the Data Owner, not chosen**); and `freedom_staging` shares its
+  owner role with the disposable databases (N-5).
+- **Two decisions block about two hours of supervised work.** N-4 (real-folder
+  data rule) and N-2 (repeat-run method). Both are Peter's, and both cost minutes.
+- **Nothing is authorized by this.** SG-2 and SG-3 are unrequested, no RAID
+  disposition moved, no gate decision is requested, and Phase 4 remains
+  prohibited.
 
 Update 2026-08-25 (sixty-second) — Phase 3 gate audited; closure refused on
 missing mandatory evidence.

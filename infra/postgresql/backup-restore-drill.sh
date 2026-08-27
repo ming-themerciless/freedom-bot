@@ -7,9 +7,17 @@
 # checksum, destroy the schema, restore, and compare the table and row
 # inventory before and after.
 #
-# It refuses to run against staging or production. Recovering those means
-# restoring a verified off-host backup under the procedure in
-# docs/operations/database-development.md, never running a drill script.
+# It refuses production outright. It refuses staging *by default*, and accepts it
+# only when the operator supplies two independent, non-default signals
+# (FREEDOM_DRILL_ALLOW_STAGING and FREEDOM_DRILL_STAGING_CONFIRM naming the exact
+# database). That path exists for one accepted procedure -- P3.5's SP-10,
+# TC-OPS-02's staging half -- and is announced loudly when it is taken. Approved
+# by Peter Duscha, Operations Owner, 2026-08-26 (decision D-q, change-log
+# C-P3.5-V), as route A of docs/review/phase-3-p3-5-c8-staging-drill-guard-proposal.md.
+#
+# Recovering production means restoring a verified off-host backup under the
+# procedure in docs/operations/database-development.md, never running a drill
+# script.
 #
 # ---------------------------------------------------------------------------
 # WHY THE CONNECTION IS VALIDATED AND NOT JUST THE NAME
@@ -72,14 +80,37 @@ DATABASE="${1:-freedom_dev}"
 # 0a. Only disposable databases, by name
 # ---------------------------------------------------------------------------
 
-case "${DATABASE}" in
-  freedom_dev | freedom_test) ;;
-  *)
-    echo "Refusing to drill against '${DATABASE}': only freedom_dev and freedom_test" \
-         "are disposable." >&2
+# Computed once and reused by the connected-database gate below (0c). The
+# previous shape repeated the list, and the copy that matters for safety is the
+# second one -- the one that checks where the connection actually landed.
+PERMITTED_DATABASES="freedom_dev freedom_test"
+
+if [[ "${DATABASE}" == "freedom_staging" ]]; then
+  # Two independent signals, neither a default, and the second one has to name
+  # the database: a stray "export FREEDOM_DRILL_ALLOW_STAGING=1" in a shell
+  # profile cannot by itself turn a mistyped argument into a staging drill.
+  if [[ "${FREEDOM_DRILL_ALLOW_STAGING:-}" == "1" \
+        && "${FREEDOM_DRILL_STAGING_CONFIRM:-}" == "freedom_staging" ]]; then
+    PERMITTED_DATABASES="${PERMITTED_DATABASES} freedom_staging"
+    echo "=====================================================================" >&2
+    echo "STAGING DRILL. This DESTROYS AND RESTORES the freedom_staging schema." >&2
+    echo "Authorized for SP-10 (TC-OPS-02 staging half) under SG-2 only." >&2
+    echo "The dump taken in step 1 is the only thing standing between this run" >&2
+    echo "and a lost staging database. Verify it before step 3." >&2
+    echo "=====================================================================" >&2
+  else
+    echo "Refusing to drill against 'freedom_staging': it needs both" \
+         "FREEDOM_DRILL_ALLOW_STAGING=1 and" \
+         "FREEDOM_DRILL_STAGING_CONFIRM=freedom_staging." >&2
     exit 2
-    ;;
-esac
+  fi
+fi
+
+if [[ " ${PERMITTED_DATABASES} " != *" ${DATABASE} "* ]]; then
+  echo "Refusing to drill against '${DATABASE}': only ${PERMITTED_DATABASES}" \
+       "may be drilled." >&2
+  exit 2
+fi
 
 refuse_connection() {
   echo "Refusing to drill against '${DATABASE}':" "$@" >&2
@@ -177,10 +208,11 @@ if [[ "${CONNECTED_DATABASE}" != "${DATABASE}" ]]; then
   refuse_connection "the connection landed in database '${CONNECTED_DATABASE}'."
 fi
 
-case "${CONNECTED_DATABASE}" in
-  freedom_dev | freedom_test) ;;
-  *) refuse_connection "'${CONNECTED_DATABASE}' is not a disposable database." ;;
-esac
+# The same list, not a second copy of it. This gate is the security-relevant one:
+# it checks where libpq actually landed, after every redirection.
+if [[ " ${PERMITTED_DATABASES} " != *" ${CONNECTED_DATABASE} "* ]]; then
+  refuse_connection "'${CONNECTED_DATABASE}' is not a permitted drill target."
+fi
 
 # A Unix-domain connection reports neither a server nor a client address. Any
 # reported address means TCP, and a loopback one is NOT accepted: it is what a
@@ -208,9 +240,27 @@ chmod 700 "${WORK_DIRECTORY}"
 DUMP="${WORK_DIRECTORY}/${DATABASE}.dump"
 BEFORE="${WORK_DIRECTORY}/inventory-before.txt"
 AFTER="${WORK_DIRECTORY}/inventory-after.txt"
+GRANTS_BEFORE="${WORK_DIRECTORY}/grants-before.txt"
+GRANTS_AFTER="${WORK_DIRECTORY}/grants-after.txt"
+
+# The template that is the single source of truth for the runtime role's rights.
+# Beside this script, so the drill cannot be separated from it.
+GRANT_TEMPLATE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/runtime-grants.sql.tmpl"
 
 SCHEMA_DROPPED=0
 
+# `--no-owner --no-privileges` is the portable choice: it lets an archive restore
+# into a cluster whose roles differ, without `--exit-on-error` aborting the whole
+# restore on a GRANT naming a role that does not exist there. **It also discards
+# every GRANT in the archive** — which is invisible on a disposable database where
+# only the owner ever connects, and fatal on one with a restricted runtime role.
+#
+# Finding N-20 (2026-08-26): a staging restore returned every row and every
+# trigger, reported success, and left the portal and worker crash-looping because
+# the runtime role held no privileges. The flags stay — reverting them would trade
+# a recoverable state for a restore that aborts mid-incident — and steps 5b and 6
+# below restore the grant state deliberately and then **prove** it, rather than
+# leaving it to a step an operator must remember.
 RESTORE_COMMAND=(pg_restore --dbname="${DATABASE}" --no-owner --no-privileges
                  --single-transaction --exit-on-error "${DUMP}")
 
@@ -242,6 +292,37 @@ EOF
 }
 trap on_exit EXIT
 
+# The privilege state the restore discards. Recorded before the destroy and
+# compared after, so the drill can no longer be blind to what it throws away
+# (finding N-20). Schema privileges are included deliberately: the staging
+# failure left `public` with no ACL at all, and a table-only inventory would not
+# have shown it.
+grant_inventory() {
+  psql --dbname="${DATABASE}" -tAX -v ON_ERROR_STOP=1 <<'SQL'
+SELECT coalesce(string_agg(entry, E'\n' ORDER BY entry), '(no grants)') FROM (
+  SELECT format('TABLE %s|%s|%s', table_name, grantee, privilege_type) AS entry
+    FROM information_schema.table_privileges
+   WHERE table_schema = 'public'
+  UNION ALL
+  SELECT format('SCHEMA public|%s|%s', pg_get_userbyid(a.grantee), a.privilege_type)
+    FROM pg_namespace n, aclexplode(n.nspacl) a
+   WHERE n.nspname = 'public'
+) grants;
+SQL
+}
+
+# The role whose privileges must survive: whoever held table grants before the
+# destroy, other than the invoking user and PUBLIC. Derived rather than
+# configured, so the drill needs no per-database mapping to keep in step.
+detect_runtime_role() {
+  psql --dbname="${DATABASE}" -tAX -v ON_ERROR_STOP=1 <<'SQL'
+SELECT DISTINCT grantee
+  FROM information_schema.table_privileges
+ WHERE table_schema = 'public'
+   AND grantee NOT IN (current_user, 'PUBLIC');
+SQL
+}
+
 row_counts() {
   psql --dbname="${DATABASE}" -tAX -v ON_ERROR_STOP=1 <<'SQL'
 SELECT string_agg(entry, E'\n' ORDER BY entry) FROM (
@@ -265,6 +346,20 @@ echo "3. Recording the table and row inventory"
 row_counts >"${BEFORE}"
 cat "${BEFORE}"
 
+echo "3b. Recording the privilege inventory (N-20)"
+grant_inventory >"${GRANTS_BEFORE}"
+RUNTIME_ROLE="$(detect_runtime_role | tr -d '[:space:]')"
+if [[ -z "${RUNTIME_ROLE}" ]]; then
+  echo "    No runtime role holds table grants here; nothing to re-apply."
+elif [[ "${RUNTIME_ROLE}" == *$'\n'* ]]; then
+  echo "Refusing to drill: more than one non-owner role holds table grants," >&2
+  echo "so which one the runtime template should name is ambiguous. Resolve" >&2
+  echo "that before rehearsing a restore that has to put them back." >&2
+  exit 2
+else
+  echo "    Runtime role: ${RUNTIME_ROLE}"
+fi
+
 echo "4. Destroying the schema to prove the restore, not the backup"
 SCHEMA_DROPPED=1
 psql --dbname="${DATABASE}" -v ON_ERROR_STOP=1 \
@@ -273,10 +368,44 @@ psql --dbname="${DATABASE}" -v ON_ERROR_STOP=1 \
 echo "5. Restoring from the backup"
 "${RESTORE_COMMAND[@]}"
 
+echo "5b. Re-applying the runtime grants the restore discarded (N-20)"
+if [[ -n "${RUNTIME_ROLE}" ]]; then
+  if [[ ! -r "${GRANT_TEMPLATE}" ]]; then
+    echo "Restore verification FAILED: ${GRANT_TEMPLATE} is missing, so the" >&2
+    echo "runtime role's privileges cannot be restored." >&2
+    exit 1
+  fi
+  sed "s/__APP_ROLE__/${RUNTIME_ROLE}/g" "${GRANT_TEMPLATE}" \
+    | psql --dbname="${DATABASE}" -v ON_ERROR_STOP=1 -f - >/dev/null
+  echo "    Applied ${GRANT_TEMPLATE##*/} for ${RUNTIME_ROLE}"
+else
+  echo "    Skipped: no runtime role held grants before the destroy."
+fi
+
 echo "6. Comparing the inventory"
 row_counts >"${AFTER}"
 if ! diff -u "${BEFORE}" "${AFTER}"; then
   echo "Restore verification FAILED: the inventory differs." >&2
+  exit 1
+fi
+
+echo "6b. Comparing the privilege inventory (N-20)"
+grant_inventory >"${GRANTS_AFTER}"
+
+# **Loss, not difference.** An exact comparison would fail on a database whose
+# grants had drifted before the drill — step 5b re-applies the canonical
+# template to every table, so the result can legitimately hold *more* entries
+# than the starting state did. Failing there would punish the drill for having
+# repaired something. What must never happen is a privilege that existed before
+# and does not exist after, which is precisely the N-20 condition.
+LOST_PRIVILEGES="$(comm -23 <(sort "${GRANTS_BEFORE}") <(sort "${GRANTS_AFTER}"))"
+if [[ -n "${LOST_PRIVILEGES}" ]]; then
+  echo "Restore verification FAILED: privileges present before the drill are" >&2
+  echo "missing after it. The rows came back and the grants did not. An" >&2
+  echo "application connecting as the runtime role would find the database" >&2
+  echo "unusable — which is exactly what a row-count comparison cannot see" >&2
+  echo "(N-20). Missing entries:" >&2
+  echo "${LOST_PRIVILEGES}" >&2
   exit 1
 fi
 

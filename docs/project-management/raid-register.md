@@ -1,6 +1,126 @@
 # RAID register
 
-Status date: 2026-08-25
+Status date: 2026-08-26
+
+## Close of the 2026-08-26 supervised sessions
+
+**I-06 — Open, and substantially advanced.** Of its ten closure criteria, the
+staging build now carries: deployed startup refusals at **14 of 15** (S-13 is
+test-enforced and not observable on a live host), **TC-LIM-02 exact**,
+**TC-SEC-07's browser half in part**, **TC-OPS-01, -02, -03 partly, -04 partly and
+-05 all executed**, **worker recovery observed under a lost worker**, and
+**backup/restore/rollback evidence on staging**. **Not closable yet:** TC-OPS-03's
+end-to-end flow was exercised only with synthetic input, TC-PERF-01/02 still owe
+**D-m's real n = 1 apply**, TC-UI-08 covers one device width, and the Operations
+Owner and reviewers have not accepted it.
+
+**A-06 — Open, with most of its evidence now in hand.** Preview and apply
+durations, worker peak RSS against N-47, portal responsiveness and lease
+heartbeat/commit-fence behaviour were all measured against bounds **stated before
+the run** (§11.3; decision **D-s** for the two that had no accepted figure).
+Recovery after interruption produced **exactly one durable effect**. **Not
+closable yet:** criterion 1 requires representative *staging* conditions, and
+every input so far has been synthetic — real-shaped, but parsing roughly **3×
+faster** than real Actor data.
+
+**A-05 — Open on criterion 10 alone.** Criteria 1, 2, 2a, 3, **4a**, **4b**, 5, 6,
+7, 8 and 9 are Met. Criterion 10, the Security Reviewer's break-glass readiness
+confirmation, comes last by its own terms. Criterion **4c** is owed at the
+deployment gate as defence in depth.
+
+**R-23 — active accepted residual, marginally improved.** The skip link now
+Passes, reduced-motion support is verified in a real engine, and the exact Chrome
+build is recorded. Screen-reader traversal remains **permanently Not Run for
+Phase 3** under D-f, real-engine contrast and HTMX-enhanced paths remain Not Run,
+and TC-UI-08 covers one device width.
+
+**Findings raised across the day and not yet dispositioned by a reviewer:**
+**N-20** (Blocking, remediated and re-verified), **N-22** (Important — HSTS
+required by the accepted contract and configured nowhere), **N-13** (fixed and
+deployed), **N-21** (an outage caused by this package's own procedure, corrected),
+plus N-14, N-16, N-17, N-18, N-19, N-23 and N-24. **N-15 was withdrawn** on
+evidence that contradicted it.
+
+**Phase 4 remains unauthorized.** EX-11 and EX-12 are still owed.
+
+## P3.5 authority granted, and two criteria repaired — 2026-08-26
+
+- **SG-2 granted, and an SG-3 extension granted**, by Peter Duscha as Operations
+  Owner, together with specific authorization to deploy the reviewed **N-7** fix
+  by service restart and re-run **SP-12**, and to run **SP-27** as written
+  (change-log **C-P3.5-V**, execution plan §0.2 rows P-3 and P-4). **A grant is
+  not evidence:** no procedure has yet been executed and **no RAID disposition
+  moves on this entry.**
+- **D-o confirmed** by Peter Duscha as Security Reviewer. S-15's pre-exposure
+  observation stays inside **A-05** as criterion 4b, discharged by SP-27; the
+  deployment-gate check is 4c, defence in depth only.
+- **A-05 criterion 4a was not executable as written (finding N-10)** and is
+  repaired by decision **D-p**: the threshold observation is taken under the
+  `development` marker on a disposable database, because each environment is
+  bound to exactly one database name and a staging-marked process would have to
+  target the deployed staging database holding the protected account's two
+  **real** credentials. S-15 branches on `is_production` alone, so the observed
+  branch is identical. **A-05 remains Open**; criteria 4a, 4b and 10 are
+  outstanding and now all executable.
+- **I-06's SP-10 had no instrument (finding N-11)** and is repaired by decision
+  **D-q**: `backup-restore-drill.sh` accepts `freedom_staging` behind two
+  independent, non-default signals, with production keeping no override. **I-06
+  remains Open**; every procedure it needs is now unblocked but unexecuted.
+- **A-05 reduced to a single outstanding criterion, 2026-08-26.** Criterion **4a**
+  was met as M-1b under decision D-p, and criterion **4b** as SP-27 — S-15's
+  production-class refusal observed **before exposure**, with no listener, inside
+  a verified per-process network namespace on a disposable database proved empty
+  first, and shown to pass at two credentials so the refusal means the N-13 floor
+  rather than production-marking. **Only criterion 10 remains**, and by its own
+  terms it comes last. **A-05 stays Open.** Criterion 4c is owed at the deployment
+  gate as defence in depth.
+- **N-21 raised 2026-08-26 — this package's own procedure caused an
+  operator-visible outage.** SP-27's egress step reused SP-25's uid-scoped
+  firewall rule under `foundry`, the maintainer login, rather than the dedicated
+  `freedomweb` service account it was proven against, and took unrelated services
+  off TCP/443 until the Operations Owner diagnosed and removed it. No platform
+  service and no data was affected. **Corrected**: replaced by per-process network
+  namespace isolation, verified in use.
+- **N-20 raised 2026-08-26 — Blocking, against the recovery procedure.** SP-10's
+  restore on staging returned every row and every guard **and silently dropped the
+  runtime role's privileges**, leaving both units crash-looping until
+  `runtime-grants.sql.tmpl` was re-applied. The drill's row-inventory comparison
+  cannot see a missing GRANT, so it reported `Restore verified`. **I-06 criterion
+  8 (backup/restore/rollback evidence for staging) is satisfied as a procedure but
+  the procedure itself is defective**, and the deployment gate's "restore-tested"
+  input (§7 item 4, plan §14.3) is not met until the drill re-applies and asserts
+  the grants. **Remediated the same day** as options 2+3 with the Operations Owner's approval:
+  the drill records the privilege state before the destroy, re-applies the runtime
+  grants template afterwards, and fails when a privilege present before is missing
+  after. Both directions tested. **Verified on `freedom_staging` the same day**: the same
+  drill that previously left both services crash-looping (`NRestarts` 35/36) now
+  restores all 99 runtime privilege rows automatically, at the restricted posture
+  with `TRUNCATE` still denied, and both services start clean (`NRestarts=0`).
+  **N-20's remediation is proved on the target where the defect was reachable.**
+- **Six staging rows closed on 2026-08-26**: TC-OPS-05, SP-02, SP-03,
+  **SP-09 / TC-OPS-01**, SP-13 / TC-LIM-02 and SP-10 — the kill switch engaged, every route including a
+  mutation refused with a safe body, `/healthz` and `/static/` exempt as designed,
+  **the Discord bot and Foundry confirmed unaffected by the Operations Owner**,
+  and full recovery verified. **I-06 remains Open**: criterion 1 still needs the
+  proxy-boundary parity half (SP-13 / TC-LIM-02), and criteria 3 through 8 need
+  the sittings still ahead.
+- **TC-OPS-05 is now Passed**, at the third observation on 2026-08-26: run 1
+  failed on N-7, run 2 on N-13, run 3 is clean on every class over a fully
+  accounted-for interval. **I-06 criterion 4 moves one row closer and I-06
+  itself remains Open.** A coverage limit is recorded: no worker job ran in the
+  observed interval, so SP-12 is to be re-observed once after the performance
+  and worker-recovery sittings. **A separate open question stands** — the
+  deployed portal answered `POST /v1/auth/logout` with `415` twice, which the
+  shipped sign-out control cannot produce; if a real click does that, session
+  revocation is broken and A-05 criterion 7's **Met** status is wrong.
+- *(Superseded, retained for history)* **TC-OPS-05 was Failed on a new class.** The N-7 fix was deployed at
+  `2026-08-26T12:26:49Z` and **verified on the running portal**: the credential
+  class is clean. SP-12's re-run over the fresh interval then found **N-13**, the
+  client IP address logged in plaintext, which operational contract §5 prohibits
+  outright. Remediated in the repository with a keyed per-process pseudonym and
+  proved against a real uvicorn; **not deployed**, and deploying it is a decision
+  the Operations Owner has not yet taken because the code is unreviewed. **A-06 remains Open. R-23 remains an active accepted residual.**
+  The Phase 3 gate remains open and **Phase 4 remains unauthorized.**
 
 ## C2 contract decision and F5/S-2 review — 2026-08-25
 
@@ -324,7 +444,7 @@ Review and gate record:
 | A-02 | A guarded disposable PostgreSQL environment remains available, including a restricted runtime role that can be assumed for denial evidence | Operations Owner | Confirm before every database gate | **Partly validated 2026-08-02.** The disposable database `freedom_test` and the owner/test login `foundry` are available. The temporary restricted role `freedom_runtime_test` now **exists** and can be assumed: it is `NOLOGIN`, non-superuser, cannot create roles or databases, cannot replicate, cannot bypass RLS, and `foundry` is a member able to `SET ROLE freedom_runtime_test`. Role creation is therefore no longer an evidence gap. **Validated 2026-08-05:** the template was corrected for the retained schema, and `tests/test_runtime_grants_live.py` applies it and proves `UPDATE`, `DELETE` and `TRUNCATE` denial **directly under the role** (`SET ROLE freedom_runtime_test`) against real PostgreSQL, including after hostile `PUBLIC` drift — 13 tests, no skips in the 2026-08-05 run. Nothing outstanding on this assumption; it remains subject to the environment continuing to exist before each database gate. **Re-confirmed 2026-08-14** before P3.1: `TEST_DATABASE_URL='postgresql+psycopg:///freedom_test'` resolves through `assert_disposable_target` under `UNIX_SOCKET_ONLY`, and `verify_connected_unix_socket_target` proves `current_database() = 'freedom_test'` with both `inet_server_addr()` and `inet_client_addr()` null. P3.1's full database evidence ran against it |
 | A-03 | Maintainers can provide a supervised immutable Foundry snapshot rehearsal | Data Owner | Required before Phase 2 gate | **Validated 2026-08-09 and closed for Phase 2.** Rehearsal A used a real 35-Actor non-live folder; Rehearsal B previewed the real 32-Actor active folder with every Actor accounted for, zero errors, zero warnings and zero unexplained identity discrepancy. The Data Owner attestation was signed 2026-08-10. No artifact or real Actor payload was committed. |
 | A-04 | The legacy Sheet-backed bot remains the rollback implementation until approved cutover | Operations Owner | Validate at each Phase 5 cutover | Active |
-| A-05 | The Server Administrator's protected platform account is established and at least two WebAuthn credentials are enrolled **before** the portal is exposed publicly | Operations Owner / Security Reviewer | P3.1 operator documentation and the startup check S-15; enrollment is host-local (C-03). Deadline: before any staging or production exposure | **Open, and substantially advanced on 2026-08-25.** Criteria 1, 2, 2a, 3, 5, 6, 7, 8 and 9 are evidenced. C2-1 is now **accepted**: `/healthz` carries the fresh, fail-closed boolean `break_glass_credentials` check and the lifespan logs S-15 without publishing credential count or material. Criterion 4 still requires its remaining deployed observation and production-refusal evidence; criterion 10 still requires the Security Reviewer's final break-glass-readiness confirmation. Exactly one credential may authenticate but does not satisfy N-13's redundancy floor; zero cannot authenticate. Public exposure remains prohibited until both remaining criteria close. |
+| A-05 | The Server Administrator's protected platform account is established and at least two WebAuthn credentials are enrolled **before** the portal is exposed publicly | Operations Owner / Security Reviewer | P3.1 operator documentation and the startup check S-15; enrollment is host-local (C-03). Deadline: before any staging or production exposure | **Open, and substantially advanced on 2026-08-25.** Criteria 1, 2, 2a, 3, 5, 6, 7, 8 and 9 are evidenced. C2-1 is now **accepted**: `/healthz` carries the fresh, fail-closed boolean `break_glass_credentials` check and the lifespan logs S-15 without publishing credential count or material. **Criterion 4 was split on 2026-08-25 by decision D-n (change-log C-P3.5-T), approved by Peter Duscha as accountable Security Reviewer**, after the premise was verified in code: `WebEnvironment.is_production` is `PRODUCTION` alone and S-15 refuses only in production, so no staging-marked process can observe the production refusal, and a criterion satisfiable only after exposure could never close the item that gates exposure. **4a** — startup and `/healthz` observed below and at the N-13 threshold under `WEB_ENVIRONMENT=staging`, on a disposable database with synthetic credential records — remains an A-05 closure criterion and is **Open, executable**. **4b** — S-15's production-class refusal — **remains an A-05 closure criterion**, discharged by the guarded pre-exposure exercise **SP-27**: a disposable `freedom_production` database with synthetic credential records, outbound egress blocked, and `run_resource_checks` called directly so **no socket is ever opened**. **Corrected 2026-08-26 (D-o, change-log C-P3.5-U) after Codex Blocking finding B-1**, which showed D-n's premise conflated "production-marked" with "publicly exposed" and so would have weakened a security precondition. **4c** — a deployment-gate re-observation — is retained as defence in depth and never substitutes for 4b. Awaiting the Security Reviewer's confirmation of the correction. N-13 is unchanged and no control is weakened. The original wording is retained struck through in execution plan §13.2 so the change is reviewable and reversible. Criterion 10 still requires the Security Reviewer's final break-glass-readiness confirmation. Exactly one credential may authenticate but does not satisfy N-13's redundancy floor; zero cannot authenticate. Public exposure remains prohibited until both remaining criteria close. |
 | A-06 | PostgreSQL is an acceptable substrate for the job queue and the cross-process rate limiter, so no second datastore is introduced | Technical Lead | P3.3 concurrency and restart evidence (TC-JOB-02…08) and the P3.5 staging rehearsal | **Open** — introduced by the P3.0 package 2026-08-13; the dependency proposal rests on it. P3.1 exercised the limiter half: `test_the_limiter_counts_across_processes` proves two engines sharing one database enforce one budget |
 | A-07 | The three deviations P3.1 declares against the accepted P3.0 contracts are acceptable as implemented | Technical Lead / Security Reviewer | Codex independent and security review at P3.G1, then Peter's decision | **Open** — introduced by P3.1 on 2026-08-14. (1) `role_capability_mappings.created_by_account_id` is nullable, constrained by `CHECK (created_by_account_id IS NOT NULL OR protected)`, because the migration inserts the protected row when no account exists; schema §8 states `Null: no`. (2) `WEB_SECRET_KEY_CLIENT_DIGEST` is added to the configuration contract's named set, because the schema specifies a *salted* address hash and an unkeyed one is reversible. (3) `webauthn_challenges` is added, because SM-03 requires a challenge row and schema §9 lists no table for it. Each is recorded in `docs/review/phase-3-p3-1-submission.md` §8 |
 

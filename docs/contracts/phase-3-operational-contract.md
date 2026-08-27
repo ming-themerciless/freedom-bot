@@ -316,10 +316,37 @@ deployment (which is itself behind a separate gate):
    unaffected;
 8. monitoring in place with no personal data; and
 9. the environment-separation checks (S-01…S-15) demonstrated failing on
-   deliberately wrong configuration.
+   deliberately wrong configuration; and
+10. **S-15's production-class refusal, **re-observed** at this gate**, together
+    with the production-refusal evidence. **Added 2026-08-25 and corrected
+    2026-08-26** after Codex interim finding **B-1** (decision **D-o**, change-log
+    **C-P3.5-U**).
+
+### How items 9 and 10 relate, stated rather than left to implication
 
 Item 9 is worth its place: a startup refusal that has never been observed refusing
 is an assumption.
+
+**Item 10 does not narrow item 9, and does not carve S-15 out of it.** An earlier
+version of item 10 said S-15 *could not* be observed before this gate, which
+contradicted item 9's requirement that S-01…S-15 all be demonstrated failing, and
+would have left the two items disagreeing about the same check. That was wrong on
+the facts: `run_resource_checks` is a plain function
+(`application/web/startup.py:80`), so S-15's production branch is reachable **with
+no listener, no bind and no route** — a production-*marked* exercise is not a
+publicly *exposed* one.
+
+The relationship is therefore:
+
+- **item 9 stands unchanged and unqualified** — every one of S-01…S-15, S-15
+  included, is demonstrated failing on deliberately wrong configuration, and for
+  S-15 that evidence is owed **before exposure**, as A-05 criterion 4b (SP-27);
+- **item 10 is a re-observation at this gate**, on the configuration that will
+  actually serve production traffic, as **defence in depth**.
+
+**Item 10 never substitutes for item 9 or for A-05 criterion 4b.** A gate that
+accepted "it will be checked at the next gate" in place of evidence would be
+accepting a promise as a control.
 
 ## 8. Traceability
 

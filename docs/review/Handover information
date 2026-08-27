@@ -1,221 +1,170 @@
-# Codex handover to Claude — C1/C2 remediation re-review
+# Codex handoff to Claude — finish Phase 3 closure; do not begin Phase 4
 
-**Date:** 2026-08-25
+**Date:** 2026-08-26
 
-**Repository:** `/opt/discord-bots/freedom-bot`
+**Repository:** `/opt/freedom-blades/platform`
 
 **From:** Codex, Independent Reviewer
 
 **To:** Claude, P3.5 working Technical Lead
 
-**Submission reviewed:**
-`docs/review/phase-3-p3-5-codex-c1-c2-remediation-2026-08-25.md`
+## Outcome required
 
-**Review range:** `020f455..78dfb67`
+Coordinate and complete the remaining Phase 3/P3.5 closure work, assemble the
+final evidence package, and submit it for the two mandatory reviews and Peter
+Duscha's gate decision.
 
-**Branch:** `docs/platform-plan`
+**Do not begin Phase 4 implementation.** Phase 4 planning may continue only
+within the allowance in `docs/implementation-plan.md` §12.0. No Phase 4 code,
+migration, configuration or behavior change is authorized until the Phase 3
+authentication/security gate is explicitly approved and recorded.
 
-This file replaces the preceding Codex handover after re-review of Claude's C1/C2
-remediation package. It records review findings and remediation requirements. It
-does **not** make an Acceptance Authority decision, authorize public exposure or
-Phase 4, close A-05, or close the Phase 3 gate.
+The I-1 repository remediation in
+`phase-3-p3-5-codex-i1-re-review-remediation-2026-08-26.md` passed Codex's
+focused re-review with no remaining finding. This closes I-1 at repository
+level only. It does not close N-7 operationally, TC-OPS-05, P3.5 or Phase 3.
 
----
+## Authority and roles
 
-## 1. Re-review outcome
+- **Claude:** working Technical Lead; inspect evidence, prepare commands and run
+  sheets, coordinate supervised work, make only authorized repository changes,
+  record evidence accurately, and assemble the gate package.
+- **Peter Duscha:** Operations Owner, Data Owner, Security Reviewer where
+  recorded, and Acceptance Authority. Peter alone grants SG-2/SG-3, authorizes
+  deployment or host mutation, participates where required, confirms D-o,
+  decides RAID/gate dispositions, and releases Phase 4.
+- **Codex:** performs EX-11 independent implementation review and the distinct
+  EX-12 security-focused review after the complete package exists. Prior focused
+  reviews do not consume EX-11 or EX-12.
 
-**Changes requested.** The central C1 and C2 mechanisms are now present and the
-focused regressions pass, but two findings remain:
+This handoff is not SG-2, SG-3, deployment approval, a credential ceremony,
+permission to use production data, public exposure, or a gate decision.
 
-1. **C3 (High):** the installer does not safely validate a pre-existing
-   `worker.env`, despite the return package claiming exact content and deliberate
-   ownership/mode.
-2. **C4 (Medium):** the C2 documentation incorrectly equates fewer than two
-   credentials with an unusable emergency route. One enabled credential lacks
-   required redundancy but can still authenticate.
+## Read before acting
 
-The supported-installer host re-run also remains outstanding, as the submission
-correctly records. F5/S-2 therefore remain pending host observation and re-review.
-A-05 criterion 4 remains open, and criterion 10 remains untouched.
+Read completely:
 
-No repository file other than this handover was changed during review.
+1. `.agents/AGENTS.md`
+2. `docs/implementation-plan.md`, especially §§0, 12.0, 13, 14, 16.3 and 16.4
+3. `docs/review/phase-3-p3-5-readiness-and-execution-plan.md`
+4. the current P3.5 evidence inventory, staging/operations evidence,
+   requirements traceability, and accessibility/browser evidence
+5. all three 2026-08-26 Codex interim/I-1 review and remediation records
+6. `docs/contracts/phase-3-operational-contract.md`
+7. current status, RAID, decision register and change log
 
-## 2. What the remediation established
+Then inspect `git status`. The tree is dirty and contains other people's work;
+preserve it. Do not discard, rewrite, commit or reformat unrelated changes.
 
-### C1 core mechanism
+## Step 1 — obtain authority Claude cannot supply
 
-The repository now connects the worker template to its executable consumer:
+Prepare one concise request to Peter that:
 
-- `WORKER_ENV_FILE` is defined;
-- an absent worker file is created with `WORKER_ENABLED=true`;
-- `__WORKER_ENVIRONMENT_FILE__` is substituted;
-- the losing `Environment=WORKER_ENABLED=true` append is removed;
-- generated directive lines are checked for unresolved placeholders;
-- the worker environment file is ordered after the shared file; and
-- the installer asks systemd for the parsed `EnvironmentFiles` order after
-  `daemon-reload`.
+1. asks him as Security Reviewer to confirm or reject **D-o** and change-log
+   **C-P3.5-U**;
+2. asks him as Operations Owner to grant **SG-2** for the staging build and
+   named SG-2 procedures;
+3. asks him to grant **SG-3** separately for the credential ceremony and be
+   present for every assigned step;
+4. asks permission to deploy the reviewed N-7 fix by the documented service
+   restart and rerun **SP-12** over a fresh journal interval;
+5. explicitly includes **SP-27**: disposable `freedom_production`, synthetic
+   credentials, blocked outbound egress, direct `run_resource_checks`
+   invocation with no listener/socket, and mandatory teardown; and
+6. states the proposed window and every procedure's owner, duration, rollback
+   trigger and evidence destination.
 
-The generated worker unit agrees with the manually repaired deployed unit at the
-directive level. The new deployment-artifact regressions cover the original C1
-failure and passed during this review.
+Execute nothing until its required authority is recorded. If Peter changes
+scope, data use, authorization, environment, rollback or acceptance policy,
+stop and process it through controlled change before continuing.
 
-### C2 core mechanism and security assessment
+## Step 2 — execute only the approved run sheet
 
-The proposed C2 contract change is implemented:
+Once authorized, follow the readiness/execution plan exactly. First reconcile
+it with current evidence; do not rerun completed procedures merely because an
+older table says `Not Run`.
 
-- VM-16 gains the boolean `break_glass_credentials` check;
-- `/healthz` asks the database afresh rather than retaining startup state;
-- fewer than two enabled credentials makes the check false and health degraded;
-- a failure to query is fail-closed;
-- no credential count or material is exposed by the health body; and
-- startup warnings are logged instead of only stored in an unread attribute.
+The closure path must address:
 
-**Security-review recommendation:** the boolean-only, loopback-only health signal
-is proportionate, fresh, fail-closed, and does not disclose credential material.
-Codex recommends approving the additive C2 health-contract change after C4's
-inaccurate semantics are corrected. This recommendation is not the Acceptance
-Authority's approval.
+- deployment of N-7 and a fresh SP-12 rerun; TC-OPS-05 remains `Failed`
+  unless the deployed observation passes;
+- SP-27 for A-05 criterion 4b;
+- all remaining SG-2 staging procedures, including deployed worker/recovery,
+  browser/device, resource/performance and operational evidence for I-06/A-06;
+- remaining SG-3 credential-ceremony procedures required by A-05;
+- A-05 criteria 4a and 10 and any other currently open criterion;
+- evidence-based final dispositions for **I-06, A-05, A-06 and R-23**; and
+- all mandated teardown, credential handling, artifact shredding, database
+  cleanup, rollback and restoration.
 
-## 3. C3 — High: an existing worker environment file is not safely confirmed
+Use no real Actor/player data except within accepted D-l scope and Peter's
+specific supervised authorization. Never commit snapshots, credentials,
+journal secrets, player data or staging artifacts. Record failures as failures.
+Do not weaken a criterion or convert `Not Run` to `Passed` from simulation.
 
-### Evidence
+If deployment or a procedure fails, stop dependent work, apply only documented
+recovery within the granted authority, record the result, and claim no closure.
 
-The existing-file branch is at
-`infra/staging/setup-portal-host.sh:264-273`. It extracts the last line matching
-`WORKER_ENABLED=` and accepts the file if that extracted text is exactly `true`:
+## Step 3 — update canonical evidence
 
-```bash
-effective="$(sed -n 's/^[[:space:]]*WORKER_ENABLED=//p' "$WORKER_ENV_FILE" | tail -n 1)"
-[ "$effective" = "true" ] || die ...
-```
+Update the existing staging/operations evidence, inventory, traceability,
+browser evidence where applicable, management registers, and final P3.5
+submission. Do not create competing sources of truth.
 
-That is weaker than the submission's claim that the file is safely confirmed to
-contain exactly one line with deliberate owner and mode. For example, this passes:
+Preserve historical observations and counts. Add dated current-state results
+instead of rewriting history. Retain the original SP-12 failure and separately
+record its post-deployment rerun.
 
-```text
-WEB_DATABASE_URL=unexpected-database
-WORKER_ARTIFACT_ROOT=/unexpected/path
-WORKER_ENABLED=true
-```
+Map every criterion and mandatory scenario to a named automated test or
+supervised check. Report skips and mocks honestly and distinguish disposable,
+staging, browser/device and production evidence.
 
-Because the worker file is loaded after the shared portal file, every extra
-assignment can override shared configuration. The same branch also accepts:
+## Step 4 — verification
 
-- duplicate assignments whose last parsed value is `true`;
-- a regular file with unintended owner, group or permissions;
-- a group/world-writable file; and
-- a symlink resolving to a regular file.
+Run narrow checks followed by the complete configured verification set,
+serially where required. Report exact commands, interpreters, environment,
+results, skips, warnings and duration:
 
-The creation branch applies `root:${SERVICE_GROUP}` and mode `0640`, but the
-existing-file branch checks neither. The new repository tests assert that the
-creation statements exist; they do not execute or falsify existing-file
-validation.
+- focused N-7 tests;
+- full web and bot/domain suites;
+- PostgreSQL-marked tests against an authorized disposable database only;
+- Foundry module tests;
+- asset and visual-freeze integrity;
+- Alembic single-head/migration consistency;
+- `compileall` in both configured Python environments; and
+- `git diff --check`.
 
-### Required remediation
+Formatter, linter and type checker remain **not configured / not run / not
+passed** unless that genuinely changes. Review the diff for secrets, snapshots,
+unsafe logs, generated artifacts, unrelated edits and false gate claims.
 
-The existing-file path must fail closed unless all intended properties hold:
+## Step 5 — mandatory review and gate sequence
 
-1. The path is a regular file and is not a symbolic link.
-2. Owner, group and mode match the documented contract (`root`, the service
-   group, `0640`), using a check appropriate to the deployed platform.
-3. Its complete content is exactly the one permitted assignment,
-   `WORKER_ENABLED=true`, with only an explicitly chosen final-newline policy.
-4. No second assignment, unrelated variable, comment or malformed content is
-   silently accepted if the contract continues to say “exactly one line.”
-5. Regression tests execute or faithfully exercise the existing-file validation
-   for accepted and rejected cases, including extra variables, duplicates,
-   unsafe mode/ownership shape, and a symlink.
+Only after the evidence package is complete:
 
-Preserve the installer promise not to overwrite an existing file silently. A
-nonconforming existing file should produce a clear refusal and operator action.
+1. request **EX-11** from Codex as independent implementation review;
+2. request **EX-12** from Codex as a separate security-focused review;
+3. remediate and obtain re-review of every Blocking finding;
+4. present the package and both recommendations to Peter; and
+5. ask Peter to record the Phase 3 gate decision and, only if approved,
+   explicitly release Phase 4 implementation.
 
-## 4. C4 — Medium: below the redundancy threshold does not always mean unusable
+Claude must not approve its own work, treat a focused prior review as EX-11 or
+EX-12, or infer Phase 4 authority from tests, deployment, staging, a review
+recommendation, or this handoff.
 
-### Evidence
+## Return handoff
 
-The new operational description says that fewer than two credentials means “the
-emergency route cannot be used” in
-`docs/operations/web-portal.md:752`. Related language appears in the C2
-implementation comments and remediation submission.
+Report:
 
-That statement is true when no credential exists or the protected account is
-absent. It is not true when one valid credential remains: a WebAuthn break-glass
-login can still succeed, but the account is below N-13's required redundancy and
-is not ready for exposure.
-
-This distinction matters during an incident. An operator should not be told that
-the remaining authenticator is unusable when it may be the available recovery
-path.
-
-### Required remediation
-
-Describe the boolean consistently as readiness against the required
-two-credential redundancy floor:
-
-- `true`: at least two enabled credentials, satisfying N-13;
-- `false`: below the required readiness/redundancy threshold or the check could
-  not be performed;
-- zero/no protected account: break-glass authentication cannot succeed; and
-- exactly one: authentication may still succeed, but redundancy/readiness is
-  insufficient and the portal must not be exposed.
-
-Correct the operations guide, code comments/docstrings, contract/change records,
-tests and the return-package narrative wherever they make the stronger
-“cannot be used” claim for the entire below-two state. The boolean behavior itself
-does not need to change.
-
-## 5. Still-outstanding operational evidence
-
-C1 item 7 has not run: the supported installer must be exercised in an authorized
-disposable or staging context, followed by direct worker-process evidence.
-
-Required observation remains:
-
-```text
-supported installer completes without refusal
-systemd reports shared EnvironmentFile first and worker EnvironmentFile second
-freedom-worker.service is active after restart
-journal contains no S-11 refusal
-```
-
-`/healthz.worker_heartbeat` is not worker-process liveness evidence.
-
-C2's `/healthz` behavior has not yet been observed on the deployed host, and the
-production S-15 refusal remains deferred until an authorized production deployment
-or a formally approved criterion amendment. These facts keep A-05 criterion 4
-open.
-
-## 6. Verification performed by Codex
-
-```text
-./venv-web/bin/python -m pytest -q tests/test_deployment_artifacts.py
-    12 passed
-
-TEST_DATABASE_URL=postgresql+psycopg:///freedom_test \
-  ./venv-web/bin/python -m pytest -q \
-  tests/web/test_break_glass_health_reporting.py \
-  tests/web/test_provider_health_probe.py
-    25 passed
-
-git diff --check 020f455..78dfb67
-    clean
-```
-
-Codex did not repeat the complete web, bot or Node suites, privileged host steps,
-browser ceremonies, journal inspection or live database observations. Those
-remain the submission's reported evidence rather than checks executed during this
-re-review.
-
-## 7. Requested return package
-
-Please return:
-
-1. C3's strict existing-file validation and focused falsification evidence;
-2. C4's corrected readiness/redundancy language across every affected current
-   record and implementation comment;
-3. focused and full verification with exact commands and results;
-4. project-management state that keeps F5/S-2 pending until the authorized
-   installer run and keeps A-05 criteria 4 and 10 open; and
-5. a refreshed diff boundary and clean-tree statement.
-
-No gate decision is requested from Claude, and none is taken here.
+- authority/decisions obtained and their record locations;
+- procedures, owners, environments and exact outcomes;
+- failures, deviations, rollbacks and unresolved findings;
+- files changed and exact verification results;
+- checks not run and why;
+- security/privacy/data-handling implications;
+- teardown and recovery confirmation;
+- current TC-OPS-05, I-06, A-05, A-06 and R-23 dispositions;
+- the request for EX-11 and EX-12 over the complete package; and
+- confirmation that Phase 4 has not begun and remains unauthorized pending
+  Peter's explicit gate decision.
