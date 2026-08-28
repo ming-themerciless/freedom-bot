@@ -330,7 +330,7 @@ version, network topology, and which fields are authoritative on each side.
 Begin with one narrow, useful flow—usually read-only character/resource
 display—before allowing writes.
 
-The currently observed baseline for `The Guild` is Foundry `14.365`, D&D5e
+The currently observed baseline for `The Guild` is Foundry `14.367`, D&D5e
 `5.3.3`, world ID `the-guild`, with active characters in the Actor folder
 `Characters (active)`. Treat these values as an observed deployment baseline,
 not an eternal compatibility promise. The connector must negotiate or validate
@@ -455,6 +455,37 @@ partial external failure, and permission denial.
 
 Tests must never contact live Discord, Sheets, production databases, Foundry, or
 external media services. Do not use real player data or credentials in fixtures.
+
+### Running the suites
+
+Two facts about this repository make it easy to produce a green run that proves
+nothing. Both are load-bearing; state them in any evidence that cites a figure.
+
+**The test interpreters are not in the repository.** `./venv` and `./venv-web`
+are the *runtime* environments and have no pytest installed. The suites run
+under `/opt/discord-bots/venv` (bot) and `/opt/discord-bots/venv-web` (web), a
+survival of the filesystem migration. `./venv-web/bin/python -m pytest` reports
+`No module named pytest`; that is the wrong interpreter, not a broken suite.
+
+**`TEST_DATABASE_URL` must be exported**, naming the Unix-domain socket:
+`postgresql+psycopg:///freedom_test`. Without it every database-marked test
+skips, the web suite reports roughly *1141 passed, 1362 skipped* in about
+twelve seconds, and **it still exits 0**. Check the skip count before believing
+a pass: the correct figure is **80**, and `-rs` prints the reason for each.
+
+Run the two suites **serially**. They share one disposable database (finding
+F-6), so a parallel run is not a faster verification — it is a different one.
+
+```
+export TEST_DATABASE_URL='postgresql+psycopg:///freedom_test'
+/opt/discord-bots/venv/bin/python     -m pytest -q -rs tests/test_*.py
+/opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
+node --test "foundry-module/tests/"*.test.mjs
+```
+
+Re-run the full set against the tree you are actually submitting. A figure
+carried over from an earlier tree is an assertion about a state that no longer
+exists.
 
 ## Contributor and agent workflow
 

@@ -12,6 +12,39 @@ freedom-blades-test.rpgworld.org {
 	encode zstd gzip
 	header -Server
 
+	# HSTS (N-22). Operational contract §4.1 gives Caddy two jobs, TLS and HSTS,
+	# and until 2026-08-27 this file implemented only the first. One year is the
+	# contract's floor.
+	#
+	# **No `includeSubDomains`.** The decision stands; the reason recorded for it
+	# on 2026-08-27 did not, and is corrected here rather than left to be
+	# rediscovered. It said the directive was reserved "until the Operations
+	# Owner confirms no sibling host under `rpgworld.org` would break, and the
+	# Foundry hosts are siblings". **That is not what the directive does.**
+	# `includeSubDomains` binds the host that sent the header *and names beneath
+	# it* (RFC 6797 §6.1.2) — here, `*.freedom-blades-test.rpgworld.org` — so
+	# `foundry1.rpgworld.org` and its two peers are **siblings, not subdomains,
+	# and are unaffected either way**. The stated risk did not exist. It would
+	# only reach the Foundry hosts if this header were served from the apex
+	# `rpgworld.org`, and no block serves the apex.
+	#
+	# **Why it is still omitted, on a reason that holds:** no name exists beneath
+	# this host, so the directive would buy nothing today while committing every
+	# future name under it to HTTPS-only for a year — before anything is known
+	# about what those names will serve. A control with no present benefit and an
+	# unbounded future commitment is the wrong default. The contract's
+	# reservation of the directive to the Operations Owner is a governance rule
+	# and is untouched by this correction.
+	#
+	# **No `preload`** either — that is a submission to a browser-vendor list and
+	# is close to irreversible.
+	#
+	# **On a test hostname this is a real commitment**: every browser that visits
+	# will refuse plain HTTP to this name for a year. That is acceptable because
+	# nothing is ever served here over HTTP, and it is the same posture production
+	# will carry.
+	header Strict-Transport-Security "max-age=31536000"
+
 	# ------------------------------------------------------------------
 	# Who may reach it — remove at go-live, along with this whole file
 	# ------------------------------------------------------------------

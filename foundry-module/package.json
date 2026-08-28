@@ -1,6 +1,6 @@
 {
   "name": "freedom-blades-export",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "private": true,
   "type": "module",
   "description": "Declares the module's .js files as ES modules so `node --test` can import them directly. There are no dependencies, no lockfile, no install step and no build step; this file exists only so Node parses the same files Foundry loads.",

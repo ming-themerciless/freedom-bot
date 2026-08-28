@@ -154,7 +154,7 @@ observable to every concurrent user and to monitoring.
 | Site block | Exactly `freedom-blades.rpgworld.org` (N-01). No wildcard (OD-19) |
 | Unknown hosts | Not matched by the block, therefore refused at the proxy; the application refuses again (route contract §2.1) |
 | TLS | Existing Cloudflare origin certificates, as for the Foundry hosts |
-| HSTS | `max-age` at least one year, `includeSubDomains` only after the Operations Owner confirms no sibling host would break |
+| HSTS | `max-age` at least one year. `includeSubDomains` and `preload` only on an Operations Owner decision. **Premise corrected 2026-08-27:** this row read *"`includeSubDomains` only after the Operations Owner confirms no sibling host would break"*. The reservation stands; the reason given for it did not. `includeSubDomains` binds the sending host and names **beneath** it (RFC 6797 §6.1.2), so the Foundry hosts — siblings of the portal names, not subdomains of them — cannot be affected by it, and no block serves the apex `rpgworld.org`. What the Operations Owner is actually deciding is whether to commit **every future name beneath the portal host** to HTTPS-only for the whole `max-age`, before anything is known about what those names will serve |
 | Request body | N-55: 1 MiB for `/v1/*`, 64 MiB only on the existing submission route |
 | Timeouts | Read/write bounded; the submission route keeps its accepted longer budget |
 | Headers | Adds HSTS; the application owns CSP and the rest (route contract §7.2) so there is one authority per header |

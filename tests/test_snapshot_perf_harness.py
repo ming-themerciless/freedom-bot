@@ -1,7 +1,7 @@
 """C-6's harness has to be right about two things: a unit, and a promise.
 
 The unit: `/proc/<pid>/status` reports memory in kB, and N-47 is a byte figure.
-A missed conversion here is a factor of 1024 against a 1 GiB ceiling — it would
+A missed conversion here is a factor of 1024 against a 2 GiB ceiling — it would
 report a worker at 70% of the limit as one at 0.07%, and the measurement would
 look comfortable precisely when it was not.
 
@@ -16,6 +16,7 @@ import pytest
 from tools.snapshot_perf_harness import (
     BOUNDS,
     N45_HARD_CAP_SECONDS,
+    N45_SOFT_WARNING_SECONDS,
     N47_MEMORY_MAX_BYTES,
     THROUGHPUT_LIMIT_MS_PER_MB,
     HarnessError,
@@ -145,5 +146,41 @@ def test_the_accepted_numbers_match_the_policy_they_claim_to_restate():
     )
 
     assert THROUGHPUT_LIMIT_MS_PER_MB == benchmark_limit
-    assert N47_MEMORY_MAX_BYTES == 1024 * 1024 * 1024
     assert N45_HARD_CAP_SECONDS == 300
+
+
+def test_the_memory_ceiling_matches_the_shipped_worker_unit():
+    """The harness restates N-47; the systemd unit *is* N-47. Pin them together.
+
+    Pinned to a literal until 2026-08-27, which is precisely how it drifted: the
+    C-P3.5-Z raise reached the register and the unit, the harness kept 1 GiB, and
+    the literal kept the suite green while the measuring tool disagreed with the
+    policy it measured against. Reading the unit makes the next raise a one-place
+    change or a failing test, never a silent disagreement.
+    """
+    from pathlib import Path
+
+    unit = Path(__file__).resolve().parents[1] / "infra" / "systemd" / "freedom-worker.service.tmpl"
+    declared = [
+        line.split("=", 1)[1].strip()
+        for line in unit.read_text().splitlines()
+        if line.startswith("MemoryMax=")
+    ]
+    assert declared == ["2G"], declared
+
+    suffixes = {"K": 1024, "M": 1024**2, "G": 1024**3}
+    value = declared[0]
+    assert value[-1] in suffixes, value
+    assert N47_MEMORY_MAX_BYTES == int(value[:-1]) * suffixes[value[-1]]
+
+
+def test_the_soft_warning_matches_the_shipped_worker_constant():
+    """The harness restates N-45; the worker implements it. Pin them together.
+
+    Before 2026-08-27 the worker implemented nothing and this constant was a
+    copy of a register row — the drift it now guards against could not have been
+    detected, because there was nothing to drift from.
+    """
+    from application.worker.runtime import SOFT_WARNING_SECONDS
+
+    assert N45_SOFT_WARNING_SECONDS == SOFT_WARNING_SECONDS

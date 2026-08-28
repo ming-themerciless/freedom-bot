@@ -285,7 +285,7 @@ test("two projections of unchanged synthetic input produce identical bytes and c
   const bundle1 = buildBundle({
     exportedAt: "2026-08-06T00:00:00Z",
     exporterVersion: "1.0.2",
-    world: { id: "w1", title: "W1", coreVersion: "14.365", systemId: "dnd5e", systemVersion: "5.3.3" },
+    world: { id: "w1", title: "W1", coreVersion: "14.367", systemId: "dnd5e", systemVersion: "5.3.3" },
     selectedFolderId: "fld0000000000001",
     folders,
     actors: [proj1],
@@ -294,7 +294,7 @@ test("two projections of unchanged synthetic input produce identical bytes and c
   const bundle2 = buildBundle({
     exportedAt: "2026-08-06T00:00:00Z",
     exporterVersion: "1.0.2",
-    world: { id: "w1", title: "W1", coreVersion: "14.365", systemId: "dnd5e", systemVersion: "5.3.3" },
+    world: { id: "w1", title: "W1", coreVersion: "14.367", systemId: "dnd5e", systemVersion: "5.3.3" },
     selectedFolderId: "fld0000000000001",
     folders,
     actors: [proj2],

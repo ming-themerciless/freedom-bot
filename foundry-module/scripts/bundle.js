@@ -72,11 +72,43 @@ export class BundleError extends Error {
 }
 
 /**
+ * The leading `components` of a dotted version, or `null` if it is malformed.
+ *
+ * **Every** component is validated, not only the compared prefix: `14.x` and
+ * `5.3.3-beta` would otherwise pass because their tails are never read, and a
+ * prerelease game system is exactly the case that should stop and ask.
+ *
+ * `null` never equals anything, including another `null`, so an unreadable
+ * version on either side is a mismatch. Fail closed.
+ *
+ * **This must stay identical to `SupportedDeployment._series` in
+ * `domain/foundry.py`.** The module refuses before assembling a bundle and the
+ * server refuses on submission; two different rules would mean an export the
+ * module allowed and the server rejected, or worse the reverse.
+ */
+function versionSeries(value, components) {
+  const parts = String(value).split(".");
+  if (parts.length < components) return null;
+  if (!parts.every((part) => /^\d+$/.test(part))) return null;
+  return parts.slice(0, components).join(".");
+}
+
+/** Foundry core ranges over the generation; the game system over major.minor. */
+const CORE_COMPONENTS = 1;
+const SYSTEM_COMPONENTS = 2;
+
+/**
  * Validate the deployment tuple before anything else happens.
  *
  * Fails **before Actor bytes are read**, let alone sent: an unsupported Foundry
  * or system version means the Manager would refuse the bundle anyway, and there
  * is no reason to have assembled every active character's mechanics first.
+ *
+ * **Not exact equality (OD-14 controlled baseline v1.6).** World and system ids
+ * match exactly; Foundry core is compared over its generation and dnd5e over
+ * major.minor; malformed or out-of-range versions fail closed. An in-range build
+ * therefore proceeds — and still owes the operational export-and-preview check,
+ * because parsing a shape is not evidence that semantics are unchanged.
  *
  * @param {{id: string, title: string, coreVersion: string, systemId: string, systemVersion: string}} world
  * @param {{worldId: string, coreVersion: string, systemId: string, systemVersion: string}} supported
@@ -86,17 +118,23 @@ export function assertSupportedDeployment(world, supported) {
   if (world.id !== supported.worldId) {
     differences.push(`world ${world.id} (expected ${supported.worldId})`);
   }
-  if (world.coreVersion !== supported.coreVersion) {
+  const coreSeen = versionSeries(world.coreVersion, CORE_COMPONENTS);
+  const coreWant = versionSeries(supported.coreVersion, CORE_COMPONENTS);
+  if (coreSeen === null || coreWant === null || coreSeen !== coreWant) {
     differences.push(
-      `Foundry ${world.coreVersion} (expected ${supported.coreVersion})`
+      `Foundry ${world.coreVersion} (expected the ` +
+        `${coreWant === null ? supported.coreVersion : `${coreWant}.x`} series)`
     );
   }
   if (world.systemId !== supported.systemId) {
     differences.push(`system ${world.systemId} (expected ${supported.systemId})`);
   }
-  if (world.systemVersion !== supported.systemVersion) {
+  const sysSeen = versionSeries(world.systemVersion, SYSTEM_COMPONENTS);
+  const sysWant = versionSeries(supported.systemVersion, SYSTEM_COMPONENTS);
+  if (sysSeen === null || sysWant === null || sysSeen !== sysWant) {
     differences.push(
-      `system version ${world.systemVersion} (expected ${supported.systemVersion})`
+      `system version ${world.systemVersion} (expected the ` +
+        `${sysWant === null ? supported.systemVersion : `${sysWant}.x`} series)`
     );
   }
   if (differences.length > 0) {

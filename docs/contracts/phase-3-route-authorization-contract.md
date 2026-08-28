@@ -881,6 +881,12 @@ synchronous handler would repeat the mistake the plan corrected for preview.
 **Therefore apply is a durable job of the same lifecycle**, and P3.3 must measure a
 real-folder apply in staging before any production apply (traceability TC-PERF-02).
 
+> **Satisfied 2026-08-27.** TC-PERF-02 applied a real 32-Actor folder in
+> **19,927 ms**. The finding's text above is left as written — it records why the
+> durable-job lifecycle was chosen, and that reasoning is unaffected by the
+> measurement that has since arrived. Residual **RR-06** is amended accordingly
+> and is proposed for closure at the Phase 3 gate.
+
 **F-2. Polling must not be able to enumerate.** N-22 bounds frequency, but the
 stronger control is that `403` is returned on capability before the job row is read
 (§2.3). A job UUID is therefore worth nothing to a member, and the delivery plan's

@@ -118,7 +118,7 @@ def test_a_module_row_without_a_principal_is_refused_by_the_database(service):
                     "system_version, actor_count, selected_folder_ids, "
                     "received_via, submitted_by_principal, correlation_id) VALUES "
                     "(gen_random_uuid(), :checksum, 10, 1, 'x', '1.0.0', now(), "
-                    "'the-guild', 'The Guild', '14.365', 'dnd5e', '5.3.3', 1, "
+                    "'the-guild', 'The Guild', '14.367', 'dnd5e', '5.3.3', 1, "
                     "'[]'::jsonb, 'foundry_module', NULL, gen_random_uuid())"
                 ),
                 {"checksum": "a" * 64},
@@ -137,7 +137,7 @@ def test_an_operator_row_naming_a_principal_is_refused_by_the_database(service):
                     "system_version, actor_count, selected_folder_ids, "
                     "received_via, submitted_by_principal, correlation_id) VALUES "
                     "(gen_random_uuid(), :checksum, 10, 1, 'x', '1.0.0', now(), "
-                    "'the-guild', 'The Guild', '14.365', 'dnd5e', '5.3.3', 1, "
+                    "'the-guild', 'The Guild', '14.367', 'dnd5e', '5.3.3', 1, "
                     "'[]'::jsonb, 'operator', 'someone', gen_random_uuid())"
                 ),
                 {"checksum": "b" * 64},
@@ -156,7 +156,7 @@ def test_an_unknown_received_via_is_refused_by_the_database(service):
                     "system_version, actor_count, selected_folder_ids, "
                     "received_via, correlation_id) VALUES "
                     "(gen_random_uuid(), :checksum, 10, 1, 'x', '1.0.0', now(), "
-                    "'the-guild', 'The Guild', '14.365', 'dnd5e', '5.3.3', 1, "
+                    "'the-guild', 'The Guild', '14.367', 'dnd5e', '5.3.3', 1, "
                     "'[]'::jsonb, 'smuggled', gen_random_uuid())"
                 ),
                 {"checksum": "c" * 64},
@@ -180,7 +180,7 @@ def test_the_checksum_is_unique_in_the_database(service):
                     "system_version, actor_count, selected_folder_ids, "
                     "received_via, correlation_id) VALUES "
                     "(gen_random_uuid(), :checksum, 10, 1, 'x', '1.0.0', now(), "
-                    "'the-guild', 'The Guild', '14.365', 'dnd5e', '5.3.3', 1, "
+                    "'the-guild', 'The Guild', '14.367', 'dnd5e', '5.3.3', 1, "
                     "'[]'::jsonb, 'operator', gen_random_uuid())"
                 ),
                 {"checksum": receipt.checksum},

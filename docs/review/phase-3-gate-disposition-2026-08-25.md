@@ -59,3 +59,27 @@ Complete the P3.5 staging evidence package in
 evidence inventory against SP-08…SP-19 and SP-23. Existing observations may be
 credited only where they meet the named procedure's complete evidence contract;
 otherwise the procedure remains Not Run.
+
+## Superseding gate decision — 2026-08-28
+
+The decision above is retained as the historical disposition made on
+2026-08-25. It is superseded by the following decision after completion of the
+P3.5 evidence package, independent implementation and security reviews, final
+TC-SEC-07 capture, deployed worker parity check, and Foundry 1.0.9 real-export
+compatibility preview.
+
+Peter Duscha accepted this statement on 2026-08-28:
+
+> As Security Reviewer, I confirm final break-glass readiness and close A-05.
+> As Technical Lead and Operations Owner, I accept the PostgreSQL queue/limiter
+> and staging evidence and close A-06 and I-06. As Product Owner, I retain R-23
+> as an active accepted accessibility residual with screen-reader traversal Not
+> Run for Phase 3. As Acceptance Authority, I approve the Phase 3
+> authentication, authorization, and web-security gate and authorize Phase 4
+> implementation.
+
+Accordingly, the Phase 3 gate is **approved**, A-05, A-06 and I-06 are
+**closed**, R-23 remains an **active accepted residual**, and Phase 4
+implementation is **authorized**. This decision does not classify the unrun
+screen-reader traversal as passed and does not authorize production exposure
+independently of the platform's ordinary deployment controls.

@@ -23,7 +23,7 @@ export const NESTED_ACTOR_ID = "7hJkLmNpQrStUvWx";
 
 export const SUPPORTED = Object.freeze({
   worldId: "the-guild",
-  coreVersion: "14.365",
+  coreVersion: "14.367",
   systemId: "dnd5e",
   systemVersion: "5.3.3",
 });

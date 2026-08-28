@@ -924,6 +924,17 @@ Unchanged from §20, and one of them is worse than it looks:
 A gate recommendation that treated any of these as passing on the automated
 evidence above would be misreporting.
 
+> **Overtaken by events, 2026-08-27 — the section above is left as written**
+> because it accurately records what P3.3 did and did not claim at the time.
+> Since then: **TC-PERF-02** measured a real-folder apply at **19,927 ms**;
+> **TC-PERF-01** measured worker peak memory at **302 MiB** against a ceiling
+> since raised to `MemoryMax=2G` (C-P3.5-Z), so the "1 GiB guard" named above is
+> no longer the bound in force; and **TC-PERF-03**, **TC-LIM-02**, TC-SEC-07's
+> browser half and **TC-OPS-01…05** were executed in P3.5. Evidence is in
+> `docs/review/phase-3-p3-5-staging-and-operations-evidence.md`. **None of that
+> is a gate recommendation**, and residuals RR-05 and RR-06 remain open pending
+> the Acceptance Authority's decision.
+
 ## 22. D-03 correction evidence map — added 2026-08-19, by addition only
 
 Nothing in §§1–21 is rewritten. This section maps the six accepted decisions of

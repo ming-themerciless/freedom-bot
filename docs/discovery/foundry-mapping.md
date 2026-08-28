@@ -44,7 +44,12 @@ Freedom Blades rules and the Google Sheet require. **It is now verified against 
 real documents**, and five of its paths were wrong — see F-F1–F-F5. Each correction is
 recorded in place with the original reasoning kept.
 
-## 2. Verified deployment baseline
+## 2. Verified deployment baseline (historical Phase 0 observation)
+
+This section records the deployment inspected on 2026-07-29. The current
+observed reference moved to Foundry `14.367` on 2026-08-27; the compatibility
+policy is the scoped baseline v1.6 policy in §2.1. The original observation is
+retained rather than rewritten as if Phase 0 inspected the later deployment.
 
 Read from `/home/foundry/foundry1/foundrydata/Data/worlds/the-guild/world.json`
 and `.../systems/dnd5e/system.json`:
@@ -59,7 +64,8 @@ and `.../systems/dnd5e/system.json`:
 | World compatibility | minimum `14`, verified `14.365` | — |
 | System compatibility | minimum `13.347`, verified `14` | — |
 
-Every value asserted in `docs/implementation-plan.md` §6.3 is confirmed. The source
+Every value asserted in the then-current `docs/implementation-plan.md` §6.3 was
+confirmed. The source
 folder **`Characters (active)` is confirmed by the maintainer**, with no sub-folders —
 one character (Xirla) is in the sheet but not in that folder, so the sheet↔Foundry
 correspondence is **not** 1:1 and the importer must treat an unmapped character as an
@@ -77,16 +83,15 @@ and the system's own minimum is `13.347`. The Phase 7 connector must therefore
 negotiate on **two** axes — core version and system version — and treat the
 tuple, not either value alone, as the compatibility key.
 
-**Resolved 2026-07-30 ([OD-14](open-decisions.md)).** The maintainer's ruling:
-*"It's enough if we cover the latest as these are running on my system now and I
-don't specifically want to give it to anyone else."* The connector is therefore
-built for **one deployment, not for distribution**:
+**Resolved 2026-07-30 and superseded 2026-08-27
+([OD-14](open-decisions.md), controlled baseline v1.6).** The connector remains
+built for **one deployment, not for distribution**, with scoped ranges:
 
 | Aspect | Policy |
 |---|---|
-| Supported tuple | Exactly the deployed one — **core `14.365`, `dnd5e` `5.3.3`** — recorded in configuration, not hard-coded |
-| Anything else | **Fail closed** with a diagnostic naming both observed and expected versions. No degrading, no guessing, no partial import (plan §12 Phase 7) |
-| On a Foundry or system upgrade | The connector stops working **on purpose**, until the new tuple is validated and the configured value updated. That is a deliberate, visible checkpoint rather than a silent risk |
+| Supported deployment | Exact world/system identities; numeric Foundry **`14.x`**; numeric dnd5e **`5.3.x`**. The observed reference is core `14.367`, dnd5e `5.3.3` |
+| Anything else | **Fail closed** with a diagnostic naming observed and accepted series. No degrading, guessing or partial import (plan §12 Phase 7) |
+| On a Foundry or system upgrade | In-range builds/patches proceed through real-export and preview validation. A generation, minor/major, identity or malformed-version change stops synchronization pending a controlled decision |
 | Backwards compatibility | None is owed. There is no third-party consumer to support |
 
 The per-instance upgrade path in §3 is what makes this a live concern: one

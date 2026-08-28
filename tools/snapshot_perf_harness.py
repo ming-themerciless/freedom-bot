@@ -10,7 +10,7 @@ which someone typed them.
 
 ## What it measures, and why this way
 
-**Peak worker memory (TC-PERF-01, against N-47's 1 GiB).** Read from
+**Peak worker memory (TC-PERF-01, against N-47's 2 GiB).** Read from
 `/proc/<pid>/status` `VmHWM` — the kernel's own high-water mark — rather than by
 sampling `VmRSS` on a timer. A sampler can miss the peak between two samples,
 and the peak is the entire quantity N-47 bounds. `VmRSS` is still sampled, but
@@ -50,11 +50,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-#: N-47, the accepted worker memory ceiling.
-N47_MEMORY_MAX_BYTES = 1024 * 1024 * 1024
+#: N-47, the accepted worker memory ceiling. Raised 1G -> 2G on 2026-08-27
+#: (C-P3.5-Z) once TC-PERF-01 measured a real folder at 302 MiB and put the
+#: extrapolation to N-20's ceiling near the old bound. Must equal `MemoryMax`
+#: in `infra/systemd/freedom-worker.service.tmpl`; a test pins the pair.
+N47_MEMORY_MAX_BYTES = 2 * 1024 * 1024 * 1024
 
 #: N-45, the accepted per-attempt runtime cap and its soft warning.
-N45_SOFT_WARNING_SECONDS = 30
+N45_SOFT_WARNING_SECONDS = 60
 N45_HARD_CAP_SECONDS = 300
 
 #: C-9/C-11's accepted throughput criterion, in the one unit that survives a
@@ -93,7 +96,7 @@ BOUNDS: tuple[Bound, ...] = (
     Bound(
         identifier="TC-PERF-01",
         subject="worker peak resident memory, real 32-Actor folder and synthetic worst case",
-        limit=f"peak RSS <= {N47_MEMORY_MAX_BYTES} bytes (1 GiB)",
+        limit=f"peak RSS <= {N47_MEMORY_MAX_BYTES} bytes (2 GiB)",
         source="N-47, accepted numeric register. Reported at 75% as a warning line, which changes no policy.",
         standing="accepted",
     ),
@@ -111,7 +114,11 @@ BOUNDS: tuple[Bound, ...] = (
             f"< {N45_HARD_CAP_SECONDS} s hard cap; exceeding "
             f"{N45_SOFT_WARNING_SECONDS} s is reportable, not a failure"
         ),
-        source="N-45, accepted per-attempt runtime cap and its soft warning.",
+        source=(
+            "N-45, accepted per-attempt runtime cap and its soft warning. The "
+            "warning was raised 30 -> 60 s and **implemented** on 2026-08-27 "
+            "(C-P3.5-Z); before that it existed only in the register."
+        ),
         standing="accepted",
     ),
     Bound(
@@ -161,7 +168,7 @@ def parse_proc_status(text: str) -> dict[str, int]:
 
     Values are reported in kB by the kernel and converted here, once, so no
     caller has to remember the unit — a unit mistake in this particular number
-    is a factor of 1024 against a 1 GiB ceiling.
+    is a factor of 1024 against a multi-gigabyte ceiling.
     """
     found: dict[str, int] = {}
     for line in text.splitlines():

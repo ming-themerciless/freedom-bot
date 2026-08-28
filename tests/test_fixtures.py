@@ -368,5 +368,15 @@ def test_anomaly_fixture_holds_nonzero_electrum(foundry_anomalies):
 
 
 def test_anomaly_fixture_holds_an_unsupported_version_tuple(foundry_anomalies):
+    """The anomaly fixture must differ from whatever the pin currently is.
+
+    Derived from `OBSERVED_DEPLOYMENT` rather than repeating the version, so a
+    pin change cannot silently turn this fixture into a *supported* one. It
+    hard-coded ("14.365", "5.3.3") until the 2026-08-27 bump to 14.367 made that
+    literal wrong.
+    """
+    from domain.foundry import OBSERVED_DEPLOYMENT
+
     stats = foundry_anomalies["_stats"]
-    assert (stats["coreVersion"], stats["systemVersion"]) != ("14.365", "5.3.3")
+    supported = (OBSERVED_DEPLOYMENT.core_version, OBSERVED_DEPLOYMENT.system_version)
+    assert (stats["coreVersion"], stats["systemVersion"]) != supported

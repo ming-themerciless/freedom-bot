@@ -90,6 +90,7 @@ durable import must not have to wait for this worker to be healthy.
 """
 from __future__ import annotations
 
+import logging
 import secrets
 import threading
 from dataclasses import dataclass
@@ -119,6 +120,31 @@ from application.worker.recovery import (
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
+
+#: N-45's **soft warning**, in seconds. Implemented 2026-08-27 (C-P3.5-Z).
+#:
+#: **It did not exist before.** The numeric register has recorded "soft warning
+#: at 30 seconds" since P3.3, and nothing in the worker, the runtime or the
+#: adapters ever emitted one — the number lived in the register and in a
+#: measurement harness that had copied it from there. That is the same shape as
+#: finding F6, where S-15's warning was computed, returned and read by nothing:
+#: a documented control that is not a control.
+#:
+#: **60 rather than 30, decided with the measurement in hand.** A real 32-Actor
+#: preview takes ~9.9 s and a real apply ~20 s; extrapolated to N-20's ceiling a
+#: preview reaches ~39 s. A 30-second threshold would therefore fire on
+#: legitimate work at the top of the accepted input range, and a warning that
+#: cries wolf is one an operator learns to scroll past.
+#:
+#: A module constant rather than a configurable bound: this is a log threshold,
+#: not a control. Making it configurable would mean a new environment variable,
+#: an entry in `WORKER_BOUNDS` and an S-10 ceiling — a larger change than a line
+#: in a journal warrants.
+SOFT_WARNING_SECONDS = 60
+
+#: Named for the process, matching `tools.freedom_worker`, so an operator filters
+#: one logger rather than two.
+LOGGER = logging.getLogger("freedom.worker")
 
 #: How many heartbeats the runtime will keep a job alive for while waiting for a
 #: thread whose **effect has already committed** to hand back its result.
@@ -340,8 +366,29 @@ class WorkerRuntime:
         """
         attempt = self._start(job=job, owner=owner)
         started = self._clock()
+        warned = False
 
         while not attempt.finished.wait(timeout=self._worker.heartbeat_seconds):
+            elapsed = (self._clock() - started).total_seconds()
+            if not warned and elapsed >= SOFT_WARNING_SECONDS:
+                # N-45's soft warning. **Latched**: the loop runs once per
+                # heartbeat, so an attempt approaching the hard cap would
+                # otherwise log this a dozen times and bury whatever else the
+                # journal was trying to say.
+                #
+                # The job id is an opaque UUID and the elapsed time is a number.
+                # No snapshot, Actor, character or identity value is named —
+                # TC-OPS-05 checks monitoring output for exactly that.
+                warned = True
+                LOGGER.warning(
+                    "job %s has been running %.0fs, over the %ds soft warning "
+                    "(N-45); the hard cap is %ds, after which the attempt is "
+                    "abandoned and recoverable",
+                    job["id"],
+                    elapsed,
+                    SOFT_WARNING_SECONDS,
+                    self._worker.attempt_timeout_seconds,
+                )
             beat = self._heartbeat(job_id=job["id"], owner=owner)
             if beat is None:
                 # The lease is gone: the reaper acted while this attempt ran.
@@ -361,9 +408,7 @@ class WorkerRuntime:
                 attempt.ask_to_stop()
                 outcome = self._publish_cancelled(job_id=job["id"], owner=owner)
                 return self._release(attempt, reason="cancelled", outcome=outcome)
-            if (self._clock() - started).total_seconds() >= (
-                self._worker.attempt_timeout_seconds
-            ):
+            if elapsed >= self._worker.attempt_timeout_seconds:
                 # N-45's hard cap. The attempt is **abandoned**, not failed: an
                 # abandoned attempt is recoverable and the two-branch statement
                 # decides between requeue and exhaustion under this worker's own

@@ -837,20 +837,22 @@ same tuple, but the Foundry binary and the `systems/` tree are **per-instance**
 (`/home/foundry/dist/foundryN/`), so they are independently upgradable against the
 one shared world.
 
-**Resolved 2026-07-30.** The maintainer's ruling: *"It's enough if we cover the
-latest as these are running on my system now and I don't specifically want to give
-it to anyone else."* Recorded as a **single-deployment, non-distributed** policy:
+**Resolved 2026-07-30; superseded 2026-08-27 by controlled baseline v1.6.** The
+connector remains single-deployment and non-distributed, but Peter Duscha
+explicitly authorized scoped compatibility ranges after the 14.365 → 14.367
+operational upgrade and EX-11 review:
 
 | Aspect | Policy |
 |---|---|
-| Supported tuple | Exactly the deployed one — core `14.365`, `dnd5e` `5.3.3` — held in **configuration**, not hard-coded |
-| On mismatch | **Fail closed**, with a diagnostic naming observed and expected versions. No degrading, no guessing, no partial import |
-| On upgrade | The sync stops **on purpose** until the tuple is validated and the configured value updated |
+| Supported deployment | World ID `the-guild` and system ID `dnd5e` match exactly; Foundry core must be numeric `14.x`; dnd5e must be numeric `5.3.x`. Reference versions remain configuration-supplied, not hard-coded policy |
+| On mismatch | **Fail closed**, with a diagnostic naming observed and accepted series. No degrading, guessing or partial import |
+| On upgrade | An in-range build/patch may proceed through the normal validation path. A Foundry generation change, dnd5e minor/major change, identity change or malformed version stops synchronization pending a new controlled decision |
 | Backwards compatibility | None owed — there is no third-party consumer |
 
-*Carried forward as an operational obligation:* updating the pin belongs on the
-Foundry upgrade checklist, or a routine upgrade will break the sync at a moment
-nobody expects.
+*Operational obligation:* every deployed upgrade still receives a real export,
+preview and safe diagnostics check. Structural parsing is not evidence that all
+semantics are unchanged. An out-of-range upgrade requires validation and a
+controlled policy update before synchronization resumes.
 
 *Closed.*
 

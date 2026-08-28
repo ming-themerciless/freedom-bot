@@ -1,6 +1,300 @@
 # Project status
 
-Status date: 2026-08-26 (eighty-ninth update: documentation brought current across
+Status date: 2026-08-28 (one-hundred-second update: **Phase 3 approved and
+Phase 4 implementation authorized.** Peter Duscha accepted the final accountable
+statement as Security Reviewer, Technical Lead, Operations Owner, Product Owner
+and Acceptance Authority. A-05 is closed by his final break-glass-readiness
+confirmation. A-06 and I-06 are closed by his acceptance of the PostgreSQL
+queue/limiter and staging evidence. R-23 remains an **active accepted
+accessibility residual**; screen-reader traversal is honestly **Not Run for
+Phase 3** and is not represented as passed. On the completed P3.5 evidence and
+the independent implementation and security recommendations, Peter approved the
+Phase 3 authentication, authorization and web-security gate and explicitly
+authorized Phase 4 implementation. Decision record:
+`phase-3-gate-disposition-2026-08-25.md`; change-log C-P3.5-AK.)
+
+Status date: 2026-08-28 (one-hundred-first update: **Foundry module 1.0.9
+running-load and real active-folder compatibility are evidenced.** Peter Duscha
+observed the module-owned `Submit Freedom Blades Snapshot` control in the
+running Foundry worlds. A fresh 1.0.9 export from `The Guild` selected
+`/actors/Characters (active)`, carried Foundry 14.367/dnd5e 5.3.3 and 32 Actors,
+and produced checksum `fb14adf0a36c…`. Its stable Actor-ID set exactly matched
+the prior 1.0.8 active-folder baseline. After removing only `exportedAt` and the
+exporter-version field, the two documents had the same canonical content hash,
+proving 1.0.9 changed neither Actor projection nor encoded content. A staging
+reconciliation preview under profile 2026-08-09.1 returned 32 Actors, 32
+create-candidates, zero mapped, blocked or absent, **0 errors and 0 warnings**,
+exit code 0, and wrote nothing. The older active and inactive files remained
+identifiable as 1.0.8 baselines and were not misrepresented as new exports.
+Evidence is §5X and change-log C-P3.5-AJ. No apply was invoked. The remaining
+accountable A-05, A-06, I-06, R-23 and Phase 3 gate decisions are deferred as
+Peter directed; Phase 4 remains unauthorized.)
+
+Status date: 2026-08-28 (one-hundredth update: **worker-unit parity and the
+final TC-SEC-07 staging capture are complete.** Peter Duscha authorized the
+deployed-artifact work and visually confirmed Foundry module 1.0.9 installed on
+all three instances. The deployed worker unit matches the reviewed rendered
+template; `systemd-analyze verify` returned 0, the worker remained active
+without restart, and effective `MemoryMax` is 2147483648 bytes. The current
+portal tree, including accepted N-29/N-31 controls, was deployed by restart and
+passed its Host-aware health check. A database-enabled focused preflight passed
+**458 tests**. The staging gate was removed from **20:21:43Z to 20:23:15Z**, a
+92-second window. Public unauthenticated `/` and `/v1/characters` returned the
+application's 303/303 boundary. Normal and 404 edge responses carried identical
+CSP plus one-year HSTS; origin normal carried HSTS and no `Server`, while the
+edge identified only Cloudflare. The origin early refusal returned 400 with the
+required safe headers. Peter completed and acknowledged the browser check with
+no reported CSP/form-action or HTMX indicator-style violation. The procedure
+restored the gate and proved the public route returned 401. Evidence is §5W and
+change-log C-P3.5-AI. Operational items 3 and 4 from §5R are complete at the
+evidence level. Installed 1.0.9 is not yet proof that every running Foundry
+process loaded it, and the real export/preview remains dependent on that proof.
+A-05, A-06, I-06, R-23 and the Phase 3 gate remain open; Phase 4 remains
+unauthorized.)
+
+Status date: 2026-08-28 (ninety-ninth update: **N-32 corrected — test-only, and
+the correction is now deterministic.** The two probabilistic assertions in
+`tests/web/test_n7_access_log_redaction.py` no longer forbid arbitrary
+three-character source fragments inside an eight-hex-character keyed pseudonym.
+Each unfamiliar client value now carries an explicit table of the **complete**
+representations that must not survive it — the whole client field, and the
+punctuation-bearing host or credential inside it — and the tests assert the
+bounded `client-unknown-` plus eight lowercase hexadecimal form, the absence of
+those complete values from both the pseudonym and the fully formatted line, and
+that the line is still an access line with method, path, protocol and status
+intact. A mechanical brute-force check additionally offers every substring of
+each source to `ipaddress.IPv4Address` and asserts every complete dotted-quad
+literal absent, so a value added to the table later cannot silently skip the
+address check. **Deterministic falsification.** `_digest` is monkeypatched at its
+boundary to return `59990025`, reproducing the reviewer's exact pseudonym
+`client-unknown-59990025` for source `203.0.113.999:54321` while parsing, prefix
+selection, the filter and the formatter all run as shipped; against that value
+the old fragment rule fails on `999` for both the pseudonym and the formatted
+line, and the corrected assertions pass. **Mutation.** Three mutations —
+returning the raw client field, the raw host address, and the raw host address
+wearing the pseudonym's prefix — each fail the corrected *confidentiality*
+assertion, not merely the form check, so a real disclosure is still caught. Why
+the correction is deterministic where the old rule was not is itself asserted:
+every forbidden value carries a character outside the pseudonym's own alphabet,
+whereas the old rule forbade fragments drawn from `[0-9]` alone, every one of
+which is inside it. A one-off measurement over **20,000 random keys x 7 cases**
+put the old rule's failure rate at **199 of 140,000 case-runs (0.142%)** and the
+corrected rule's at **0**. **Verification.** The focused access-log and
+scope-guard pair passed **480** in each of three separate fresh Python
+processes; serial database-enabled suites are bot **2447 passed**, web **2824
+passed, 80 skipped**, module **171 pass**; assets 4/4 and visual freeze 14/14;
+both `compileall` checks clean; Alembic single head `0013` with no branches;
+`git diff --check` clean. Formatter, linter and type checker remain unconfigured
+and are not claimed. **Exactly one file changed:**
+`tests/web/test_n7_access_log_redaction.py`. No production pseudonymization,
+access-log policy, route, configuration or deployment artifact was touched, no
+production injection seam was added, and no service was deployed or restarted.
+N-31 remains satisfactory and is not reopened; N-29 and N-30 are not reopened.
+Recorded as change-log **C-P3.5-AH** and evidence §5V. EX-11 and EX-12 are
+requested again; the four outstanding supervised operational items remain
+outstanding and unexecuted. Peter alone decides the Phase 3 gate; Phase 4 remains
+unauthorized.)
+
+Status date: 2026-08-28 (ninety-eighth update: **N-31's production remediation
+is satisfactory; Important N-32 is a probabilistic test-evidence defect, not a
+new disclosure.** Independent review reproduced the full configured suites
+green — **2447 / 2797+80 / 171** — and then reran the exact focused access-log
+and scope-guard pair in a fresh process. That run failed **2 of 453** because the
+new process-local keyed digest happened to be `client-unknown-59990025` for
+synthetic client `203.0.113.999:54321`. Two older assertions prohibit every
+three-character source fragment, including `999`, from appearing anywhere in
+the eight hexadecimal digest. A random digest can contain `999` by coincidence;
+that is not the source fragment surviving, and the output contains no dotted IP
+literal or original client field. The assertions therefore confuse coincidental
+substring equality with disclosure and make the security evidence depend on the
+random process key. This is **N-32, Important**. Replace only those probabilistic
+fragment assertions with deterministic properties: bounded pseudonym form,
+absence of the complete client value and complete plaintext IP literal, and
+fully formatted output safety. Do not change production pseudonymization or the
+accepted N-31 method policy to satisfy a defective test. Reproduce the failure
+deterministically with an injected or monkeypatched digest whose hex contains
+`999`, then prove the corrected assertions pass that case and still fail if the
+raw client or address is returned. N-31 is recommended resolved at the
+repository implementation boundary; EX-11 and EX-12 remain withheld for N-32's
+evidence correction and the four outstanding supervised operational items. No
+file was changed during review and no service was touched. Recorded as
+change-log **C-P3.5-AG** and evidence §5U. Peter alone decides the Phase 3 gate;
+Phase 4 remains unauthorized.)
+
+Status date: 2026-08-28 (ninety-seventh update: **N-31 remediated in the
+repository; both re-reviews requested again.** The retained pinned Uvicorn branch
+examined the method's *syntax* and nothing else, so a caller could send
+`203.0.113.7` as an HTTP method — a valid RFC 9110 token, because the token
+alphabet includes digits and `.` — and have it formatted into the access log in
+clear text. **Syntactic validity is not confidentiality.** A pinned record whose
+method carries an IP literal is now **withheld whole**, under a seventh
+repository-owned reason, `address-bearing-method`; the five reproductions that
+disclosed an address now emit the marker and nothing else. Scrubbing the method
+was the other option the handoff allowed and was rejected: it leaves
+`X<pseudonym>Y`, caller-chosen characters around a removed span in a field with
+no operational meaning left once it carries an address — the request path is
+scrubbed instead of withheld because a path with an address removed is still a
+route an operator can read. **The method rule is not a second rule.** Detection
+asks whether `_scrub_addresses` — the rule N-29's re-review accepted for the
+request path — would change the method, so the detector cannot drift from the
+scrubber. Its completeness over the accepted input rests on two checked facts:
+the method alphabet contains **no `:`**, and every textual IPv6 literal contains
+at least two, so no IPv6 literal is expressible in a method at all; and the
+remaining IPv4 dotted quad is enumerated by start position and length within the
+32-character bound rather than scanned once. 2,000 seeded pseudo-random
+token-valid methods are checked against an independent brute force **in both
+directions**, so over-refusal fails as loudly as disclosure. `_HTTP_METHOD` is
+unchanged and no extension method was sacrificed: `VERSION-CONTROL`, `M-SEARCH`,
+`MKCALENDAR`, `PROPFIND`, `QUERY`, `REPORT.V2`, `DEAD.BEEF`, `1.2.3`,
+`203.0.113` and `999.999.999.999` all still reach the log. **The boundary is
+stated rather than widened:** the rule finds IP *literals*, so an address spelled
+in another encoding is not detected — the same boundary the accepted
+request-path rule has. **Falsified before it was trusted:** the regression was
+written first and fails **68** against the reviewed tree with **no pre-existing
+test failing**, which is what shows it isolates N-31; reinstating each element
+afterwards fails **67**, **2** and **46**, the last proving the tests pin the
+*choice* between the handoff's two options rather than merely the absence of the
+address. The scope guard was falsified against this very edit — with
+`tools/portal_server.py` undeclared it names the file — so N-30's remediation is
+shown to be watching this change, not merely present; no new production file was
+opened, and the declaration comment now names N-31 as a distinct change.
+Verification serial and database-enabled: **2447 / 2797+80 / 171**, focused
+**453**, assets 4/4, freeze 14/14, `compileall` clean in both venvs, single
+alembic head `0013`, clean `git diff --check`. Formatter, linter and type checker
+remain unconfigured and are not claimed. **Nothing was deployed** — the corrected
+portal entry point is not on the running service, which still carries both the
+N-29 and the N-31 behaviour — and the four operational items (loaded module 1.0.9
+and the real export/preview, the stale worker-unit header comment, the post-gate
+`Server` header and TC-SEC-07) are **not run**, each awaiting Peter's
+authorization and, for three, a supervised window. Recorded as change-log
+**C-P3.5-AF**; evidence in `phase-3-p3-5-staging-and-operations-evidence.md`
+§5T. No finding closes on green tests. EX-11 and EX-12 remain withheld; Peter
+alone decides the Phase 3 gate; Phase 4 remains unauthorized.)
+
+Status date: 2026-08-28 (ninety-sixth update: **EX-11/EX-12 remediation
+re-review found Blocking N-31; both recommendations remain withheld.** The
+unfamiliar-record half of N-29 now fails closed as designed, and N-30's
+production-scope guard is accepted as satisfactory. The retained pinned Uvicorn
+path is still not closed over every caller-controlled field, however: HTTP
+methods are RFC tokens, the accepted token syntax permits dots and digits, and
+the filter preserves the method unchanged. A synthetic pinned record with method
+`203.0.113.7` therefore formats as
+`client-… - "203.0.113.7 /healthz HTTP/1.1" 200`, disclosing a plaintext address
+contrary to operational contract §5's every-log-line prohibition. This is
+**N-31, Blocking**. The remediation must scrub or refuse address-bearing method
+values without weakening query removal, client pseudonym correlation,
+whole-record withholding, bounded-field validation or filter idempotency, and
+must add a fully formatted pinned-record regression that is first falsified
+against the current tree. Independent verification of the current tree was
+serial and database-enabled: **2447 / 2625+80 / 171**; focused remediation tests
+**289 passed**; assets and visual freeze clean; both `compileall` checks clean;
+single Alembic head `0013`; `git diff --check` clean. Formatter, linter and type
+checker remain unconfigured and are not claimed. No file was changed during the
+review and no service was touched. The four outstanding supervised operational
+items remain not run. Recorded as change-log **C-P3.5-AE** and evidence §5S.
+Peter alone decides the Phase 3 gate; Phase 4 remains unauthorized.)
+
+Status date: 2026-08-28 (ninety-fifth update: **N-29 and N-30 remediated in the
+repository; both re-reviews requested.** N-29's fallback no longer redacts text
+at all — an access-log record outside the pinned uvicorn 0.32.1 contract is now
+**withheld whole**, replaced by a marker naming one of six repository-owned
+reasons, with `args`, `exc_info`, `exc_text` and `stack_info` cleared. The
+correction is a narrower contract rather than a better pattern, because the
+defect was the instrument: no rule over arbitrary rendered objects can be shown
+complete, and this was the third pattern in that file's history to be found
+incomplete. The retained pinned path now **bounds every field it keeps**, and a
+second instance of the same finding was closed on it — the request path is
+caller-controlled, so `GET /x203.0.113.7y` disclosed an address through the
+branch the handoff keeps; it is scrubbed by a rule closed over its input.
+**Found while correcting, not by the review.** N-30's guard watches `tools/`,
+declares the two entry points genuinely changed, and became a **pure function of
+a path**, so an undeclared synthetic path is rejected without reading the working
+tree — the demonstration N-27 and N-30 both lacked. Every production layer is now
+watched rather than one added per finding; the widening to `infra/` and
+`foundry-module/` goes beyond the handoff and is **raised for the reviewer, not
+absorbed**. Both corrections were **falsified before they were trusted**: the new
+N-29 tests fail 68 against the submitted build, and reinstating each element of
+the fix afterwards fails 3, 52, 5, 19 and 8; the guard is falsified four ways
+including an undeclared synthetic change written into a real `tools/` file.
+Verification serial and database-enabled: **2447 / 2625+80 / 171**, assets 4/4,
+freeze 14/14, `compileall` clean in both venvs, single alembic head `0013`, clean
+`git diff --check`. Formatter, linter and type checker remain unconfigured and
+are not claimed. **Nothing was deployed** — the corrected portal entry point is
+not on the running service — and the four operational items (loaded module 1.0.9
+and the real export/preview, the stale worker-unit header comment, the post-gate
+`Server` header and TC-SEC-07) are **not run**, each awaiting Peter's
+authorization and, for three, a supervised window. Recorded as change-log
+**C-P3.5-AD**; evidence in `phase-3-p3-5-staging-and-operations-evidence.md`
+§§5Q–5R. No finding closes on green tests. EX-11 and EX-12 remain withheld; Peter
+alone decides the Phase 3 gate; Phase 4 remains unauthorized.)
+
+Status date: 2026-08-28 (ninety-fourth update: **EX-11 and EX-12 re-review
+completed; both recommendations withheld.** Codex independently reproduced
+Blocking finding **N-29**: the unfamiliar-record access-log fallback emits a
+plaintext IPv4 address when it is embedded next to word characters, conflicting
+with operational contract §5's prohibition in every log line. Important finding
+**N-30**: the P3.4 scope guard watches `adapters/`, `application/` and `domain/`
+but not `tools/`, so the behavioral change to the production portal entry point
+passed undeclared—the same class as N-27. The real Foundry export/preview against
+loaded module 1.0.9 also remains outstanding. Full verification was independently
+reproduced: **2447 / 2452+80 / 171**, assets 4/4, visual freeze 14/14 and clean
+`git diff --check`. Remediation instructions are in the overwritten reviewer
+handoff. Phase 4 remains unauthorized.)
+
+Status date: 2026-08-27 (ninety-third update: **EX-11 implementation tasks
+completed and the three undeployed remediations deployed.** The client-pseudonym
+defect is confirmed and corrected — uvicorn 0.32.1 builds its client field as
+`address:ephemeral-port`, so the digest was taken over a value that changed every
+connection and the documented correlation property never held; the address is now
+extracted and validated before hashing, and an unreadable value fails safe under
+a distinct, explicitly uncorrelatable prefix. The new tests found and closed a
+second, pre-existing gap: an IPv6 address *with* a port survived the traceback
+scrubber in plaintext where the IPv4 form did not. Stale worker documentation and
+the stale exact-comparison claim corrected in code, in the module and in the
+threat model's RR-05. **Deployed 2026-08-27:** HSTS (22:06 UTC, captured at both
+the Cloudflare edge and the Caddy origin), Foundry module **1.0.9** to
+**foundry1, foundry2 and foundry3** — foundry2 on Peter's explicit instruction,
+where the module had never been installed at all — and `MemoryMax=2G` (22:43 UTC,
+confirmed at the unit, at systemd and in the kernel cgroup). Verification set
+re-run green: **2447 / 2452+80 / 171**. **Deployment task 4 — the real
+export/preview compatibility check — is not done** and is blocked until an
+instance loads 1.0.9. The `includeSubDomains` rationale in both Caddy files, the
+test that enforces it and operational contract §4.1 was **factually wrong** and
+is corrected — the directive binds names beneath the sending host, not siblings,
+so the Foundry hosts were never at risk from it; the omission stands on a reason
+that holds. RR-06 amended alongside RR-05: both measured, **neither closed
+here**. Recorded as change-log **C-P3.5-AB**. EX-11 and EX-12 recommendations
+remain withheld; Phase 4 remains unauthorized.)
+
+Status date before this update: 2026-08-27 (ninety-second update: **EX-11/EX-12 review response and
+baseline v1.6 authorization**. Peter Duscha explicitly authorized superseding
+OD-14's exact deployed tuple with scoped compatibility: exact world/system
+identities, numeric Foundry `14.x`, numeric dnd5e `5.3.x`, and fail-closed
+handling outside those ranges. Current governance, ADR, discovery, export
+contract and operations documents now agree. EX-11 and EX-12 recommendations
+remain withheld pending implementation of the client-pseudonym normalization,
+stale worker-documentation correction, deployment of module 1.0.9,
+`MemoryMax=2G` and HSTS, operational capture, and re-review. Phase 4 remains
+unauthorized.)
+
+Status date: 2026-08-27 (ninety-first update: **EX-10 written** — the P3.5
+submission, `docs/review/phase-3-p3-5-submission.md`, requesting the Phase 3 gate
+decision and, before it, EX-11 and EX-12. Full verification set re-run green
+against the submitted tree: **2447 / 2423+80 / 171**. One further finding while
+writing it, **N-28**: C-P3.5-Z's N-47 raise reached the register and the systemd
+unit but not the harness that measures against N-47, and the test meant to catch
+that pinned the constant to a literal. Fixed and falsified as C-P3.5-AA. The
+pattern named in the ninetieth update now has a fifth instance — and this one was
+found *after* the pattern was written down. The submission's finding index was
+also rebuilt: **23 findings, N-6 … N-28**, where a first draft indexed 15 — and
+**N-15 stands as a deviation**, only its severity having been withdrawn.)
+
+Status date before this update: 2026-08-27 (ninetieth update: the real-folder run closed RR-06 and
+D-m's n=1. Three numeric-policy decisions implemented — version ranges, N-47 to
+2 GiB, N-45's soft warning raised and *built*. Four findings, and a pattern
+worth naming: four controls described somewhere and implemented nowhere.)
+
+Status date before this update: 2026-08-26 (eighty-ninth update: documentation brought current across
 every register and evidence artifact; full verification set re-run green.)
 
 Status date before this update: 2026-08-26 (eighty-eighth update: the synthetic performance and
@@ -134,6 +428,54 @@ session run sheet are complete. Nine of thirteen staging-only rows remain Not
 Run, A-05 stands at eight of ten criteria, and four of the five required P3.5
 artifacts do not yet exist. Two Data Owner / Acceptance Authority decisions block
 roughly two hours of the remaining supervised work.)
+
+Update 2026-08-27 (ninetieth) — the real folder, three policy decisions, and a
+pattern.
+
+- **RR-06 closed.** The real-folder apply the threat model has recorded as never
+  measured since Phase 2 now has a number: preview **9,854 ms (602 ms/MB)**,
+  apply **19,927 ms**, peak **302.4 MiB**, one attempt, one durable effect.
+  **D-m's n = 1 is discharged.**
+- **The version bump validated on real data.** 602 ms/MB against Rehearsal B's
+  587 — within **2.5%** across 18 days and a Foundry version change, with the
+  same Actor count and no warnings. C-P3.5-X's named residual, a schema-valid
+  semantic change, is answered by measurement rather than argument.
+- **A second real sample** (the inactive folder, 34 Actors, 282 KB/Actor against
+  the active folder's 512 KB) put throughput within 8% and the memory ratio in a
+  stable **13–15×** band — **roughly double the synthetic fixture's 7.5×**
+  (**N-26**).
+- **`absent_from_snapshot` observed on real data:** 32 warnings, and applying
+  touched none of the 32 characters. A reconciliation reading "absent from this
+  folder" as "delete" would have destroyed live characters the moment somebody
+  imported a different folder — which is what we did, by accident of sequencing.
+- **Three numeric-policy decisions, all taken after the measurements**
+  (C-P3.5-Z): version comparison widened to scoped ranges (Foundry generation,
+  system major.minor, identities exact, fail-closed parsing); **N-47 1G → 2G**
+  on a host that turned out to be 7.7 GB rather than the assumed 4; **N-45's
+  soft warning 30 → 60 s and implemented** — it had never existed outside the
+  register.
+- **N-27 raised and closed.** The P3.4 scope guard watched `adapters/` and
+  `application/` but **not `domain/`** — so the version comparison, the substance
+  of the day's change, passed it unnoticed. `domain/` is now watched, the change
+  is declared with its reason, and the guard was **falsified** before being
+  trusted.
+- **The pattern worth a reviewer's attention:** four controls in this package
+  were described somewhere and implemented nowhere — **N-22** (HSTS in the
+  contract, in neither Caddy file), **N-45** (a register soft warning nothing
+  emitted), **F6** (S-15's warning read by nothing) and **N-27** (a guard blind
+  to a layer). **Each was found by looking; none by a check designed to find
+  them.**
+- **Two of my own tests were wrong and both were caught**: one reimplemented the
+  latch it claimed to test and would have passed with the real latch deleted;
+  another matched a bare word and went red on `base.html`'s own comment.
+- **Verification:** bot **2446 passed**, web **2423 passed / 80 skipped**, module
+  **171 pass**, assets 4/4, freeze 14/14, `git diff --check` clean.
+- **Deployment owed:** module **1.0.9** to the Foundry hosts, **`MemoryMax=2G`**
+  to the worker unit, and the **HSTS** Caddy change. All three are
+  repository-only.
+- **Position:** **A-05 Open on criterion 10 alone.** I-06 and A-06 Open but
+  substantially evidenced. R-23 an active accepted residual. **EX-11 and EX-12
+  owed. Phase 4 has not begun and remains unauthorized.**
 
 Update 2026-08-26 (eighty-ninth) — documentation brought current; verification green.
 
@@ -3736,8 +4078,21 @@ production integration remains blocked.
   accepted at P3.G0, with the later P3.G2/P3.G3 freeze gates still required;
 - implementation and verification of the accepted configuration, deployment,
   monitoring and rollback contracts for the new `freedom-web` process; and
-- two quantities remain unmeasured and block no P3.0 acceptance but must be
-  measured before production: real-folder apply duration and worker peak memory.
+- ~~two quantities remain unmeasured and block no P3.0 acceptance but must be
+  measured before production: real-folder apply duration and worker peak
+  memory~~ — **both measured 2026-08-27** (TC-PERF-02 real-folder apply
+  19,927 ms; TC-PERF-01 worker peak 302 MiB). What remains unmeasured is peak
+  memory anywhere near N-20's 64 MiB input ceiling, where the only figure is an
+  extrapolation from two real points and no corpus exists to measure. Their
+  residual rows RR-06 and RR-05 are proposed for closure at the gate and are not
+  closed here; and
+- **deployment task 4 is outstanding**: no real Foundry export, preview or
+  compatibility check has been run against module 1.0.9, which is installed on
+  all three instances but not yet loaded by any running instance. Nothing yet
+  demonstrates the scoped version ranges behaving on real data; and
+- **one deployed comment lags the repository**: the worker unit's file header on
+  the host still calls peak memory unmeasured. Comment-only, no runtime effect,
+  needs `daemon-reload` and no restart.
 
 ## Scope controls
 
@@ -3751,6 +4106,10 @@ production integration remains blocked.
   is not a backend implementation prompt.
 - No deployment, Caddy change, OAuth registration, production database change,
   Foundry mutation or Google Sheet mutation is authorized by reconciliation.
+  **The 2026-08-27 deployments of HSTS, module 1.0.9 and `MemoryMax=2G` were
+  each authorized explicitly by Peter Duscha** and are recorded in
+  `docs/review/phase-3-p3-5-staging-and-operations-evidence.md` §5O. They
+  authorize nothing further, and no Foundry world data was read or mutated.
 
 ## Historical evidence
 

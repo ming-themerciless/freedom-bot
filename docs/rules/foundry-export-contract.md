@@ -22,8 +22,9 @@ connector. The world stores are held open by a running server, and the storage
 format is a Foundry internal.
 
 The exporter is **not distributed**. It serves one deployment, so it owes no
-third party backwards compatibility, and the Manager pins the exact tuple it
-accepts.
+third-party backwards compatibility. Under OD-14 as superseded by controlled
+baseline v1.6, the Manager requires exact world/system identities, numeric
+Foundry `14.x`, numeric dnd5e `5.3.x`, and fails closed outside those ranges.
 
 ### 0.1 The implementation, and how it reaches the Manager
 
@@ -337,10 +338,11 @@ unchanged). There is deliberately no instance, host, port or URL in the bundle:
 `/home/foundry/shared/worlds` is bind-mounted into all three Foundry instances,
 so composing an instance into the identity would split one world into three.
 
-`coreVersion`, `systemId` and `systemVersion` are validated as a **tuple**
-against the configured supported deployment. The configured value today is core
-`14.365`, `dnd5e` `5.3.3`, world `the-guild` — held in configuration, not
-hard-coded (OD-14).
+`coreVersion`, `systemId` and `systemVersion` are validated together against the
+configured supported deployment. The observed reference today is core `14.367`,
+`dnd5e` `5.3.3`, world `the-guild`. World and system identities match exactly;
+compatible versions are numeric Foundry `14.x` and dnd5e `5.3.x`; malformed or
+out-of-range versions fail closed (OD-14, controlled baseline v1.6).
 
 ### 2.5 `folders` and `selectedFolderIds` — a bounded set, not a single folder
 

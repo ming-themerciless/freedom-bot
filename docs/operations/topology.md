@@ -69,7 +69,7 @@ There is therefore no stale-copy risk and no authoritative instance to choose:
 What *is* per-instance: the Foundry binary (`/home/foundry/foundryN/foundry/`),
 the game system and the modules (`/home/foundry/dist/foundryN/{systems,modules}`
 are bound in separately, one tree per instance). All three currently run core
-**14.365** and `dnd5e` **5.3.3**, but they are independently upgradable, which is
+**14.367** and `dnd5e` **5.3.3**, but they are independently upgradable, which is
 why the connector still validates a **(core, system)** tuple per request even
 though there is only one world.
 

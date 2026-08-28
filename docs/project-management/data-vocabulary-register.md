@@ -1,6 +1,6 @@
 # Controlled data vocabulary register
 
-Status: Controlled by implementation-plan baseline v1.5, 2026-08-02.
+Status: Controlled by implementation-plan baseline v1.6, 2026-08-27.
 
 Owner: Data Owner. A package is not ready while a vocabulary it uses has an
 unresolved source or identity policy. Display names are aliases, never keys.

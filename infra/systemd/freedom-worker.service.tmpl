@@ -6,15 +6,27 @@
 # ## Why this is a separate unit and not a thread in freedom-web
 #
 # Operational contract §3. The work holds the GIL for ~9.6 seconds, its peak
-# memory is per-job and unmeasured, and a web deploy should be quick while a
-# worker holding a 60-second lease should drain. All three are unit-level
-# properties, which is why they are expressed here.
+# memory is per-job — measured at 302 MiB for a real 32-Actor folder on
+# 2026-08-27 (TC-PERF-01), and unmeasured anywhere near N-20's 64 MiB input
+# ceiling — and a web deploy should be quick while a worker holding a 60-second
+# lease should drain. All three are unit-level properties, which is why they are
+# expressed here.
 #
 # ## The three numbers below are the accepted ones, and each has a reason
 #
-# `MemoryMax=1G`   — N-47. Peak resident size for a parsed real folder is **not
-#                    measured**; this is a guard, and TC-PERF-01 must measure it
-#                    in staging before production. A job killed by the ceiling is
+# `MemoryMax=2G`   — N-47, **raised from 1G on 2026-08-27** (C-P3.5-Z), after
+#                    TC-PERF-01 finally measured what this bounds. A real
+#                    32-Actor folder peaked at **302 MiB**; the same corpus
+#                    synthetic peaked at 185 MiB, and real Actor data costs
+#                    ~13-15x its input size where the fixture cost ~7.5x
+#                    (N-26). Extrapolated to N-20's 64 MiB ceiling that reaches
+#                    ~1 GiB — at the old bound. 2G on a 7.7 GB host is a quarter
+#                    of it and ~2x the worst realistic case.
+#
+#                    **This is a runaway guard, not a budget.** It exists to
+#                    break a loop, not to restrain normal work, and raising it
+#                    protects the job slightly more and the shared host slightly
+#                    less. A job killed by the ceiling is
 #                    an abandoned attempt, not a failure verdict: the lease
 #                    expires, the reaper requeues it while an attempt remains,
 #                    and the durable effect is fenced by the import's own unique
@@ -76,8 +88,8 @@ RestartSec=5
 TimeoutStopSec=30
 KillSignal=SIGTERM
 
-# N-47. Unmeasured; see TC-PERF-01.
-MemoryMax=1G
+# N-47. Measured 2026-08-27: real peak 302 MiB (TC-PERF-01). See N-26.
+MemoryMax=2G
 
 # The worker exposes no listener at all (N-50), so it needs no network
 # capability beyond the loopback PostgreSQL socket its pool opens.

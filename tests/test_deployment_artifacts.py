@@ -319,3 +319,91 @@ def test_the_installer_provisions_the_worker_environment_file_it_substitutes():
     # What that branch then does is C3's subject and is executed, not grepped, by
     # tests/test_worker_env_file.py.
     assert "worker_env_file_problem" in installer
+
+
+# --------------------------------------------------------------------------
+# N-22 (2026-08-27): the accepted operational contract §4.1 gives Caddy exactly
+# two jobs — TLS and HSTS — and HSTS was configured in neither the deployed
+# staging file nor the production template. Observed on the wire during the
+# SP-29 browser evidence run: no `strict-transport-security` on any response.
+#
+# These cover **both** files by name. The parametrised CADDY_ARTIFACTS checks
+# above glob `*.caddy` and `*.example`, so the production `.tmpl` is outside
+# them — which is part of why this went unnoticed.
+# --------------------------------------------------------------------------
+
+CADDY_FILES_REQUIRING_HSTS = (
+    ROOT / "infra" / "caddy" / "freedom-blades-portal.caddy.tmpl",
+    ROOT / "infra" / "caddy" / "freedom-blades-test.caddy",
+)
+
+#: The contract's floor: "max-age at least one year".
+HSTS_MINIMUM_MAX_AGE = 31536000
+
+
+@pytest.mark.parametrize("path", CADDY_FILES_REQUIRING_HSTS, ids=lambda p: p.name)
+def test_every_served_site_sets_hsts(path: Path) -> None:
+    body = path.read_text(encoding="utf-8")
+
+    match = re.search(
+        r"""header\s+Strict-Transport-Security\s+"([^"]+)\"""", body
+    )
+    assert match, f"{path.name} sets no Strict-Transport-Security header (N-22)"
+
+    value = match.group(1)
+    age = re.search(r"max-age=(\d+)", value)
+    assert age, f"{path.name}'s HSTS value carries no max-age: {value!r}"
+    assert int(age.group(1)) >= HSTS_MINIMUM_MAX_AGE, (
+        f"{path.name} sets max-age={age.group(1)}, below the contract's "
+        f"one-year floor of {HSTS_MINIMUM_MAX_AGE}"
+    )
+
+
+@pytest.mark.parametrize("path", CADDY_FILES_REQUIRING_HSTS, ids=lambda p: p.name)
+def test_hsts_does_not_claim_subdomains_or_preload(path: Path) -> None:
+    """Both are reserved, and both are hard to walk back.
+
+    **The reason stated here until 2026-08-27 was wrong, and is corrected
+    without changing what the test asserts.** It claimed `includeSubDomains`
+    "would cover the sibling Foundry hosts under the same registrable domain".
+    It would not: the directive binds the sending host and names *beneath* it
+    (RFC 6797 §6.1.2), so `foundry1.rpgworld.org` and its peers are siblings of
+    the portal names, not subdomains of them, and are unaffected either way. No
+    block serves the apex `rpgworld.org`, which is the only place the sibling
+    reasoning could have applied.
+
+    The reservation itself stands, on a reason that holds: no name exists
+    beneath either portal host, so the directive buys nothing today while
+    committing every future name under it to HTTPS-only for a year. `preload` is
+    a submission to a browser-vendor list and is close to irreversible. Neither
+    may appear without a decision by the Operations Owner.
+    """
+    body = path.read_text(encoding="utf-8")
+
+    match = re.search(r"""header\s+Strict-Transport-Security\s+"([^"]+)\"""", body)
+    assert match
+    value = match.group(1).lower()
+
+    assert "includesubdomains" not in value, (
+        f"{path.name} claims includeSubDomains; the contract reserves that for "
+        "the Operations Owner, and it commits every future name beneath this "
+        "host to HTTPS-only for the whole max-age"
+    )
+    assert "preload" not in value, f"{path.name} claims preload without a decision"
+
+
+def test_the_application_still_owns_every_other_security_header() -> None:
+    """HSTS is the exception, not the start of a habit.
+
+    The contract's "one authority per header" rule is what stops two
+    `Content-Security-Policy` headers silently intersecting. If a later change
+    adds CSP or the others at the proxy, this fails.
+    """
+    proxy_owned = {"strict-transport-security", "server"}
+    for path in CADDY_FILES_REQUIRING_HSTS:
+        for match in re.finditer(r"^\s*header\s+(-?)([A-Za-z-]+)", path.read_text(), re.M):
+            name = match.group(2).lower()
+            assert name in proxy_owned, (
+                f"{path.name} sets {match.group(2)!r} at the proxy. The "
+                "application owns every header but HSTS (contract §4.1)."
+            )

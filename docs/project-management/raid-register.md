@@ -1,6 +1,18 @@
 # RAID register
 
-Status date: 2026-08-26
+Status date: 2026-08-28
+
+## Phase 3 gate decision — 2026-08-28
+
+Peter Duscha accepted the final accountable gate statement. **A-05 is Closed**
+by the Security Reviewer's final break-glass-readiness confirmation. **A-06 and
+I-06 are Closed** by the Technical Lead and Operations Owner's acceptance of the
+PostgreSQL queue/limiter and staging evidence. **R-23 remains an active accepted
+residual** under the Product Owner's disposition; screen-reader traversal is
+Not Run for Phase 3 and is not treated as passed. The Acceptance Authority
+approved the Phase 3 authentication, authorization and web-security gate and
+authorized Phase 4 implementation. See change-log C-P3.5-AK and the superseding
+decision in `docs/review/phase-3-gate-disposition-2026-08-25.md`.
 
 ## Close of the 2026-08-26 supervised sessions
 

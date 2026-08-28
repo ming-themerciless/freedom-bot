@@ -1,6 +1,6 @@
 # Legacy data migration register
 
-Status: Controlled by implementation-plan baseline v1.5, 2026-08-02.
+Status: Controlled by implementation-plan baseline v1.6, 2026-08-27.
 
 Owner: Data Owner. Update authority: §0.2 change control. This register assigns
 every known legacy Sheet field to exactly one accountable migration package.

@@ -1,6 +1,6 @@
 # Project governance
 
-Status: Accepted with controlled baseline v1.5 on 2026-08-02
+Status: Accepted with controlled baseline v1.6 on 2026-08-27
 
 This directory contains the management controls for the Freedom Blades
 Platform. The technical scope remains governed by

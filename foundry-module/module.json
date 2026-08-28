@@ -2,10 +2,10 @@
   "id": "freedom-blades-export",
   "title": "Freedom Blades — Snapshot Submission",
   "description": "Submits an immutable, read-only snapshot of one Actor folder to the Freedom Blades platform. Creates, changes and deletes nothing in Foundry.",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "compatibility": {
     "minimum": "14",
-    "verified": "14.365",
+    "verified": "14.367",
     "maximum": "14"
   },
   "relationships": {

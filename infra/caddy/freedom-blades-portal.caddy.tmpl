@@ -76,9 +76,9 @@ __SITE_ADDRESS__ {
 	}
 
 	# ---------------------------------------------------------------------
-	# Security headers: **none here, deliberately** (F-12)
+	# Security headers: **one here, and only one** (F-12, amended by N-22)
 	# ---------------------------------------------------------------------
-	# The application owns every one of them — CSP (N-26), Referrer-Policy,
+	# The application owns all but one of them — CSP (N-26), Referrer-Policy,
 	# X-Content-Type-Options, COOP and CORP — and P3.4's tests assert the exact
 	# set on real responses. Two `Content-Security-Policy` headers are both
 	# enforced, so a proxy-added policy silently intersects with the application's
@@ -91,4 +91,44 @@ __SITE_ADDRESS__ {
 	#
 	# One exception, and it is not a security header:
 	header -Server
+
+	# ---------------------------------------------------------------------
+	# HSTS: the one security header Caddy **does** own (N-22)
+	# ---------------------------------------------------------------------
+	# Operational contract §4.1 gives Caddy exactly two jobs — TLS and HSTS — and
+	# assigns every other header to the application. The block above was right
+	# about the five the application owns and silently omitted the one it does
+	# not, so until 2026-08-27 **no response carried HSTS at all**. That is
+	# finding N-22, observed on the wire during the SP-29 browser evidence run.
+	#
+	# **Why the proxy and not the application.** HSTS is a statement about the
+	# TLS connection, and TLS terminates here. The application answers on plain
+	# HTTP over loopback and cannot know whether the transport that reached the
+	# visitor was secure, so a header it set would be a guess.
+	#
+	# **`max-age=31536000`** — one year, the contract's floor.
+	#
+	# **No `includeSubDomains`.** The decision stands; the reason recorded for it
+	# on 2026-08-27 did not, and is corrected here rather than left to be
+	# rediscovered. It said the directive was reserved "until the Operations
+	# Owner confirms no sibling host under `rpgworld.org` would break, and the
+	# Foundry hosts are siblings". **That is not what the directive does.**
+	# `includeSubDomains` binds the host that sent the header *and names beneath
+	# it* (RFC 6797 §6.1.2) — here, `*.__SITE_ADDRESS__` — so
+	# `foundry1.rpgworld.org` and its two peers are **siblings, not subdomains,
+	# and are unaffected either way**. The stated risk did not exist. It would
+	# only reach the Foundry hosts if this header were served from the apex
+	# `rpgworld.org`, and no block serves the apex.
+	#
+	# **Why it is still omitted, on a reason that holds:** no name exists beneath
+	# this host, so the directive would buy nothing today while committing every
+	# future name under it to HTTPS-only for a year — before anything is known
+	# about what those names will serve. A control with no present benefit and an
+	# unbounded future commitment is the wrong default. The contract's
+	# reservation of the directive to the Operations Owner is a governance rule
+	# and is untouched by this correction.
+	#
+	# **No `preload`** either — that is a submission to a browser-vendor list and
+	# is close to irreversible.
+	header Strict-Transport-Security "max-age=31536000"
 }

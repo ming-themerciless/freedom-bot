@@ -200,7 +200,7 @@ def test_two_snapshots_cannot_share_a_checksum(db_connection):
         "exporter_id, exporter_version, exported_at, world_id, world_title, "
         "core_version, system_id, system_version, actor_count, "
         "selected_folder_ids, correlation_id) VALUES (:id, :checksum, 10, 1, "
-        "'e', '1.0.0', :exported_at, 'the-guild', 'The Guild', '14.365', 'dnd5e', "
+        "'e', '1.0.0', :exported_at, 'the-guild', 'The Guild', '14.367', 'dnd5e', "
         "'5.3.3', 1, '[]'::jsonb, :correlation)"
     )
     db_connection.execute(statement, {"id": uuid4(), **values})
@@ -218,7 +218,7 @@ def test_a_checksum_must_be_a_sha256_hex_digest(db_connection):
                 "world_id, world_title, core_version, system_id, system_version, "
                 "actor_count, selected_folder_ids, correlation_id) VALUES "
                 "(:id, 'NOT-A-DIGEST', 10, 1, 'e', '1.0.0', now(), 'the-guild', "
-                "'The Guild', '14.365', 'dnd5e', '5.3.3', 1, '[]'::jsonb, :c)"
+                "'The Guild', '14.367', 'dnd5e', '5.3.3', 1, '[]'::jsonb, :c)"
             ),
             {"id": uuid4(), "c": uuid4()},
         )
@@ -953,7 +953,7 @@ def _insert_snapshot(connection, checksum: str | None = None):
             "world_id, world_title, core_version, system_id, system_version, "
             "actor_count, selected_folder_ids, correlation_id) VALUES "
             "(:id, :checksum, 10, 1, 'e', '1.0.0', now(), 'the-guild', "
-            "'The Guild', '14.365', 'dnd5e', '5.3.3', 1, '[]'::jsonb, :c)"
+            "'The Guild', '14.367', 'dnd5e', '5.3.3', 1, '[]'::jsonb, :c)"
         ),
         {
             "id": snapshot_id,

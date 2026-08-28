@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "baseline": "v1.5",
+  "baseline": "v1.6",
   "valid_packages": ["Phase 3", "5.1", "5.2", "5.3", "5.5", "5.6a", "5.6b", "5.9", "Phase 8"],
   "sheet_sources": [
     {"tab": "Characters", "column": "A", "header": "Character name", "package": "5.1", "profile_targets": ["character.display_name"]},

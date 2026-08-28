@@ -24,7 +24,7 @@ def override(**values: str) -> dict[str, str]:
 
 SCRATCH = {
     "world_id": "test",
-    "core_version": "14.365",
+    "core_version": "14.367",
     "system_id": "dnd5e",
     "system_version": "5.3.3",
 }

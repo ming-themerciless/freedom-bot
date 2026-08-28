@@ -1,4 +1,19 @@
 
+# `base.html` re-frozen 2026-08-27 for finding N-23. HTMX 2.0.10 injects an inline
+# `<style>` for `.htmx-indicator` at load, which N-26's `style-src 'self'` blocks —
+# a CSP violation logged by a real browser engine on every page that loads HTMX.
+# Nothing used the feature, so nothing broke; the noise mattered because a console
+# with a permanent error in it hides the next one. A `<meta name="htmx-config">`
+# turns the injection off, placed before the script because HTMX reads it at load.
+# A meta tag rather than an inline `<script>`, which would have needed a
+# `script-src` exception — a worse trade than the problem.
+# Re-frozen deliberately, with the previous value recorded here rather than
+# silently overwritten:
+#   was a7ff85b659b77b9fc496d5d3afdf0499b70cb7cdd43afde403c2d4686e892770
+#
+# **The Step 1–10 accepted baseline below is untouched.** That entry is the P3.4
+# acceptance record, and this change moves only the implementation digest.
+#
 # `includes/header.html` re-frozen 2026-08-23 by the C35-05 shell contract.
 # The P3.4 digest recorded a *static* header: the same three links for every
 # caller, no sign-out control anywhere, and no route to any privileged surface
@@ -133,7 +148,7 @@ ACCEPTED_STEP_1_THROUGH_10_INCLUDE_DIGESTS: types.MappingProxyType[str, str] = (
 _P3_4_IMPLEMENTATION_INCLUDE_DIGESTS: dict[str, str] = {
     "includes/footer.html": "2f1068b436a38a7ef79580aec4b55ed23dcaa5a3b827596509caa000ed72f7c3",
     "includes/header.html": "fc1fc051f19454be4df9e430e6b76d3209f4c6a528cc86f8c23992324359ccbb",
-    "base.html": "a7ff85b659b77b9fc496d5d3afdf0499b70cb7cdd43afde403c2d4686e892770",
+    "base.html": "f9ce0e17255dc30043fc8167681af1274cc6f50ce0b5a1ae1ca29819d0284838",
 }
 
 P3_4_IMPLEMENTATION_INCLUDE_DIGESTS: types.MappingProxyType[str, str] = (

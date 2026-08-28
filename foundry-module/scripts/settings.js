@@ -57,16 +57,24 @@ export const SETTINGS = Object.freeze({
 });
 
 /**
- * The deployment the platform is configured to accept.
+ * The reference deployment the platform is configured against.
  *
  * Held in settings rather than hard-coded so that a validated Foundry or system
  * upgrade is a configuration change on both sides, matching OD-14 and ADR 0006:
- * the connector serves one deployment, and an upgrade deliberately stops
- * submission until the new tuple is validated.
+ * the connector serves one deployment.
+ *
+ * **This is the reference, not the boundary (OD-14 controlled baseline v1.6,
+ * 2026-08-27).** The comparison is not exact equality of the whole tuple: the
+ * world and system ids match exactly, Foundry core is accepted across numeric
+ * `14.x` and dnd5e across numeric `5.3.x`, and anything malformed or outside
+ * those ranges fails closed. So an in-range build no longer stops submission —
+ * a generation change, a system minor or major change, an identity change or an
+ * unparsable version still does. `assertSupportedDeployment` in `bundle.js` is where
+ * that is implemented; this object only supplies the reference it compares to.
  */
 export const DEFAULT_SUPPORTED = Object.freeze({
   worldId: "the-guild",
-  coreVersion: "14.365",
+  coreVersion: "14.367",
   systemId: "dnd5e",
   systemVersion: "5.3.3",
 });

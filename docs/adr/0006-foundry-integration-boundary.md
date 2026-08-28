@@ -1,6 +1,6 @@
 # ADR 0006 — Foundry integration boundary
 
-Status: **Accepted, amended 2026-08-02.** Approved by the maintainer 2026-07-30,
+Status: **Accepted, amended 2026-08-02 and 2026-08-27.** Approved by the maintainer 2026-07-30,
 which satisfies the Phase 0 acceptance criterion *"maintainer approves
 architecture ADRs"* (plan §12). The independent Codex review required by plan
 §16.4 approved Phase 0 on 2026-07-30, and the maintainer accepted the milestone.
@@ -94,15 +94,18 @@ combination **fails the sync with a clear diagnostic**. It does not degrade, doe
 not guess, and does not partially import. Plan §12 Phase 7: *"unsupported
 versions fail safely."*
 
-**Supported range, decided 2026-07-30 ([OD-14](../discovery/open-decisions.md)):**
-exactly the deployed tuple — core `14.365`, `dnd5e` `5.3.3` — held in
-configuration rather than hard-coded. This connector serves **one deployment and
-is not distributed**, so no backwards compatibility is owed. A Foundry or system
-upgrade deliberately stops the sync until the new tuple is validated and the
-configured value updated; that visible checkpoint is the feature. The per-instance
-upgrade path makes this concrete: one instance can be upgraded against the shared
-world while the others are not, so the connector can meet an unexpected tuple even
-though the world itself never changed.
+**Supported range, superseded 2026-08-27 ([OD-14](../discovery/open-decisions.md),
+controlled baseline v1.6):** exact world and system identities, numeric Foundry
+generation `14.x`, and numeric dnd5e major/minor `5.3.x`. Malformed versions and
+versions outside those ranges fail closed. The observed reference versions remain
+configuration-supplied. This connector serves one deployment and is not distributed,
+so no third-party backwards compatibility is owed.
+
+An in-range upgrade does not require a new compatibility-policy decision, but it
+does require a real export and preview with warnings and diagnostics inspected and
+recorded. Shape validation cannot prove semantic compatibility. A Foundry generation
+change, dnd5e minor/major change, identity change or malformed version stops the sync
+until validation and controlled approval update the policy.
 
 ### One-way, read-only first
 

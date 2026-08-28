@@ -87,7 +87,7 @@ def world(**overrides) -> WorldIdentity:
     values = {
         "world_id": "the-guild",
         "title": "The Guild",
-        "core_version": "14.365",
+        "core_version": "14.367",
         "system_id": "dnd5e",
         "system_version": "5.3.3",
     }
@@ -124,12 +124,12 @@ def test_several_differences_are_all_reported():
 
 
 def test_compatibility_is_keyed_on_the_tuple_not_on_one_member():
-    assert world().version_tuple == ("14.365", "dnd5e", "5.3.3")
+    assert world().version_tuple == ("14.367", "dnd5e", "5.3.3")
 
 
 def test_the_deployment_is_configuration_not_a_constant():
     other = SupportedDeployment(
-        world_id="scratch", core_version="14.365", system_id="dnd5e", system_version="5.3.3"
+        world_id="scratch", core_version="14.367", system_id="dnd5e", system_version="5.3.3"
     )
 
     assert other.mismatches(world(world_id="scratch")) == ()
@@ -151,3 +151,86 @@ def test_a_world_describes_itself_without_an_instance():
     assert "the-guild" in description
     assert "foundry1" not in description
     assert "30001" not in description
+
+
+# --------------------------------------------------------------------------
+# Version compatibility, widened from exact equality 2026-08-27 (C-P3.5-Z).
+#
+# **This table is duplicated in `foundry-module/tests/deployment-range.test.mjs`
+# and the two must agree.** The module refuses before assembling a bundle and
+# the server refuses on submission; two different rules would mean an export the
+# module allowed and the server rejected — or, worse, the reverse.
+# --------------------------------------------------------------------------
+
+COMPATIBILITY_TABLE = [
+    ("14.367", "5.3.3", True, "the reference deployment itself"),
+    ("14.365", "5.3.3", True, "an older build in the same generation"),
+    ("14.999", "5.3.3", True, "a newer build in the same generation"),
+    ("14", "5.3.3", True, "a generation with no build number"),
+    ("14.367.2", "5.3.3", True, "a build with a third component"),
+    ("15.1", "5.3.3", False, "the next Foundry generation"),
+    ("13.999", "5.3.3", False, "the previous Foundry generation"),
+    ("14.x", "5.3.3", False, "a core version that is not numeric"),
+    ("14.367", "5.3", True, "a system version with no patch"),
+    ("14.367", "5.3.9", True, "a later system patch"),
+    ("14.367", "5.4.0", False, "the next system minor — where a schema may move"),
+    ("14.367", "6.0.0", False, "the next system major"),
+    ("14.367", "5", False, "a system version with no minor at all"),
+    ("14.367", "5.3.3-beta", False, "a system prerelease"),
+]
+
+
+def _world(core: str, system: str):
+    from domain.foundry import WorldIdentity
+
+    return WorldIdentity(
+        world_id=OBSERVED_DEPLOYMENT.world_id,
+        title="The Guild",
+        core_version=core,
+        system_id=OBSERVED_DEPLOYMENT.system_id,
+        system_version=system,
+    )
+
+
+@pytest.mark.parametrize(
+    "core,system,accepted,label",
+    COMPATIBILITY_TABLE,
+    ids=[f"{c}/{s}" for c, s, _, _ in COMPATIBILITY_TABLE],
+)
+def test_deployment_compatibility_ranges(core, system, accepted, label):
+    mismatches = OBSERVED_DEPLOYMENT.mismatches(_world(core, system))
+
+    assert (mismatches == ()) is accepted, f"{label}: {mismatches}"
+
+
+def test_a_refusal_names_the_accepted_series_not_the_reference_version():
+    """An operator should learn what *would* be accepted, not only what failed.
+
+    "expected 14.367" invites a pointless exact-match upgrade; "expected the
+    14.x series" says the generation is the thing that matters.
+    """
+    mismatches = OBSERVED_DEPLOYMENT.mismatches(_world("15.1", "5.4.0"))
+
+    assert any("14.x series" in m for m in mismatches), mismatches
+    assert any("5.3.x series" in m for m in mismatches), mismatches
+
+
+def test_identities_are_still_matched_exactly():
+    """`world_id` and `system_id` are identities, not versions.
+
+    Widening the version comparison must not have widened these by accident.
+    """
+    from domain.foundry import WorldIdentity
+
+    other_world = WorldIdentity(
+        world_id="some-other-world",
+        title="Other",
+        core_version=OBSERVED_DEPLOYMENT.core_version,
+        system_id="pf2e",
+        system_version=OBSERVED_DEPLOYMENT.system_version,
+    )
+
+    mismatches = OBSERVED_DEPLOYMENT.mismatches(other_world)
+
+    assert any("world id" in m for m in mismatches)
+    assert any("game system" in m for m in mismatches)

@@ -1,8 +1,8 @@
 # Freedom Blades Platform — Master Implementation Plan
 
-Status: Controlled baseline v1.5 — accepted 2026-08-02
+Status: Controlled baseline v1.6 — accepted 2026-08-27
 
-Baseline date: 2026-08-02
+Baseline date: 2026-08-27
 
 Document owner: Peter Duscha, Product Owner
 
@@ -480,7 +480,7 @@ The deployed baseline currently identified is:
 
 - world: `The Guild`;
 - world ID: `the-guild`;
-- Foundry core: `14.365`;
+- Foundry core: `14.367`;
 - system: `dnd5e`;
 - system version: `5.3.3`;
 - source folder: `Characters (active)`.

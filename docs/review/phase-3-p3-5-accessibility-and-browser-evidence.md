@@ -125,7 +125,7 @@ simply have been run at any time.
 | **OAuth redirect under `form-action 'self'`** (TC-SEC-07) | **Passed.** A Discord sign-in completed with **no `form-action` violation** in the console. A `GET`-initiated redirect is a navigation, not a form submission, and the engine agrees |
 | **Skip link** | **Passed.** `<a href="#main-content" class="skip-link">Skip to main content</a>` targeting `<main id="main-content">` — a genuine landmark (`base.html:13,15`). Observed appearing on `Tab` and activating, the URL becoming `…#main-content`. No visible scroll is expected on a short page whose main content is already in view |
 | **`prefers-reduced-motion`** | **Mechanism verified; effect imperceptible by design.** The frozen stylesheet carries a correct `@media (prefers-reduced-motion: reduce)` block over `*, *::before, *::after`. The only motion in the entire stylesheet is **10 short hover transitions**; with the setting enabled they become instant — a change no operator would perceive. The operator reported no visible difference, which is **consistent with correct behaviour, not with a defect** |
-| **TC-UI-08, real device** | **Partly.** iPhone 15 / iOS 26.6, every view checked, zoom exercised, no defect reported. **768 and 1280 CSS pixels are not covered** — a phone offers only its own width (~393). An iPad (portrait ≈ 820, landscape ≈ 1180) would cover both remaining bands on real hardware and is queued |
+| **TC-UI-08, real device** | **Passed 2026-08-26/27 across two real devices.** **iPhone 15 / iOS 26.6** — every view, zoom exercised, no defect. **iPad A16 / iPadOS 26.6.1** — every view, **resized and zoomed**, no defect. Between them the narrow (~393), medium (~820 portrait) and wide (~1180 landscape) bands are covered **on real hardware**, which is stronger evidence than a resized desktop window. **Recorded limitation:** widths were spanned by device form factor and window resizing, **not measured in CSS pixels**, so the row is satisfied by coverage across the bands rather than by three exact viewport values |
 | **HTMX-enhanced path exercised** | **Not Run** |
 | **Real-engine contrast ratios** | **Not Run** |
 
@@ -143,10 +143,34 @@ engine blocks it. **The CSP is working correctly.**
 **No functional impact:** no template uses `hx-indicator`, and the stylesheet
 defines no `.htmx-indicator` rules — HTMX is styling a feature the portal does not
 use. **Still worth fixing**, because a violation on every HTMX page load is
-console noise that would **mask a genuine one**. Proposed remediation, not
-applied: `<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>` in
-`base.html` — no inline script, no stylesheet change, no touch to the frozen
-assets.
+console noise that would **mask a genuine one**. **Remediated 2026-08-27** with the Operations Owner's agreement:
+`<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>` in
+`base.html`, placed **before** the HTMX script because HTMX reads the tag at
+load. A meta tag rather than an inline `<script>`, which would have needed a
+`script-src` exception — a worse trade than the problem. No stylesheet change.
+
+**Four tests** in `tests/web/test_n23_htmx_csp_config.py`: the config disables
+the injection; **it precedes the script** — a tag placed after would parse as
+valid JSON, assert cleanly and do nothing; **no template uses `hx-indicator`**,
+which is the condition making the change safe, so a later template adding one
+fails here rather than silently losing its styling; and a **rendered page**
+carries it, because the template is not the served page.
+
+*Two of those tests failed first and both failures were useful.* The
+`hx-indicator` check matched `base.html`'s own explanatory comment, and now
+matches the attribute form — the looser version would have gone permanently red
+for documenting itself.
+
+**And a correction to what this document said yesterday.** It claimed the change
+touched "no frozen assets". That was **wrong**: `base.html` is not in the *visual
+freeze manifest* — which covers the design-prototype files only — but templates
+carry a **separate SHA-256 digest registry**
+(`tests/web/template_digests.py`), and the change broke it. The implementation
+digest was **re-frozen deliberately**, following the precedent that file already
+sets for `includes/header.html`: the previous value and the reason are recorded
+in place rather than silently overwritten. **The Step 1–10 accepted baseline
+digest is untouched** — that entry is the P3.4 acceptance record. Flagged for
+Codex, because a P3.4 template moved.
 
 **Parsed-DOM automation could not have found this.** It does not execute HTMX
 inside an engine enforcing a policy.
@@ -172,7 +196,7 @@ inspector would have raised.
 | 2. Semantics, headings, labels, descriptions, tables | **Not Run in a browser.** Parsed-DOM automation is extensive and passes; the accepted level is a browser |
 | 3. Six states from a real view model | **Partly** — one of six observed |
 | 4. HTMX-enhanced **and** JavaScript-disabled paths | **Half** — the scriptless path was observed, which is the half F-15 lived in. HTMX-enhanced was not |
-| 5. 320 / 768 / 1280 and 200% zoom | **Passed** on one browser (TC-UI-01/02). **TC-UI-08 partly evidenced 2026-08-26** — a real iPhone 15 / iOS 26.6 at its native width, every view, zoom exercised. **768 and 1280 not covered**; an iPad would close both on real hardware |
+| 5. 320 / 768 / 1280 and 200% zoom | **Passed** on one browser (TC-UI-01/02), and **TC-UI-08 Passed 2026-08-26/27** across two real devices — iPhone 15 / iOS 26.6 and iPad A16 / iPadOS 26.6.1, every view, resized and zoomed. Bands covered by form factor rather than measured CSS pixels |
 | 6. Real-engine contrast and reduced motion | **Reduced motion: mechanism verified 2026-08-26** in a real engine, its imperceptibility explained by the stylesheet containing only 10 short hover transitions. **Real-engine contrast remains Not Run** |
 | 7. Screen-reader traversal | **Not Run — permanently for Phase 3 (D-f)** |
 | 8. Browser/OS/viewport/zoom/AT recorded for every result | **Met.** The exact Chrome build — **151.0.7922.172 (arm64)** — was recorded on 2026-08-26, closing the gap the 2026-08-24 session left |

@@ -81,7 +81,7 @@ Foundry snapshot milestone required two changes:
 - **0006 was amended in place**, not superseded. Its rejection of offline
   snapshot import and its `"_id": null` premise no longer hold for a
   Council-produced export bundle; every other decision — no LevelDB, no
-  Manager-initiated live access, world-not-instance identity, exact version
+  Manager-initiated live access, world-not-instance identity, scoped version
   tuple, platform-owned stable IDs, no write-back — is carried forward verbatim.
   The amendment is recorded as its own section, with the withdrawn reasoning
   kept.

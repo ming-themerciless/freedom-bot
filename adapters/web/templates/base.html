@@ -6,6 +6,23 @@
     <title>{% block title %}Freedom Blades{% endblock %}</title>
     <link rel="icon" type="image/png" href="/static/images/freedom-blades-token.eab0d13128f5.png">
     <link rel="stylesheet" href="/static/css/freedom-blades.3f877d00a8f9.css">
+    {#
+      N-23. HTMX ships `includeIndicatorStyles: true` and injects an inline
+      `<style>` for `.htmx-indicator` when it loads. N-26's `style-src 'self'`
+      has no nonce, so a real browser engine blocks it and logs a CSP violation
+      on every page that loads HTMX.
+
+      Nothing here uses `hx-indicator` and the stylesheet defines no
+      `.htmx-indicator` rules, so the injected style was decoration for a feature
+      the portal does not have. The violation was therefore harmless — and worth
+      removing anyway, because a console with a permanent red line in it is one
+      where the *next* violation goes unnoticed. This finding was itself spotted
+      by an operator reading a console that was otherwise quiet.
+
+      A meta tag rather than a script: an inline `<script>` would need a
+      `script-src` exception, which is a worse trade than the problem.
+    #}
+    <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
     <script defer src="/static/vendor/htmx-2.0.10.71ea67185bfa.min.js"></script>
     <script defer src="/static/js/webauthn-emergency.9e0c073e9e6c.js"></script>
   </head>

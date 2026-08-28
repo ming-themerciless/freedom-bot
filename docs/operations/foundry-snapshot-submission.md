@@ -80,11 +80,13 @@ aggregate version at the moment it commits.
    one, only the download fallback works. The credential is **not** configured —
    see §4.1.
 
-Supported deployment: Foundry `14.365`, `dnd5e` `5.3.3`, world `the-guild`. The
-module reads the tuple it is actually running and refuses to export if it does
-not match the configured one. A Foundry or system upgrade therefore **stops
-submission until the configured tuple is updated on both sides** — that visible
-checkpoint is the feature (OD-14, ADR 0006).
+Supported deployment: Foundry `14.367`, `dnd5e` `5.3.3`, world `the-guild`. The
+module reads the tuple it is actually running. World and system identities must
+match exactly; Foundry must remain in numeric `14.x` and dnd5e in numeric
+`5.3.x`. Malformed versions or changes outside those ranges stop submission.
+After an in-range upgrade, execute a real export and preview, inspect warnings
+and diagnostics, and record the result; structural parsing alone does not prove
+semantic compatibility (OD-14, ADR 0006, controlled baseline v1.6).
 
 **Rollback:** disable the module in *Manage Modules*, or delete its directory.
 Neither affects any Foundry document, because the module never wrote one.
@@ -101,7 +103,7 @@ secret** — see §4.1. Set them from a GM browser console:
 const M = "freedom-blades-export";
 await game.settings.set(M, "submissionEndpoint", "https://<host>/api/v1/foundry/snapshots");
 await game.settings.set(M, "supportedWorldId", "the-guild");
-await game.settings.set(M, "supportedCoreVersion", "14.365");
+await game.settings.set(M, "supportedCoreVersion", "14.367");
 await game.settings.set(M, "supportedSystemVersion", "5.3.3");
 ```
 
@@ -113,7 +115,9 @@ rehearsal is possible; that exception cannot reach the network.
 
 **There is no credential setting.** Security review S-B-1 found that storing the
 reusable bearer as a world setting placed it outside any confidentiality
-boundary, and the Foundry 14.365 application source establishes exactly why:
+boundary, and the Foundry 14.365 application source establishes exactly why
+(**provenance, deliberately not updated to 14.367**: that source is what was
+actually read, and nobody has re-read 14.367's):
 
 | Question | Answer | Source |
 |---|---|---|
