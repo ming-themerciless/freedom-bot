@@ -22,6 +22,7 @@ the caller cannot tell.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
@@ -95,6 +96,27 @@ def validate_key(key: str) -> str:
     This bounds the *column*, not the exposure. Keeping caller text out of
     permanent history is `request_key_digest`'s job, not this function's.
     """
+    # Type before every value rule, for the reason `application/commands.py`
+    # gives about its own text fields: `.strip()` on a value never established
+    # as text leaves this validator as a raw `AttributeError`, and `bytes` —
+    # which has a `.strip()` and a `len()` of its own — passed the blank and
+    # length rules and failed only inside the control-character scan below, as
+    # an unrelated `TypeError`. Neither is an `IdempotencyKeyError`, so both
+    # escaped `CommandEnvelope`'s documented
+    # `InvalidEnvelopeError(code="invalid_request_key")` contract and the
+    # Foundry submission boundary's `SubmissionRefused`.
+    #
+    # This value is what makes a retry recognisable as a retry. A key that is
+    # not `str` can never match the `str` a previous attempt stored, so
+    # admitting one would spend a fresh key on every retry — the duplicate
+    # execution the mechanism exists to prevent. Refused, therefore, and never
+    # coerced with `str(...)`, decoded, normalized or truncated: the offending
+    # type is named, the offending value never is.
+    if not isinstance(key, str):
+        raise IdempotencyKeyError(
+            "invalid_request_key",
+            f"A request key is text, not {type(key).__name__}.",
+        )
     if not key.strip():
         raise IdempotencyKeyError(
             "invalid_request_key", "A request key is required and may not be blank."
@@ -120,5 +142,94 @@ def request_hash(*parts: str) -> bytes:
 
     Newline-joined rather than concatenated, so two different splits of the same
     text cannot produce the same digest.
+
+    **Ambiguous for anything but fixed-shape input**, which is why
+    `canonical_request_hash` exists beside it. Joining on a separator only keeps
+    two field lists apart while no field can contain the separator; a reason
+    holding a newline, or a field list whose length varies, collides. This form
+    is retained for the one caller whose inputs are a fixed pair of a scope and a
+    hex checksum (`application/foundry/submission.py`), where neither can.
     """
     return hashlib.sha256("\n".join(parts).encode("utf-8")).digest()
+
+
+#: What a canonical field may hold: text, a whole number, or nothing at all.
+#:
+#: `None` is a *value* rather than a missing field. "This command compensates
+#: nothing" and "this command compensates the transaction named by the empty
+#: string" are different statements, and a canonicalization that rendered both
+#: as `""` would let one be replayed as the other.
+CanonicalValue = str | int | None
+
+#: One byte per value, so a type cannot be changed without changing the digest.
+#: An integer rendered as text and the same text supplied as text are different
+#: fields; without a tag they would not be.
+_ABSENT = b"\x00"
+_TEXT = b"\x01"
+_INTEGER = b"\x02"
+
+#: Every length is written in this many big-endian bytes. Fixed width, so the
+#: length prefix itself needs no delimiter.
+_LENGTH_BYTES = 8
+
+
+def canonical_request_hash(
+    schema: str, fields: Sequence[tuple[str, CanonicalValue]]
+) -> bytes:
+    """The 32-byte digest of a *named, typed, length-delimited* field list.
+
+    Three properties, and each of them is a defect this replaces:
+
+    **Length-delimited, so no sequence of fields can collide with another.**
+    Every name and every value is written as its byte length followed by its
+    bytes, with no separator anywhere. `[("a", "bc")]` and `[("ab", "c")]` are
+    therefore different digests, where a delimiter-joined encoding makes them
+    equal as soon as a field can contain the delimiter.
+
+    **Typed, so a value cannot change meaning without changing the digest.**
+    The integer `1`, the text `"1"` and an absent field are three digests.
+
+    **Versioned, through `schema`.** The digest is stored durably in
+    `idempotency_keys.request_hash` and compared against months later. A stored
+    key is only interpretable against the field list that produced it, so the
+    schema name is the first thing hashed: changing what the fields *mean*
+    changes the schema, and every stored key under the old schema keeps meaning
+    what it meant. It does not migrate them — it stops them being silently
+    reinterpreted.
+
+    The field count is bound in too, so a truncated or extended list cannot
+    match a shorter or longer one.
+    """
+    digest = hashlib.sha256()
+    digest.update(_framed(schema.encode("utf-8")))
+    digest.update(len(fields).to_bytes(_LENGTH_BYTES, "big"))
+    for name, value in fields:
+        digest.update(_framed(name.encode("utf-8")))
+        digest.update(_tagged(value))
+    return digest.digest()
+
+
+def _tagged(value: CanonicalValue) -> bytes:
+    if value is None:
+        return _ABSENT
+    if isinstance(value, bool):
+        # `bool` is an `int` subclass, and `True` would otherwise hash as the
+        # integer 1 — the same silent widening `domain/quantities.py` refuses.
+        raise TypeError(
+            "A canonical field holds text, a whole number or nothing. A boolean "
+            "is not an amount and is not a name; render it at the call site, "
+            "where what it means is visible."
+        )
+    if isinstance(value, int):
+        return _INTEGER + _framed(str(value).encode("ascii"))
+    if isinstance(value, str):
+        return _TEXT + _framed(value.encode("utf-8"))
+    raise TypeError(
+        f"A canonical field cannot hold {type(value).__name__}. Render it as "
+        "text or a whole number at the call site, where the conversion is "
+        "explicit and testable."
+    )
+
+
+def _framed(raw: bytes) -> bytes:
+    return len(raw).to_bytes(_LENGTH_BYTES, "big") + raw

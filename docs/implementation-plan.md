@@ -1,6 +1,8 @@
 # Freedom Blades Platform — Master Implementation Plan
 
-Status: Controlled baseline v1.6 — accepted 2026-08-27
+Status: Controlled baseline v1.6 — accepted 2026-08-27; Phase 3 gate approved
+2026-08-28; Phase 4 gate approved 2026-08-29 and Phase 5 package planning
+released subject to package-specific readiness and gates
 
 Baseline date: 2026-08-27
 
@@ -145,7 +147,7 @@ Freedom Bot into a secure, database-backed Freedom Blades platform.
 The target product consists of:
 
 - a branded web application;
-- the existing Discord bot, reduced over time to a Discord adapter;
+- the existing Freedom bot, reduced over time to a Discord adapter and then retired under §15.2; Discord itself is retained permanently;
 - a PostgreSQL database and immutable transaction/audit history;
 - Discord authentication, role verification, events, attendance, and
   notifications;
@@ -161,7 +163,7 @@ platform phase or release criterion includes music.
 
 This is an incremental replacement of a live system. It is not a rewrite and
 does not authorize deleting the current bot, its current Google Sheets runtime
-integration, live data, or deployment configuration. The legacy Discord bot
+integration, live data, or deployment configuration. The legacy Freedom bot
 continues to use Google Sheets until its Sheet-backed behavior has been replaced
 by the database-backed Freedom Blades Manager and the cutover has been verified.
 The Foundry active-character snapshot supplies Actor data outside the Sheet-era
@@ -177,7 +179,7 @@ interim database model.
 Develop the platform inside this repository.
 
 Do not create a temporary sibling application that will later replace the
-repository. Do not delete the Discord bot after the website is introduced.
+repository. Do not delete the Freedom bot after the website is introduced; its retirement is governed solely by §15.2, and Discord itself is never retired.
 The bot remains the Discord-facing adapter for notifications, event
 integration, voice attendance, and optional lightweight commands.
 
@@ -315,7 +317,7 @@ Browser
    ▼
 Web application ───────────────┐
                                │
-Discord bot ───────────────────┼─> Application services ─> Domain
+Freedom bot ───────────────────┼─> Application services ─> Domain
                                │             │
 Foundry module ────────────────┘             ▼
                                          Repositories
@@ -1159,6 +1161,7 @@ accepted.
 | Phase 10 | Phase 4 and relevant Phase 5 economy migration | Phase 9 where aggregates do not overlap | Bastion gate releases Phase 11 |
 | Phase 11 | Phase 10 and catalogue/inventory foundations | None for the same Bastion aggregate | Facility gates release catalogue batches |
 | Phase 12 | Accepted manual Phase 9 reporting and separate privacy/provider approval | Non-critical-path work only | Separate optional-feature gate |
+| Freedom bot retirement (§15.2) | Every migrated command's package gate, Phase 6 approvals, the Phase 8–11 behaviors the bot touches, and §15.1's final Sheet retirement gate | Nothing — it is terminal | Bot-retirement gate; no successor work |
 
 The current critical path and actual gate states are maintained in
 `docs/project-management/status.md`. A row stating that work *may* run in
@@ -1304,7 +1307,7 @@ today. They remain on the accepted legacy path until the package introducing
 their typed domain model migrates them. Phase 2 may report their presence or a
 Foundry disagreement, but must not copy them into PostgreSQL, make them
 selectable for correction, or create a generic migration framework. The
-existing Sheets connector remains untouched because the live Discord bot still
+existing Sheets connector remains untouched because the live Freedom bot still
 requires it. Existing production writes continue until their package-specific
 cutover; "legacy" does not mean globally read-only while the replacement is
 absent.
@@ -1562,12 +1565,15 @@ Target: 5–10 working days
 Deliver:
 
 - framework-free money and resource domain objects;
-- application command/query interfaces;
+- application command interfaces and query-boundary conventions, introducing
+  concrete protocols only where this phase has a real consumer;
 - transaction ledger;
 - typed errors;
 - idempotent command execution;
 - characterization tests for Sheet-era behavior;
-- first read-only bot command using the new application layer.
+- application boundaries exercised by the Phase 4 ledger and idempotent command
+  execution work; no speculative money/resource query or temporary Sheet
+  adapter is created without its Phase 5.2 character-page consumer.
 
 Acceptance:
 
@@ -1575,7 +1581,10 @@ Acceptance:
 - money uses integer copper;
 - duplicate mutations are safe;
 - concurrent stale updates are detected;
-- tests characterize intended current behavior.
+- tests characterize intended current behavior;
+- command/query and repository protocols introduced in Phase 4 have a concrete
+  Phase 4 consumer; the wallet read query and its first production adapter are
+  deferred to package 5.2, where the character page consumes them.
 
 Review gate: dependency direction and domain correctness.
 
@@ -1593,7 +1602,7 @@ ready.
 |---|---|---|---|
 | 5.0 Migration and cutover harness | feature flags, comparison telemetry, idempotency/audit conventions and common rollback procedure | Phase 4 gate | first-mutation and cutover-control review |
 | 5.1 Character profile and `/info` | typed character/profile/proficiency schema; package-owned Sheet migration and reconciliation; database-backed read path with linked-character authorization | Phase 3 authentication/security gate, 5.0, OD-16/17 resolved | profile-migration and read-path authorization review |
-| 5.2 Wallet and `/xchange` | typed wallet/ledger schema; package-owned balance migration and reconciliation; atomic, idempotent currency exchange | 5.0 | first economy-migration/mutation review |
+| 5.2 Wallet, character-page wallet view and `/xchange` | typed wallet/ledger schema; package-owned balance migration and reconciliation; wallet query plus production repository adapter introduced with the character page as their first real consumer; atomic, idempotent currency exchange | 5.0 | first economy-migration/mutation and wallet-read-path review |
 | 5.3 Lifestyle and scheduled accrual | typed lifestyle schema; package-owned migration and reconciliation; interactive behavior, Living Cost schedule/history/job, catch-up, monitoring and authority cutover | 5.0; OD-03/04 closed; effective-dated activation history | scheduled-economy and cutover review |
 | 5.4 Mining and work | characterized deterministic rules and atomic ledger effects | 5.0 and rule decisions | rules/economy review |
 | 5.5 Learning | typed learning/downtime/proficiency projects; package-owned Sheet migration including accountable decomposition of column V; prerequisites, progress and corrections | 5.0; OD-09 and OD-28 closed | learning migration/rules review |
@@ -2198,7 +2207,13 @@ Before each production deployment:
 Applied migrations are never edited. Roll forward or create a documented
 recovery migration.
 
-## 15. Google Sheets retirement
+## 15. Legacy runtime retirement
+
+This section governs the retirement of both legacy runtimes: the Google Sheet
+that holds legacy state, and the Freedom bot that reads and writes it. They are
+retired separately, in that order, under separate gates.
+
+### 15.1 Google Sheets retirement
 
 Google Sheets is a temporary runtime dependency and the accepted legacy store
 for fields whose typed PostgreSQL package has not passed its migration/cutover
@@ -2262,6 +2277,76 @@ Phase 5.10 cuts over only the bot behaviors accepted within Phase 5. Final Sheet
 retirement is a separate gate and cannot occur while any manifest/register row
 is `Legacy`, `Shadow`, unexplained or allocated to an unaccepted later package,
 including Phase 8. No milestone name or partial bot cutover implies otherwise.
+
+### 15.2 Freedom bot retirement
+
+**Baseline v1.7, 2026-08-28.** The Freedom bot is retired once the platform is
+fully functional, and not before. It exists to give players access to state held
+in a Google Sheet; a platform that holds that state and offers those actions
+directly makes it unnecessary, and keeping it would preserve exactly the manual
+steps the platform is built to remove.
+
+**The governing condition is the platform's functionality, not the calendar and
+not the progress of this roadmap.** The bot must not be deleted, disabled or
+degraded for as long as the platform is not fully functional — stages 1 to 4
+below are what "fully functional" means, and every one of them must hold.
+Retirement is a **terminal gate**, not a milestone side effect.
+
+**Discord and the Freedom bot are two different things, and only one of them is
+in scope here.** Discord is the Freedom Blades community's server and the basis
+of the whole project; it is never retired. The Freedom bot is this repository's
+Python/Pycord application, a *client* of Discord. Retiring it removes a client
+and removes nothing from Discord.
+
+What is retired is the **Freedom bot**: its slash commands, its cogs, its
+Sheet-backed models and helpers, and the Discord application scopes and
+credentials that only those commands need. **Discord is not retired with it.**
+Discord OAuth remains the platform's authentication; Discord remains the source
+of guild membership, role verification, events, notifications and voice-state
+attendance evidence. Any Discord-side presence those still require is a narrow,
+platform-owned adapter owned and gated by the package that needs it. The
+attendance package is the one to size deliberately: voice-state join/leave
+requires a live gateway connection, so "no bot" cannot be assumed to mean "no
+gateway process" until that package has decided how attendance evidence is
+collected.
+
+Use these retirement stages:
+
+1. every player-facing behavior the bot provides exists on the platform and has
+   passed its owning package gate — Phase 5.1–5.9 for the migrated commands,
+   Phase 6 for the approvals that replace manual confirmation steps, and Phases
+   8–11 for behaviors those phases own;
+2. §15.1's final Sheet retirement gate has closed, so no bot path is anyone's
+   rollback route;
+3. a dual-availability period in which both interfaces work and the platform is
+   authoritative, with a numeric duration set by the retirement package plan;
+4. **measured adoption evidence** against a threshold accepted in advance by the
+   Product Owner — a stated proportion of active players having used the
+   platform for the behaviors that replaced their commands. "Everyone has moved
+   over" is a gate criterion and therefore needs a number, not an impression;
+5. announcement to the community with a numeric notice period;
+6. **deregistration before deletion**: the slash commands are removed from the
+   Discord application while the code still exists, so the rollback is
+   re-registration rather than a redeploy;
+7. a verification window with the bot's code retained but inert;
+8. deletion of the command cogs, the Sheets connector, the Sheet-backed models
+   and helpers made dead by the migration, and revocation of the credentials and
+   scopes no longer required; and
+9. a documented statement of what Discord-side presence remains, which package
+   owns it, and which process runs it.
+
+Retirement **cannot** occur while any row in the migration register or manifest
+is `Legacy`, `Shadow`, unexplained or allocated to an unaccepted package; while
+any command behavior lacks an accepted platform equivalent; or before §15.1's
+final Sheet retirement gate. Until every stage above holds, the bot must not be
+deleted, **disabled or degraded** — `.agents/AGENTS.md` states this as the
+governing condition — and no milestone name, partial cutover or passing test
+suite advances this gate on its own. An agent that believes the platform is
+finished is not evidence that it is.
+
+Gate: bot-retirement review. Required recommendations from the Product Owner,
+Technical Lead, Operations Owner and an Independent Reviewer; approval by the
+Acceptance Authority.
 
 ## 16. Claude Code working protocol
 
@@ -2404,34 +2489,294 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-1. Replace the superseded pre-v1.1 Phase 2 package plan and baseline a four-package
-   remediation plan with named implementer, Independent Reviewer, Data Owner and
-   Operations Owner; three-point estimates; review/remediation allowance;
-   environment readiness; and rehearsal windows.
-2. Remove ADR 0008's rejected generic state, balance, transaction, correction
-   and Sheet-bootstrap implementation while preserving immutable snapshot,
-   identity, mapping, authorization, provenance and audit behavior.
-3. Implement and test `legacy_authority_deferred`, remove impossible legacy
-   comparisons, and close all blocking independent-review findings.
-4. Exercise upgrade/downgrade/upgrade, backup/restore/rerun and direct
-   restricted-runtime-role denial in the named disposable or staging
-   environment.
-5. Conduct the maintainer-supervised real-export preview and store the Data
-   Owner attestation defined by the Phase 2 evidence contract; commit no real
-   Actor data or artifact.
-6. Submit the complete Phase 2 gate package; Phase 3 remains not ready until the
-   Acceptance Authority records an approved data-integrity/identity/migration
-   gate.
-7. Before Phase 3, baseline its read-only/security packages and prove that no
-   character-game-state correction surface exists.
-8. Maintain current decisions, risks, dependencies and forecast in
-   `docs/project-management/` throughout delivery.
+**Current evidence authorization, 2026-09-02.** Peter Duscha authorized a
+narrow pre-implementation evidence harness to resolve the circular dependency
+between Package 5.0 readiness and the operational evidence required for
+P5.0-R4/P5.0-R5. Claude may build and execute only synthetic disposable
+evidence scaffolding after Codex pre-execution review, under every exclusion and
+stop condition in
+`docs/review/phase-5-0-evidence-harness-authorization-draft.md`. This confirms
+no assumption and closes no finding. Package 5.0 product implementation,
+migration `0014`, production mutation, deployment, cutover, binding OD-62 and
+Package 5.1+ remain unauthorized.
 
-The replacement Phase 2 plan is not ready for approval unless it records the
-named environment; named implementer, Independent Reviewer, Data Owner and
-Operations Owner; optimistic/likely/pessimistic effort and confidence; explicit
-review/remediation contingency; maintainer and staging availability windows;
-artifact/import size and runtime limits; reconciliation success thresholds;
-backup-restore success criteria; rollback triggers; runtime-role evidence
-method; monitoring/observation period; and the date or bounded window for the
-supervised real-export rehearsal.
+Claude's authorized pre-execution handoff is
+`docs/review/phase-5-0-evidence-harness-implementation-prompt.md`. It permits
+only the isolated, unprivileged evidence-harness implementation and exact
+execution/cleanup plan. The prompt requires handback to Codex before any
+privileged or mutation-bearing evidence step.
+
+**Current governance update, 2026-09-02.** Peter Duscha approved **OD-64
+Option A**, **OD-65 Option B** and **OD-66 Option A / J-1** in all accountable
+roles. The Package 5.0 design therefore adopts the dedicated coordinator
+boundary, the isolated Sheet-writer/provenance controls, and the full durable
+sealed/registered journal. OD-65 defers correction of the group-writable
+worktree to a separate maintenance change; no Package 5.0 deployment may read
+executable input from it. **OD-62 remains Open**: G-A is the provisional
+direction only, and its binding risk acceptance must wait until P5.0-R5's
+operational evidence and independent review are complete. The residual-risk
+dispositions, remaining operational evidence and environment assumptions are
+also outstanding. Package 5.0 remains `not ready`; implementation and migration
+`0014` remain unauthorized.
+
+**Current security update, 2026-09-02.** Codex completed the Package 5.0
+revision-12 security re-review. **P5.0-SR1 and P5.0-SR2 are Closed on design**
+and the twelve-surface security design review is delivered without a new
+Blocking or Important design finding. This is not a readiness recommendation:
+C-1/C-3/C-4 and the remaining operational evidence are outstanding,
+A-5.0-3 through A-5.0-5 are unconfirmed, and P5.0-R1/R4/R5 remain unresolved.
+OD-64 through OD-66 are now rulable; OD-62 remains last. Package 5.0 remains
+`not ready`, and implementation and migration `0014` remain unauthorized.
+
+**Current update — Phase 4 cleanup and OD-63 accepted, 2026-09-02.** Peter
+Duscha accepted Codex's independent R3 disposition: **P4-PG4 and P4-PG5 are
+Closed**, completing the bounded cleanup of the already approved and closed
+Phase 4. Peter also accepted **OD-63 / D5.0-10 Option 1** in all accountable
+roles. Its nine numeric controls are accepted; N5.0-18 is **120 seconds — an
+operational margin, not a barrier**. A-5.0-3 remains unconfirmed.
+
+Package 5.0 readiness work resumes at `not ready`. P5.0-SR1/SR2 are closed on
+design; P5.0-R1/R4/R5 and the required operational evidence remain unresolved.
+OD-64 through OD-66 are approved, while OD-62 remains Open with G-A provisional
+pending the P5.0-R5 evidence and independent review. No Package 5.0 product
+implementation, migration `0014`, production host/database mutation,
+deployment, cutover or Package 5.1+ is authorized.
+
+**Superseded — Phase 4 post-gate remediation R2 independently reviewed; final
+boundary correction required, 2026-08-31.**
+
+P4-PG1, P4-PG2 and P4-PG3 are **Closed**.
+Their narrow constructor corrections establish type before value operations,
+preserve the existing typed refusal vocabulary and perform no coercion.
+Independent focused evidence is recorded in
+`docs/review/phase-4-post-gate-r2-independent-review.md`.
+
+Two further **Important** boundary defects reported in Claude's R2 handback are
+confirmed and remain **Open**: **P4-PG4**, malformed idempotency keys escaping
+the command envelope's `invalid_request_key` contract; and **P4-PG5**, malformed
+stored receipt command names escaping `StoredReceiptUnreadable` on the replay
+path. Phase 4 remains approved, but the maintainer requires these defects to be
+repaired before Phase 5 preparation resumes. The active handover authorizes only
+that bounded correction and its evidence. After Codex accepts it, work returns
+to Package 5.0 at exactly the readiness state below.
+
+**Package 5.0 state is unchanged.** It remains `not ready`; its implementation,
+migration, deployment, cutover and Package 5.1+ remain unauthorized. P5.0-SR1,
+P5.0-SR2, P5.0-R5, OD-62 through OD-66 and required operational evidence do not
+close or move because of the Phase 4 correction.
+
+**Superseded as the immediate action while P4-PG4/PG5 are remediated — Package
+5.0 security remediation R11 submitted (revision 12).**
+
+**Package 5.0 security review returned, and remediation R11 submitted,
+2026-08-31.** The distinct §9.2 security pass ran for the first time and returned
+**changes requested with no readiness recommendation**. **P5.0-SR1 (Blocking):**
+the deployment integrity check can be skipped silently — `deployment_manifest_digest()`
+compares a digest of the live deployed bytes with a caller-supplied copy of that
+same value, which proves consistency after deployment and **not provenance from
+the reviewed commit**, and no step refused when the comparison was omitted.
+**P5.0-SR2 (Important):** the operating-system identity contract and the journal
+group contract contradicted each other about `freedomjournal`, so neither could
+be followed without invalidating the other.
+
+**Revision 12 of the package plan and the logical schema, plus
+`docs/review/phase-5-0-remediation-r11-handback.md`, remediates both and claims
+neither closed.** P5.0-SR1 is answered by a fail-closed reviewed-source
+provenance contract (package plan §2.12.5a) that binds deployment **and**
+generation registration to an immutable reviewed Git object held in a
+`root:root 0700` bare store and to an out-of-band approval record, with the
+negative test the finding required and a **`NOT NULL` foreign key** to a new
+seventh table so an unprovenanced generation cannot be registered and activation
+cannot be reached. P5.0-SR2 is answered by making package plan §2.12.2 the
+**single canonical primary/supplementary membership table**, withdrawing the
+false isolation sentence and adding the positive and negative `id`/`namei`/`open`
+evidence the finding asked for.
+
+**This grows the package.** Seven tables instead of six; PERT **40.9 → 47.6**
+implementer-days; the security review **3.5–4.5 → 4.5–5.5** reviewer-days over
+**twelve** surfaces; two proposed and unaccepted residuals, **R-5.0-15** and
+**R-5.0-16**; and stop conditions **10o** and **10p**, with condition 4 extended
+so that a named-but-undelivered security review stops the gate.
+
+**Nothing is closed and nothing is authorized.** P5.0-SR1 and P5.0-SR2 are the
+Security Reviewer's to close; P5.0-R5 remains **Blocking**; P5.0-R1 and P5.0-R4
+remain open; OD-62 through OD-66 remain **Open**, with OD-65 extended and OD-66
+gaining an unadopted option A-3; A-5.0-3, A-5.0-4 and A-5.0-5 remain
+unconfirmed; host check **C-1** remains not completed and **C-3** and **C-4** not
+run; Package 5.0 remains `not ready`; and implementation, migration `0014`,
+deployment, cutover and Package 5.1+ remain unauthorized. **An independent
+security re-review of revision 12 is required, and the remaining §9.2 pass is
+outstanding in full.** No host object was created and no `git` write was
+performed.
+
+**Superseded — Package 5.0 Security Reviewer named, 2026-08-31.** Peter Duscha named **Codex**
+the Package 5.0 Security Reviewer, closing OD-61 / D5.0-8 and discharging the
+first of the six readiness actions in `docs/review/Handover information`. Codex
+did not implement Package 5.0, so §0.3's bar on approving one's own work holds;
+it now also holds the Independent Reviewer and logical-schema reviewer roles, and
+that concentration is accepted knowingly. **The assignment approves no option,
+closes no finding and confirms no assumption**, and the §9.2 security pass —
+3.5–4.5 reviewer-days over eleven surfaces — **has not run**; the revision-11
+design re-review is not that pass. The briefing pack is
+`docs/review/phase-5-0-security-review-brief.md`. OD-64, OD-65 and OD-66 become
+rulable only once the recommendation exists; OD-63 is rulable now and is drafted
+unsigned at `docs/review/phase-5-0-od-63-ruling-draft.md`; OD-62 is ruled last.
+Package 5.0 remains `not ready` and implementation, migration, deployment,
+cutover and Package 5.1+ remain unauthorized.
+
+**Superseded — Package 5.0 revision 11 independent re-review, 2026-08-31.** Codex identified
+no new Blocking or Important design finding and considers R10-A through R10-C
+materially addressed on paper. This closes the R10 remediation request only.
+It does not close P5.0-R5 or the package gate, confirm A-5.0-5, accept a
+decision, or authorize implementation. P5.0-R5 remains Blocking pending
+authorized operational evidence; P5.0-R1 and P5.0-R4 remain open; P5.0-R2
+remains closed; OD-62 through OD-66 remain Open; the Security Reviewer remains
+unnamed; and Package 5.0 remains `not ready`. The active handover contains the
+readiness and authorization work that precedes any implementation brief.
+
+Phase 4 was approved by Peter Duscha on 2026-08-29 after the required
+independent review and two remediation cycles. P4-R1 through P4-R5 and D-04 are
+Closed. Phase 5 package planning is released, but each package remains subject
+to its own definition of ready, predecessor decisions, independent review and
+cutover gate. This approval authorizes no migration, production mutation,
+data-authority cutover, Sheet retirement or permanent Discord character-
+mutation surface. R-23 remains an active accepted Phase 3 residual;
+screen-reader traversal was Not Run for Phase 3 and is not classified as passed.
+
+1. Select the next Phase 5 package according to §12.0 and §12 Phase 5 dependency
+   order; Phase 4 approval does not choose the package automatically.
+2. Baseline that package under the management definition of ready, including
+   its exact legacy sources, typed target, independently reviewed logical schema
+   where required, correction workflow, three-point estimate, capacity,
+   acceptance traceability and remediation contingency.
+3. Close every package-specific decision and dependency before implementation;
+   do not infer unresolved game, authorization, migration or cutover policy.
+4. Preserve the accepted Phase 4 command, ledger, idempotency, concurrency,
+   authorization and audit/correlation contracts when adding the package's real
+   repository and interface consumers.
+5. Authorize no migration, production mutation, authority cutover, deployment
+   or Sheet retirement until the selected package's own readiness and gate
+   requirements explicitly permit it.
+6. Continue maintaining status, RAID, decisions and change control under
+   `docs/project-management/`.
+
+Phase 4 handoff history is retained in its Phase 4 review artifacts. As of the
+2026-08-31 independent re-review of Package 5.0 revision 10,
+`docs/review/Handover information` is the active **documentation/design-only
+remediation R10 brief**. Revision 10 was returned **changes requested** because
+its executable identity recipes do not match the named `setpriv` contract: the
+E2–E6 recipes use unsupported `+keep_caps`, E8 does not drop the bounding set it
+declares empty, and E7 omits complete masks. R9-A and R9-B are materially
+improved, but R9-C remains Blocking. It
+does not authorize Package 5.0 implementation, migration, environment changes,
+deployment, cutover or Package 5.1+ work. **Revision 11 has been returned against
+that brief on 2026-08-31 and awaits an independent re-review**, which it
+requires; the brief remains the active one until that re-review is recorded, and
+nothing in revision 11 closes it, closes P5.0-R5 or authorizes any of the work
+the brief withholds.
+
+**Submission history — revision 11 was returned against the R10 brief on
+2026-08-31 and claims no finding closed.** It concedes that revision 10's
+executable-identity recipes do not construct the identities they declare:
+`setpriv(1)` from util-linux 2.39.3 rejects the securebit `+keep_caps` used by
+E2–E6; the same manual page states that the kernel does not permit capabilities
+to be **added** to a bounding set, which those five recipes also requested and
+which revision 10 did not notice; E8 declared an empty bounding set and dropped
+nothing; and E7 stated no inheritable or ambient mask. Package-plan §2.13.5c is
+rewritten around **`capsh(1)`**, whose manual documents that it acts on its
+arguments in the order given — which `setpriv(1)` does not, and on which every
+declared mask depends — with a **seven-step construction**, complete UID, GID,
+supplementary-group, P/E/I/A/B and **securebits** values for `E1 … E8`, a
+complete invocation for each, and a **mask-versus-recipe comparison table**. The
+launching bounding set is stated as a prerequisite and asserted, because no tool
+can add to one. Dependent evidence is revalidated: **`JNL-50` case 7 and `JNL-49`
+case 11 take `E6` rather than `E2` as the isolating positive control**, `E2`
+being retained as corroborating, and `JNL-50` case 4 gains a second control form.
+**The evidence band, the estimate and the security-review effort are unchanged —
+fifty identifiers, eighty-eight cases, PERT 40.9 implementer-days and 3.5–4.5
+reviewer-days — and the plan states why rather than recalculating.** The R8-A
+deployment-digest lifecycle, the R8-B cleanup state machine, the R8-D/F-7
+residual treatment and revision 10's R9-A and R9-B corrections are **preserved
+unchanged in substance**, and **no corrected identity produced a conflict with
+them**. Two stale copies of superseded wording were found in the logical schema
+and corrected. **No privileged case is claimed to have run**; assumption
+**A-5.0-5** is widened and remains unconfirmed; the host was **read**
+non-mutatingly for the tool contract (package plan §8.1 **H-6**) and was not
+written. The submitted artifacts are
+`docs/review/phase-5-0-package-plan.md`,
+`docs/review/phase-5-0-logical-schema.md` and
+`docs/review/phase-5-0-remediation-r10-handback.md`. P5.0-R5 remains
+**Blocking**, P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains closed, D5.0-9
+through D5.0-13 / OD-62 through OD-66 remain **Open**, the Security Reviewer
+remains **unnamed**, **no option, risk, decision or schema object is adopted or
+closed**, and Package 5.0 remains `not ready` with implementation unauthorized.
+**The required independent re-review completed on 2026-08-31 with no new
+Blocking or Important design finding; it closed R10 only and did not alter any
+of those package states.**
+
+**Superseded — revision 10 was returned against the R9 brief on 2026-08-30 and claimed no
+finding closed.** It concedes that revision 9's authority register recorded only
+half of `FS_IOC_SETFLAGS`'s permission check — the capability, not the
+owner-or-`CAP_FOWNER` authorization — and redesigns package-plan §2.13.5c around
+**eleven** authorities in which `A1` is the `CAP_LINUX_IMMUTABLE` half alone and
+the new `A10` and `A11` carry the owner half over the `freedomsheet`-owned
+journal and over the root-owned seal and archive respectively; **eleven of the
+thirteen falsification rows gain a prerequisite**, and every such change makes an
+alteration harder to construct rather than easier. It removes the A3/A2
+contradiction by separating what an authority **is** from who can **hold** it — a
+holder table, and detector reach assessed against the smallest identity that can
+really hold each combination — and **narrows** the bounded claim accordingly to
+**F-2, F-3 and F-6**. It replaces the executable evidence contract with eight
+specified identities `E1 … E8` carrying complete permitted, effective,
+inheritable, ambient and bounding capability sets and securebits, and rewrites
+`JNL-49` and `JNL-50` at **twelve cases each**, every negative flag case carrying
+a positive control; **no privileged case is claimed to have run**, and assumption
+**A-5.0-5** is corrected and remains unconfirmed. The R8-A deployment-digest
+lifecycle, the R8-B cleanup state machine and the R8-D withdrawal of F-7's
+detector are **preserved unchanged in substance**. The submitted artifacts are
+`docs/review/phase-5-0-package-plan.md`,
+`docs/review/phase-5-0-logical-schema.md` and
+`docs/review/phase-5-0-remediation-r9-handback.md`. P5.0-R5 remains **Blocking**,
+P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains closed, D5.0-9 through D5.0-13 /
+OD-62 through OD-66 remain open, the Security Reviewer remains **unnamed**, and
+Package 5.0 remained `not ready` with implementation unauthorized. Its
+2026-08-31 independent re-review is recorded above and required remediation R10;
+**revision 11 is the response, described above**, and
+`docs/review/phase-5-0-remediation-r9-handback.md` is superseded and retained as
+review history.
+
+**Revision 8 was returned against the R7 brief and independently re-reviewed on
+2026-08-30. Changes were requested.** Four Blocking inconsistencies were found:
+Algorithm C's deployment-digest validation occurred after first consumption, and
+compared the supplied value against the probe's copy of itself; its
+cleanup-failure evidence required mutually exclusive residue outcomes; the
+capability register treated `CAP_LINUX_IMMUTABLE` as bypassing archive DAC; and
+F-7 named no independent detector for a forged matching `/etc/machine-id`.
+**Revision 9 was returned against the R8 brief on 2026-08-30 and claims no
+finding closed.** It moves the deployment digest's computation and comparison to
+Algorithm C **C0** and replaces the universal ordering claim with invariants
+**I-1 … I-5**; adds a three-state cleanup machine in which *"no generation
+artifact"* is unconditional and *"no transient residue"* is conditional on
+cleanup success, with a single next-invocation behaviour; replaces the
+eight-capability register with **nine independently constructible authorities**
+separating flag control from discretionary access; and **withdraws F-7's
+refusal**, recording a forged matching host identity as residual **R-5.0-13** and
+routing an independent authenticated host binding as OD-66 **option A-2** under
+§0.2 without adopting it. The submitted artifacts are
+`docs/review/phase-5-0-package-plan.md`,
+`docs/review/phase-5-0-logical-schema.md` and
+`docs/review/phase-5-0-remediation-r8-handback.md`. **Independent re-review of
+revision 9 returned changes requested:** R8-A, R8-B and R8-D are materially
+addressed, but R8-C omits the owner-or-`CAP_FOWNER` prerequisite for
+`FS_IOC_SETFLAGS`, making the non-root `CAP_LINUX_IMMUTABLE`-only archive case
+and several minimum combinations non-constructible. The register also declares
+A1–A6 independent while saying every real A3 holder has A2. **Revision 10 is the
+response, described above.**
+`docs/review/phase-5-0-remediation-r8-handback.md`,
+`docs/review/phase-5-0-remediation-r7-handback.md` and
+`docs/review/phase-5-0-remediation-r6-handback.md` are superseded and retained as
+review history. P5.0-R5 remains **Blocking**, P5.0-R1 and P5.0-R4 remain open,
+P5.0-R2 remains closed, D5.0-9 through D5.0-13 / OD-62 through OD-66 remain
+open, the Security Reviewer remains **unnamed**, and Package 5.0 remains
+`not ready` with implementation unauthorized. This reference is updated to the
+next submitted revision whenever remediation work is returned.

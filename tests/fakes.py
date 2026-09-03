@@ -23,6 +23,7 @@ from application.authorization import AuthorizationContext
 from application.errors import ConcurrencyConflictError, UniquenessConflict
 from application.idempotency import IdempotencyRecord
 from application.imports import SheetRowMapping
+from application.ledger import LedgerPrincipal, LedgerScope
 from application.snapshots import (
     ExternalActorMapping,
     PlatformInitialization,
@@ -507,6 +508,58 @@ class FakeAuthorization:
         return self._contexts.get(
             discord_user_id, AuthorizationContext(discord_user_id=discord_user_id)
         )
+
+
+class FakeLedgerPrincipals:
+    """Resolves ledger principals, and records that it was asked.
+
+    The in-memory stand-in for `application.ledger.LedgerPrincipalPort`. It is
+    faithful to the two properties the service's guarantees rest on, and it
+    proves **authorization only** — a fake cannot prove that a presented
+    credential belongs to anyone, and nothing in the Phase 4 tests claims it
+    does.
+
+    **`asked` matters** for the same reason `FakeAuthorization.asked` does: the
+    port must be consulted on every execution rather than once, and the only way
+    to show that is to count.
+
+    **Revocation and deactivation are modelled as the accepted mechanism models
+    them** — the principal stops being resolvable
+    (`adapters/http/credentials.ServicePrincipalRegistry`: rotation and
+    revocation are a configuration change followed by a reload). They are
+    separate operator actions with one answer, so both are exercised.
+    """
+
+    def __init__(self) -> None:
+        self._principals: dict[str, LedgerPrincipal] = {}
+        self.asked: list[str] = []
+
+    @classmethod
+    def with_poster(cls, principal_id: str) -> FakeLedgerPrincipals:
+        """One principal holding exactly the ledger posting scope."""
+        return cls().grant(principal_id, LedgerScope.POST_TRANSACTION)
+
+    def grant(self, principal_id: str, *scopes: LedgerScope) -> FakeLedgerPrincipals:
+        self._principals[principal_id] = LedgerPrincipal(
+            principal_id=principal_id, scopes=frozenset(scopes)
+        )
+        return self
+
+    def revoke(self, principal_id: str) -> None:
+        """The credential was withdrawn: it resolves to nothing from now on."""
+        self._principals.pop(principal_id, None)
+
+    def deactivate(self, principal_id: str) -> None:
+        """The principal is configured but not currently in force.
+
+        A different operator action from revocation and the same answer, which is
+        the point: the port returns `None` and the caller cannot tell which.
+        """
+        self._principals.pop(principal_id, None)
+
+    def current_principal(self, principal_id: str) -> LedgerPrincipal | None:
+        self.asked.append(principal_id)
+        return self._principals.get(principal_id)
 
 
 def unit_of_work_factory(store: FakeStore):

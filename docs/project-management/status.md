@@ -1,5 +1,1713 @@
 # Project status
 
+## Current update — pre-implementation evidence harness authorized
+
+**Authorization update, 2026-09-02.** Peter Duscha approved the bounded Package
+5.0 pre-implementation evidence harness in the Operations Owner and Acceptance
+Authority roles. Claude may create and run only the minimum synthetic,
+disposable scaffolding needed for C-1, C-3, C-4, peer/HBA, capability, sandbox,
+journal, provenance and recovery evidence, subject to Codex pre-execution and
+independent review. Every exclusion and stop condition in
+`docs/review/phase-5-0-evidence-harness-authorization-draft.md` is binding.
+Claude's current implementation handoff is
+`docs/review/phase-5-0-evidence-harness-implementation-prompt.md`; it authorizes
+only unprivileged harness implementation and requires a stop for Codex
+pre-execution review before any mutation-bearing evidence command runs.
+
+This is **not Package 5.0 implementation authorization**. Migration `0014`,
+production host/database/service mutation, deployment, cutover, OD-62's binding
+ruling and Package 5.1+ remain unauthorized. Package 5.0 remains `not ready`.
+
+## Current update — OD-64, OD-65 and OD-66 approved; OD-62 direction recorded
+
+**Decision update, 2026-09-02.** Peter Duscha approved **OD-64 Option A**,
+**OD-65 Option B**, and **OD-66 Option A / J-1** in all accountable roles.
+Package 5.0 therefore adopts the dedicated coordinator identity and database
+boundary; the isolated Sheet writer, credential relocation, bot hardening,
+canonical memberships and reviewed-source provenance; and the full durable,
+sealed and PostgreSQL-registered dispatch-journal contract. OD-65 defers the
+existing group-writable worktree correction to a separate maintenance change;
+the approved deployment boundary must read no executable input from that
+worktree.
+
+Peter selected **G-A provisionally for OD-62**, while explicitly deferring the
+binding risk acceptance until P5.0-R5's operational evidence and independent
+review are complete. OD-62 remains Open. Approval of OD-66 does not silently
+accept R-5.0-12 through R-5.0-16; those residual dispositions, C-1/C-3/C-4,
+the remaining operational evidence and A-5.0-3 through A-5.0-5 are still
+outstanding. Package 5.0 remains `not ready`; implementation and migration
+`0014` remain unauthorized.
+
+## Current update — Phase 4 cleanup accepted; OD-63 Option 1 accepted
+
+**Security re-review update, 2026-09-02.** Codex completed the revision-12
+independent security re-review. **P5.0-SR1 and P5.0-SR2 are Closed on design**;
+the twelve-surface security design review is delivered with no new Blocking or
+Important design finding. The durable review is
+`docs/review/phase-5-0-security-rereview-revision-12.md`.
+
+This is **not a Package 5.0 readiness recommendation**. C-1, C-3, C-4 and the
+peer/HBA/capability/sandbox/journal/provenance/recovery evidence remain
+outstanding; A-5.0-3 through A-5.0-5 are unconfirmed; P5.0-R1/R4/R5 and the
+declared residuals remain unresolved. OD-64 through OD-66 are now rulable on the
+Security Reviewer's delivered recommendation; OD-62 remains last. A bounded
+Gemini supporting-analysis prompt is prepared at
+`docs/review/phase-5-0-gemini-security-evidence-preflight-prompt.md`; Codex
+remains the named Security Reviewer.
+
+Peter Duscha accepted Codex's independent disposition on 2026-09-02.
+**P4-PG4 and P4-PG5 are Closed**, completing the bounded cleanup of the already
+approved and closed Phase 4. Independent evidence is recorded in
+`docs/review/phase-4-post-gate-r3-independent-review.md`: bot **3103 passed**,
+web **2824 passed / 80 expected skips**, Foundry **171 passed**, and no new
+Blocking or Important Phase 4 finding.
+
+Peter also accepted **OD-63 / D5.0-10 Option 1** in the Operations Owner,
+Product Owner, Data Owner and Acceptance Authority roles. Its nine numeric
+controls are accepted, including N5.0-18 at **120 seconds — an operational
+margin, not a barrier**. A-5.0-3 remains unconfirmed and WP-13 may later inform
+a re-ruling; this decision neither treats a measured distribution as a bound
+nor closes any risk.
+
+Package 5.0 readiness work resumes at `not ready`. P5.0-SR1/SR2 are closed on
+design; P5.0-R1/R4/R5 and the required operational evidence remain unresolved.
+OD-64 through OD-66 are approved, while OD-62 remains Open with G-A provisional
+pending the P5.0-R5 evidence and independent review. No Package 5.0 product
+implementation, migration `0014`, production host/database mutation,
+deployment, cutover or Package 5.1+ is authorized.
+
+## Superseded — Phase 4 post-gate R2 reviewed; final boundary remediation required
+
+Codex independently reviewed
+`docs/review/phase-4-post-gate-remediation-r2-handback.md`. **P4-PG1,
+P4-PG2 and P4-PG3 are Closed**: Discord-user IDs, expected-version aggregate
+types and service-principal IDs now establish their types before applying value
+rules, refuse through the documented typed vocabulary, and perform no coercion.
+Independent evidence: **121** command tests passed; the combined PG1–PG3
+selection passed **62** tests; both prescribed `compileall` checks exited 0; and
+the scoped whitespace check was clean. Claude's submitted full-suite evidence
+was bot **2989**, web **2824 / 80 expected skips**, and Foundry **171**.
+
+The same handback reported, and Codex confirmed, two further **Important**
+instances: **P4-PG4**, where malformed idempotency keys escape
+`InvalidEnvelopeError(code="invalid_request_key")`; and **P4-PG5**, where a
+malformed stored receipt command can escape `StoredReceiptUnreadable` on replay.
+Both are Open. The durable disposition is
+`docs/review/phase-4-post-gate-r2-independent-review.md`.
+
+**Phase 4 remains approved.** This is a narrow post-gate correction, not a gate
+reopening. Peter directed that Phase 4 defects be repaired before Phase 5
+continues, so Package 5.0 preparation pauses for this final bounded remediation
+and Codex re-review. `docs/review/Handover information` contains the authorized
+Claude implementation brief. Package 5.0 separately remains `not ready`:
+P5.0-SR1/SR2, P5.0-R5, the open decisions and required operational evidence are
+unchanged, and implementation remains unauthorized.
+
+## Superseded — Package 5.0 security remediation R11 submitted (revision 12)
+
+**The Package 5.0 security review ran on 2026-08-31 and returned `changes
+requested` with no readiness recommendation** —
+`docs/review/phase-5-0-security-review.md`. Two findings: **P5.0-SR1
+(Blocking)** — the deployment integrity check can be skipped silently, because
+`deployment_manifest_digest()` compares a digest of the live deployed bytes with
+a caller-supplied copy of that same value, which is consistency after deployment
+and **not provenance from the reviewed commit**, and no step refused when the
+comparison was omitted; and **P5.0-SR2 (Important)** — §2.12.2 said
+`freedomcoord` and `freedomsheet` were members of their own groups only while
+§2.13.3 and the E1–E8 evidence identities required both to be members of
+`freedomjournal`, so the two contracts could not both be followed.
+
+**Revision 12 of the package plan and the logical schema, plus
+`docs/review/phase-5-0-remediation-r11-handback.md`, is the remediation of both,
+and it claims neither closed.**
+
+- **P5.0-SR1** is answered by a new **§2.12.5a**: an out-of-band `root:root
+  0444` approved-revision record; a **bare `root:root 0700` Git object store**
+  addressed **by object id**, with no ref, branch or tag resolved anywhere; a
+  trusted manifest computed from **Git object bytes** and compared against a
+  **SHA-256** the approval record carries, so the binding does not rest on
+  Git's SHA-1; a **closed two-region partition** of the deployed root in which an
+  unaccounted file refuses; **Algorithm D `D0 … D8`** with its own refusals
+  `DEP-01 … DEP-09` and a rollback; and a provenance record written last and
+  outside the deployed root. `init-generation` **C0 refuses when it is absent**,
+  the seal carries the commit, tree and source-manifest values, the writer
+  re-checks them at new step **W11a**, and **a `NOT NULL` foreign key to the new
+  `approved_source_revisions` table means an unprovenanced generation cannot be
+  registered — so activation cannot be reached.** `JNL-51` case (g) is the
+  negative test the finding required.
+- **P5.0-SR2** is answered by making **§2.12.2 the single canonical
+  primary/supplementary membership table**, with a group→members inverse and a
+  rule that no other passage states a membership. The false isolation sentence is
+  **withdrawn**, `E8` gains `freedomjournal` so the evidence identity matches the
+  identity provisioning creates, and `JNL-52`'s eight cases of positive and
+  negative `id`/`namei -l`/`open` evidence are the review's check **C-4**.
+
+**This is the first remediation since R5 with schema consequences.** Seven tables
+instead of six, four new columns on `sheet_writer_journal_generations`, two new
+foreign keys, a fifth append-only trigger. **The estimate rises from PERT 40.9 to
+47.6 implementer-days** and the security review from **3.5–4.5 to 4.5–5.5
+reviewer-days over twelve surfaces**, both decomposed rather than declared. Two
+residuals are added and neither is accepted: **R-5.0-15**, that the approval
+record's integrity is root ownership, so an actor holding host root *and* the
+coordinator's `sudo` path approves and registers its own revision — operator
+trust, not a technical control — and **R-5.0-16**, the availability cost of
+refusing an unprovenanced deployment.
+
+**Nothing is closed and nothing is authorized.** P5.0-SR1 and P5.0-SR2 remain
+open findings for the Security Reviewer; P5.0-R5 remains **Blocking**; P5.0-R1
+and P5.0-R4 remain open; P5.0-R2 remains closed; OD-62 through OD-66 remain
+**Open**, with OD-65's scope extended and OD-66 gaining an unadopted **option
+A-3**; A-5.0-3, A-5.0-4 and A-5.0-5 remain unconfirmed and A-5.0-5 is widened
+again; check **C-1** remains not completed and **C-3** and **C-4** not run;
+Package 5.0 remains `not ready`; and implementation, migration, deployment,
+cutover and Package 5.1+ remain unauthorized.
+
+**No host object was created.** No account, group, directory, Git repository or
+bare object store, approval record or provenance record exists or was written,
+and no `git` command that writes was run. `git diff --check` was clean on
+2026-08-31.
+
+**An independent security re-review of revision 12 is required**, and this
+submission does not pre-empt it. The remaining §9.2 pass is outstanding in full.
+
+## Superseded — Package 5.0 Security Reviewer named
+
+**Peter Duscha named Codex the Package 5.0 Security Reviewer on 2026-08-31**,
+in addition to its existing Independent Reviewer and independent logical-schema
+reviewer roles. **OD-61 / D5.0-8 is now closed.** Codex did not implement
+Package 5.0, so implementation-plan §0.3's bar on approving one's own work is
+satisfied; the concentration of the design-review and security-review judgements
+in one reviewer is accepted knowingly and recorded in the OD-61 trace.
+
+**This closes a readiness blocker and nothing else.** No option is approved, no
+finding is closed and no assumption is confirmed. P5.0-R5 remains **Blocking**
+pending authorized operational evidence; P5.0-R1 and P5.0-R4 remain open;
+P5.0-R2 remains closed; D5.0-9 through D5.0-13 / OD-62 through OD-66 remain
+**Open**; A-5.0-3, A-5.0-4 and A-5.0-5 remain unconfirmed; Package 5.0 remains
+`not ready`; and implementation, migration, deployment, cutover and Package 5.1+
+remain unauthorized.
+
+**The review has not happened.** Package plan §9.2 requires a **distinct
+security-focused pass** of 3.5–4.5 reviewer-days across eleven surfaces; the
+revision-11 design re-review is not that pass and must not be cited as one. The
+reviewer's briefing pack is `docs/review/phase-5-0-security-review-brief.md`.
+
+**Sequencing that follows from this.** OD-64, OD-65 and OD-66 are owned *on the
+Security Reviewer's review* and cannot be ruled until the recommendation exists.
+OD-63 carries no Security Reviewer dependency and is rulable now; its
+change-control package is drafted at
+`docs/review/phase-5-0-od-63-ruling-draft.md` and is **unsigned**. OD-62 is the
+risk acceptance the other four price and is ruled last.
+
+`git diff --check` was clean on 2026-08-31 and a cross-document consistency scan
+of all eight controlled documents found no contradiction.
+
+## Superseded — Package 5.0 revision 11 independently re-reviewed
+
+Codex independently re-reviewed revision 11 on 2026-08-31. **No new Blocking
+or Important design finding was identified, and R10-A through R10-C are
+materially addressed on paper.** The `capsh(1)` construction, bounding-set
+prerequisite, E1–E8 masks and control pairs are internally consistent against
+the documented tool/kernel contract. `git diff --check` was clean. No
+implementation, database, Python, web, Node or privileged suite was run because
+the submission is documentation/design-only and A-5.0-5 remains unconfirmed.
+
+This review closes the **R10 remediation request only**. P5.0-R5 remains
+**Blocking** pending authorized operational evidence; P5.0-R1 and P5.0-R4
+remain open; P5.0-R2 remains closed; D5.0-9 through D5.0-13 / OD-62 through
+OD-66 remain Open; the Security Reviewer remains unnamed; Package 5.0 remains
+`not ready`; and implementation, migration, deployment, cutover and Package
+5.1+ remain unauthorized. `docs/review/Handover information` now contains the
+readiness and authorization instructions that must be completed before any
+implementation brief may be issued.
+
+## Superseded — Package 5.0 remediation R10 submitted
+
+Design remediation **R10** was submitted on 2026-08-31: revision 11 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r10-handback.md`. **It claims no Blocking
+finding closed.** All three R10 instructions are answered and the defects are
+conceded before their replacements are presented, in package plan §2.13.1 rows
+**25–28**. Package 5.0 remains `not ready`, implementation remains unauthorized,
+P5.0-R5 remains **Blocking**, P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains
+closed, **D5.0-9 through D5.0-13 / OD-62 through OD-66 remain Open**, the
+Security Reviewer remains **unnamed**, and **nothing is adopted, ruled or closed
+from revision 11**. **At submission, an independent re-review of revision 11
+was required; it completed on 2026-08-31 and is recorded in the current update
+above.**
+
+- **R10-A — the invalid capability-launch recipes are replaced.** `setpriv(1)`
+  from util-linux **2.39.3** documents `keep_caps` as *"not allowed"* because
+  `execve` clears it, so revision 10's E2–E6 commands exited **127** before any
+  identity existed. **`+keep_caps` is now used nowhere.** The mechanism becomes
+  **`capsh(1)`** — libcap 2.66, `/usr/sbin/capsh`, `root:root 0755`, **no file
+  capabilities**, already installed — because `setpriv(1)` does not document the
+  order in which it applies securebits, the UID/GID change and the three
+  capability sets, and every declared mask depends on that order, whereas
+  `capsh(1)` documents that it acts on its arguments *"in the order they are
+  provided"*. §2.13.5c states the tool's ownership, mode, lifecycle, cleanup,
+  authority and security-review consequence, a **seven-step construction** with
+  the kernel rule behind each step, and the alternatives considered and
+  declined. **The host design is not widened**: no file capability, no
+  set-user-ID artifact, no helper executable, no package installed, no `sudoers`
+  rule, unit, group or directory added.
+- **R10-B — every identity is complete and internally consistent.** `E1 … E8`
+  now state exact effective UID, GID, the exact supplementary-group list, exact
+  `CapPrm`, `CapEff`, `CapInh`, `CapAmb`, `CapBnd` **and securebits**, each with
+  a complete invocation rather than *"as E2/E3"*. **E7's dashes are replaced** by
+  values read from the host (`0x000001ffffffffff` for P/E/B, `0x0` for I and A,
+  `CAP_LAST_CAP = 40` on kernel 6.8.0-138) and labelled environment-dependent;
+  **E8 gains the bounding-set drop** its declared `0x0` requires. A
+  **mask-versus-recipe comparison table** is added, and it records a **third**
+  disagreement the re-review did not name: E2–E6's `--bounding-set=+…` asked to
+  **add** to a bounding set, which the same manual page says the kernel forbids.
+  **No invocation in revision 11 asks any tool to add to a bounding set**, and
+  the prerequisite that the launching bounding set already holds every needed
+  capability is stated and asserted.
+- **R10-C — dependent evidence is revalidated and one control pair is
+  redesigned.** Every E-identity reference in `JNL-49`, `JNL-50`, `JNL-13`,
+  `JNL-35`, `JNL-38`, `JNL-48`, A-5.0-5 and the logical-schema evidence mapping
+  was rechecked. **`JNL-50` case 7 and `JNL-49` case 11 take `E6` as the
+  isolating positive control instead of `E2`** — E6 differs from E4 by
+  `CAP_FOWNER` alone, E2 by uid, groups and two capabilities — with `E2`
+  retained as **corroborating**. `JNL-50` case 4 gains a second control form:
+  hold the identity fixed and vary the inode's owner. **Two stale copies of
+  superseded wording were found in the logical schema and corrected**: a
+  `CAP_LINUX_IMMUTABLE`-only identity still credited with clearing `+i`, and
+  R-5.0-12's host authority set still written as `A1 + A2 + A3`.
+
+**Counts and estimate — all unchanged, and the plan says why rather than
+recalculating.** Evidence band **fifty identifiers and eighty-eight cases**
+(`JNL-49` twelve, `JNL-50` twelve); authority register **eleven**; falsification
+rows **thirteen**; §2.13.4 **fifteen** manipulation rows; estimate **PERT 40.9**
+implementer-days; remediation allowance **11.9**; security review **3.5–4.5**
+reviewer-days. No case, identifier, work package, schema object, numeric control,
+decision or RAID row is added. **New stop condition 10n** and **new §7.1 risk row
+28** are the only additions; **A-5.0-5 is widened** to name `capsh`,
+`libcap2-bin` and the bounding-set prerequisite, and **remains unconfirmed**.
+**The R8-A deployment-digest lifecycle, R8-B cleanup state machine, R8-D/F-7
+residual treatment and revision 10's R9-A and R9-B corrections are preserved
+unchanged in substance, and no corrected identity produced a conflict with
+them.**
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no database, host, service, credential, Google, deployment or
+environment change; no `chattr`, `setpriv`, `capsh`, `systemd-run`, privileged
+probe or reboot; no capability set, UID, GID or securebit was constructed; no
+Package 5.1+ work. **The host was read and not written**: package plan §8.1
+**H-6** records `setpriv --version`, `dpkg`, `ls`, `getcap`, `/proc/*/status`,
+`getent` and header reads, all non-mutating, and **H-6 is not a confirmation of
+A-5.0-5**. The only changes are to documents.
+
+## Superseded — Package 5.0 revision 10 re-reviewed; remediation R10 required
+
+Revision 10 was independently re-reviewed on 2026-08-31 and returned **changes
+requested**. R9-A's owner/`CAP_FOWNER` model and R9-B's separation of authority
+primitives from real holders are materially improved. **R9-C remains Blocking**:
+the E2–E6 recipes use `setpriv --securebits=+keep_caps,+no_setuid_fixup`, but the
+named util-linux 2.39.3 tool rejects `keep_caps`; E8 claims `CapBnd=0x0` without
+dropping the bounding set; and E7 omits explicit inheritable and ambient masks.
+The mandatory identity assertions would make affected `JNL-49`/`JNL-50` cases
+inconclusive, not executable. Remediation **R10** must correct the launch
+mechanism and make every declared P/E/I/A/B mask agree with its recipe.
+
+No baseline, risk, decision, option, schema object or estimate changes. P5.0-R5
+remains **Blocking**; P5.0-R1 and P5.0-R4 remain open; P5.0-R2 remains closed;
+OD-62 through OD-66 remain Open; the Security Reviewer remains unnamed;
+Package 5.0 remains `not ready`; implementation and Package 5.1+ work remain
+unauthorized. `docs/review/Handover information` was the active R10
+documentation/design-only remediation brief at that review cycle.
+
+## Superseded — Package 5.0 remediation R9 submitted
+
+Design remediation **R9** was submitted on 2026-08-30: revision 10 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r9-handback.md`. **It claims no Blocking
+finding closed.** All three R9 instructions are answered and the defect is
+conceded before its replacement is presented, in package plan §2.13.1 rows
+**22–24**. Package 5.0 remains `not ready`, implementation remains unauthorized,
+P5.0-R5 remains **Blocking**, P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains
+closed, and **OD-62 through OD-66 must not be ruled from revision 10**.
+Independent re-review is requested.
+
+- **R9-A — the inode-flag authority model is corrected.** `FS_IOC_SETFLAGS`
+  requires the caller's effective UID to equal the inode's owner **or**
+  `CAP_FOWNER`, **in addition to** `CAP_LINUX_IMMUTABLE` for
+  `FS_IMMUTABLE_FL`/`FS_APPEND_FL`, and `CAP_DAC_OVERRIDE` is not a substitute
+  for the owner check. §2.13.5c is redesigned: a **kernel-requirements table**
+  precedes the register; **A1** is narrowed to the capability half alone; **A10**
+  (owner authorization over the `freedomsheet`-owned journal, held by the writer
+  **by ownership**) and **A11** (owner authorization over the root-owned seal and
+  archive, held only by uid 0 or a `CAP_FOWNER` holder) are added as separate
+  rows. The register grows from nine authorities to **eleven**, and **eleven of
+  the thirteen falsification rows gain a prerequisite** — F-1a, F-4, F-5,
+  F-8 … F-12 gain `A11`; F-1b gains `A10` and `A11`; F-2 and F-5 gain `A10`.
+  **Every change makes an alteration harder to construct; no refusal is
+  strengthened.** §2.13.4 gains the two flag rows it never contained (thirteen →
+  **fifteen**), §2.13.5b's verifier table is restated, and §2.13.7's
+  *"clearing needs `CAP_LINUX_IMMUTABLE`"* is completed.
+- **R9-B — the A3/A2 contradiction is removed.** The register keeps the
+  independence claim **for the primitives**; a new **holder table** states which
+  identities on this host bundle which rows; and every falsification row is
+  assessed **twice**, against its minimum combination and against the smallest
+  identity that can actually hold it. Bounded claim 2 is **materially narrowed**:
+  only **F-2, F-3 and F-6** are bounded by the attacker's authority rather than
+  by its choice of alteration.
+- **R9-C — the executable evidence contract is rewritten.** Eight identities
+  **E1 … E8** with effective UID, GID, supplementary groups and complete
+  permitted, effective, inheritable, ambient and bounding capability sets, full
+  `setpriv` invocations **including securebits**, and a `/proc/self/status`
+  assertion before the operation under test. `JNL-49` and `JNL-50` grow to
+  **twelve cases each**; every negative flag case runs with all other
+  prerequisites satisfied and carries a **positive control that succeeds** — the
+  **E4/E6** pair isolating the owner check, **E1/E2** isolating the capability
+  against the writer's own inode, and **E5** replacing revision 9's
+  non-constructible case with a real clear followed by a real `EACCES`. **No
+  privileged case is claimed to have run**, and **A-5.0-5 is corrected rather
+  than carried forward** and remains unconfirmed.
+
+**Counts and estimate.** Evidence band **84 → 88 cases** with **no identifier
+added** (50); §2.13.4 **13 → 15** manipulation rows; §6.5 items **19 → 20**;
+authority register **9 → 11**; new stop condition **10m**, with **10k**
+extended; new §7.1 risk row **27**, and **no new RAID row** — R-5.0-12's
+authority set is corrected to a **larger** one and R-5.0-13/R-5.0-14 are
+unchanged. Estimate **PERT 40.4 → 40.9** implementer-days (WP-8 +0.40, WP-9
++0.08, WP-15 +0.05; WP-4b unchanged); remediation allowance **11.9**; security
+review **3.0–4.0 → 3.5–4.5** reviewer-days with eleven surfaces unchanged and
+two added reviewer questions. **The R8-A deployment-digest lifecycle, R8-B
+cleanup state machine and R8-D withdrawal of F-7's detector are preserved
+unchanged in substance.**
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no database, host, service, credential, Google, deployment or
+environment change; no `chattr`, `setpriv`, `systemd-run`, privileged probe or
+reboot; no Package 5.1+ work. The host was neither read nor written. The only
+changes are to documents.
+
+## Superseded — Package 5.0 revision 9 re-reviewed; remediation R9 required
+
+Revision 9 was independently re-reviewed on 2026-08-30 and returned **changes
+requested**. Its R8-A deployment-digest lifecycle, R8-B cleanup state machine
+and R8-D withdrawal of the forged-host-identity detector are materially
+addressed. R8-C remains Blocking because the authority model omits Linux's
+owner-or-`CAP_FOWNER` prerequisite for `FS_IOC_SETFLAGS`: non-root
+`CAP_LINUX_IMMUTABLE` alone cannot clear `+i` on a root-owned inode. The stated
+A1+A3/A1+A4 combinations and `JNL-50` case 9 therefore are not executable as
+written. The register also contradicts itself by declaring A1–A6 independent
+while saying every real A3 holder has A2. Remediation **R9** must produce
+revision 10 and capability-accurate evidence. P5.0-R5 remains Blocking;
+Package 5.0 remains `not ready`; implementation is unauthorized; OD-62 through
+OD-66 remain Open; the Security Reviewer remains unnamed.
+
+## Superseded — Package 5.0 remediation R8 submitted
+
+Design remediation **R8** was submitted on 2026-08-30: revision 9 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r8-handback.md`. **It claims no Blocking
+finding closed.** All four Blocking inconsistencies are conceded and corrected.
+Package 5.0 remains `not ready`, implementation remains unauthorized, P5.0-R5
+remains **Blocking**, P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains closed,
+and **OD-62 through OD-66 must not be ruled from revision 9**. Independent
+re-review is requested.
+
+- **R8-A — the deployment digest was consumed before it was validated, and what
+  validated it was a copy of itself.** Revision 8 passed the operator-supplied
+  `writer_deployment_digest` to the probe at **C1** and compared the probe's copy
+  with the supplied value at **C2** — a comparison that passes for any string,
+  made after the step that consumed it. New **§2.13.2c** defines
+  `deployment_manifest_digest()`: who computes it, the exact bytes (every deployed
+  file with path, mode, uid, gid and content digest, plus the unit file **and its
+  drop-ins**), and when it becomes final. **C0 now computes it and refuses unless
+  the supplied value equals it**, so what C1 consumes is validated against the
+  **deployed bytes**; **C2** keeps a consistency check and **recomputes** to catch
+  a deployment changed since C0. The universal *produced < validated ≤ consumed*
+  claim is **withdrawn** for five invariants **I-1 … I-5** separating
+  pre-consumption validation of external inputs from post-production consistency
+  checking. `JNL-46` grows from one case to **five**.
+- **R8-B — cleanup failure was required to leave two states at once.** `JNL-47`
+  asserted no residue; `JNL-48(d)` required the planted residue to remain. New
+  **§2.13.2b** is one state machine with three states: probe-stage failure with
+  cleanup succeeding (**no residue, no artifact**), cleanup failure (**no
+  artifact, exact residue reported by path**), and success. **“No generation
+  artifact” is unconditional; “no transient residue” is conditional on cleanup
+  success.** For the next invocation the design specifies **one** behaviour —
+  `verify-capability` and `C0` **refuse for operator recovery** — and revision 8's
+  automatic clean-and-reuse step is **withdrawn**. `JNL-47` grows to **six**
+  cases.
+- **R8-C — `CAP_LINUX_IMMUTABLE` was credited with discretionary access it does
+  not confer.** The eight-capability register is **withdrawn** for **nine
+  independently constructible authorities** — flag control, DAC on the journal
+  file, DAC on `…/journal` and its seal, DAC on `…/archive`, DAC on the deployment
+  path, host identity/restoration, full host-root identity, coordinator
+  authentication/insertion, PostgreSQL mutation — each falsification row stating
+  its minimum **combination**. **F-2 becomes `A1 + A2`** (the writer already owns
+  its journal file), **F-4 becomes `A1 + A4`**, **F-5 becomes `A1 + A3`**.
+  `JNL-49` and `JNL-50` grow to **ten cases each** and their new cases run under a
+  **non-root `CAP_LINUX_IMMUTABLE`-only ambient capability set**.
+- **R8-D — F-7 named a detector that cannot fire.** When `/etc/machine-id` is
+  rewritten to the recorded value, the seal, the file and the registered row all
+  carry it, so **W10 passes and C-d has nothing to disagree with**. The refusal is
+  **withdrawn** and the case reclassified as residual **R-5.0-13**, with the
+  independent operational evidence that remains named. The changed-device/inode
+  reasoning is withdrawn as incidental. The alternative — an independent
+  authenticated host-bound value — is **routed as D5.0-13 / OD-66 option A-2**
+  under §0.2 and is **not adopted**. `JNL-40` grows to **two** cases and
+  `JNL-49` case 3 is rewritten to assert the non-refusal.
+
+**Counts and estimate.** Evidence band **74 → 84 cases** with **no identifier
+added** (50); §6.5 items **18 → 19**; new stop condition **10l**, with **10b**,
+**10f** and **10h** extended and **10j** re-worded to the invariants that replace
+the withdrawn inequality; new §7.1 risk rows **25** and **26** and RAID rows
+**R-5.0-13** and **R-5.0-14**. Estimate **PERT 39.5 → 40.4** implementer-days
+(WP-8 +0.53, WP-15 +0.20, WP-9 +0.12, WP-4b +0.08); remediation allowance
+11.5 → **11.9**; security review **2.5–3.5 → 3.0–4.0** reviewer-days with
+**no added surface** and two added questions. **Unchanged:** thirteen
+falsification rows, twenty-five fail-closed conditions, `SW-J01 … SW-J25`, V-W's
+eighteen steps, nine numeric controls, fourteen active work packages, eleven
+security-review surfaces, contingency 4.0, and **every schema object** — no
+column, constraint, index, trigger, sequence, vocabulary, table or command
+changes. **No new decision number**; OD-66 gains an **option A-2** that is routed
+and not adopted.
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, no directory,
+file, file mode or filesystem attribute, no deployment, no service restart, no
+data mutation, no Sheet access, no authority cutover, no Package 5.1+ work.
+`/var/lib/freedom-sheet-writer` does not exist on this host and was not created;
+**no `systemd-run`, `chattr` or `setpriv` was run, and neither a probe arena nor
+`…/probe-ro` was created anywhere**; **the host was neither read nor written**;
+and **no test suite, formatter, linter or type checker was run, because no code
+changed** — each is named as a check not run, with its owner, in the handback.
+Unrelated worktree changes were preserved.
+
+Status date: 2026-08-30 (one-hundred-thirty-fourth update: **Package 5.0 design
+remediation R8 submitted for independent re-review; it claims no finding
+closed.** Package 5.0 remains `not ready` and implementation remains
+unauthorized.)
+
+## Superseded update — Package 5.0 revision 8 re-reviewed; remediation R8 required
+
+Codex independently re-reviewed revision 8 on 2026-08-30. The result is
+**changes requested** with four Blocking documentation/design findings:
+
+- **R8-A:** Algorithm C consumes the supplied deployment digest at C1 but
+  assigns its equality validation to C2, contradicting its value-order claim.
+- **R8-B:** `JNL-47` requires cleanup failure to leave no residue, while
+  `JNL-48(d)` requires the planted undeletable residue to remain and make C0
+  refuse.
+- **R8-C:** the capability model treats `CAP_LINUX_IMMUTABLE` alone as K4
+  archive write authority even though it does not bypass archive DAC.
+- **R8-D:** F-7 claims C-d detects a forged matching `/etc/machine-id`, but the
+  registered row contains the same value and no independent detector is named.
+
+R7-B's exact S4-2 positive control is materially addressed, subject to R8-B.
+P5.0-R5 remains **Blocking**; P5.0-R1 and P5.0-R4 remain open; P5.0-R2 remains
+closed; OD-62 through OD-66 remain open; the Security Reviewer remains unnamed;
+Package 5.0 remains `not ready`; and implementation, migration, environment
+change, deployment, cutover and Package 5.1+ work remain unauthorized. The
+active handoff is remediation R8; revision 9 and independent re-review are
+required.
+
+Status date: 2026-08-30 (one-hundred-thirty-third update: revision 8 re-reviewed;
+remediation R8 required; no finding or decision closed.)
+
+## Superseded update — Package 5.0 remediation R7 submitted
+
+Design remediation **R7** was submitted on 2026-08-30: revision 8 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r7-handback.md`. **It claims no Blocking
+finding closed.** All three Blocking design defects and the one Important
+governance defect are conceded and corrected. Package 5.0 remains `not ready`,
+implementation remains unauthorized, P5.0-R5 remains **Blocking**, P5.0-R1 and
+P5.0-R4 remain open, P5.0-R2 remains closed, and **OD-62 through OD-66 must not
+be ruled from revision 8**. Independent re-review is requested.
+
+- **R7-A — Algorithm C had no executable order.** Step **C0** refused unless
+  `verify-capability` had already passed all four stages with a matching report,
+  and step **C1** was the step that ran them and built it. **C0** now checks only
+  pre-probe preconditions and reads no probe result; **C1** remains the single
+  probe invocation and the single creation point of the report; a new **C2**
+  validates pass state, report completeness, deployment-digest equality and
+  cleanup success **before any persistent artifact exists**; and the algorithm is
+  renumbered **C0 … C13**. A **value-dependency table** states where every
+  consumed value is produced, validated and first used, `JNL-46` walks the order
+  and proves it, and `JNL-47` injects a failure in each probe stage and in
+  cleanup and proves **no journal, seal, symlink or registration row is
+  created**.
+- **R7-B — S4-2 attributed `EROFS` without a positive control.** It appended to
+  an unnamed path outside `ReadWritePaths=` and never proved that path writable
+  by `freedomsheet` without the sandbox. The exact target is now
+  `…/probe-ro/s4-2.target`, in a second transient directory on the same mount,
+  inside `ProtectSystem=strict`'s read-only tree and outside the substituted
+  `ReadWritePaths=`; new case **`S4-0`** proves open, append, `fsync`, `rename`
+  and `unlink` permitted by DAC on that exact file **outside any unit**; only
+  then is `EROFS` accepted, `EACCES` is **`inconclusive`** and a success is a
+  **failed** stage. Stage 4's cases become **`S4-0 … S4-3`** and `JNL-48`
+  distinguishes the four outcomes.
+- **R7-C — the attacker classes exceeded their capabilities.** Class 1 could not
+  clear `FS_APPEND_FL` yet was said to reach every row but one, and **F-2 was
+  assigned class 1 while conceding it needs class 2**. The two-class model is
+  **withdrawn** for an **eight-capability register** — seal write,
+  journal-directory write, journal-content rewrite, archive write, deployment-path
+  write, host identity/restoration, coordinator execution, and PostgreSQL row
+  mutation or insertion — with a per-row **minimum capability**, whether it also
+  reaches the **detector**, the refusing actor, the exact step and code, and the
+  **residual when it reaches both**. **F-2 is corrected to `K3`**, **F-7 is
+  corrected in the opposite direction** because `/etc/machine-id` is
+  root-writable, and F-3 … F-12 are re-evaluated. Not-constructible pairings are
+  marked with the control that makes them so; `JNL-49` and `JNL-50` test them.
+- **R7-D — the controlled active-handoff reference.** Implementation-plan §20's
+  correction to revision 7 / R7 is **preserved** and extended to name revision 8
+  as the submitted response; status, RAID, decisions, open decisions and the
+  change log all name **R7** as the active cycle.
+
+**Counts and estimate.** Evidence band **45 → 50 identifiers, 48 → 74 cases**;
+falsification rows corrected from a stated twelve to the **thirteen** actually
+listed; §6.5 items **17 → 18**; new stop conditions **10i**, **10j**, **10k**;
+new §7.1 risk row **24** and RAID row **R-5.0-12** — the combined-authority
+residual this design does **not** refuse. Estimate **PERT 38.2 → 39.5**
+implementer-days; remediation allowance 11.1 → **11.5**. **Unchanged:**
+twenty-five fail-closed conditions, `SW-J01 … SW-J25`, V-W's eighteen steps, nine
+numeric controls, fourteen active work packages, eleven security-review surfaces
+(one gains an element), 2.5–3.5 security-review reviewer-days, and **every schema
+object** — no column, constraint, index, trigger, sequence, vocabulary, table or
+command changes. **No new decision number.**
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, no directory,
+file, file mode or filesystem attribute, no deployment, no service restart, no
+data mutation, no Sheet access, no authority cutover, no Package 5.1+ work.
+`/var/lib/freedom-sheet-writer` does not exist on this host and was not created;
+**no `systemd-run`, `chattr` or `setpriv` was run, and neither a probe arena nor
+`…/probe-ro` was created anywhere**; **the host was neither read nor written**;
+and **no test suite, formatter, linter or type checker was run, because no code
+changed** — each is named as a check not run, with its owner, in the handback.
+Unrelated worktree changes were preserved.
+
+Status date: 2026-08-30 (one-hundred-thirty-second update: **Package 5.0 design
+remediation R7 submitted for independent re-review; it claims no finding
+closed.** Package 5.0 remains `not ready` and implementation remains
+unauthorized.)
+
+## Superseded update — Package 5.0 revision 7 re-reviewed; remediation R7 required
+
+Codex independently re-reviewed Package 5.0 revision 7 on 2026-08-30. The
+result is **changes requested**: three Blocking design defects and one Important
+governance defect. P5.0-R5 remains Blocking, Package 5.0 remains `not ready`,
+and implementation remains unauthorized.
+
+- C0 requires `verify-capability` to pass before C1 runs it.
+- S4-2 lacks a positive DAC control proving its exact target is writable by
+  `freedomsheet` outside the sandbox.
+- The attacker classes claim reach over artifacts their capabilities cannot
+  alter; F-2 is assigned class 1 while admitting it requires class 2.
+- Implementation-plan §20 still named the obsolete R5 handoff; it is corrected.
+
+The active handoff is replaced with documentation-only remediation R7
+instructions. No decision, risk, assumption or prior finding is closed.
+
+## Superseded update — Package 5.0 remediation R6 submitted
+
+Design remediation **R6** was submitted on 2026-08-30: revision 7 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r6-handback.md`. **It claims no Blocking
+finding closed.** All four revision-6 defects are conceded and corrected.
+Package 5.0 remains `not ready`, implementation remains unauthorized, P5.0-R5
+remains **Blocking**, P5.0-R1 and P5.0-R4 remain open, P5.0-R2 remains closed,
+and **OD-62 through OD-66 must not be ruled from revision 7**. Independent
+re-review is requested.
+
+- **R6-A — the probe report's lifecycle was impossible.** Algorithm C sealed
+  stages 1–3 while the schema said the digest covered four. **Stage 4 moves to
+  provisioning**, inside the same `verify-capability` invocation and **before**
+  the report is built, with named cases `S4-1 … S4-3`, the deployed unit's
+  directive set captured and hashed, and invalidation reusing the existing
+  rotation rule. The re-review's option 2 — a second typed artifact — is priced
+  and rejected on its own requirement: the writer cannot authenticate a
+  deployment-time file without PostgreSQL. **No second artifact, digest,
+  authority, storage location, invalidation rule, column or refusal code is
+  introduced.**
+- **R6-B — F-1's whole-seal claim was false.** `BND.sealed_at` passed every V-W
+  step. Both permitted corrections are made: the **field is withdrawn** — the
+  binding now holds exactly the three values V-W recomputes or compares, its
+  structure fixed by a `binding_format_version` in the chain-authenticated body
+  — **and the claim is narrowed**. **F-1** splits into **F-1a** (refused by the
+  writer with no database) and **F-1b** (a `CAP_LINUX_IMMUTABLE` rewrite of the
+  seal *and* record 0, refused **only** by the coordinator against PostgreSQL);
+  two attacker classes are stated; **F-9 … F-12** are added for the three binding
+  fields and a planted `sealed_at`. `chattr +i` is **not** offered as the answer.
+- **R6-C — `JNL-32` contradicted W9.** It becomes **`JNL-32a`** (successful
+  start, `+a` present, exactly one appended `startup` record) and **`JNL-32b`**
+  (`+a` absent: refusal at **W9** with `SW-J06` before **W17**, no write-mode
+  journal open, nothing appended, journal, seal and archive byte-for-byte
+  unchanged), corrected in every dependent statement.
+- **R6-D / R6-E — the review record and the cross-references.** A complete
+  handback that passes `git diff --check`; C1's *"written in C4"* corrected to
+  the seal body written at **C8**; and `M-1`, `M-2` and `S4-1 … S4-3` defined.
+
+**Counts and estimate.** Evidence band **41 → 45 identifiers, 42 → 48 cases**;
+falsification rows **8 → 12**; §6.5 items **16 → 17**; new stop condition
+**10h**; new §7.1 risk row **23**. Estimate **PERT 37.7 → 38.2** implementer-days;
+remediation allowance 11.0 → **11.1**. **Unchanged:** twenty-five fail-closed
+conditions, `SW-J01 … SW-J25`, nine numeric controls, fourteen active work
+packages, eleven security-review surfaces (one gains an element), 2.5–3.5
+security-review reviewer-days, and **every schema object** — no column,
+constraint, index, trigger, sequence, vocabulary, table or command changes,
+because `sealed_at` was never a database column. **No new decision number.**
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, no directory,
+file, file mode or filesystem attribute, no deployment, no service restart, no
+data mutation, no Sheet access, no authority cutover, no Package 5.1+ work.
+`/var/lib/freedom-sheet-writer` does not exist on this host and was not created;
+**no `systemd-run`, `chattr` or `setpriv` was run and no probe arena was created
+anywhere**; **the host was neither read nor written**; and **no test suite,
+formatter, linter or type checker was run, because no code changed** — each is
+named as a check not run, with its owner, in the handback. Unrelated worktree
+changes were preserved.
+
+Status date: 2026-08-30 (one-hundred-thirty-first update: **Package 5.0 design
+remediation R6 submitted for independent re-review; it claims no finding
+closed.** Package 5.0 remains `not ready` and implementation remains
+unauthorized.)
+
+## Superseded update — Package 5.0 revision 6 re-reviewed; remediation R6 required
+
+Codex independently re-reviewed Package 5.0 revision 6 on 2026-08-30. The
+result is **changes requested**: two Blocking defects and two Important
+documentation defects. P5.0-R5 remains Blocking, Package 5.0 remains `not
+ready`, and implementation remains unauthorized.
+
+- **Blocking:** the immutable probe report has an impossible lifecycle.
+  Algorithm C embeds stages 1–3, while the schema and evidence claims say it
+  contains all four stages; stage 4 runs later at deployment.
+- **Blocking:** F-1 overclaims database-independent seal integrity. A change to
+  `BND.sealed_at` is not authenticated by V-W, so the writer does not refuse
+  every seal-byte alteration without PostgreSQL.
+- **Important:** `JNL-32` expects a startup record with `+a` absent, although W9
+  must refuse before W17; the correct absent-flag expectation is no append and
+  byte-for-byte unchanged evidence.
+- **Important:** the active R5 handoff was corrupted and truncated.
+
+The active `docs/review/Handover information` has been replaced with
+documentation/design-only remediation R6 instructions. No decision, risk,
+assumption or prior finding is closed. D5.0-9 through D5.0-13 remain open; the
+Security Reviewer remains unnamed; P5.0-R1 and P5.0-R4 remain open; P5.0-R2
+remains closed.
+
+## Superseded update — Package 5.0 remediation R5 submitted
+
+Design remediation **R5** was submitted on 2026-08-30: revision 6 of
+`docs/review/phase-5-0-package-plan.md` and
+`docs/review/phase-5-0-logical-schema.md`, plus
+`docs/review/phase-5-0-remediation-r5-handback.md`. **It claims no Blocking
+finding closed.** All four revision-5 defects are conceded and corrected.
+Package 5.0 remains `not ready`, implementation remains unauthorized, P5.0-R1 and
+P5.0-R4 remain open, P5.0-R2 remains closed, and **OD-62 and OD-66 must not be
+ruled from revision 6**. Independent re-review is requested.
+
+Status date: 2026-08-30 (one-hundred-thirtieth update: **Package 5.0 design
+remediation R5 submitted for independent re-review; it claims no finding
+closed.** The circular seal/genesis construction is replaced by an **acyclic**
+order with numbered creation and verification algorithms and eight falsification
+cases; the writer is granted the **minimum read-only** access to the seal it is
+required to validate, through a new system group `freedomjournal`, while
+`…/journal` tightens from `0751` to `0750`; the append-only capability probe
+becomes a **four-stage, disposable-arena** procedure whose control cases must
+pass before any refusal is attributed to `FS_APPEND_FL`, with non-destructive
+startup checks and privileged cleanup; and `CHECK (append_only_verified)` is
+**withdrawn**, replaced by an attested, re-derivable probe report with an explicit
+enforces-versus-records division. Fail-closed conditions grow from twenty-one to
+**twenty-five** (`SW-J01 … SW-J25`), the evidence band from twenty-six to
+**forty-one** cases, the estimate to **PERT 37.7** implementer-days and the
+Security Reviewer's scope to **2.5–3.5** reviewer-days over an eleven-element
+surface. **No new decision number is raised.** Package 5.0 remains `not ready`
+and implementation remains unauthorized.)
+
+## Current state — Package 5.0 remediation R5 submitted
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, **no directory,
+file, file mode or filesystem attribute**, no deployment, no service restart, no
+data mutation, no Sheet access, no authority cutover, no Package 5.1+ work.
+`/var/lib/freedom-sheet-writer` does not exist on this host and was not created,
+no `chattr` and no `setpriv` was run, and **no probe arena was created anywhere**.
+**The host was neither read nor written for this remediation.** R5 changed
+documentation and registers only, and **preserved every unrelated worktree
+change**.
+
+**What revision 6 corrects, finding by finding.**
+
+- **R5-A — the construction was circular and could not be built.** Revision 5
+  had the genesis record hash the seal digest while the seal contained the
+  genesis record digest. Revision 6 splits the seal into a **body** written and
+  hashed before the journal file exists and a **binding section** appended after
+  it, anchors the genesis record's `prev_hash` on **`seal_body_digest`**, makes
+  the genesis record a pure function of the seal body so its digest is
+  *derivable* rather than trusted, and makes `seal_digest` a **leaf** that nothing
+  else hashes. Package plan §2.13.5a gives creation steps **C0–C12** with the
+  exact canonical bytes, the excluded fields, the artifact that already exists,
+  the acting identity and the point of `fsync`, rename, `+a` and `+i` for each
+  digest; §2.13.5b gives verification algorithms **V-W**, **V-C** and **V-R** and
+  states what each verifier can and cannot establish; §2.13.5c gives
+  falsification cases **F-1 … F-8**, each altering one artifact independently and
+  refusing at a named boundary.
+- **R5-B — the writer was told to validate a seal it could not read.** Revision 6
+  grants the minimum read-only access through a third system group,
+  `freedomjournal`, holding exactly `freedomcoord` and `freedomsheet` and
+  carrying **no database privilege**: `…/journal` becomes `root:freedomjournal 0750` and the
+  seal `root:freedomjournal 0440`. Because *other* loses the traverse it held at
+  `0751`, the **net grant is narrower** than revision 5's — `discordbot` and
+  `freedomweb` lose access they had. A world-readable `0444` seal was considered
+  and **rejected** for exactly that reason. The hierarchy, manipulation matrix,
+  systemd hardening, conditions J-01 … J-25, startup algorithm, threat model and
+  tests were updated together, and **the writer still cannot modify, replace,
+  rotate, seal, archive or dispose of evidence**.
+- **R5-C — the probe could not attribute its own refusals, and was destructive.**
+  Revision 5's probe ran `root:root 0600` inside a directory the writer could not
+  write, so every negative case would fail under discretionary permissions even
+  with append-only support absent. Revision 6 (§2.13.2a) uses a **disposable
+  arena** in which the tested identity holds ordinary file and directory
+  permissions, and runs four stages: control cases **C-1 … C-6** that must
+  succeed or the whole result is `inconclusive`; negative cases **P-1 … P-9**
+  with expected `errno`s; storage attribution; and sandbox attribution via
+  `systemd-run`. An attribution table separates `EACCES` (DAC), `EROFS` (a
+  read-only mount or `ProtectSystem=strict`), `ENOTTY` (no flag interface) and
+  `EPERM` (`FS_APPEND_FL`). **Live evidence is never probed destructively**:
+  startup performs read-only checks plus one appended `startup` record, and the
+  destructive cases belong to privileged provisioning, with a five-step cleanup
+  that runs in a `finally` and exits non-zero on residue.
+- **R5-D — a database `CHECK` was credited with proving a host fact.** `CHECK
+  (append_only_verified)` constrains a supplied Boolean to `true` and cannot
+  observe a probe. The column and every contrary claim are **withdrawn**
+  (§2.13.8a, logical schema §3.7 and §3.7.1). In their place: the probe report is
+  written inside the seal and re-derivable from it, the registered row carries
+  `append_only_probe_version`, `append_only_probe_digest` and
+  `append_only_probe_at` as immutable fields bound to the exact generation,
+  filesystem and probe version, the authenticated actor that records it is named,
+  and a table states what PostgreSQL **enforces** versus what it merely
+  **records**. A generation whose probe failed or was `inconclusive` is refused
+  **host-side** by `init-generation` (`SW-J25`). **The writer still holds no
+  PostgreSQL dependency.**
+
+**What is unchanged, deliberately.** The durable `/var/lib/freedom-sheet-writer`
+direction stands. **The journal is not a Google accepted-request completion
+barrier and closes nothing in P5.0-R1**; residual **R-5.0-8** is not narrowed by
+a single case. **P5.0-R4 stays open** pending security and operational evidence;
+**P5.0-R2 stays closed**. OD-62 and OD-66 have their impacts recorded and are
+**not decided**; OD-63 gains no numeric control.
+
+**Registers updated.** `raid-register.md` (P5.0-R5's state, R-5.0-9, R-5.0-11,
+A-5.0-5, D-5.0-1, D-5.0-2), `decision-register.md` (D5.0-9, D5.0-10, D5.0-12,
+D5.0-13), `docs/discovery/open-decisions.md` (OD-62, OD-65, OD-66 and the
+summary row), this file, and `change-log.md` entry **C-P5.0-K**. **Nothing is
+approved by these entries; they record a submission.**
+
+**Checks run, and checks not run.** `git diff --check` is **clean**. The edited
+Markdown was inspected for corruption, missing words, duplicated fragments and
+table column consistency. **Not run, and named as not run:** every privileged
+check (`chattr`, `setpriv`, the arena, `CAP_LINUX_IMMUTABLE`), the reboot case,
+the injected `fsync` failure, every filesystem-fault case, the four security
+checks that are the Security Reviewer's — enumerating `/etc/sudoers.d/`, a
+host-wide setuid audit, verifying `chattr +a` at the journal path, and confirming
+that the `0750`/`0440` grant admits `freedomsheet` and excludes `discordbot` and
+`freedomweb` — and the entire `TC-5.0-JNL` band, which needs **A-5.0-5** and
+remains unproducible. **No test was run for this package, because no code exists
+for it**, and **no implementation suite is reported as run**; no executable
+control is claimed to have passed.
+
+## Superseded update 129 — revision 5 re-reviewed; remediation R5 required
+
+Codex independently re-reviewed Package 5.0 revision 5 on 2026-08-29.
+**P5.0-R5 remains Blocking.** The durable path is directionally sound, but the
+seal/genesis hashes are circular, the writer cannot read the seal it must
+validate, the capability probe is masked by ordinary permissions and is unsafe
+against the live journal when `+a` is absent, and the database Boolean check
+cannot prove a probe ran. The submitted handoff was corrupted and
+`git diff --check` failed on it. Remediation R5 is design/documentation work
+only. Package 5.0 remains not ready; implementation remains unauthorized;
+P5.0-R1 and P5.0-R4 remain open; P5.0-R2 remains closed; and OD-62 must not be
+ruled while the enumeration control is not accepted as fail-closed.
+
+Status date: 2026-08-29 (one-hundred-twenty-ninth update: **Package 5.0 revision
+5 independently re-reviewed; changes requested and remediation R5 required.**
+The preceding update recorded design remediation R4 submitted — revision 5 of
+the package plan and the logical schema,
+plus `docs/review/phase-5-0-remediation-r4-handback.md`. It claims no finding
+closed.** P5.0-R5's dispatch journal is moved to durable, root-owned storage on a
+filesystem that was **read rather than inferred**, given a sealed and registered
+generation, a hash-chained record format, a twenty-one-state fail-closed contract
+and a privileged lifecycle the writer cannot perform; and the completeness
+contradiction is resolved by **withdrawing the false statement and keeping the
+control**. P5.0-R4 is unchanged apart from two added denial rows and **no
+operational evidence is claimed passed**. P5.0-R1 is unchanged and still open —
+**a durable journal is not a barrier and is not offered as one**. P5.0-R2 remains
+closed. New decision **OD-66**, new risks **R-5.0-10** and **R-5.0-11**, new
+assumption **A-5.0-5**, estimate **PERT 35.5**. Package 5.0 remains `not ready`
+and implementation remains unauthorized.)
+
+## Superseded update 128 — Package 5.0 remediation R4 submitted
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, **no directory,
+file, file mode or filesystem attribute**, no deployment, no service restart, no
+data mutation, no Sheet access, no authority cutover, no Package 5.1+ work.
+`/var/lib/freedom-sheet-writer` does not exist on this host and was not created,
+and no `chattr` was run. **The host was read and never written.** This
+remediation changed documentation and registers only.
+
+**P5.0-R5 — the journal's storage and lifecycle are replaced, not patched.**
+Package plan §2.13 is new and answers all eight of the handoff's requirements:
+
+- **Durable storage, from facts that were read.** `/run` is `tmpfs` on this host
+  (`/proc/mounts`), and `lsattr -d /run` reports no attribute flags at all, where
+  ext4 paths report `e`. `/`, `/var`, `/var/lib` and `/opt/freedom-blades` are one
+  ext4 filesystem on `/dev/vda1`, so the journal moves to
+  **`/var/lib/freedom-sheet-writer/journal/`** and needs no new mount. systemd's
+  `StateDirectory=` is **deliberately not used**, because it would create the
+  directory owned by the writer.
+- **The writer cannot write the directory holding its own journal**, so it cannot
+  unlink, rename, link, create or replace anything there. `chattr +a` is a second,
+  independent layer, and it is **probed at provisioning and at every writer start,
+  never inferred from a filesystem type**. A generation whose probe did not pass
+  **cannot be registered**, because the column is `CHECK (append_only_verified)`.
+- **A sealed, registered generation.** A `chattr +i` seal, a genesis record inside
+  the journal, and a row in the new sixth table must all agree. A new or reset
+  journal is therefore never indistinguishable from a valid empty history, for
+  three independent reasons — and creating a generation first requires **sealing
+  and archiving the history it replaces**.
+- **Twenty-one conditions, and no row resolves to "continue."** Reboot, unclean
+  shutdown, missing, empty, wrong owner or mode, unsupported flags, malformed,
+  sequence gap, checksum failure, duplicate sequence, replaced inode, unreadable,
+  disk full, failed `fsync`, failed outcome append, and six more the handoff did
+  not name. The writer refuses new Sheet mutations with a typed code; the
+  coordinator records no evidence and the activation trigger refuses.
+- **A privileged lifecycle.** `freedom-journal-admin`, run as root under its own
+  `sudoers` drop-in kept separate from the coordinator's, with `seal`, `rotate`,
+  `repair`, `archive-verify` and a `dispose` gated on retention, the §15.1 gate
+  and a Data Owner approval. Revision 4's *"clearing needs `CAP_LINUX_IMMUTABLE`"*
+  is withdrawn as a specification.
+
+**The completeness contradiction is resolved by withdrawing the false
+statement.** Revision 4 said *"nothing in the fence depends on the journal being
+complete"* while `dispatch_journal_clear` was a required fence method. **That
+sentence is withdrawn.** The method is kept, and package plan §2.13.9 states the
+single direction of the dependency: the journal **can refuse** an activation the
+other four methods would permit and **can never permit** one they would refuse, so
+an incomplete journal removes a refusal rather than manufacturing a permission.
+What is left outside that is named as **R-5.0-10**: a writer whose *dispatch path*
+was replaced can call Google without journalling, and what bounds it is that the
+process is dead and its access revoked. Dropping the method instead is offered as
+**OD-66 option J-3** rather than taken, because it would remove the only control
+that refuses a cutover when a request is *known* outstanding.
+
+**The Google residual is unchanged and is kept separate.** §2.10.2's conclusion
+stands: no accepted-request completion barrier exists in the published Sheets v4 /
+Drive v3 surface, and **a durable journal is not a fourteenth candidate**.
+**R-5.0-8 is not narrowed by one case.** Stop condition 10b now names the
+journal's durability, generation, seal and archive among the things that must
+never be described as a barrier, and new stop condition 10d forbids treating any
+unknown journal state as clear.
+
+**Schema consequences.** A **sixth table**, `sheet_writer_journal_generations` —
+append-only, one linear chain, superseded by the successor's own row so the
+package's "no mutable table anywhere" property is preserved. Three journal columns
+on the evidence table, biconditionally `CHECK`ed. A **fifth activation-trigger
+condition** refusing stale and cross-generation evidence. A fifth command,
+idempotency scope and audit action. **The writer still opens no database
+connection**, so the Freedom bot's legacy mutation path still takes no PostgreSQL
+availability dependency.
+
+**Estimate.** PERT **35.5** implementer-days, up from 29.2; remediation allowance
+10.3; contingency 4.0; security review **2.0–3.0** reviewer-days. New work package
+**WP-15**. Numeric controls six → **nine** (N5.0-21 free-space floor, N5.0-22
+rotation ceiling, N5.0-23 archive retention — the last the **Data Owner's**). New
+decision **OD-66**; new risks **R-5.0-10** and **R-5.0-11**; new assumption
+**A-5.0-5** — a root-owned durable hierarchy and a **verified** `chattr +a`,
+without which no generation can be registered and P5.0-R5 cannot close on
+evidence.
+
+**Checks not run, named rather than omitted:** whether `chattr +a` actually works
+on the journal filesystem (it needs `CAP_LINUX_IMMUTABLE`, and setting it would
+have been an environment change this remediation is not authorized to make); a
+supervised host reboot between a dispatch and its outcome; an injected `fsync`
+failure; `/etc/sudoers.d/` could not be enumerated; no host-wide setuid audit;
+PostgreSQL `log_connections` and the live `pg_hba.conf`/`pg_ident.conf` could not
+be read. **`git diff --check` is clean.** **No test was run for this package,
+because no code exists for it**, and no executable control is claimed to have
+passed.
+
+## Superseded update 127 — Package 5.0 remediation R4 required
+
+The executable remediation brief was `docs/review/Handover information`. R4 had
+to move the dispatch journal to durable protected storage; define its creation,
+generation, replacement, rotation, clearing, reboot, missing/corrupt-state and
+recovery semantics; make every unknown state fail closed; reconcile the
+completeness contradiction; and add the mapped falsification tests. The Google
+residual decision must not be taken until that control is accurately stated.
+
+## Superseded update 126 — Package 5.0 remediation R3 submitted
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no operating-system account or
+group, no `pg_hba.conf`, `pg_ident.conf` or `sudoers` entry, no credential, no
+Google access change, no configuration or environment change, no deployment, no
+service restart, no data mutation, no Sheet access, no authority cutover, no
+Package 5.1+ work. **The host was read and never written.** This remediation
+changed documentation and registers only.
+
+**The two findings are answered differently, and that is deliberate.**
+
+- **P5.0-R4 — a boundary is supplied.** A dedicated `freedomcoord` operating-system
+  user and group, distinct from `discordbot`, `freedomweb`, the proposed
+  `freedomsheet` and `foundry` and in no group any of them holds; exact
+  `pg_hba.conf` ordering with the `peer`/`map` line above three written-out TCP
+  rejects; a single `pg_ident.conf` line; the role created `PASSWORD NULL`; a
+  `sudoers` drop-in naming `foundry` only, without `NOPASSWD`, running one fixed
+  root-owned wrapper; and a **root-owned deployment path outside the repository**.
+  Four independent layers must all hold before a coordinator connection succeeds,
+  and each is tested one runtime identity at a time.
+- **P5.0-R1 — no barrier exists, and the design says so.** Thirteen candidate
+  barriers were traced against the published Sheets v4 and Drive v3 surface. Each
+  reduces to a quiet period, rests on an unpublished implementation property, is
+  documented as unreliable, or does not exist. **The invariant — every request
+  Google accepted before the fence is reflected before the final import reads —
+  cannot be guaranteed.** Revision 3's enforceability claim is withdrawn. What
+  replaces it: the writer is **drained before it is killed**; a `fsync`-ed
+  append-only journal makes the unresolved set **enumerable**; a non-empty set
+  **refuses the activation**; a late apply **cannot reach PostgreSQL**; and two
+  post-import re-reads **detect** it. The residual is stated in one sentence and
+  returned to the Acceptance Authority.
+
+**One observed host fact changed the design.** `/opt/freedom-blades/platform` is
+group-writable by `discordbot`, and `freedomweb` is a member of that group, so
+the bot, web and worker processes can today rewrite every module in this
+repository including `tools/` and `migrations/`. A coordinator running
+`python -m tools.migration_authority` from that tree would execute code a
+compromised service process can choose. That is why the coordinator is deployed
+to a root-owned path with digest verification, and the condition itself is raised
+as OD-65 rather than fixed here.
+
+**Decisions.** OD-62 **reframed a third time** — no longer *which fence* but
+**what is accepted in place of one**, and it is now a **risk acceptance** owned by
+the Acceptance Authority. OD-63 **extended to six** numeric controls, two of them
+reframed because they were described as bounds they cannot be. OD-64 **extended**
+to cover the OS identity and host boundary as well as the database role. **OD-65
+new** — the `freedomsheet` identity and credential relocation, hardening on the
+live `freedom-bot` unit, and the repository permissions.
+
+**Estimate.** PERT **29.2** implementer-days, up from 23.7; remediation allowance
+8.4; contingency 3.5; security review **1.5–2.5** reviewer-days. New work package
+**WP-14**; WP-13 demoted to informing a margin. New risks **R-5.0-8** (the
+accepted, unprovable residual, owned by the Acceptance Authority) and **R-5.0-9**
+(host-boundary drift); new assumption **A-5.0-4** — a disposable OS identity and a
+`pg_hba` reload, **without which the whole R3-B evidence plan is unproducible**.
+
+**Checks not run, named rather than omitted:** `/etc/sudoers.d/` could not be
+enumerated without privilege; no host-wide setuid audit was performed; PostgreSQL
+`log_connections` and the live `pg_hba.conf`/`pg_ident.conf` could not be read.
+`git diff --check` is clean. **No test was run for this package, because no code
+exists for it**, and no executable control is claimed to have passed.
+
+## Superseded update 125 — Package 5.0 remediation R2 changes requested
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no database role, no credential, no Google access
+change, no configuration or environment change, no deployment, no service
+restart, no data mutation, no Sheet access, no authority cutover, no Package
+5.1+ work. This review changed documentation and registers only and replaced the
+handoff with the remediation-R3 brief.
+
+**Independent re-review outcome.** Revision 3 does not yet close either open
+Blocking finding:
+
+- **P5.0-R1 remains Blocking.** The PostgreSQL trigger closes the database half,
+  but the Sheet half relies on an uncontracted Drive-permission propagation
+  delay and a fixed settle interval. Neither proves that a request Google
+  accepted before revocation has completed before the final import reads the
+  Sheet. WP-13 measurement can price an operational timeout; it cannot create a
+  hard barrier.
+- **P5.0-R4 remains Blocking.** Removing runtime-authored proof is sound, but
+  the peer-authenticated coordinator is not bound to a named dedicated OS
+  identity distinct from every service identity. The exact peer mapping,
+  sudo/polkit boundary, operator-file ownership and runtime-identity denial
+  evidence are missing.
+
+**Preserved:** P5.0-R2 remains closed and OD-55 remains preserved. No code,
+migration, role, credential, access, service or environment change is
+authorized.
+
+## Superseded update 124 — remediation R2 submitted
+
+- **P5.0-R1, enforceable external-writer quiescence.** The four options the
+  handoff names are compared against `SIGSTOP`, resume, GC pause, out-of-systemd
+  duplicates, a request past its last check, partial shutdown, failed restart,
+  rollback and operator death (plan §2.10). The design changes shape: **the fence
+  a store gets is the fence that store can enforce.** Every PostgreSQL-
+  authoritative write is refused by a trigger *inside its own transaction*, so a
+  process paused for any length of time and resumed after activation commits
+  nothing — the check is not in the past. The Google Sheet cannot be fenced that
+  way, so its writer is isolated in a separately terminable unit whose
+  **termination** is the fence — a `SIGKILL` escalation kills a `SIGSTOP`ped
+  process, and a killed process cannot resume — with **Google-side write-access
+  revocation** as an independent second control for anything the host missed.
+  **The lease, the renewal interval, the headroom rule, the drain
+  acknowledgement and the entire clock model are withdrawn.**
+- **P5.0-R4, database-enforced proof ownership.** The three options the handoff
+  names are compared and traced for authentication, SQL principal, row
+  ownership, credential provisioning and cross-process forgery (plan §2.11).
+  **Both runtime-written tables are withdrawn rather than secured.** No
+  application process authors any authority proof for any instance, including
+  its own — because a compromised process's claim about itself is worthless at
+  any privilege level. Quiescence evidence is *observed* by a supervisor and
+  recorded by a distinct peer-authenticated coordinator principal that no service
+  can authenticate as, and the runtime role ends with **no write privilege
+  anywhere on the authority plane**.
+
+**Preserved.** P5.0-R2's accepted state matrix, authority transfer at
+`shadow → cutover`, `database` as accepted completion, the
+authorization/activation separation, the activated-disposition-only authority
+read and `effective_at` as the earliest permitted activation instant are restated
+in full in logical schema §2.1 and §2.5 so nothing can have drifted. OD-55 stands
+unchanged: no telemetry table, column or write path in 5.0.
+
+**Claude claims no finding closed.** The Independent Reviewer decides, and the
+package remains not ready until both Blocking findings are recorded closed, the
+schema review recommends acceptance, and Peter names the Security Reviewer.
+
+**Decisions: one reframed, one reduced, one new.**
+
+- **D5.0-9 / OD-62 is reframed.** Its revision-2 options were priced around the
+  lease and are withdrawn. The real question is which enforceable boundary is
+  adopted and which of its three costs is accepted: a bounded Freedom-bot
+  mutation outage at each cutover, a fourth systemd unit holding the Google
+  credential, or a production Drive-permission change at each cutover. **Blocks
+  WP-4b.**
+- **D5.0-10 / OD-63 is reduced** from seven numeric controls to four. N5.0-9 …
+  N5.0-13 and N5.0-15 are withdrawn with the lease, and with them the derived
+  25-second Freedom-bot grace period and its standing PostgreSQL availability
+  dependency. **Blocks WP-1's completion.**
+- **D5.0-11 / OD-64 is new:** the authority-plane database principal. A database
+  role and credential-topology change requiring an impact assessment and the
+  named Security Reviewer's review. **Blocks WP-2.**
+
+**Consequences.** Six tables become five. A new work package WP-13 measures Drive
+permission propagation against a **disposable** spreadsheet before N5.0-18 is
+fixed. The estimate rises to PERT **23.7** implementer-days from 20.8, decomposed
+in plan §4. Risks R-5.0-5 and R-5.0-6 are restated, R-5.0-7 and assumption
+A-5.0-3 are new, and the security review grows to cover a new database principal,
+a credential relocation and a production-access procedure.
+
+**Requested next:** Codex independent re-review; Peter's rulings on D5.0-9,
+D5.0-10 and D5.0-11; a named Security Reviewer; and confirmation that disposable
+Google resources are available for WP-13. Evidence:
+[`../review/phase-5-0-package-plan.md`](../review/phase-5-0-package-plan.md),
+[`../review/phase-5-0-logical-schema.md`](../review/phase-5-0-logical-schema.md)
+and
+[`../review/phase-5-0-remediation-r2-handback.md`](../review/phase-5-0-remediation-r2-handback.md).
+
+## Superseded update 123 — Codex re-review of remediation R1
+
+Codex independently re-reviewed revision 2. **P5.0-R2 is closed:** the state
+matrix, transfer at `shadow → cutover`, `cutover → database` acceptance
+semantics, authorization/activation separation and effective-time model are
+materially coherent. OD-55 is also correctly applied.
+
+**P5.0-R1 remains Blocking.** A process paused after its admission check may
+resume after the lease horizon and emit a legacy Sheet write. A PostgreSQL lease
+cannot fence that external call; probability controls and a second clock check
+do not establish the no-overlapping-writers invariant.
+
+**P5.0-R4 is new and Blocking.** All application processes share the runtime
+database role. It can update every lease and insert every acknowledgement, so a
+defective or compromised process can release/fence another instance's lease or
+forge its drain proof. The claimed own-row rule is not database-enforced.
+
+Claude must compare enforceable remediation designs and return the revised
+schema and plan for re-review. No implementation, migration, configuration,
+credential, deployment, service restart, data mutation or cutover is authorized.
+D5.0-9/D5.0-10 and the Security Reviewer remain open.
+
+## Superseded update 122 — remediation R1 submitted
+
+**No implementation or environment change occurred.** No production code, no
+migration `0014`, no table, no configuration or environment change, no
+deployment, no service restart, no data mutation, no Sheet access, no authority
+cutover, no Package 5.1+ work. The changed files are the two design documents
+and these registers.
+
+**What was remediated.** Codex's two Blocking findings and OD-55.
+
+- **P5.0-R1, write-authority fencing.** Five feasible designs are compared with
+  their failure modes and one is recommended (plan §2.10), as the handoff
+  required rather than selected silently. Authority is removed from process
+  configuration entirely and **leased** from the database: every process holds a
+  short lease, admits a mutation only while the lease has a clock-skew allowance
+  plus a whole operation budget of headroom left, and therefore stops writing on
+  its own — without being told, restarted or noticed — within about 25 seconds
+  of losing the database. An authority change is split into **authorize** and
+  **activate**, and between them every process stops admitting that unit, drains
+  its in-flight work and records a positive acknowledgement. A database trigger
+  refuses the activation unless every live lease has acknowledged **or** every
+  lease that could still have admitted work has provably expired. Cutover and
+  rollback use the same protocol, so there is no unfenced emergency path
+  (plan §7.2). The revision-1 claim that a database chain head makes two write
+  authorities impossible is **withdrawn**, and schema §2.4 states instead exactly
+  what the database guarantees and what process-level control completes it —
+  including a residual, R-5.0-5, that is recorded rather than argued away.
+- **P5.0-R2, state and effective-time semantics.** The complete six-column state
+  matrix is schema §2.1. The contradiction is resolved: **authority transfers at
+  `shadow → cutover`**, and `cutover → database` closes the bounded verification
+  window rather than transferring anything. No state dual-writes, in either
+  direction, which is why the final import runs inside the quiesce window. The
+  defective head query is gone structurally rather than patched: authority is
+  read **only** from an activated disposition, so a revision that has been
+  authorized but not activated is authority for nothing and a future-dated
+  revision cannot take effect early. `effective_at` becomes the earliest legal
+  activation instant. Boundary, concurrent and clock-injection tests are in the
+  traceability plan.
+- **OD-55.** `shadow_comparisons` is removed from the schema, the ER diagram, the
+  grants, the decision table, the work breakdown, the estimate and every Package
+  5.0 test claim. The **common telemetry contract is retained as prose** (plan
+  §11) with Package 5.1 recorded as the implementation and schema owner.
+
+**Claude claims no finding closed.** The Independent Reviewer decides, and the
+package remains not ready until both Blocking findings are recorded closed, the
+schema review recommends acceptance, and Peter names the Security Reviewer.
+
+**Two new decisions, raised rather than taken.** Request-time fencing gives
+Freedom-bot *mutations* a bounded availability dependency on PostgreSQL — about
+25 seconds of grace, after which mutations are refused with a typed retriable
+error while reads, `/info` and every non-mutating command continue. That is a
+production-availability change and `.agents/AGENTS.md` forbids degrading the
+bot, so it is **D5.0-9 / OD-62** with three priced options, and WP-4 does not
+start until it is ruled. The seven new timing controls behind it are
+**D5.0-10 / OD-63**; the first three determine the grace period, so both should
+be ruled together.
+
+**Estimate: O 10.0 / ML 20.0 / P 35.0 implementer-days, PERT 20.8**, up from
+14.3, with 6.0 days of remediation allowance and 2.5 of contingency. The
+movement decomposes as **−1.1** for removing the telemetry work package under
+OD-55 and **+7.6** for request-time fencing. Six tables instead of four.
+Confidence is low-to-moderate, below revision 1's, and plan §4 states the six
+drivers — the sixth being that revision 1's two Blocking findings are themselves
+evidence that a first design pass here is not reliable.
+
+**Nothing is closed by this submission.** No RAID row is entered; the proposed
+rows in plan §7.4 enter the register only on acceptance. R-5.0-2 is recorded as
+superseded by the new design, R-5.0-4 as re-owned by Package 5.1 under OD-55,
+and R-5.0-5, R-5.0-6 and D-5.0-2 are new. Evidence: the two revised review
+documents; RAID register, *Package 5.0 readiness*; decision register, *Package
+5.0 decisions*; open decisions OD-62 and OD-63; change log `C-P5.0-C`.
+
+## Superseded update 121 — Package 5.0 decisions ruled, design changes requested
+
+Peter Duscha accepted Codex's recommendations on D5.0-1 through D5.0-7,
+designated Claude as implementer/working Technical Lead, and designated Codex
+as Independent Reviewer and logical-schema reviewer. The Security Reviewer is
+still unnamed.
+
+Codex's independent schema/design review returned two Blocking findings:
+P5.0-R1 requires request-time authority fencing or a proved quiesce/drain
+protocol so running legacy and database writers cannot overlap; P5.0-R2 requires
+unambiguous read/write semantics for every authority state and correct handling
+of future `effective_at` revisions. No implementation, migration, deployment,
+data mutation or authority cutover is authorized. Claude must revise the
+readiness plan and logical schema and return them for independent re-review.
+
+The decisions are: persist the 5.0 control plane; defer comparison telemetry
+implementation to 5.1; permit internal character UUIDs under value-free,
+restricted, retained telemetry controls; approve the numeric thresholds with
+advance approval required for a sub-30 comparison threshold; assign the durable
+ledger to 5.2; use a host-local Platform-Administrator operator command only;
+and add no service-principal scope in 5.0.
+
+## Superseded update 120 — readiness submission
+
+The Phase 5.0 handover's readiness and design work is complete and delivered
+uncommitted for the Independent Reviewer and Peter Duscha. **No implementation
+was performed.** No production file, migration, table, configuration,
+environment variable, credential or deployment was created or changed; the
+working tree's only additions are two review documents and these register
+updates. No test was run for this package, because no code exists for it.
+
+**Two artifacts.**
+[`../review/phase-5-0-package-plan.md`](../review/phase-5-0-package-plan.md)
+carries the outcome, scope and exclusions, the current-path inventory, the work
+breakdown, the three-point estimate, the dependency and decision list, the
+acceptance traceability, the risk and rollback plan, the environment and
+threshold proposals, and the review gates and stop conditions.
+[`../review/phase-5-0-logical-schema.md`](../review/phase-5-0-logical-schema.md)
+is the mandatory logical schema artifact — ER diagram and schema decision table
+— and **must be independently reviewed before any migration or production
+code**.
+
+**The package is `not ready`, and that is the requested finding rather than a
+delay.** Two of the governance README's readiness criteria are unmet, both of
+them the maintainer’s to resolve: eight decisions are open (**D5.0-1 … D5.0-8**,
+plan §5.2), three of them material; and three review roles — Independent Reviewer,
+independent schema reviewer and Security Reviewer — are **unnamed**. Under plan
+§0.3 an unnamed Independent Reviewer at a mandatory checkpoint means the package
+stays `deferred`. Claude does not nominate a reviewer for its own work.
+
+**The design, in one paragraph.** Package 5.0 persists its own control plane and
+nothing else: a controlled vocabulary of migration units seeded from the
+`data-migration-manifest.json`, an append-only chain of authority revisions
+(legacy → shadow → cutover → database, with rollback to legacy), a reference
+table of legal transitions enforced by foreign key, and value-free comparison
+telemetry. One unit has one chain head, so two write authorities cannot exist as
+a database state; each of the three running processes compares its configuration
+against that record at startup and refuses on disagreement, which is the only
+mechanism that can prevent split brain **across** processes. Optimistic
+concurrency is the `previous_revision_id` unique constraint — one atomic
+`INSERT`, no read-then-write window — rather than a version column. The
+authority revision, its idempotency receipt and its success audit row commit in
+one transaction, which is what finally evidences the transaction boundary Phase 4
+could not.
+
+**Two things are recommended but deliberately not decided.** The **durable
+ledger table is recommended to stay with package 5.2**, closing OD-48's
+"package 5.0 or 5.2" ambiguity: a 5.0 ledger table would have to persist a
+free-text account name with no foreign key to `characters`, because 5.0 is not
+permitted to decide the account vocabulary. **R-P4-4 is therefore narrowed, not
+closed** — 5.0 makes it impossible to *deploy* a process treating the in-memory
+ledger as production authority, and claims nothing further. And the handover's
+requirement for comparison telemetry contradicts its own ban on abstractions
+without a package-5.0 consumer, because 5.0 has no shadowed field; that
+contradiction is raised as decision D5.0-2 rather than papered over.
+
+**Estimate: O 7.0 / ML 14.0 / P 25.0 implementer-days, PERT 14.3**, with 4.2
+days of remediation allowance, 2.0 days of contingency, and review, security
+review, rehearsal and maintainer decision time separate and outside it.
+Confidence is moderate-to-low, below Phase 4's, and §4 states the five drivers.
+Phase 5's roadmap range was withdrawn deliberately, so no range comparison is
+offered and none is invented.
+
+**Nothing is closed by this submission.** Phase 4's gate, D-04 and P4-R1…P4-R5
+remain closed as they were; no new RAID row is entered, because entering one for
+a package that has not started would assert the readiness this document is asking
+for; the proposed rows are listed in package plan §7.2 and enter the register
+only on acceptance. Evidence: the two review documents; RAID register, *Package
+5.0 readiness*; decision register, *Package 5.0 decisions*; change log
+`C-P5.0-A`.
+
+## Superseded update 119 — Phase 4 gate approved
+
+Codex's second independent re-review returned no Blocking or Important findings.
+Peter Duscha accepted the Phase 4 dependency-direction and domain-correctness
+gate on 2026-08-29. The accepted evidence is focused Phase 4 **415 passed**;
+bot **2929 passed, 0 skipped**; web **2824 passed, 80 expected skips**; Foundry
+**171 passed**; `compileall` clean under both interpreters; and `git diff
+--check` clean. P4-R4 and P4-R5 are Closed, the previously remediated P4-R1,
+P4-R2 and P4-R3 remain closed review history, and D-04 is Closed.
+
+The approval releases Phase 5 package planning only under each package's own
+definition of ready, predecessor decisions, independent review and cutover
+gate. **Package 5.0 is selected as the next readiness-planning package** because
+it is the common predecessor for the Phase 5 migrations and mutations. Its
+implementation is not yet authorized. It authorizes no migration, data-
+authority change, deployment, Sheet retirement or permanent Discord character-
+mutation surface. Evidence:
+`../review/phase-4-submission.md`, *Acceptance Authority decision*; change logs
+C-P4-L and C-P4-M; `../review/Handover information`.
+
+## Superseded update 117 — Phase 4 Remediation R2 submitted
+
+Both Codex re-review findings are remediated. **P4-R4 (Blocking):**
+`LedgerCommandService.compensate()` now resolves the caller's current authority
+before it opens a unit of work or reads the ledger, so an ordinary member, a
+member whose Council role was withdrawn, an unknown principal, a revoked or
+deactivated one and one holding another scope all receive one identical
+`not_authorized` refusal whether the target transaction exists or not — and the
+ledger is never consulted, so there is no answer to leak rather than an answer
+withheld. That resolution happens **once**: the resolved attribution is carried
+through a new private execution path into the digest, the receipt, the audit row
+and the posting, rather than the operation re-entering `post()` and asking a
+port a second time, which could answer differently. The public surface is still
+two methods and neither accepts an attribution. **`post()` behaves exactly as
+before.** **P4-R5 (Important):** an envelope and the transaction it carries must
+name one correlation identity; a mismatch is refused with the new declared code
+`correlation_mismatch` before the expected-version precondition, before the
+digest and before the unit-of-work factory is called, leaving ledger, receipt
+and audit empty. An accepted command records one id in all three places.
+Correlation is **not** added to the command-defining digest — a true retry may
+regenerate it on both halves and is still answered from the stored receipt.
+
+**39 new tests**, 13 of them against real PostgreSQL, including the
+six-caller-shape existence-oracle regression and direct no-effect evidence
+against `idempotency_keys` and `audit_events`. **Four falsification mutations
+plus one informative weaker variant were all detected**; `application/ledger.py`
+was restored by copy and verified `OK` with `sha256sum -c`, and no mutation
+survives. Suites re-run serially against the submitted tree: bot **2929 passed,
+0 skipped**; web **2824 passed, 80 skipped**, both reasons the permission-matrix
+modules' permitted cells and none a database skip; Foundry module **171 pass, 0
+fail**; `compileall` clean under both interpreters; `git diff --check` clean.
+Formatter, linter and type checker remain unconfigured and none is claimed.
+
+**The re-review's bot-suite failure could not be reproduced and is reported
+rather than declared fixed.** The backup/restore drill passes here (35 tests)
+and the bot suite has zero skips, both before and after the R2 changes; no
+grant, role or schema was altered by this remediation. A re-reviewer seeing
+2887/2/1 again should apply `infra/postgresql/runtime-grants.sql.tmpl` to their
+own `freedom_test` database and rerun the drill before reading the figure as a
+Phase 4 result. The 2890/0 figure is quoted only as this session's pre-change
+baseline, never carried forward as the result.
+
+**No migration, no table, no route, no command, no deployment, no configuration
+and no credential change; OD-48 is untouched and `ServicePrincipalScope` is
+again deliberately not widened.** One production file changed,
+`application/ledger.py`, already declared in the P3.4 scope guard; no tracked
+production module changed. Claude closes nothing: Codex re-reviews both findings
+and Peter Duscha alone records the gate decision. Evidence:
+`../review/phase-4-submission.md`, *Remediation R2*; package plan §20; change
+log C-P4-K.
+
+## Superseded update 116 — Remediation R1 re-reviewed
+
+Codex re-reviewed Remediation R1. The unsafe retraction mechanism and unverified
+service-principal authority are materially corrected, and the requested digest
+binding is present. The Phase 4 gate remains **deferred** for P4-R4 (Blocking:
+`compensate()` reads ledger state before authorization) and P4-R5 (Important:
+envelope and transaction correlation IDs can disagree across ledger, receipt
+and audit).
+
+Claude may proceed directly with Remediation R2; neither finding needs a new
+maintainer decision. D-04 remains Open and Phase 5 remains blocked. Independent
+evidence: focused Phase 4 376 passed; web 2824 passed with 80 expected skips;
+Foundry 171 passed. The bot suite was not green: 2887 passed, 2 skipped and one
+backup/restore drill failed because disposable-test-database grants were
+missing. Restore and rerun before citing full green evidence. See the Phase 4
+submission and change log C-P4-J.
+
+## Superseded update 115 — Remediation R1 submitted
+
+Status date: 2026-08-29 (one-hundred-fifteenth update: **Phase 4 remediation R1
+is delivered and resubmitted for independent re-review. No finding is closed,
+D-04 remains Open, the Phase 4 gate remains deferred and Phase 5 remains
+blocked.** All three Codex findings are remediated. **P4-R1:** the
+publish-before-durable-commit shape is replaced rather than repaired —
+`LedgerBook.committing` holds the book's writer lock across the durable commit
+and makes postings visible only after it returns, and `publish`/`retract` are
+removed, so rollback of a published posting is not an operation the class can be
+asked to perform; readers take no lock, which is what lets a test *fail* rather
+than hang on the invisibility assertion. The in-memory adapter no longer claims
+cross-store atomicity it cannot provide, and the residual crash window is stated
+rather than papered over. **P4-R2:** the rule that every non-human caller is
+authorized is removed; a consumer-owned `LedgerPrincipalPort` resolves the
+principal at execution, unknown, revoked, deactivated and out-of-scope
+principals are refused with one undifferentiated message, and audit attributes
+the **resolved** principal rather than request text. `ServicePrincipalScope` and
+the Foundry credential vocabulary are deliberately **not** widened, and whether a
+ledger scope should eventually join them is left open for the maintainer.
+**P4-R3:** command-defining and attempt-metadata fields are documented and
+enforced; the digest now binds the authoritative occurrence time, the verified
+caller identity and the caller's surface, under a typed, length-delimited,
+schema-versioned encoding replacing delimiter joining, and `correlation_id` is
+ruled attempt metadata explicitly and consistently with the stored receipt,
+audit correlation and retry behaviour. **50 new tests**, event-synchronized with
+no sleeps, including the handover's mandatory two-caller regression against both
+fakes and real PostgreSQL. The handover's **six falsification mutations were all
+detected**; the tree was restored by copy and verified with `sha256sum -c`, all
+eight files matching, and no mutation survives. Suites re-run serially against
+the submitted tree: bot **2890 passed, 0 skipped**; web **2824 passed, 80
+skipped** — the established figure, and `-rs` confirms both reasons are the
+permission-matrix modules' permitted cells, none a database skip; Foundry module
+**171 pass, 0 fail**; `compileall` clean under both interpreters; `git diff
+--check` clean. Formatter, linter and type checker remain unconfigured and none
+is claimed. **Two web-suite failures this remediation caused were found, fixed
+and reported**, both Phase 3 controls working as intended: the new
+`service_principal_id` audit payload key had to be classified in the audit
+projection, and the P3.4 scope guard correctly refused two undeclared production
+modifications, now declared with their reasons. **No migration, no table, no
+route, no command, no deployment, no configuration and no credential change;
+OD-48 is untouched.** Claude closes nothing: Codex re-reviews all three findings
+and Peter Duscha alone records the gate decision. Evidence:
+`../review/phase-4-submission.md`, *Remediation R1*; change log C-P4-I.)
+
+Status date: 2026-08-29 (one-hundred-fourteenth update: **Codex completed the
+independent Phase 4 implementation review and requested changes. The Phase 4
+gate is deferred; D-04 remains Open and Phase 5 remains blocked.** The review
+returned two Blocking findings and one Important finding. **P4-R1 (Blocking,
+atomicity/concurrency):** the composite in-memory/PostgreSQL unit of work
+publishes the ledger before the durable commit, releases the book lock, and on
+commit failure retracts the last N transactions; a concurrent caller can append
+in that interval, after which the failed caller can remove the concurrent
+caller's posting and leave its own failed posting behind. **P4-R2 (Blocking,
+authorization):** `LedgerCommandService` accepts every non-human
+`CommandCaller` as an authorized service principal without resolving a scoped
+credential or capability at execution; any direct application caller can
+construct a nonblank principal id. **P4-R3 (Important, idempotency):** the
+canonical request digest omits authoritative command facts, notably
+`occurred_at` and caller identity, so materially different history or a
+cross-principal reuse can be treated as an identical retry. Codex independently
+ran the focused Phase 4 domain, command, ledger-service and PostgreSQL
+idempotency suites: **326 passed in 2.81 s**; `git diff --check` was clean. The
+green focused run does not discharge the findings. The remediation brief now
+overwrites `docs/review/Handover information`; it authorizes only correction,
+regression tests, verification and resubmission, with no Phase 5 work, schema,
+migration, deployment or authority cutover.)
+
+Status date: 2026-08-29 (one-hundred-thirteenth update: **Phase 4 WP-2, WP-3 and
+WP-4 are delivered; the package is ready for Codex independent review and no
+gate is claimed.** WP-2 adds `application/commands.py` — a command envelope
+carrying caller **identity** (never a resolved privilege), idempotency key,
+correlation id and an `ExpectedVersion` that names the aggregate it constrains —
+with typed results that round-trip through the stored receipt. The query
+*convention* is documented and no query protocol is created, per final OD-52.
+WP-3 adds `domain/ledger.py` (balanced, append-only, one resource and one book
+per transaction, corrections only as compensating entries), `application/ledger.py`
+(the consumer-owned repository and unit-of-work protocols plus the concrete
+`LedgerCommandService`) and `adapters/ledger/` (the in-memory reference book).
+WP-4 integrates both with the **existing** `idempotency_keys` table under the
+Phase-4-owned scope `ledger.post_transaction`; **no migration, no table, no
+schema, no configuration, no deployment**. Suites: bot **2840 passed, 0
+skipped**; web **2824 passed, 80 skipped** — the established figure, unchanged;
+Foundry module **171 pass, 0 fail**. Sixteen falsification mutations were run
+against the submitted tree and **all sixteen failed as required, none survived**;
+the tree was restored by copy and verified by SHA-256, closing the WP-1
+process failure where `git checkout` silently did nothing for untracked files.
+**One design correction a reviewer should see:** the optimistic-concurrency
+precondition is now decided **at commit**, not at read — the first draft compared
+the version when the transaction opened, which let two concurrent callers who
+both read version 0 both commit; `append()` now carries the precondition into
+`LedgerBook.publish`, which re-checks it under the book's lock in the same
+critical section that appends, the shape of `SqlAlchemyCharacterRepository.save`'s
+conditional `UPDATE … WHERE version = :expected`. **One honest limit, recorded as
+risk R-P4-4 rather than left for review to find:** because OD-48 defers the
+physical ledger table, a posted transaction is durable only as far as process
+memory; the *receipt* is durable in PostgreSQL and is what every idempotency
+guarantee turns on. **Two web-suite failures this package caused were found, fixed and
+reported, and one of them is a finding against the WP-1 evidence:** the audit
+projection's completeness regression required the four new ledger payload keys
+to be classified, and the P3.4 scope guard — which reads the working tree and
+has watched `domain/` since N-27 — had been failing since **WP-1**, unseen
+because WP-0 and WP-1 ran the bot suite only. Two Phase 3 files were therefore
+modified (`application/web/audit_search.py` and
+`tests/web/test_p3_4_static_assets.py`); neither changes a route, a capability
+check, a session or a bound, and both are flagged for the reviewer. RAID gains
+R-P4-1…R-P4-4, A-P4-1 and A-P4-2; change-log `C-P4-G` records the delivery and
+states that **no baseline change is required**.
+`ext/commands/info.py` and `helpers/renderers.py` are untouched. WP-5 stays
+removed. Next: WP-7 documentation is complete, so the package goes to **Codex**
+for independent review of dependency direction, domain correctness, atomicity,
+concurrency, idempotency and regression safety; Peter's gate decision follows.
+D-04 remains **Open**.)
+
+Status date: 2026-08-29 (one-hundred-twelfth update: **final OD-52 amendment
+removes the adapter-only compromise.** Peter accepted the best-practice
+recommendation: Phase 4 creates neither an `/info` rewrite nor a temporary
+Sheet-backed wallet query/adapter without a production caller. Package 5.2
+introduces the wallet query, production adapter and character-page wallet view
+together. Phase 4 dependency evidence instead comes from its concrete ledger
+and durable idempotent command execution. WP-5 is removed; the estimate becomes
+5.0/9.0/16.5 implementer-days with PERT 9.6 and 2.7 days remediation allowance.
+WP-0/WP-1 remain complete, Phase 5 order is unchanged, and no code, schema,
+authority, deployment or gate changes.)
+
+Status date: 2026-08-28 (one-hundred-eleventh update, **superseded by update
+112 / C-P4-F where it retains the adapter-only compromise:** **OD-52 amended; `/info`
+will not be rewired in Phase 4.** Peter confirmed that `/info` is not needed on
+the finished platform because players inspect linked characters directly on its
+character pages. Phase 4 will prove the shared money/resource query through a
+production-shaped temporary Sheet adapter and contract tests instead of
+transitional Discord-command wiring. `ext/commands/info.py` and
+`helpers/renderers.py` remain unchanged; existing characterization remains
+regression evidence. Package 5.2 owns the future typed wallet and portal view,
+and package 5.1 retains any transitional `/info` migration and its read
+authorization. Phase 5 order is unchanged. No code, schema, authority,
+deployment or gate changes.)
+
+Status date: 2026-08-28 (one-hundred-tenth update: **Phase 4 WP-0 and WP-1
+delivered; one acceptance criterion is under challenge and goes to Codex.**
+WP-0 added 36 characterization tests pinning `/info`'s byte-exact output and the
+Sheet-era money/resource behaviour, including the deliberately pinned defects
+OD-49 and OD-51 name. WP-1 added `domain/quantities.py`, `domain/money.py` and
+`domain/resources.py` with 144 tests: integer-copper `Money`, `Moradinium`,
+thousandth-day `Downtime`, and an **allowlist** dependency guard requiring every
+`domain/` import to be standard library or `domain`. Bot suite **2627 passed, 0
+skipped**; `domain/` compiles under both interpreters. Ten falsification
+mutations were run; **two produced findings that are reported rather than
+omitted** — a characterization test that did not detect an injected
+`save_to_sheet()` because `Actor.save_to_sheet` returns before calling
+`batch_update` when nothing changed (test strengthened, mutation re-run, now
+fails as required), and a restore path that used `git checkout` on **untracked**
+files and silently did nothing (files reversed explicitly and verified
+byte-identical by SHA-256). **Open for review:** the Product Owner challenged
+Phase 4's *"first read-only bot command"* criterion on the ground that OD-53
+retires the bot, and asked for Codex's view because Codex co-authored the plan.
+`docs/review/phase-4-info-command-proposal.md` proposes building the
+Sheet-backed query adapter and its contract tests while leaving
+`ext/commands/info.py` untouched, and amending the criterion under §0.2. The
+document argues both sides, corrects an overstated regression-risk claim the
+proposal was first put on, and notes that package **5.1 is named "Character
+profile and `/info`"** so the command's migration is already owned elsewhere. It
+also raises, separately, whether **5.2 should be scheduled first** after 5.0 —
+it is the only economy package with no open rule decision, and the one that puts
+money on the portal, which today renders "migration deferred (package 5.2)"
+where a player's coins should be. **Nothing is decided; WP-2 to WP-4 are
+unaffected and proceed either way.**)
+
+Status date: 2026-08-28 (one-hundred-ninth update: **Discord and the Freedom bot
+are now named apart everywhere.** Peter: *"Discord and the Freedom Bot (discord
+bot) are two very different things. The discord server is the basis for the
+whole project."* The controlled documents had used "Discord bot" and "the bot"
+interchangeably for this repository's Python/Pycord application, in the same
+paragraphs that discuss Discord the service — dangerous in both directions now
+that a retirement decision exists, since a reader could take v1.7 as licence to
+unwind Discord integration, or take Discord's permanence as grounds to refuse
+the bot's retirement. `.agents/AGENTS.md` now opens its product direction with a
+terminology block: **Discord is the community's server and the basis of the
+whole project, never retired**, and any instruction that appears to propose
+retiring it is refused and referred to a maintainer; **the Freedom bot is a
+client of Discord**, retired under §15.2 once the platform is fully functional,
+and retiring the client removes nothing from Discord. Five loose uses were
+corrected in the working agreement and the plan, including the architecture
+diagram; a grep confirms no conflated use remains in either document. Change-log
+v1.7 correction C-2; OD-53 amended. No decision, phase order, scope, authority
+or release boundary changes.)
+
+Status date: 2026-08-28 (one-hundred-eighth update: **the v1.7 bot-retirement
+condition is corrected to the one Peter actually gave.** The first record
+anchored the prohibition to deletion *"as part of the website or database
+migration"*; his condition is *"not to be deleted…as long as the platform is not
+fully functional"*. An activity can be declared over, a state has to be
+demonstrated, so `.agents/AGENTS.md` and plan §15.2 now bind the prohibition to
+the platform's functionality. The prohibition is extended from *deleted* to
+**deleted, disabled or degraded**, so the bot cannot be hollowed out by degrees,
+and *fully functional* is defined explicitly — every player-facing bot behavior
+on the platform with its package gate approved, §19 completion met for those
+behaviors, §15.1's final Sheet retirement gate closed, and measured adoption
+against a pre-accepted threshold. §15.2 adds that an agent's belief that the
+platform is finished is not evidence that it is. The v1.7 decision, phase order,
+package scope and release boundary are unchanged; this corrects wording and
+strengthens a control. Change-log v1.7 correction C-1; OD-53 amended.)
+
+Status date: 2026-08-28 (one-hundred-seventh update: **baseline v1.7 — the
+Freedom bot is retired and deleted at the end of the migration.** Peter Duscha's
+decision, recorded as **OD-53** and change-log **v1.7**. The controlled
+documents previously said the opposite — `.agents/AGENTS.md` read "must not be
+deleted" and retained Discord for "optional lightweight commands" — and a search
+of `docs/` and `.agents/` found **no prior record of the intent anywhere**. That
+gap is the failure the durable-written-record rule exists to prevent, and it is
+now closed. AGENTS.md direction items 8–9 and the non-deletion rule are amended:
+the prohibition is narrowed to *deletion as part of the website or database
+migration*, which is what it was protecting. Plan §15 is retitled **Legacy
+runtime retirement**, with the existing Sheets content preserved verbatim as
+**§15.1** and a new **§15.2** carrying a nine-stage retirement contract and a
+terminal gate — every migrated command's package gate, Phase 6, the Phase 8–11
+behaviors the bot touches, §15.1's final Sheet retirement gate, deregistration
+before deletion, and **measured adoption against a threshold accepted in
+advance**, because "everyone has moved over" is a gate criterion and needs a
+number. New dependency **D-10**. **Discord is not retired with the bot:** OAuth
+authentication, guild and role verification, events, notifications and
+voice-state attendance evidence remain, and the recorded consequence for Phase 8
+is that voice-state join/leave needs a live gateway connection, so "no bot" must
+not be read as "no gateway process" until the attendance package decides how
+evidence is collected. **Most of the intent needed no amendment** — §15.1,
+Phase 5.1–5.10, Phase 6 and Phases 8–11 already deliver the platform-only player
+experience. **Phase 4 is unaffected and strengthened:** a command cannot be
+retired until its logic lives elsewhere, which is what Phase 4 extracts, and
+OD-52's money/resource query gains a real second consumer when package 5.2 gives
+the portal a wallet view. No code, schema, service or live-data change.)
+
+Status date: 2026-08-28 (one-hundred-sixth update: **Phase 4 meets the
+management definition of ready.** The remaining decisions are ruled as **OD-51**
+and **OD-52**, and **Codex is named Independent Reviewer** with no separate
+security-focused review required (change-log C-P4-D). One recommendation was
+**withdrawn and corrected**: the plan had proposed a full typed
+character-summary read model for `/info`. The Product Owner observed that
+`/info` is a Discord command with no meaning on the platform, and inspection
+confirmed it — the portal's `CharacterDetailView` renders every money field as
+`MigrationDeferred`, a type with **no value field**, under a mandatory Phase 3
+test, so the platform has no wallet to show and cannot acquire one before
+package 5.2. `/info` will therefore call **one** application query in which only
+the money and resource block is typed, with name, level, badge, lifestyle and
+Bastion passing through as labelled presentation values owned by 5.1, 5.3 and
+5.9; the whole command moves rather than its resource block alone because
+`load_from_sheet` is a single Sheet read and response timing must be preserved.
+OD-51 characterizes rather than corrects the binary-float money defects in
+`/sale` and `/lc`, leaving the fix to packages 5.7 and 5.3. Readiness rests on
+one element supplied by instruction rather than in writing — that Peter's
+instruction to execute the handover designates Claude as implementing agent and
+working Technical Lead — and that is flagged in the plan so it can be corrected
+rather than assumed. The estimate is unchanged. **No gate is approved, D-04
+stays Open, and no production code has been written.**)
+
+Status date: 2026-08-28 (one-hundred-fifth update: **the three Phase 4
+decisions that blocked the first production-code edit are ruled.** Peter Duscha
+ruled each as recommended, recorded canonically as **OD-48**, **OD-49** and
+**OD-50** and as change-log **C-P4-C**. Phase 4 adds **no migration and no
+physical ledger table** — the ledger is domain plus a consumer-owned protocol
+with an in-memory reference adapter, and durable idempotency reuses the existing
+`idempotency_keys` table under a Phase-4 scope, so the mandatory logical-schema
+artifact is not triggered and the conditional PostgreSQL constraint,
+append-only and runtime-role evidence for a ledger table is explicitly owed by
+package 5.0 or 5.2 instead. The domain downtime quantity is **integer
+thousandth-days** and refuses anything else, with an unrepresentable Sheet cell
+carried as an explicit invalid-value marker so `/info` renders exactly what it
+renders today. `domain/` models money as **integer copper only**; the Sheet's
+four denomination counters stay a labelled legacy representation and nothing
+normalizes a character's coins on read. The estimate is unchanged, because it
+already assumed the ledger option that was chosen. **Phase 4 is still not
+ready:** P4-D4, P4-D5 and P4-D6 remain open, no implementer is designated, and
+**no Independent Reviewer is named** — until one is, the package is `deferred`
+under the governance README and the gate cannot be approved. D-04 stays Open and
+no gate is approved.)
+
+Status date: 2026-08-28 (one-hundred-fourth update: **the Phase 4 readiness
+package plan is written and recorded; Phase 4 is still not ready, and no
+production code has been written.** `docs/review/phase-4-package-plan.md`
+records scope and exclusions, the completed pre-implementation characterization
+inventory of every money and resource concept in the live bot with file and line
+references, a three-point estimate (5.5 / 10.0 / 18.5 focused implementer-days,
+PERT 10.7, plus a 3.0-day remediation allowance and 2.0-day contingency), the
+requirement-to-evidence traceability, the §13.2 mandatory-scenario matrix with a
+written rationale on every `not applicable` row, rollback and deployment effects
+(**none** under the recommended option), proposed RAID rows and seven objective
+stop conditions. **Six decisions are open and three block the first
+production-code edit:** whether Phase 4 adds a physical ledger table
+(recommendation: **no new migration**, because the migration register assigns
+every money and resource field to packages 5.2, 5.3 and 5.5 and forbids a second
+write-authoritative target); the downtime unit, where the live code holds a
+Python float against OD-08's thousandth-day ruling; and whether the Sheet's four
+denomination counters stay a legacy representation rather than being normalized,
+since `/info`'s visible output is not derivable from a copper total. Readiness
+also still requires Peter to designate the implementer and to **name an
+Independent Reviewer**; none is named. Environment availability was verified
+rather than assumed: both test interpreters present with pytest 8.4.2,
+`freedom_test` reachable on PostgreSQL 16.15, Node v24.19.0 present, and no
+formatter, linter or type checker configured. Recorded as change-log C-P4-B; not
+accepted, and it closes no gate and does not close D-04.)
+
+Status date: 2026-08-28 (one-hundred-third update: **all current delivery
+documentation now reflects the approved Phase 3 gate and authorized Phase 4
+start.** The implementation plan's status and immediate actions, governance
+summary, decision index, open-decision delivery note, milestone table, current
+critical path and RAID precedence notes now point to Phase 4 while retaining
+dated Phase 3 records as history. `docs/review/Handover information` has been
+overwritten with the executable Phase 4 shared-application-services brief. It
+requires a definition-of-ready package plan, independent schema review before
+any material schema implementation, framework-free money/resource objects,
+command/query boundaries, ledger/idempotency/concurrency evidence, one
+characterized read-only bot command, full verification and independent review.
+It expressly excludes Phase 5 mutations, authority cutover, Sheet retirement,
+deployment and live-data work. Recorded as change-log C-P4-A.)
+
 Status date: 2026-08-28 (one-hundred-second update: **Phase 3 approved and
 Phase 4 implementation authorized.** Peter Duscha accepted the final accountable
 statement as Security Reviewer, Technical Lead, Operations Owner, Product Owner
@@ -4014,43 +5722,37 @@ production integration remains blocked.
 | Phase 1 — Database foundation | Accepted | Closed 2026-07-31 | Maintainer acceptance at the head of `docs/review/phase-1-submission.md` |
 | Phase 2 — Import and reconciliation | Accepted | Closed 2026-08-12 | C-24 and B-1 closed after independent re-review returned no findings; Peter Duscha accepted the data-integrity, identity and migration-safety gate. See `docs/review/phase-2-c-24-independent-re-review-2026-08-12.md` and change-log C-24-R. |
 | §12.1 frontend visual-design track | Accepted | Closed 2026-08-13 | Peter accepted Steps 1–5, including real-mobile inspection. Fourteen frozen implementation/asset files verify against `docs/review/phase-3-visual-freeze-manifest.sha256`; current token and contrast tools pass. See `docs/review/phase-3-visual-prototype-handoff.md`. |
-| Phase 3 — authentication, read-only portal and Council administration | P3.0 through **P3.4 accepted; P3.5 active** | P3.G0–P3.G4 closed; overall Phase 3 gate open | P3.4 and its frontend gate were accepted on 2026-08-23. C2-1 is accepted and Codex recommends F5/S-2 closure, but mandatory P3.5 staging/operations/performance/browser evidence and A-05 criteria 4/10 remain incomplete. See `docs/review/phase-3-gate-disposition-2026-08-25.md`. |
-| Phase 4 and later | Not ready | Predecessor gates apply | No later implementation is authorized. Follow implementation-plan §12.0 and package-specific definitions of ready. |
+| Phase 3 — authentication, read-only portal and Council administration | **Accepted** | **Closed 2026-08-28** | Peter accepted the final Security Reviewer, Technical Lead, Operations Owner and Product Owner dispositions after EX-11/EX-12 and the completed P3.5 operational evidence. A-05, A-06 and I-06 are closed. R-23 remains an active accepted residual with screen-reader traversal Not Run for Phase 3. See `docs/review/phase-3-gate-disposition-2026-08-25.md` and change-log C-P3.5-AK. |
+| Phase 4 — shared application services | **Accepted** | **Closed 2026-08-29** | Codex's second independent re-review returned no Blocking or Important findings; Peter accepted the dependency-direction and domain-correctness gate. P4-R1 through P4-R5 and D-04 are Closed. See `docs/review/phase-4-submission.md`, *Acceptance Authority decision*, and change log C-P4-L. |
+| Phase 5.0 — migration and cutover harness | **Selected for readiness planning; not ready** | first-mutation and cutover-control review | Produce the package plan, objective traceability, estimate/capacity, named roles and risks. If a durable ledger schema is proposed, produce the mandatory logical ER/schema decision artifact and obtain independent review before code. No implementation, mutation, migration, cutover or deployment is yet authorized. |
+| Phase 5.1 and later | Not ready | Package-specific predecessors and gates apply | Remain blocked by 5.0 where listed and by their own decisions, readiness and gate requirements. |
 
 ## Current critical path
 
-1. **P3.0 contract/security design package — delivered 2026-08-13.** Produced
-   from `docs/review/phase-3-p3-0-claude-prompt.md`. It adds no protected route
-   and no framework scaffold. Five proposals need Peter's decision: a separate
-   `freedom-worker` service, the tighter break-glass route boundary, apply-as-a
-   -durable-job, the P3.0-proposed numeric values, and ADR 0010.
-2. **P3.G1 — closed 2026-08-16; P3.2 is the current package.** P3.1 was
-   delivered on 2026-08-14 from `docs/review/phase-3-p3-1-claude-prompt.md`,
-   against a confirmed guarded disposable PostgreSQL database, and reviewed by
-   Codex the same day. Two findings were remediated — the incomplete OAuth
-   refusal auditing and the inaccurate migration reporting — and are recorded in
-   `docs/review/phase-3-p3-1-remediation-submission.md`. Peter approved the
-   durable one-way completion binding (OD-44) and moved only the unavailable
-   HTTP evidence to P3.G2 (OD-45). The completion binding **was implemented on
-   2026-08-14** as migration 0009 with the required concurrency, constraint,
-   rollback and mutation evidence, recorded in
-   `docs/review/phase-3-p3-1-od-44-remediation-submission.md`.
-   Codex completed the independent implementation review and distinct
-   security-focused pass on 2026-08-16; Peter accepted the package and closed
-   P3.G1. P3.2 may now implement the member reads, identity evidence and access
-   administration package. P3.3 remains behind P3.G2.
-3. **Coordinated implementation.** Claude owns the backend foundation;
-   Gemini owns production Jinja/static/HTMX integration only against accepted
-   route/view-model contracts; Codex supplies independent and separate
-   security-focused review recommendations. Peter records gate decisions.
-4. **Backend contract package.** Authentication and server-side authorization
-   precede every protected route. The measured 9.57-second, 32-Actor preview
-   requires a durable asynchronous/progressive design rather than a synchronous
-   HTTP handler or restart-unsafe in-memory queue.
-5. **Stop at the contract/security review.** Gemini production integration does
-   not begin until Claude's route/view-model contracts are stable and accepted.
+1. **Phase 4 readiness — met 2026-08-28.** The bounded package plan
+   (`docs/review/phase-4-package-plan.md`, change-log C-P4-B) carries the
+   three-point estimate, capacity assumptions, dependencies, evidence
+   traceability and remediation contingency; all six decisions are ruled as
+   OD-48 to final OD-52 (change-log C-P4-C through C-P4-F); and Codex is named Independent
+   Reviewer. The one element supplied by instruction rather than in writing is
+   the designation of the implementer, flagged in the plan's status header.
+2. **Review schema before code if persistence changes.** A material Phase 4
+   schema addition requires the logical ER/schema decision artifact and
+   independent review mandated by `.agents/AGENTS.md`.
+3. **Implement only the Phase 4 foundation.** Deliver framework-free money and
+   resource objects, command/query boundaries, typed errors, ledger,
+   idempotency, stale-update detection and one characterized read-only bot
+   command. The executable brief is `docs/review/Handover information`.
+4. **Verify and independently review — complete 2026-08-29.** The package was
+   delivered, reviewed, remediated twice, and independently re-reviewed. Codex
+   returned no remaining Blocking or Important findings, and Peter approved the
+   Phase 4 gate. P4-R1 through P4-R5 and D-04 are Closed.
+5. **Baseline package 5.0 before implementation.** Produce its readiness plan,
+   evidence traceability, estimates, capacity, named reviewers, risks and any
+   required independently reviewed logical schema. Stop for the readiness
+   decision before changing production code or migrations.
 
-## Closed readiness inputs
+## Historical Phase 3 readiness inputs
 
 - Project reconciliation and accepted visual baseline commit: completed
   2026-08-13 without production implementation.
@@ -4063,7 +5765,7 @@ production integration remains blocked.
   zero undefined; contrast self-tests 11 passed; contrast matrix 49 pairs, 48
   passed, one disabled-state exemption, zero failures.
 
-## Open Phase 3 conditions
+## Historical Phase 3 conditions (superseded by the 2026-08-28 gate decision)
 
 - maintainer/reviewer availability windows before calendar forecasting;
 - confirmed development, disposable PostgreSQL and staging environments — the
@@ -4120,6 +5822,5 @@ statements; Git history retains the earlier status narrative.
 
 ## Next status update
 
-Update when P3.2 is submitted to P3.G2, or earlier if a new decision, critical
-risk or environment constraint emerges. I-06 and A-05 must remain visible until
-their staging/production-exposure acceptance criteria are satisfied.
+Update when the Phase 5.0 readiness package is submitted or decided, or earlier
+if a new decision, critical risk or environment constraint emerges.

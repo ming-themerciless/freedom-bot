@@ -505,6 +505,68 @@ PERMITTED_P3_5_PRODUCTION = {
 }
 
 
+#: Production files **Phase 4** adds, declared for the same reason P3.5's are:
+#: this guard watches `adapters/`, `application/` and `domain/`, Phase 4 is a
+#: backend package that adds production code in all three by design, and the
+#: guard's own rule is that an exception is enumerated rather than left to erode
+#: it. Authority: the Phase 4 authorization recorded in change-log `C-P3.5-AK`,
+#: with the package scope in `docs/review/phase-4-package-plan.md` §2.1.
+#:
+#: **`adapters/ledger/` is the directory, not a file, and that is what git
+#: emits.** `git status --short` collapses a wholly untracked directory to a
+#: single trailing-slash entry, so the individual modules inside it never appear
+#: in the output this guard reads. Both forms are declared, so the entries stay
+#: correct when the directory is committed and the files begin appearing
+#: individually.
+#:
+#: **Four of these were undeclared from the WP-1 delivery on 2026-08-28 until
+#: 2026-08-29**, and this guard was failing for them the whole time. Nobody saw
+#: it because WP-0 and WP-1 ran the bot suite only, on the reasoning that a
+#: package adding no web code cannot affect the web suite — which is exactly the
+#: reasoning this guard exists to refute, since it reads the working tree rather
+#: than the web application. Recorded in `docs/review/phase-4-submission.md`
+#: rather than quietly fixed.
+PERMITTED_PHASE_4_PRODUCTION = frozenset({
+    # WP-1: framework-free money and resource value objects (OD-49, OD-50).
+    "domain/quantities.py",
+    "domain/money.py",
+    "domain/resources.py",
+    # WP-3: balanced, append-only ledger semantics.
+    "domain/ledger.py",
+    # WP-2: the command envelope, typed results and typed failures.
+    "application/commands.py",
+    # WP-3: the consumer-owned ledger boundary and its concrete Phase 4 service.
+    "application/ledger.py",
+    # WP-3: the in-memory reference ledger. OD-48 adds no table, so this is the
+    # only ledger adapter in the repository.
+    "adapters/ledger/",
+    "adapters/ledger/__init__.py",
+    "adapters/ledger/in_memory.py",
+    # WP-3: the four Phase 4 ledger payload keys classified for the audit
+    # projection, which the `test_every_payload_key_this_repository_writes_is_
+    # classified` regression requires of any new `AuditEvent` payload. The
+    # P4-R2 remediation adds a fifth, `service_principal_id`.
+    "application/web/audit_search.py",
+    # --- Remediation R1, 2026-08-29: the Codex findings P4-R1…P4-R3.
+    #
+    # Two further tracked production modules change, both narrowly and both
+    # named in the remediation brief's "narrowly necessary accepted
+    # authorization" allowance. Declared here for the same reason the four
+    # above are: this guard's rule is that an exception is enumerated with its
+    # reason, not left to erode the guard.
+    #
+    # `application/idempotency.py` gains `canonical_request_hash`, the typed,
+    # length-delimited, schema-versioned encoding P4-R3 requires. The existing
+    # `request_hash` is unchanged and keeps its one caller.
+    "application/idempotency.py",
+    # `application/service_principals.py` has its identifier rule extracted
+    # into `validate_principal_id` so the Phase 4 ledger principal applies the
+    # same rule rather than a copy of it. Behaviour-preserving: no scope is
+    # added, and the accepted Foundry credential vocabulary is untouched.
+    "application/service_principals.py",
+})
+
+
 def status_paths(lines: list[str]) -> list[str]:
     """The paths in `git status --short` output, one per non-empty line.
 
@@ -545,7 +607,7 @@ def scope_violation(path: str) -> str | None:
     can be handed a path that is not in the tree, which is what
     `test_the_scope_guard_rejects_an_undeclared_synthetic_path` does.
     """
-    if path in PERMITTED_P3_5_PRODUCTION:
+    if path in PERMITTED_P3_5_PRODUCTION or path in PERMITTED_PHASE_4_PRODUCTION:
         return None
     if path.startswith("adapters/web/templates/"):
         if path in PERMITTED_TEMPLATES:

@@ -31,9 +31,30 @@ Music is not part of the platform. Its former implementation, dependencies,
 configuration and deployment templates were removed under OD-40. It is removed,
 not deferred: do not reintroduce it in any phase.
 
+### Two different things, never conflated
+
+**Discord** is the Freedom Blades community's server. It is the **basis of the
+whole project**: the platform exists to serve that community, and Discord
+supplies its identity, membership, roles, communication, events, notifications
+and attendance evidence. Discord is **never retired**. No decision in this
+repository proposes retiring it, and any instruction that appears to should be
+refused and referred to a maintainer.
+
+**The Freedom bot** is this repository's Python/Pycord application — `main.py`,
+`ext/commands/`, the Sheet-backed `models/` and `helpers/`. It is a client of
+Discord, not Discord itself. It is retired under implementation-plan §15.2 once
+the platform is fully functional.
+
+Retiring the Freedom bot removes a **client**. It removes nothing from Discord,
+and it does not touch Discord OAuth authentication, guild membership, role
+verification, events or notifications. Where these documents say "the bot", they
+mean the Freedom bot; where they say "Discord", they mean the server and its
+APIs. Text that conflates the two is a documentation defect, not a licence to
+act on either reading.
+
 The approved direction is:
 
-1. keep the live Discord bot reliable;
+1. keep the live Freedom bot reliable;
 2. isolate game rules and use cases from Discord and Google Sheets;
 3. replace Sheets incrementally with a transactional database;
 4. add a purpose-built web interface using the same application logic; and
@@ -42,13 +63,48 @@ The approved direction is:
 6. automate missions, attendance evidence, reports, rewards, and approvals;
 7. automate basic Bastions before incrementally implementing special
    facilities; and
-8. retain Discord for identity, communication, events, attendance metadata,
-   notifications, and optional lightweight commands.
+8. retain Discord as a platform integration for identity, communication,
+   events, attendance metadata and notifications; and
+9. retire the Freedom bot once the platform provides every player-facing
+   behavior it provides, so that a player needs no manual step beyond the
+   Council confirmations the rules require.
 
 Treat this as an evolution of a live system, not permission for a rewrite.
-The Discord bot remains a supported adapter and must not be deleted as part of
-the website or database migration. The repository may be renamed later as an
-explicit administrative change.
+**The Freedom bot remains a supported adapter and must not be deleted, disabled
+or degraded for as long as the platform is not fully functional.** This is the
+governing condition, and it is not satisfied by a milestone, a cutover, a
+passing test suite or an agent's judgement that the work looks finished.
+
+*Fully functional*, for this purpose, means all of: every player-facing behavior
+the bot provides exists on the platform and its owning package gate is approved;
+the platform meets the definition of platform completion in implementation-plan
+§19 for those behaviors; the final Google Sheet retirement gate in §15.1 has
+closed; and measured adoption evidence meets a threshold accepted in advance by
+the Product Owner. Retirement then proceeds under §15.2 as a separate,
+independently gated decision, commands deregistered before any code is deleted.
+
+Behavioral replacement means satisfying the player's underlying task, not
+preserving every Discord slash-command interface on the website. In particular,
+the platform does not need an `/info` command: its linked-character pages
+replace that read experience once the owning typed packages supply the data.
+Until the relevant gates close, the existing Freedom-bot command remains
+supported and must not be disabled or degraded.
+
+Discord itself is **not** retired with the bot. Discord OAuth remains the
+platform's authentication, and Discord remains the source of guild membership,
+role verification, events, notifications and voice-state attendance evidence.
+Whatever Discord-side presence those require after the bot is retired is a
+narrow, platform-owned adapter, sized and gated by the package that needs it —
+the attendance package in particular, because voice-state join/leave requires a
+live gateway connection.
+
+The repository may be renamed later as an explicit administrative change.
+
+Baseline v1.7, 2026-08-28: direction items 8–9 and this paragraph were amended
+on Peter Duscha's decision that the **Freedom bot** is deleted once the platform
+is fully functional, because the platform makes it unnecessary. **Discord is not
+in scope of that decision and never has been.** See change-log v1.7, its
+correction C-1, and OD-53.
 
 ## Product invariants
 
@@ -171,6 +227,13 @@ web frameworks, database clients, or global configuration.
 Introduce boundaries while implementing a feature or migration. Do not add
 abstractions without a real consumer.
 
+**Phase 4 application of this rule (final OD-52 amendment, 2026-08-29).** Phase
+4 does not create a temporary Sheet-backed money query without a production
+caller and does not rewire `/info` merely to manufacture one. Package 5.2 owns
+the wallet query and introduces it with its real character-page consumer. Phase
+4 protocols must be consumed by its ledger/idempotent command execution work,
+not left as speculative interfaces.
+
 ## Object-oriented design and encapsulation
 
 Use object-oriented design where objects represent meaningful game or system
@@ -252,7 +315,7 @@ Prefer command/query separation:
 
 ## Database migration
 
-PostgreSQL is the default production recommendation: the bot and web app will
+PostgreSQL is the default production recommendation: the Freedom bot and web app will
 need concurrent access, transactions, constraints, and reliable migrations.
 SQLite is acceptable for isolated local tests, but production code must not
 rely on SQLite-only behavior. Choosing another database requires a documented
@@ -296,7 +359,7 @@ completed and approved.
 
 ## Web interface
 
-The web interface and Discord bot must call the same application services. The
+The web interface and the Freedom bot must call the same application services. The
 web app must not become a second implementation of the rules.
 
 - Put a versioned API boundary between browser and server.

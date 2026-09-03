@@ -1,171 +1,302 @@
-# Codex handoff — correct N-32 test evidence and end the repository loop
+# Current handover — Package 5.0 pre-implementation evidence harness
 
-**Date:** 2026-08-28
+**Authorized by Peter Duscha on 2026-09-02.** OD-64 Option A,
+OD-65 Option B and OD-66 Option A / J-1 are approved. OD-62 remains Open with
+G-A provisional only. Peter approved the bounded pre-implementation evidence
+harness in `phase-5-0-evidence-harness-authorization-draft.md`, with every
+scope limit, sequence requirement and stop condition binding.
 
-**Repository:** `/opt/freedom-blades/platform` · **Branch:** `docs/platform-plan`
+The 2026-09-02 read-only preflight established:
 
-**Review state:** N-31's production remediation is satisfactory. N-32 is an
-Important, test-only reproducibility defect. EX-11 and EX-12 remain withheld
-pending this correction and renewed verification. Peter alone decides the Phase
-3 gate; Phase 4 remains unauthorized.
+- the session identity is `foundry`, with no effective, permitted, ambient or
+  bounding capabilities and `no-new-privs=1`;
+- `/etc/sudoers.d` is `0750` and unreadable to this identity, so C-1 remains
+  incomplete and needs an explicitly authorized privileged read;
+- PostgreSQL `freedom_test` is reachable as `foundry` on 16.15, but `SHOW
+  hba_file` and both configuration files are permission-denied;
+- `chattr`, `lsattr`, `capsh` and systemd 255 are installed;
+- the repository is ext4 and writable in this workspace, while this session's
+  `/var/lib` view is read-only;
+- `freedomcoord`, `freedomsheet`, `fbprobe` and `freedomjournal` do not exist;
+- the coordinator, journal and provenance paths do not exist; and
+- the live bot unit lacks the four hardening settings OD-65 approved, while web
+  and worker report them enabled.
 
-This handoff authorizes only the N-32 test correction, its falsification,
-verification and corresponding evidence updates. Do not modify production
-pseudonymization, access-log policy, routes, configuration or deployment
-artifacts. Do not deploy or execute the four outstanding operational procedures.
+No privileged command ran and no host, database, service, credential or
+external state changed.
 
-## Read first
+**Gate circularity.** The current operational runbook says P5.0-R5 must close
+before Package 5.0 is ready, says P5.0-R5 needs C-3/C-4 and the journal evidence
+band, and classifies that evidence as unavailable until Package 5.0
+implementation is authorized. All three statements cannot govern the same
+sequence. The proposed resolution is a narrow change-controlled exception that
+authorizes only a disposable evidence harness before package implementation.
+It does not authorize migration `0014`, production provisioning, application
+behavior, deployment, authority transition, Google production access, cutover,
+or Package 5.1+.
 
-1. `.agents/AGENTS.md`
-2. `docs/implementation-plan.md`, especially Phase 3 and §§13.3, 16.3–16.4
-3. `docs/review/phase-3-p3-5-staging-and-operations-evidence.md` §5U
-4. `docs/project-management/change-log.md`, C-P3.5-AF and C-P3.5-AG
-5. `docs/project-management/status.md`, ninety-eighth update
-6. `tests/web/test_n7_access_log_redaction.py`, specifically the two N-32 tests
+**Runbook defect.** Its P5.0-R5 resolution path incorrectly calls A-5.0-3 a
+PostgreSQL restricted-role assumption and A-5.0-4 the disposable database.
+The canonical RAID register defines A-5.0-3 as a disposable Google Sheet and
+service account, A-5.0-4 as disposable OS identity/HBA capability, and A-5.0-5
+as the journal/capability environment. The canonical definitions govern. The
+runbook must be corrected before execution; its commands are planning examples,
+not an approved executable script.
 
-Preserve the dirty tree. Do not read secrets, environment files, raw snapshots,
-player data, cookies, tokens or gate credentials.
+**Next action:** Claude, as the designated implementer/executor, corrects the
+runbook taxonomy, submits the exact harness commands and cleanup plan for Codex
+pre-execution review, and then executes only after that review against the named
+disposable target. Codex remains Security and Independent Reviewer, and Peter
+remains Operations Owner and Acceptance Authority. Package 5.0 remains `not
+ready`; product implementation and migration `0014` remain unauthorized.
 
-## N-32 — the defect
+Claude's controlling implementation prompt is
+`phase-5-0-evidence-harness-implementation-prompt.md`. The runbook taxonomy has
+now been corrected; Claude must verify it, implement the minimum isolated
+harness, produce the exact execution and cleanup plan, and stop for Codex
+pre-execution review. No privileged execution is authorized by the prompt
+itself.
 
-These tests are probabilistic:
+## Superseded handover — Package 5.0 revision 12 independent security re-review
 
-- `test_an_unfamiliar_client_value_fails_safe_without_leaking_its_contents`
-- `test_an_unfamiliar_client_value_does_not_reach_the_formatted_line`
+**Completed 2026-09-02.** Codex closed P5.0-SR1 and P5.0-SR2 on design and
+delivered the twelve-surface security review with no readiness recommendation.
+The durable result is `phase-5-0-security-rereview-revision-12.md`.
 
-They split the source client value on `.`, `:` and `/`, then require every
-fragment of length three or greater to be absent from the eight hexadecimal
-characters of the keyed pseudonym. A digest can contain the same short hex
-substring by chance.
+The next maintainer work is to rule OD-64, OD-65 and OD-66 on that
+recommendation, then authorize and obtain the named operational evidence. OD-62
+is ruled last. Gemini may perform only the supporting evidence preflight in
+`phase-5-0-gemini-security-evidence-preflight-prompt.md`; Codex remains the
+Security Reviewer and no Gemini output closes a finding or recommends readiness.
 
-The independent rerun demonstrated exactly that:
+Peter Duscha accepted the Phase 4 R3 independent disposition and OD-63 Option 1
+on 2026-09-02. P4-PG4 and P4-PG5 are Closed; Phase 4 remains approved and
+closed. D5.0-10 / OD-63 is Closed with all nine numeric controls accepted and
+N5.0-18 explicitly **an operational margin, not a barrier**.
 
-```text
-source:     203.0.113.999:54321
-pseudonym: client-unknown-59990025
-collision: 999
-result:    2 failed, 451 passed
+The next authorized work is documentation/design review only: Codex independently
+re-reviews Package 5.0 revision 12 against P5.0-SR1 and P5.0-SR2 and continues
+the remaining §9.2 security pass. Package 5.0 remains `not ready`. P5.0-R5 and
+OD-62 and OD-64 through OD-66 remain unresolved. No implementation, migration
+`0014`, host/database mutation, deployment, cutover or Package 5.1+ is
+authorized.
+
+## Superseded handover — Claude implementation handover — Phase 4 post-gate remediation R3
+
+Work in `/opt/freedom-blades/platform`.
+
+## Authority and outcome
+
+Phase 4 remains approved. This handover authorizes one final bounded post-gate
+implementation correction for:
+
+- **P4-PG4 — Important:** malformed idempotency keys escape the command
+  envelope's typed `invalid_request_key` boundary; and
+- **P4-PG5 — Important:** malformed stored receipt command names can escape
+  `StoredReceiptUnreadable` on replay.
+
+P4-PG1, P4-PG2 and P4-PG3 are Closed. Preserve their implementations and tests.
+
+Package 5.0 readiness work is paused while this correction is implemented and
+independently re-reviewed. This prompt does **not** authorize Package 5.0
+implementation, migration `0014`, host or database mutation, deployment,
+cutover, production work, or Package 5.1+. After Codex accepts R3, work returns
+to Package 5.0 at exactly its existing `not ready` state: P5.0-SR1/SR2,
+P5.0-R5, OD-62 through OD-66 and required operational evidence remain unchanged.
+
+## Required reading before planning or editing
+
+Read completely, in this order:
+
+1. `.agents/AGENTS.md`;
+2. `docs/implementation-plan.md`;
+3. this handover;
+4. `docs/review/phase-4-post-gate-r2-independent-review.md`;
+5. `docs/review/phase-4-post-gate-remediation-r2-handback.md`;
+6. `application/idempotency.py`;
+7. `application/commands.py`;
+8. every production caller of `validate_key()`;
+9. `tests/test_p4_commands.py` and the existing tests for every shared
+   `validate_key()` consumer; and
+10. `docs/review/phase-4-submission.md`.
+
+Check `git status` first. Preserve all unrelated work. Do not reset, revert,
+reformat or rewrite unrelated files.
+
+## P4-PG4 — establish idempotency-key type before value rules
+
+Current defect:
+
+```python
+def validate_key(key: str) -> str:
+    if not key.strip():
+        ...
 ```
 
-This is not a plaintext-address leak. Neither the complete client value nor a
-dotted IP literal survived. The test has mistaken coincidental equality for
-source preservation.
+Malformed integers, booleans, floats, `None`, collections and bytes escape as
+raw `AttributeError` or `TypeError`. `CommandEnvelope.__post_init__()` catches
+only `IdempotencyKeyError`, so its documented
+`InvalidEnvelopeError(code="invalid_request_key")` contract is bypassed.
 
-## Required implementation
+Correct the shared validator:
 
-Change tests only, primarily
-`tests/web/test_n7_access_log_redaction.py`.
+1. `validate_key()` must first require an actual `str`;
+2. malformed types must raise
+   `IdempotencyKeyError(code="invalid_request_key")`;
+3. perform no `str(...)` coercion, bytes decoding, normalization or truncation;
+4. preserve the blank, maximum-length and control-character rules; and
+5. preserve `CommandEnvelope`'s translation to
+   `InvalidEnvelopeError(code="invalid_request_key")`.
 
-Replace the short-fragment assertions with deterministic properties:
+Before editing, enumerate actual callers with `rg`. Current code shows at least
+`CommandEnvelope`, `IdempotencyRecord`, and the Foundry submission boundary. Do
+not rely on the R2 handback's statement that `SnapshotImportRecord` calls this
+validator: verify it and correct that statement in the R3 handback if false.
+Add regression coverage at the validator and each materially different caller.
 
-1. the unfamiliar value produces exactly `client-unknown-` plus eight lowercase
-   hexadecimal characters;
-2. the complete original client value is absent;
-3. every complete plaintext IP literal present in the source is absent from the
-   fully formatted line;
-4. the original punctuation-bearing address/client representation is absent;
-5. ordinary formatted access-log fields remain present where expected; and
-6. a genuine raw-client or raw-address pass-through still fails the tests.
+Do not broaden this into unrelated `.strip()` checks such as
+`IdempotencyRecord.scope` or independently implemented snapshot-import fields.
+Report any further concrete defect separately.
 
-Do not assert that arbitrary three-character fragments cannot occur inside a
-digest. Do not change digest length, key generation, prefixes, client parsing,
-method handling, request-path handling or production logging to accommodate the
-test.
+## P4-PG5 — preserve the unreadable stored-receipt replay contract
 
-## Required deterministic falsification
+Current defect:
 
-The regression must not wait for a lucky random key.
+```python
+def __post_init__(self) -> None:
+    if not self.command.strip():
+        raise ValueError(...)
+```
 
-Add a focused test that monkeypatches the digest boundary, or otherwise injects
-a fixed safe pseudonym such as `client-unknown-59990025`, for source
-`203.0.113.999:54321`. Demonstrate:
+Non-string values without `.strip()` raise `AttributeError`; bytes can be
+accepted. On `CommandReceipt.from_payload()`, that error escapes the existing
+conversion to `StoredReceiptUnreadable` for a spent key whose effect may already
+have committed.
 
-- the old short-fragment assertion fails deterministically because both contain
-  `999`;
-- the corrected confidentiality assertions pass because no complete client or
-  dotted address survives; and
-- a deliberate mutation returning the raw client value or complete address
-  fails the corrected assertions.
+Correct the constructor at the source:
 
-Record exact falsification and final counts. Keep the deterministic test scoped
-to the test module; do not add a production injection seam solely for this.
+1. `CommandReceipt.command` must be an actual `str` before the nonblank rule;
+2. malformed types must raise `ValueError`, matching the constructor's existing
+   direct-construction vocabulary;
+3. `from_payload()` must consequently convert malformed stored command values
+   to `StoredReceiptUnreadable` through its existing catch contract;
+4. do not merely add `AttributeError` to the catch list;
+5. do not decode bytes, coerce, normalize, invent a receipt or re-execute a
+   spent key; and
+6. do not change the receipt payload schema or accepted command names.
 
-## Scope and exit condition
+Add an application-service regression proving that a spent ledger key with a
+malformed stored command produces the existing
+`LedgerRefused(code="original_result_unavailable")`, posts no second
+transaction, creates no new audit effect and does not replace the stored
+receipt.
 
-This should be one narrow test correction. N-31 is not reopened. N-29 and N-30
-are not reopened. Do not add another access-log behavior unless the deterministic
-test exposes a real complete-value disclosure.
+## Regression-first sequence
 
-The repository loop ends when all of the following are true:
+1. Add tests before production changes.
+2. Run them against the current tree and record the exact failures for both the
+   exception-escape and bytes-acceptance cases.
+3. Apply the smallest production corrections.
+4. Run focused tests, then all prescribed suites serially.
+5. Review the scoped diff and create the handback.
+6. Return to Codex; do not close either finding yourself.
 
-- the deterministic collision case passes;
-- the raw-value mutation fails;
-- the exact access-log and scope-guard pair passes repeatedly in fresh processes;
-- the full serial suites pass with 80 web skips; and
-- the documentation records N-32 as remediated without claiming the Phase 3 gate
-  or the outstanding operational evidence complete.
+## Mandatory synthetic coverage
+
+For P4-PG4, prove:
+
+- valid nonblank string keys remain accepted and returned verbatim;
+- blank, overlong and control-character strings retain
+  `invalid_request_key`;
+- integers, booleans, floats, `None`, bytes, lists and tuples are refused by
+  `validate_key()` with `IdempotencyKeyError("invalid_request_key")`;
+- the same malformed values reach `CommandEnvelope` as
+  `InvalidEnvelopeError("invalid_request_key")`, never a raw exception;
+- malformed keys are neither coerced nor decoded;
+- `IdempotencyRecord` refuses malformed keys through the shared validator; and
+- the Foundry submission boundary retains its documented safe refusal and valid
+  behavior.
+
+For P4-PG5, prove:
+
+- valid nonblank string command names remain accepted and round-trip unchanged;
+- blank strings remain refused with `ValueError`;
+- integers, booleans, floats, `None`, bytes, lists and tuples are refused with
+  `ValueError`, never `AttributeError`;
+- `CommandReceipt.from_payload()` converts each malformed stored command into
+  `StoredReceiptUnreadable`;
+- bytes are neither accepted nor decoded; and
+- an unreadable stored ledger receipt returns `original_result_unavailable`
+  with no posting, audit event, idempotency replacement or retry execution.
+
+Also preserve and rerun every P4-PG1–PG3 regression.
+
+## Scope
+
+Expected production files:
+
+- `application/idempotency.py`;
+- `application/commands.py`.
+
+Use the smallest existing test files that own the shared validator and Foundry
+consumer, command/receipt construction, and ledger replay behavior. Do not
+create a new abstraction or test file merely to avoid an existing owner. If any
+other production file must change, stop and explain why before widening scope.
+
+Do not change hashing, digest schemas, key storage, idempotency scopes, database
+schema, ledger behavior, authorization, audit, migrations, dependencies,
+frameworks, adapters, routes, commands, Package 5.0 documents or any external
+system/state.
 
 ## Verification
 
-Run the focused pair at least three times as separate Python processes to prove
-the result no longer depends on the process-local key:
-
-```sh
-/opt/discord-bots/venv-web/bin/python -m pytest -q \
-  tests/web/test_n7_access_log_redaction.py \
-  tests/web/test_p3_4_static_assets.py
-```
-
-Then run serially with PostgreSQL enabled:
+Run serially:
 
 ```sh
 export TEST_DATABASE_URL='postgresql+psycopg:///freedom_test'
+
+/opt/discord-bots/venv/bin/python -m pytest -q tests/test_p4_commands.py
+# Run the narrow existing files owning validate_key's other callers and ledger
+# replay; list their exact names and results in the handback.
+
 /opt/discord-bots/venv/bin/python -m pytest -q -rs tests/test_*.py
 /opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
 node --test "foundry-module/tests/"*.test.mjs
+
+/opt/discord-bots/venv/bin/python -m compileall -q \
+  application/idempotency.py application/commands.py
+/opt/discord-bots/venv-web/bin/python -m compileall -q \
+  application/idempotency.py application/commands.py
+git diff --check
 ```
 
-Also run asset and visual-freeze checksum verification, `compileall` with both
-required interpreters, Alembic heads/branches and `git diff --check`. Formatter,
-linter and type checker remain unconfigured unless separately approved; do not
-claim them as passed.
+R2 context was bot **2989 passed**, web **2824 passed / 80 expected skips**, and
+Foundry **171 passed**. Do not reuse these as R3 evidence. Report actual R3
+results. The web skip count must remain exactly 80 with the documented reasons.
 
-## Documentation updates
+Formatter, linter and type checker are not configured. Record each as `not
+configured`; do not introduce tooling or claim a pass.
 
-Add dated, append-only updates to:
+## Handback
 
-- `docs/project-management/status.md`;
-- `docs/project-management/change-log.md`;
-- `docs/review/phase-3-p3-5-submission.md`; and
-- `docs/review/phase-3-p3-5-staging-and-operations-evidence.md`.
+Create `docs/review/phase-4-post-gate-remediation-r3-handback.md` containing:
 
-State plainly that N-32 was test-only, N-31 remained satisfactory, and no
-production behavior or service changed.
+- status and authority;
+- both findings conceded precisely;
+- exact pre-fix failing tests/output;
+- every changed file and why;
+- the `rg` caller inventory and correction of the inaccurate R2 caller statement;
+- exact post-fix validation and replay behavior;
+- proof P4-PG1–PG3 remain passing;
+- focused and full verification totals, skips and warnings;
+- checks not run and why;
+- scope/secrets/real-data/logging diff review;
+- confirmation of no Package 5 or external-state mutation;
+- every residual or unexpected finding; and
+- a request for Codex independent re-review of P4-PG4 and P4-PG5.
 
-## Remaining operational evidence
-
-Do not execute under this handoff:
-
-1. prove a running Foundry process loaded module 1.0.9;
-2. run the authorized real export/preview compatibility check;
-3. correct and validate the stale deployed worker-unit header comment; and
-4. capture the final origin/edge `Server` header and TC-SEC-07 after the staging
-   gate is removed.
-
-These remain separate supervised tasks requiring Peter's authorization/window.
-
-## Required handback and re-review
-
-Report the deterministic collision reproduction, the corrected assertions, the
-raw-value mutation result, all changed files, three fresh-process focused runs,
-full serial figures, skips, unavailable checks, deployment state and remaining
-operational items.
-
-Request:
-
-1. **EX-11:** confirm N-32 is deterministic and N-31/N-30 remain preserved.
-2. **EX-12:** confirm the corrected tests still detect complete plaintext client
-   or address disclosure and no production confidentiality behavior changed.
-
-No finding or gate closes on implementation or green tests alone. Peter alone
-records the Phase 3 gate decision; Phase 4 remains unauthorized.
+Do not update controlled status, change, RAID, decision or roadmap documents.
+Do not close findings or claim Phase 5 is released. If Codex accepts both with
+no further Blocking or Important Phase 4 finding, the maintainer's requested
+Phase 4 cleanup is complete and work returns to Package 5.0 readiness/security
+work.

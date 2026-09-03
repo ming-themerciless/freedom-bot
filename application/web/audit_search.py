@@ -93,6 +93,30 @@ RENDERED_PAYLOAD_KEYS = frozenset(
         "access_kind",
         "actor_count",
         "attempts",
+        #: --- Phase 4 ledger facts (`ledger.transaction_posted`).
+        #:
+        #: Four keys, each in one of the four permitted categories and nothing
+        #: else: `book_id` is a UUID identifier, `resource` is the closed
+        #: `ResourceKind` vocabulary, and `entry_count` and `version` are
+        #: integers the service computes. The posting's *amounts* are
+        #: deliberately not written to the payload at all, so there is nothing
+        #: here that could carry one character's holdings into another Council
+        #: member's view of history. The transaction's stated reason is written
+        #: too and is rendered under the existing `reason` entry's bound.
+        "book_id",
+        "entry_count",
+        "resource",
+        "version",
+        #: Added with the P4-R2 remediation, 2026-08-29. The **resolved** service
+        #: principal that posted, or `null` for a person — whose attribution is
+        #: the row's own `actor_discord_user_id` column. It is an operator-chosen
+        #: token from a closed configured set, bounded to 64 characters and
+        #: restricted to lower-case letters, digits, `-` and `_` by
+        #: `application/service_principals.validate_principal_id`, so it is an
+        #: identifier in exactly the sense the list above requires. It is never
+        #: the credential, and never the request's own claimed text: an audit row
+        #: naming who a caller *said* it was would be worse than naming nobody.
+        "service_principal_id",
         #: P3.1 authentication facts. `capabilities` is the resolved capability
         #: **set** a login produced, which is the fact an incident review needs;
         #: the code, the tokens, the state and the verifier appear in no audit

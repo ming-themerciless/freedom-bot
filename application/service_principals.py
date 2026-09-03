@@ -45,6 +45,26 @@ _ID_CHARACTERS = set("abcdefghijklmnopqrstuvwxyz0123456789-_")
 ID_MAX_LENGTH = 64
 
 
+def validate_principal_id(value: str) -> str:
+    """Refuse an identifier that cannot be recorded or rendered safely.
+
+    Extracted so a second consumer of the *concept* — Phase 4's ledger principal
+    port, which deliberately does not reuse the Foundry submission scope
+    vocabulary — applies one rule rather than a similar-looking copy of it. The
+    rule is the one this module has always applied; nothing about it changed.
+    """
+    if not value or len(value) > ID_MAX_LENGTH:
+        raise ValueError(f"A service principal id is 1–{ID_MAX_LENGTH} characters.")
+    if not set(value) <= _ID_CHARACTERS:
+        raise ValueError(
+            "A service principal id may hold lower-case letters, digits, "
+            "'-' and '_' only. It is written into append-only audit history "
+            "and into operator logs, so it is a chosen token rather than "
+            "free text."
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class ServicePrincipal:
     """One credential's identity and its granted scopes."""
@@ -53,18 +73,7 @@ class ServicePrincipal:
     scopes: frozenset[ServicePrincipalScope]
 
     def __post_init__(self) -> None:
-        identifier = self.principal_id
-        if not identifier or len(identifier) > ID_MAX_LENGTH:
-            raise ValueError(
-                f"A service principal id is 1–{ID_MAX_LENGTH} characters."
-            )
-        if not set(identifier) <= _ID_CHARACTERS:
-            raise ValueError(
-                "A service principal id may hold lower-case letters, digits, "
-                "'-' and '_' only. It is written into append-only audit history "
-                "and into operator logs, so it is a chosen token rather than "
-                "free text."
-            )
+        identifier = validate_principal_id(self.principal_id)
         if not self.scopes:
             raise ValueError(
                 f"Service principal {identifier!r} holds no scope, so it can do "

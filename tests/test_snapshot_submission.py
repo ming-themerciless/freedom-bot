@@ -283,6 +283,33 @@ def test_an_unusable_request_key_is_refused(service, store, key):
     assert store.snapshots == {}
 
 
+# P4-PG4. `validate_key()` acted on the key before establishing that it was
+# text, so a malformed request key left this boundary as a raw `AttributeError`
+# or `TypeError` rather than through the documented refusal. This is the third
+# production caller of the shared validator; the other two are covered in
+# `tests/test_p4_commands.py`.
+@pytest.mark.parametrize(
+    "key",
+    [1, 0, 123, True, False, 1.0, None, b"foundry-module:test-key", ["k"], ("k",)],
+)
+def test_a_malformed_request_key_keeps_the_documented_refusal(service, store, key):
+    with pytest.raises(SubmissionRefused) as refusal:
+        service.submit(payload(), principal=SUBMITTER, request_key=key)
+
+    assert refusal.value.code == "invalid_request_key"
+    assert store.snapshots == {}
+    assert store.idempotency == {}
+
+
+def test_a_valid_request_key_still_submits_and_is_stored_verbatim(service, store):
+    """The guard: the correction narrows malformed input and nothing else."""
+    receipt = service.submit(payload(), principal=SUBMITTER, request_key=KEY)
+
+    assert receipt.duplicate is False
+    assert len(store.snapshots) == 1
+    assert [key for _, key in store.idempotency] == [KEY]
+
+
 def test_same_key_same_bytes_returns_the_original_receipt(service):
     data = payload()
     first = service.submit(data, principal=SUBMITTER, request_key=KEY)

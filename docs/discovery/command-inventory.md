@@ -325,7 +325,9 @@ Mutations: money (P–S) redistributed at par, no fee.
 
 This is the cleanest module in the codebase: pure function, no I/O, no
 mutation, integer-only, fully unit-tested. It is the natural template for the
-Phase 4 domain layer and the correct first migration target after `/info`.
+Phase 4 domain layer. Package 5.2 owns its migration. `/info` is not a platform
+feature: linked-character pages replace its underlying read need, while package
+5.1 owns any transitional command migration before terminal bot retirement.
 
 ## 3. The fixed write set
 

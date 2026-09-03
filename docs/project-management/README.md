@@ -1,10 +1,19 @@
 # Project governance
 
-Status: Accepted with controlled baseline v1.6 on 2026-08-27
+Status: Accepted with controlled baseline v1.6 on 2026-08-27; Phase 3 gate
+approved 2026-08-28; Phase 4 gate approved 2026-08-29; Phase 5.0 selected for
+readiness planning, with product implementation not yet authorized. A bounded
+pre-implementation evidence harness was authorized 2026-09-02 to resolve the
+P5.0-R4/P5.0-R5 readiness evidence; it is not Package 5.0 implementation.
 
 This directory contains the management controls for the Freedom Blades
 Platform. The technical scope remains governed by
 [`docs/implementation-plan.md`](../implementation-plan.md).
+
+Current evidence-harness authority and exclusions are recorded in
+[`phase-5-0-evidence-harness-authorization-draft.md`](../review/phase-5-0-evidence-harness-authorization-draft.md);
+Claude's pre-execution implementation handoff is
+[`phase-5-0-evidence-harness-implementation-prompt.md`](../review/phase-5-0-evidence-harness-implementation-prompt.md).
 
 ## Solo-maintainer operating model
 
