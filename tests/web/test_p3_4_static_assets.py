@@ -512,12 +512,15 @@ PERMITTED_P3_5_PRODUCTION = {
 #: it. Authority: the Phase 4 authorization recorded in change-log `C-P3.5-AK`,
 #: with the package scope in `docs/review/phase-4-package-plan.md` §2.1.
 #:
-#: **`adapters/ledger/` is the directory, not a file, and that is what git
-#: emits.** `git status --short` collapses a wholly untracked directory to a
-#: single trailing-slash entry, so the individual modules inside it never appear
-#: in the output this guard reads. Both forms are declared, so the entries stay
-#: correct when the directory is committed and the files begin appearing
-#: individually.
+#: **The directory entry `adapters/ledger/` was withdrawn on 2026-09-08**
+#: (finding PR-20260907-R2-3). It existed because `git status --short` collapses a
+#: wholly untracked directory to one trailing-slash entry, so the modules inside
+#: it never reached this guard — and an allowlist that accepts the collapsed
+#: entry then approves every file the collapse hid, including files nobody
+#: declared. The discovery below uses `--untracked-files=all`, which never
+#: collapses, so no directory entry is needed and none is kept: the three modules
+#: are declared individually, exactly as they are now that the directory is
+#: tracked.
 #:
 #: **Four of these were undeclared from the WP-1 delivery on 2026-08-28 until
 #: 2026-08-29**, and this guard was failing for them the whole time. Nobody saw
@@ -539,7 +542,6 @@ PERMITTED_PHASE_4_PRODUCTION = frozenset({
     "application/ledger.py",
     # WP-3: the in-memory reference ledger. OD-48 adds no table, so this is the
     # only ledger adapter in the repository.
-    "adapters/ledger/",
     "adapters/ledger/__init__.py",
     "adapters/ledger/in_memory.py",
     # WP-3: the four Phase 4 ledger payload keys classified for the audit
@@ -567,34 +569,314 @@ PERMITTED_PHASE_4_PRODUCTION = frozenset({
 })
 
 
-def status_paths(lines: list[str]) -> list[str]:
-    """The paths in `git status --short` output, one per non-empty line.
+#: The **Package 5.0 pre-implementation evidence harness**, authorized on
+#: 2026-09-02 by the Operations Owner
+#: (`docs/review/phase-5-0-evidence-harness-authorization-draft.md`) as evidence
+#: scaffolding only.
+#:
+#: **A separate allowlist, deliberately.** It is not folded into
+#: `PERMITTED_PHASE_4_PRODUCTION` because it is a different package under a
+#: different authorization, and one list holding both would make revoking either
+#: an edit to the other's entries. `WATCHED_PRODUCTION_PREFIXES` is unchanged:
+#: `tools/` stays watched in full, and every other new `tools/` path is still
+#: refused — `test_the_scope_guard_still_refuses_an_unrelated_tools_path` proves
+#: that against synthetic paths that are not in this tree.
+#:
+#: **Every module is declared by name, and no directory entry is (finding
+#: PR-20260907-R2-3, 2026-09-08).** The two collapsed entries this list used to
+#: carry — `tools/phase_5_0_evidence/` and `tools/phase_5_0_evidence/execution/`
+#: — were not a convenience. `git status --short` collapses a wholly untracked
+#: directory to one trailing-slash entry, the allowlist accepted that entry, and
+#: the guard therefore never inspected a single file inside the package. Six
+#: modules of this submission were undeclared for exactly as long as the
+#: directory stayed untracked, and the guard passed the whole time. The discovery
+#: below now uses `--untracked-files=all`, which enumerates every file, and the
+#: escape hatch is removed rather than left unused.
+#:
+#: **The six that were hidden**, reconciled against the submission that owns
+#: them: each is a covered source in
+#: `docs/review/phase-5-0-evidence-harness-review-manifest.json`, which pins its
+#: SHA-256 and is the artifact Codex reviews, and each is described in the R13
+#: implementation handback. They are inside the same bounded authorization as the
+#: modules that were already declared — not new work, and not authorized by the
+#: prompt that declares them. Their entries carry that reason below.
+#:
+#: The harness plans, classifies and serializes. Its planning tier executes
+#: nothing: no module in it imports `subprocess`, a shell, a socket, an HTTP
+#: client or a database driver, and
+#: `tests/phase_5_0_evidence/test_no_execution.py` asserts that by reading the
+#: source.
+PERMITTED_PHASE_5_0_EVIDENCE_HARNESS = frozenset({
+    "tools/phase_5_0_evidence/__init__.py",
+    "tools/phase_5_0_evidence/errors.py",
+    "tools/phase_5_0_evidence/records.py",
+    "tools/phase_5_0_evidence/targets.py",
+    "tools/phase_5_0_evidence/plan.py",
+    "tools/phase_5_0_evidence/cleanup.py",
+    "tools/phase_5_0_evidence/sudoers.py",
+    "tools/phase_5_0_evidence/hba.py",
+    "tools/phase_5_0_evidence/identity.py",
+    "tools/phase_5_0_evidence/capability.py",
+    "tools/phase_5_0_evidence/filesystem.py",
+    "tools/phase_5_0_evidence/manifest.py",
+    "tools/phase_5_0_evidence/provenance.py",
+    "tools/phase_5_0_evidence/journal.py",
+    # The concrete-plan stage, 2026-09-05. The canonical approved target, the
+    # generator that turns the reviewed template into exact argument vectors,
+    # the capture policies that bound what a run may record, and the review
+    # manifest whose digest the executor requires.
+    "tools/phase_5_0_evidence/approved_target.py",
+    "tools/phase_5_0_evidence/capture.py",
+    "tools/phase_5_0_evidence/concrete_plan.py",
+    "tools/phase_5_0_evidence/review_manifest.py",
+    # **R13, EH-R13-4.** The required-case table and the coverage check that
+    # refuses a plan in which a required evidence case is neither produced by a
+    # step nor declared unresolved. Pure data and one comparison.
+    "tools/phase_5_0_evidence/required_cases.py",
+    # --- The four planning-tier modules the collapsed directory entry hid until
+    # 2026-09-08 (PR-20260907-R2-3). All four are covered sources in the review
+    # manifest and were submitted with the revisions named beside them.
+    #
+    # R11 conflict C-5: the four disposable names, their declared substitution
+    # sites, and the rule that nothing else in a reviewed vector may change.
+    "tools/phase_5_0_evidence/binding.py",
+    # R11 conflict C-2, Option B: the named-interpreter vector and the closed
+    # grammar for what may follow it.
+    "tools/phase_5_0_evidence/case_runtime.py",
+    # R12/R13: the typed, closed semantic expectation contracts the executor
+    # compares an observation against.
+    "tools/phase_5_0_evidence/expectations.py",
+    # R11 conflict C-4: the closed table of every byte sequence the harness may
+    # put on disk. Planning tier, so it cannot write anything itself.
+    "tools/phase_5_0_evidence/materialization.py",
+    # The **execution tier**, added by the concrete-plan stage and declared
+    # separately because it is the part that can start a process. It is submitted
+    # for Codex's pre-execution review and has not been run:
+    # `tests/phase_5_0_evidence/test_no_execution.py` enumerates both tiers,
+    # holds every planning module to the no-process rule, and permits
+    # `subprocess` in exactly one file — `execution/boundary.py`.
+    "tools/phase_5_0_evidence/execution/__init__.py",
+    "tools/phase_5_0_evidence/execution/boundary.py",
+    "tools/phase_5_0_evidence/execution/cli.py",
+    "tools/phase_5_0_evidence/execution/executor.py",
+    # --- The two execution-tier modules the collapsed entry hid, same finding.
+    #
+    # C-2's payload: the single-file reviewed case program, copied byte for byte
+    # to `<root>/bin/case`, so its source digest is its installation digest.
+    "tools/phase_5_0_evidence/execution/case_program.py",
+    # C-4's writing half: the one place the harness puts bytes on disk, and it
+    # can only write what `materialization.py` already fixed.
+    "tools/phase_5_0_evidence/execution/materializer.py",
+    # **R13, EH-R13-5.** The run-record writer. It is in the execution tier
+    # because it writes a file on the harness's behalf: the CLI used to report
+    # `artifact written : True` and write nothing at all, and this is the
+    # bounded, sanitized, read-back-and-validated path that claim now needs.
+    "tools/phase_5_0_evidence/execution/artifact.py",
+    # --- R16, conflict C-7, authorized 2026-09-09. The supplied-observation
+    # ingestion stage, in two modules and deliberately not one.
+    #
+    # The **importer and classifier**, planning tier: a strict, versioned,
+    # bounded schema with no free-text field, bound to the target, the run and
+    # the review-manifest digest its caller supplies, and connected to the
+    # `provenance` and `journal` classifiers. It imports nothing from the
+    # execution tier at all.
+    "tools/phase_5_0_evidence/observations.py",
+    # The **ingestion entry point**, execution tier because it reads a payload
+    # from a path and writes the classified artifact to one — and for no other
+    # reason. It imports no `boundary`, no `executor` and no `materializer`, and
+    # it does not import `cli`; `test_no_execution.py` asserts that against its
+    # syntax tree, which is what stops a supplied observation reaching the
+    # component that constructs the process boundary.
+    "tools/phase_5_0_evidence/execution/evidence_cli.py",
+    # --- C-P5.0-LAB-1, the reserved disposable laboratory, 2026-09-11. Two
+    # planning-tier modules, both declared here because `tools/` is watched and
+    # a new file under it is a declaration rather than a path that slips in.
+    #
+    # The bounded evidence-only producers for the three C-7 cases: deterministic
+    # in-memory models with injected faults, their positive and negative
+    # controls, and the feasibility-versus-product-evidence dispositions they
+    # produce. It imports nothing from the product tree and nothing from the
+    # execution tier, which `test_feasibility.py` asserts against its syntax
+    # tree. It resolves no required case: all three stay declared unresolved.
+    "tools/phase_5_0_evidence/feasibility.py",
+    # The whole-host reservation state machine, the cooperative admission
+    # decision and the release conditions. It decides and does not act: every
+    # observation it reads arrives as an argument from a caller that made it, and
+    # it takes no lock, starts no process and kills nothing.
+    "tools/phase_5_0_evidence/reservation.py",
+    # --- The September 11 re-review, PR-20260911-R2-2/-R2-3/-R2-4. Two further
+    # planning-tier modules, declared here for the same reason: a new file under
+    # a watched prefix is a declaration, not a path that slips in.
+    #
+    # **Neither is mechanism.** Both are bounded synthetic models of rules
+    # proposed in runner contract revision 3, which is submitted and not built.
+    #
+    # The durability and removal model: a namespace and a data store with
+    # separate volatile and durable halves, explicit descriptor modes, the
+    # publication and restoration barrier graphs, and the name-based removal
+    # whose post-check the re-review found overclaimed. Its whole "filesystem" is
+    # a dictionary, so it opens nothing, synchronizes nothing and removes
+    # nothing, which `test_no_execution.py` asserts against its syntax tree.
+    "tools/phase_5_0_evidence/durability_model.py",
+    # The lifecycle storage model: the seven participants under one allowlist of
+    # validated lifecycle outcomes, shared with `reservation.validate_lifecycle`
+    # rather than copied, and the proposed verified-first-use initialization
+    # modelled over the filesystem above. **It provisions nothing.**
+    "tools/phase_5_0_evidence/lifecycle_storage.py",
+})
 
-    **Parsing corrected 2026-08-23 (P3.5).** This previously did `line.strip()`
-    before slicing `line[:2]` and `line[3:]`, and porcelain status codes are two
-    columns wide: a *modified* file arrives as `" M path"`, so stripping the
-    leading space shifted the slice and yielded `"pplication/..."`. The guard
-    therefore never caught a modification to a tracked file — only untracked
-    ones, whose `"?? "` prefix happens to survive the strip. It was asserting far
-    less than it claimed for the whole of P3.4.
 
-    **Extracted from the test on 2026-08-28 (N-30)** so the forms git actually
-    emits — modified, added, untracked, renamed, and a path containing a space,
-    which git quotes — can be asserted against synthetic input instead of against
-    whatever the working tree happens to contain when someone runs the suite.
+#: The **live Freedom bot crafting defect fix**, authorized on 2026-09-05
+#: by maintainer direction under `.agents/AGENTS.md` product direction item 1
+#: ("keep the live Freedom bot reliable").
+#:
+#: Resolves vocabulary mismatch between Sheet column X (artisan vocabulary, e.g.
+#: "Expert Herbalist") and column Y / /craft dropdown (tool vocabulary, e.g.
+#: "Herbalism Kit") by normalising aliases in `Skills._clean_tool_name()`.
+#:
+#: **A separate allowlist, deliberately.** It is not folded into any package
+#: allowlist because it is an operational live-bot maintenance fix.
+PERMITTED_LIVE_BOT_DEFECT_FIXES = frozenset({
+    "models/skills.py",
+})
+
+
+#: Bounded repository maintenance fix to `infra/postgresql/backup-restore-drill.sh`
+#: authorized under `phase-5-0-gemini-disposable-server-remediation-r2-prompt.md`
+#: (DS-R2-1) to preserve standard PostgreSQL 16 schema ownership and ACL semantics.
+PERMITTED_DISPOSABLE_SERVER_REMEDIATION = frozenset({
+    "infra/postgresql/backup-restore-drill.sh",
+})
+
+
+class MalformedStatusRecord(ValueError):
+    """A `git status` payload that does not parse as complete records.
+
+    Raised rather than skipped: a record this parser cannot read is a change it
+    cannot classify, and silently dropping it is the failure class this guard
+    exists to refuse (N-27, N-30, PR-20260907-R2-3, PR-20260908-R3-3).
+    """
+
+
+#: The exact command the discovery runs. Named so the tests can assert that the
+#: production path uses the machine-readable form and nothing else.
+STATUS_COMMAND = (
+    "git",
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+)
+
+
+def parse_status_records(payload: str) -> list[tuple[str, str, str | None]]:
+    """`(status, path, origin)` for every record in a `git status -z` payload.
+
+    **Machine-readable, because the human-readable form is ambiguous (finding
+    PR-20260908-R3-3).** The previous parser read `git status --short`, split any
+    path containing ` -> ` on that substring and kept the right-hand side, and
+    stripped `"` characters from the ends. All three are guesses about a
+    filename, and every one of them is wrong for a filename that is allowed to
+    contain those characters:
+
+    * an untracked `tools/extra -> outside.py` was read as `outside.py`, which
+      matches no watched prefix, so a new file in a watched layer was invisible;
+    * `--short` display-escapes a path with unusual bytes and wraps it in quotes,
+      so the quotes were stripped from a *display* form rather than decoded, and
+      a path genuinely containing a quote lost it; and
+    * a rename's ` -> ` is only a separator when the status actually says `R`.
+
+    `--porcelain=v1 -z` has none of that. Records are NUL delimited, paths are
+    emitted verbatim with no quoting or escaping whatever bytes they contain, and
+    a rename or copy is two records: the entry `XY <new>` followed by a bare
+    `<old>`. That is the documented format, so the parser reads fields rather
+    than hunting for punctuation.
+
+    A truncated or otherwise unreadable payload raises `MalformedStatusRecord`.
+    """
+    records = payload.split("\0")
+    if records and records[-1] == "":
+        # A well-formed payload terminates its last record, so the split leaves
+        # one trailing empty string. Anything else is a truncated read.
+        records.pop()
+    elif records:
+        raise MalformedStatusRecord(
+            "the status payload did not end with a record terminator"
+        )
+
+    entries: list[tuple[str, str, str | None]] = []
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        # `XY` then one space then a non-empty path: four characters at minimum.
+        if len(record) < 4 or record[2] != " ":
+            raise MalformedStatusRecord(f"not a status record: {record!r}")
+        status, path = record[:2], record[3:]
+        origin: str | None = None
+        # A rename or a copy is scored in either column, and only those two
+        # statuses carry a second record. Nothing is inferred from the path.
+        if "R" in status or "C" in status:
+            if index >= len(records):
+                raise MalformedStatusRecord(
+                    f"a rename or copy record carried no origin path: {record!r}"
+                )
+            origin = records[index]
+            index += 1
+            if not origin:
+                raise MalformedStatusRecord(
+                    f"a rename or copy record carried an empty origin path: {record!r}"
+                )
+        entries.append((status, path, origin))
+    return entries
+
+
+def record_paths(entries: list[tuple[str, str, str | None]]) -> list[str]:
+    """Every path a set of status records puts in front of the guard.
+
+    **A rename contributes both endpoints, a copy only its destination**, and the
+    difference is the reason each is handled explicitly rather than by one rule
+    (PR-20260908-R3-3 item 2):
+
+    * a rename **removes** its origin. Moving `tools/portal_server.py` to
+      `notes/portal_server.py` deletes a watched production source, and reading
+      only the destination would classify that as an untouched `notes/` path —
+      the removal would be concealed by the move.
+    * a copy **leaves** its origin exactly as it was. Reporting it would assert a
+      change to a file that did not change, which is the opposite error.
     """
     paths: list[str] = []
-    for line in lines:
-        if not line.strip():
-            continue
-        # Deliberately not stripped first: the first two columns are the status
-        # field, and for a modified file the first of them is a space.
-        path = line[3:]
-        # A rename arrives as "old -> new"; the destination is what was written.
-        if " -> " in path:
-            path = path.split(" -> ", 1)[1]
-        paths.append(path.strip().strip('"'))
+    for status, path, origin in entries:
+        paths.append(path)
+        if origin is not None and "R" in status:
+            paths.append(origin)
     return paths
+
+
+def working_tree_paths(root: Path) -> list[str]:
+    """Every changed or untracked path in `root`, one per file.
+
+    **`--untracked-files=all` is load-bearing (finding PR-20260907-R2-3).** The
+    default `git status` collapses a wholly untracked directory to a single
+    trailing-slash entry, so `?? tools/phase_5_0_evidence/` stood in for
+    twenty-eight files and the guard inspected none of them. With the collapsed
+    entry allowlisted, an undeclared module inside that directory was not merely
+    unnoticed — it was structurally invisible, and adding one could never make
+    this guard fail. Six such files were in the submitted tree.
+
+    **`--porcelain=v1 -z` is load-bearing too (finding PR-20260908-R3-3).** The
+    output is read as bytes and decoded with `surrogateescape`, so a path that is
+    not valid UTF-8 round-trips instead of raising or being replaced. Nothing is
+    split on whitespace, on a newline or on an arrow.
+
+    Extracted as a function so the discovery itself can be exercised against a
+    synthetic repository rather than only against whatever this working tree
+    happens to contain.
+    """
+    result = subprocess.run(list(STATUS_COMMAND), cwd=root, capture_output=True)
+    assert result.returncode == 0, result.stderr.decode("utf-8", "surrogateescape")
+    payload = result.stdout.decode("utf-8", "surrogateescape")
+    return record_paths(parse_status_records(payload))
 
 
 def scope_violation(path: str) -> str | None:
@@ -608,6 +890,12 @@ def scope_violation(path: str) -> str | None:
     `test_the_scope_guard_rejects_an_undeclared_synthetic_path` does.
     """
     if path in PERMITTED_P3_5_PRODUCTION or path in PERMITTED_PHASE_4_PRODUCTION:
+        return None
+    if path in PERMITTED_PHASE_5_0_EVIDENCE_HARNESS:
+        return None
+    if path in PERMITTED_LIVE_BOT_DEFECT_FIXES:
+        return None
+    if path in PERMITTED_DISPOSABLE_SERVER_REMEDIATION:
         return None
     if path.startswith("adapters/web/templates/"):
         if path in PERMITTED_TEMPLATES:
@@ -627,19 +915,13 @@ def scope_violation(path: str) -> str | None:
 def test_no_unrelated_production_files_modified() -> None:
     """11. No production or template file in the working tree is undeclared.
 
-    The decision is `scope_violation`'s; this test supplies the working tree and
-    reports the first path it rejects. `domain/` was added 2026-08-27 (N-27),
-    `tools/` and the remaining production layers 2026-08-28 (N-30).
+    The decision is `scope_violation`'s and the discovery is
+    `working_tree_paths`'; this test joins them and reports the first path
+    rejected. `domain/` was added 2026-08-27 (N-27), `tools/` and the remaining
+    production layers 2026-08-28 (N-30), and the discovery stopped depending on
+    git collapsing an untracked directory 2026-09-08 (PR-20260907-R2-3).
     """
-    result = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-
-    for path in status_paths(result.stdout.splitlines()):
+    for path in working_tree_paths(ROOT):
         violation = scope_violation(path)
         if violation is not None:
             pytest.fail(violation)
@@ -676,11 +958,316 @@ def test_no_unrelated_production_files_modified() -> None:
         "foundry-module/scripts/bundle.js",
         "domain/foundry.py",
         "application/worker/runtime.py",
+        # Package 5.0's evidence harness, file by file — the only form there is
+        # since PR-20260907-R2-3 withdrew the collapsed-directory entries.
+        "tools/phase_5_0_evidence/records.py",
+        "tools/phase_5_0_evidence/capability.py",
+        "tools/phase_5_0_evidence/binding.py",
+        "tools/phase_5_0_evidence/execution/case_program.py",
+        # Live Freedom bot crafting defect fix (artisan/tool alias resolution).
+        "models/skills.py",
+        # Disposable server remediation R2 schema preservation fix.
+        "infra/postgresql/backup-restore-drill.sh",
     ],
 )
 def test_a_declared_production_path_is_accepted(path: str) -> None:
     """The declared P3.5 changes pass, or the guard is merely noisy."""
     assert scope_violation(path) is None, path
+
+
+def test_the_live_bot_defect_fix_allowlist_is_narrow() -> None:
+    """The live-bot defect fix allowlist is separate and strictly enumerated."""
+    assert PERMITTED_LIVE_BOT_DEFECT_FIXES == frozenset({"models/skills.py"})
+    assert not (PERMITTED_LIVE_BOT_DEFECT_FIXES & PERMITTED_PHASE_5_0_EVIDENCE_HARNESS)
+    assert not (PERMITTED_LIVE_BOT_DEFECT_FIXES & PERMITTED_PHASE_4_PRODUCTION)
+    assert not (PERMITTED_LIVE_BOT_DEFECT_FIXES & PERMITTED_P3_5_PRODUCTION)
+
+
+def test_the_disposable_server_remediation_allowlist_is_narrow() -> None:
+    """The disposable server remediation allowlist is separate and strictly enumerated."""
+    assert PERMITTED_DISPOSABLE_SERVER_REMEDIATION == frozenset({"infra/postgresql/backup-restore-drill.sh"})
+    assert not (PERMITTED_DISPOSABLE_SERVER_REMEDIATION & PERMITTED_PHASE_5_0_EVIDENCE_HARNESS)
+    assert not (PERMITTED_DISPOSABLE_SERVER_REMEDIATION & PERMITTED_PHASE_4_PRODUCTION)
+    assert not (PERMITTED_DISPOSABLE_SERVER_REMEDIATION & PERMITTED_P3_5_PRODUCTION)
+    assert not (PERMITTED_DISPOSABLE_SERVER_REMEDIATION & PERMITTED_LIVE_BOT_DEFECT_FIXES)
+
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # The obvious neighbour: one character different from a declared file.
+        "tools/phase_5_0_evidence_extra.py",
+        # A sibling package that merely looks related.
+        "tools/phase_5_1_evidence/records.py",
+        # A module inside the declared package that is not declared.
+        "tools/phase_5_0_evidence/executor.py",
+        "tools/phase_5_0_evidence/subprocess_runner.py",
+        # A nested directory under the declared package.
+        "tools/phase_5_0_evidence/probes/setuid_helper.py",
+        # Unrelated new tooling, which is what N-30 was about.
+        "tools/migration_authority.py",
+        "tools/journal_admin.py",
+    ],
+)
+def test_the_scope_guard_still_refuses_an_unrelated_tools_path(path: str) -> None:
+    """EH-R3's falsification: the evidence-harness allowlist is narrow.
+
+    None of these paths exists in this tree, so the test fails the same way on a
+    clean checkout as on a dirty one — the N-30 property. What it demonstrates is
+    that declaring `tools/phase_5_0_evidence/` did **not** permit `tools/`, did
+    not permit a prefix, and did not permit an undeclared module inside the
+    declared package. An executing runner added to this harness would have to be
+    declared here before the suite would go green, which is the whole point of the
+    allowlist being a file list rather than a directory.
+    """
+    violation = scope_violation(path)
+
+    assert violation is not None, f"an undeclared tools path must be rejected: {path}"
+    assert path in violation
+
+
+def test_the_evidence_harness_allowlist_is_separate_from_the_phase_4_one() -> None:
+    """Two authorizations, two lists, and no overlap.
+
+    Folding the harness into `PERMITTED_PHASE_4_PRODUCTION` would make revoking
+    one package's authorization an edit to the other's entries. The prompt that
+    authorized this work says so directly: do not fold it into the Phase 4
+    allowlist.
+    """
+    assert not (PERMITTED_PHASE_5_0_EVIDENCE_HARNESS & PERMITTED_PHASE_4_PRODUCTION)
+    assert not (PERMITTED_PHASE_5_0_EVIDENCE_HARNESS & PERMITTED_P3_5_PRODUCTION)
+    assert all(
+        path.startswith("tools/phase_5_0_evidence/")
+        for path in PERMITTED_PHASE_5_0_EVIDENCE_HARNESS
+    )
+
+
+def test_the_evidence_harness_allowlist_does_not_weaken_the_watched_prefixes() -> None:
+    """`tools/` is still watched in full, and no prefix was added to the unpoliced list."""
+    assert "tools/" in WATCHED_PRODUCTION_PREFIXES
+    assert not any(
+        prefix.startswith("tools/") for prefix in UNPOLICED_WITHIN_WATCHED
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-20260907-R2-3 (2026-09-08) — a collapsed untracked directory bypassed the
+# guard entirely.
+#
+# `git status --short` collapses a *wholly untracked* directory to one
+# trailing-slash entry. The production allowlists declared those entries, so the
+# guard accepted `tools/phase_5_0_evidence/` and never looked at a single file
+# inside it. Running the existing `status_paths` and `scope_violation` over both
+# status forms showed the difference exactly:
+#
+#   git status --short                      -> no violation
+#   git status --short --untracked-files=all -> six undeclared files
+#
+#     tools/phase_5_0_evidence/binding.py
+#     tools/phase_5_0_evidence/case_runtime.py
+#     tools/phase_5_0_evidence/execution/case_program.py
+#     tools/phase_5_0_evidence/execution/materializer.py
+#     tools/phase_5_0_evidence/expectations.py
+#     tools/phase_5_0_evidence/materialization.py
+#
+# This is N-27's and N-30's failure class once more: a guard that cannot see a
+# file cannot report that it is not seeing it — it simply passes, which reads
+# like the file being declared. The discovery now enumerates files, and the
+# collapsed-directory entries are removed rather than left unused, so the guard's
+# result no longer depends on how git chose to summarise the tree.
+# ---------------------------------------------------------------------------
+
+#: Every allowlist whose entries name production files. A directory entry in any
+#: of them would restore the escape hatch.
+PRODUCTION_ALLOWLISTS = {
+    "PERMITTED_P3_5_PRODUCTION": PERMITTED_P3_5_PRODUCTION,
+    "PERMITTED_PHASE_4_PRODUCTION": PERMITTED_PHASE_4_PRODUCTION,
+    "PERMITTED_PHASE_5_0_EVIDENCE_HARNESS": PERMITTED_PHASE_5_0_EVIDENCE_HARNESS,
+    "PERMITTED_LIVE_BOT_DEFECT_FIXES": PERMITTED_LIVE_BOT_DEFECT_FIXES,
+    "PERMITTED_DISPOSABLE_SERVER_REMEDIATION": PERMITTED_DISPOSABLE_SERVER_REMEDIATION,
+}
+
+
+def test_no_production_allowlist_entry_is_a_directory() -> None:
+    """The escape hatch is removed, not merely unused.
+
+    A single trailing-slash entry approves every file the collapse hides, and it
+    keeps doing so if the discovery is ever changed back. Declaring files is what
+    makes an undeclared sibling fail.
+    """
+    for name, allowlist in PRODUCTION_ALLOWLISTS.items():
+        directories = sorted(entry for entry in allowlist if entry.endswith("/"))
+        assert not directories, (name, directories)
+
+
+def test_the_discovery_enumerates_untracked_files_rather_than_directories() -> None:
+    """The discovery reads files, asserted against this repository's own tree.
+
+    `tools/phase_5_0_evidence/` is untracked here, so the default status form
+    collapses it. This test does not care which files are present — only that the
+    directory itself is never what the guard is handed.
+    """
+    paths = working_tree_paths(ROOT)
+
+    assert not any(path.endswith("/") for path in paths), (
+        "the discovery handed the guard a directory: "
+        f"{sorted(p for p in paths if p.endswith('/'))}"
+    )
+    # And the collapse really is what the default form does, so the switch is
+    # not a no-op on this tree. Read through the same machine-readable parser, so
+    # the comparison is between the two *untracked-file* settings and not between
+    # two different parsers.
+    default = subprocess.run(
+        ["git", "status", "--porcelain=v1", "-z"], cwd=ROOT, capture_output=True
+    )
+    assert default.returncode == 0
+    collapsed = [
+        path
+        for path in record_paths(
+            parse_status_records(default.stdout.decode("utf-8", "surrogateescape"))
+        )
+        if path.endswith("/")
+    ]
+    assert collapsed, "no untracked directory in this tree; this test proves nothing"
+
+
+def test_every_evidence_harness_source_in_the_tree_is_declared() -> None:
+    """The reconciliation, against the files that are actually here.
+
+    The allowlist and the package must match exactly in both directions: a module
+    present but undeclared is the finding, and a declared entry naming a module
+    that does not exist is an allowlist asserting a change that is not there.
+    """
+    package = ROOT / "tools" / "phase_5_0_evidence"
+    if not package.is_dir():
+        pytest.skip("the evidence harness is not present in this tree")
+
+    present = {
+        str(path.relative_to(ROOT))
+        for path in package.rglob("*.py")
+        if "__pycache__" not in path.parts
+    }
+
+    assert present == set(PERMITTED_PHASE_5_0_EVIDENCE_HARNESS), {
+        "undeclared": sorted(present - set(PERMITTED_PHASE_5_0_EVIDENCE_HARNESS)),
+        "declared but absent": sorted(
+            set(PERMITTED_PHASE_5_0_EVIDENCE_HARNESS) - present
+        ),
+    }
+
+
+def _synthetic_repository(root: Path, files: dict[str, str]) -> None:
+    """A temporary Git repository containing `files`, none of them committed.
+
+    Deliberately a *separate* repository rather than a directory inside this one:
+    the finding is about a wholly untracked directory, and writing one into this
+    worktree would be writing undeclared production paths into the tree the guard
+    reads.
+    """
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    for relative, content in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+
+def _commit_everything(root: Path) -> None:
+    """Commit the synthetic repository, so tracked forms can exist.
+
+    `git status` reports a modification, a deletion or a rename only against
+    something it already tracks, so the end-to-end tests for those forms need a
+    commit. Identity is supplied on the command line rather than written to a
+    config file, and never from the developer's own global configuration.
+    """
+    identity = [
+        "-c",
+        "user.email=scope-guard@example.invalid",
+        "-c",
+        "user.name=Scope Guard Fixture",
+    ]
+    subprocess.run(
+        ["git", *identity, "add", "--all"], cwd=root, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", *identity, "commit", "-q", "-m", "synthetic baseline"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_the_discovery_finds_a_file_inside_an_untracked_directory(tmp_path) -> None:
+    """**PR-20260907-R2-3 item 4.** Discovery *through* classification.
+
+    The synthetic repository has a nested untracked directory holding one
+    undeclared source file. The default status form collapses it to a directory
+    the allowlist used to accept; the discovery this guard uses enumerates the
+    file, and `scope_violation` then rejects it. Both halves are asserted,
+    because the defect lived in the join between them: `scope_violation` would
+    have rejected this path all along — it was never given it.
+    """
+    repository = tmp_path / "synthetic"
+    undeclared = "tools/phase_5_0_evidence/probes/setuid_helper.py"
+    _synthetic_repository(repository, {undeclared: "# synthetic\n"})
+
+    collapsed = subprocess.run(
+        ["git", "status", "--porcelain=v1", "-z"], cwd=repository, capture_output=True
+    )
+    assert collapsed.returncode == 0
+    # The shape of the defect: one directory entry, and the file is not in it.
+    assert record_paths(
+        parse_status_records(collapsed.stdout.decode("utf-8", "surrogateescape"))
+    ) == ["tools/"]
+
+    discovered = working_tree_paths(repository)
+    assert undeclared in discovered, discovered
+
+    violations = [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ]
+    assert len(violations) == 1, violations
+    assert undeclared in violations[0]
+
+
+def test_the_reviewed_file_set_passes_and_one_more_file_does_not(tmp_path) -> None:
+    """**PR-20260907-R2-3 item 5.** The positive control, and its falsification.
+
+    A synthetic repository is filled with the exact declared file set — all of it
+    untracked, so git would collapse it — and the discovery must produce no
+    violation. One extra module is then added inside the same package, and the
+    same discovery must reject that one and only that one.
+
+    A direct call to `scope_violation` would show neither: it would pass the
+    declared names and reject the extra one whether or not git ever supplied
+    them, which is exactly what made the six undeclared files invisible.
+    """
+    declared = sorted(PERMITTED_PHASE_5_0_EVIDENCE_HARNESS)
+    repository = tmp_path / "reviewed"
+    _synthetic_repository(repository, {name: "# reviewed\n" for name in declared})
+
+    discovered = working_tree_paths(repository)
+    assert set(discovered) == set(declared), sorted(set(discovered) ^ set(declared))
+    assert [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ] == []
+
+    extra = "tools/phase_5_0_evidence/undeclared_module.py"
+    (repository / extra).write_text("# not declared\n", encoding="utf-8")
+
+    discovered = working_tree_paths(repository)
+    assert extra in discovered
+    violations = [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ]
+    assert len(violations) == 1, violations
+    assert extra in violations[0]
 
 
 @pytest.mark.parametrize(
@@ -763,25 +1350,440 @@ def test_the_static_and_template_layers_keep_their_own_rules() -> None:
     assert scope_violation("adapters/web/templates/unpermitted.html") is not None
 
 
+# ---------------------------------------------------------------------------
+# PR-20260908-R3-3 (2026-09-08) — human-readable status parsing hid a watched
+# file.
+#
+# `status_paths()` treated every ` -> ` substring as a rename separator whatever
+# the status said, and ` -> ` is a legal substring of an ordinary filename. Codex
+# created a temporary synthetic Git repository holding the untracked file
+# `tools/extra -> outside.py` and ran the guard's own functions over it:
+#
+#     working_tree_paths(repo) -> ['outside.py']
+#     scope_violation('outside.py') -> None
+#
+# The control `tools/extra.py` in the same repository was correctly rejected as
+# an unpermitted `tools/` modification, so the guard was working — it was being
+# handed a filename that had been rewritten before it ever saw it. That is N-27's
+# and N-30's failure class in a third shape: a guard cannot report a file it is
+# not given.
+#
+# The parser now reads `git status --porcelain=v1 -z --untracked-files=all`,
+# whose records are NUL delimited and whose paths are emitted verbatim, and it
+# reads the documented rename/copy record form rather than looking for
+# punctuation inside a name. A record it cannot parse raises rather than being
+# dropped.
+# ---------------------------------------------------------------------------
+
+
+def _z(*records: str) -> str:
+    """A `git status -z` payload: every record terminated by a NUL."""
+    return "".join(f"{record}\0" for record in records)
+
+
 @pytest.mark.parametrize(
-    "line, expected",
+    "record, expected",
     [
         (" M tools/portal_server.py", "tools/portal_server.py"),
         ("?? tools/new_entry_point.py", "tools/new_entry_point.py"),
         ("M  domain/foundry.py", "domain/foundry.py"),
         ("A  application/web/added.py", "application/web/added.py"),
-        ('R  "old name.py" -> "tools/renamed.py"', "tools/renamed.py"),
-        ('?? "docs/review/Handover information"', "docs/review/Handover information"),
+        (" D models/character.py", "models/character.py"),
+        ("D  application/web/removed.py", "application/web/removed.py"),
+        ("?? docs/review/Handover information", "docs/review/Handover information"),
         (" M docs/project-management/status.md", "docs/project-management/status.md"),
+        # The forms the human-readable parser could not read. `-z` emits every
+        # one of them verbatim, so the path is the record and nothing else.
+        ("?? tools/extra -> outside.py", "tools/extra -> outside.py"),
+        ('?? tools/quoted".py', 'tools/quoted".py'),
+        ("?? tools/back\\slash.py", "tools/back\\slash.py"),
+        ("?? tools/tab\there.py", "tools/tab\there.py"),
+        ("?? tools/new\nline.py", "tools/new\nline.py"),
+        ("?? tools/nöñ-ascii.py", "tools/nöñ-ascii.py"),
+        ("?? tools/ leading-space.py", "tools/ leading-space.py"),
     ],
 )
-def test_the_porcelain_parser_reads_each_status_form(line: str, expected: str) -> None:
-    """The parsing defect P3.5 corrected, pinned against synthetic input.
+def test_the_record_parser_reads_each_status_form(record: str, expected: str) -> None:
+    """Every ordinary status form, asserted against synthetic records.
 
-    Until 2026-08-23 this guard stripped the line before slicing the two-column
-    status field, so every *modified* tracked file was read as `"pplication/..."`
-    and matched no prefix. It caught untracked files only. The forms below are
-    the ones `git status --short` actually emits, asserted directly rather than
-    through whatever the working tree happens to contain today.
+    The status field is two columns and then one space, so a *modified* file
+    arrives as `" M path"` — the defect P3.5 corrected by not stripping the line
+    first, and still the reason the path is sliced rather than tokenized. The
+    last seven records are PR-20260908-R3-3's: a filename may contain an arrow, a
+    quote, a backslash, a tab, a newline, non-ASCII bytes or a leading space, and
+    none of them is a field separator in this format.
     """
-    assert status_paths([line]) == [expected]
+    entries = parse_status_records(_z(record))
+
+    assert entries == [(record[:2], expected, None)]
+    assert record_paths(entries) == [expected]
+
+
+@pytest.mark.parametrize(
+    "status", ["R ", "RM", " R", "RD"], ids=["staged", "staged-modified", "worktree", "staged-deleted"]
+)
+def test_a_rename_record_reports_both_endpoints(status: str) -> None:
+    """**PR-20260908-R3-3 item 2.** A rename removes its origin.
+
+    Reading only the destination would classify moving a watched production
+    source into an unwatched directory as a change to the unwatched directory,
+    and the removal of the watched file would be concealed by the move. Both
+    endpoints reach the guard, so the removal is classified on its own terms.
+    """
+    entries = parse_status_records(
+        _z(f"{status} notes/portal_server.py", "tools/portal_server.py")
+    )
+
+    assert entries == [(status, "notes/portal_server.py", "tools/portal_server.py")]
+    assert record_paths(entries) == [
+        "notes/portal_server.py",
+        "tools/portal_server.py",
+    ]
+
+
+@pytest.mark.parametrize("status", ["C ", "CM"], ids=["staged", "staged-modified"])
+def test_a_copy_record_reports_only_its_destination(status: str) -> None:
+    """The other half of item 2, and it is deliberately not symmetrical.
+
+    A copy leaves its origin exactly as it was, so reporting the origin would
+    assert a change to a file that did not change — the opposite error to the one
+    the rename case avoids. What matters is that the origin record is *consumed*
+    as the second half of one entry rather than read as a status record of its
+    own, which is what the two-record format requires.
+
+    Git only reports a copy when `status.renames=copies` is configured, so this
+    is asserted against a fixture rather than against a repository whose
+    detection would depend on configuration and on similarity scoring.
+    """
+    entries = parse_status_records(
+        _z(f"{status} tools/portal_server_copy.py", "tools/portal_server.py")
+    )
+
+    assert entries == [
+        (status, "tools/portal_server_copy.py", "tools/portal_server.py")
+    ]
+    assert record_paths(entries) == ["tools/portal_server_copy.py"]
+
+
+def test_the_parser_reads_a_rename_beside_ordinary_records() -> None:
+    """A payload is a sequence, and the two-record form must not desynchronize it.
+
+    If the origin record were read as a status record, every entry after a rename
+    would be misparsed — which is a silent, whole-payload failure rather than one
+    wrong path.
+    """
+    entries = parse_status_records(
+        _z(
+            " M docs/project-management/status.md",
+            "R  tools/renamed.py",
+            "tools/original.py",
+            "?? tools/untracked.py",
+        )
+    )
+
+    assert record_paths(entries) == [
+        "docs/project-management/status.md",
+        "tools/renamed.py",
+        "tools/original.py",
+        "tools/untracked.py",
+    ]
+
+
+@pytest.mark.parametrize(
+    "payload, reason",
+    [
+        # Truncated mid-payload: the last record has no terminator.
+        ("?? tools/a.py\0?? tools/b.py", "record terminator"),
+        (" M tools/a.py", "record terminator"),
+        # A record too short to carry a status field and a path.
+        (_z("??"), "not a status record"),
+        (_z("?? "), "not a status record"),
+        (_z("x"), "not a status record"),
+        # The third column is not the documented space separator.
+        (_z("??_tools/a.py"), "not a status record"),
+        # A rename whose origin record never arrived.
+        (_z("R  tools/renamed.py"), "carried no origin path"),
+        (_z("C  tools/copied.py"), "carried no origin path"),
+        # A rename whose origin record is empty.
+        ("R  tools/renamed.py\0\0", "carried an empty origin path"),
+    ],
+)
+def test_a_malformed_status_record_is_refused_rather_than_dropped(
+    payload: str, reason: str
+) -> None:
+    """**PR-20260908-R3-3 item 2.** Unreadable is a failure, not an empty result.
+
+    Skipping a record this parser cannot read is exactly the shape of the three
+    findings this guard has had: a change that is not classified reads as a
+    change that is permitted.
+    """
+    with pytest.raises(MalformedStatusRecord, match=reason):
+        parse_status_records(payload)
+
+
+def test_an_empty_payload_is_a_clean_tree_and_not_an_error() -> None:
+    """The positive control for the terminator rule.
+
+    `git status -z` prints nothing at all for a clean tree, and that must parse
+    as no records rather than as a truncated payload.
+    """
+    assert parse_status_records("") == []
+    assert record_paths([]) == []
+
+
+def test_the_discovery_uses_the_machine_readable_form() -> None:
+    """No human-readable parsing path remains in production-scope discovery.
+
+    Asserted at the source as well as by behaviour: a regression would most
+    likely reintroduce `--short` and a split on an arrow, and the tests above
+    would keep passing against the parser while the discovery fed it display
+    text.
+    """
+    assert STATUS_COMMAND == (
+        "git",
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+    )
+    source = Path(__file__).read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in source.splitlines() if not line.lstrip().startswith("#")
+    )
+    # The removed function and the two guesses it made about a filename. Each
+    # needle is assembled rather than written out: a literal here would be a
+    # substring of this test's own line, so the assertion would fail against
+    # itself and prove nothing about the rest of the module.
+    removed_parser = "def " + "status_paths("
+    arrow_split = "split(" + '" -> "'
+    quote_strip = "strip(" + "'\"'" + ")"
+    assert removed_parser not in code
+    assert arrow_split not in code
+    assert quote_strip not in code
+
+
+# --- Discovery through classification, in temporary synthetic Git repositories.
+#
+# Each of these builds a *separate* repository under `tmp_path`, runs the real
+# `working_tree_paths` over it and then the real `scope_violation`, because the
+# defect lived in the join between the two: `scope_violation` would have rejected
+# `tools/extra -> outside.py` all along — it was never given it. No synthetic
+# unauthorized file is written into this worktree.
+
+
+#: Filenames that are legal, unusual, and each fatal to one guess the old parser
+#: made. `\n` in particular is a record separator in the human-readable form.
+HOSTILE_FILENAMES = [
+    pytest.param("tools/extra -> outside.py", id="literal-arrow"),
+    pytest.param("tools/extra -> outside -> again.py", id="two-arrows"),
+    pytest.param("tools/with space.py", id="space"),
+    pytest.param("tools/ leading-space.py", id="leading-space"),
+    pytest.param("tools/trailing-space .py", id="trailing-space"),
+    pytest.param('tools/quoted".py', id="double-quote"),
+    pytest.param("tools/'single'.py", id="single-quote"),
+    pytest.param("tools/back\\slash.py", id="backslash"),
+    pytest.param("tools/tab\there.py", id="tab"),
+    pytest.param("tools/new\nline.py", id="newline"),
+    pytest.param("tools/nöñ-ascii.py", id="non-ascii"),
+    pytest.param("tools/日本語.py", id="cjk"),
+    pytest.param("tools/emoji-🗡.py", id="emoji"),
+]
+
+
+@pytest.mark.parametrize("name", HOSTILE_FILENAMES)
+def test_an_undeclared_file_with_a_hostile_name_is_still_rejected(
+    tmp_path, name: str
+) -> None:
+    """**PR-20260908-R3-3, the finding itself.** Discovery *through* classification.
+
+    Every one of these is an undeclared file in a watched production layer. The
+    guard must reject each by the name git actually holds — not by a name a
+    display format or a split produced.
+    """
+    repository = tmp_path / "hostile"
+    _synthetic_repository(repository, {name: "# synthetic\n"})
+
+    discovered = working_tree_paths(repository)
+
+    assert discovered == [name], discovered
+    violation = scope_violation(discovered[0])
+    assert violation is not None, name
+    assert name in violation
+
+
+def test_the_normal_control_beside_the_hostile_name_is_rejected_too(tmp_path) -> None:
+    """Codex's reproduction exactly, both files at once.
+
+    The control `tools/extra.py` was rejected before this correction and the
+    hostile neighbour was not, which is what showed the classification was sound
+    and the discovery was not. Both must now be rejected, and the count must be
+    two — a parser that emitted one path for two files would satisfy a membership
+    test.
+    """
+    repository = tmp_path / "codex"
+    hostile = "tools/extra -> outside.py"
+    control = "tools/extra.py"
+    _synthetic_repository(
+        repository, {hostile: "# synthetic\n", control: "# control\n"}
+    )
+
+    discovered = working_tree_paths(repository)
+
+    assert sorted(discovered) == sorted([hostile, control]), discovered
+    # The name the old parser produced is not among them.
+    assert "outside.py" not in discovered
+    violations = [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ]
+    assert len(violations) == 2, violations
+    assert any(hostile in violation for violation in violations)
+    assert any(control in violation for violation in violations)
+
+
+def test_a_tracked_modification_and_a_tracked_deletion_are_discovered(
+    tmp_path,
+) -> None:
+    """The ordinary forms, end to end rather than as fixtures.
+
+    A committed tree is required for these to exist at all, so this is the one
+    synthetic repository that commits: `git status` reports a modification or a
+    deletion only against something it already tracks.
+    """
+    repository = tmp_path / "tracked"
+    _synthetic_repository(
+        repository,
+        {
+            "tools/portal_server.py": "# original\n",
+            "domain/foundry.py": "# original\n",
+            "docs/notes.md": "# original\n",
+        },
+    )
+    _commit_everything(repository)
+
+    (repository / "tools" / "portal_server.py").write_text("# edited\n", encoding="utf-8")
+    (repository / "domain" / "foundry.py").unlink()
+    (repository / "docs" / "notes.md").write_text("# edited\n", encoding="utf-8")
+
+    discovered = working_tree_paths(repository)
+
+    assert sorted(discovered) == [
+        "docs/notes.md",
+        "domain/foundry.py",
+        "tools/portal_server.py",
+    ], discovered
+    # Both are declared P3.5 changes, so neither is a violation; the point is
+    # that the discovery produced them at all. `docs/` is not watched.
+    assert [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ] == []
+
+
+@pytest.mark.parametrize(
+    "origin, destination, expected_violation",
+    [
+        # Out of a watched area: the destination is unwatched, so reading only
+        # the destination would report nothing at all and the removal of an
+        # undeclared watched file would be concealed by the move.
+        pytest.param(
+            "tools/undeclared_tool.py",
+            "docs/undeclared_tool.py",
+            "tools/undeclared_tool.py",
+            id="out-of-watched",
+        ),
+        # The same move for a *declared* file. It is discovered at both
+        # endpoints and is not a violation, which is what keeps the case above
+        # attributable to the origin's declaration status rather than to the
+        # rename being reported at all.
+        pytest.param(
+            "tools/portal_server.py",
+            "docs/portal_server.py",
+            None,
+            id="declared-out-of-watched",
+        ),
+        # Into a watched area, from an unwatched one.
+        pytest.param(
+            "docs/helper.py",
+            "tools/undeclared_helper.py",
+            "tools/undeclared_helper.py",
+            id="into-watched",
+        ),
+        # Within a watched area, from a declared file to an undeclared one.
+        pytest.param(
+            "tools/portal_server.py",
+            "tools/renamed_portal_server.py",
+            "tools/renamed_portal_server.py",
+            id="within-watched",
+        ),
+    ],
+)
+def test_a_rename_is_classified_at_both_endpoints(
+    tmp_path, origin: str, destination: str, expected_violation: str | None
+) -> None:
+    """**PR-20260908-R3-3 item 2**, through a real `R` status record.
+
+    Git scores a rename only against the index, so the move is staged here — that
+    is what makes git emit the two-record form this parser reads. `git mv` is used
+    rather than a hand-built record, so the test exercises what git actually
+    emits.
+
+    The declared origin `tools/portal_server.py` is the interesting one: moving it
+    out of `tools/` is a change to a declared production file, and the guard must
+    still see the path it was declared under.
+    """
+    repository = tmp_path / "renamed"
+    _synthetic_repository(repository, {origin: "# original\n" * 8})
+    _commit_everything(repository)
+
+    (repository / destination).parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "mv", origin, destination],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+
+    entries = parse_status_records(
+        subprocess.run(
+            list(STATUS_COMMAND), cwd=repository, capture_output=True
+        ).stdout.decode("utf-8", "surrogateescape")
+    )
+    assert len(entries) == 1, entries
+    status, path, recorded_origin = entries[0]
+    assert "R" in status, entries
+    assert (path, recorded_origin) == (destination, origin)
+
+    discovered = working_tree_paths(repository)
+    assert sorted(discovered) == sorted([origin, destination]), discovered
+
+    violations = [
+        violation
+        for violation in (scope_violation(path) for path in discovered)
+        if violation is not None
+    ]
+    if expected_violation is None:
+        assert violations == []
+    else:
+        assert len(violations) == 1, violations
+        assert expected_violation in violations[0]
+
+
+def test_a_nested_untracked_file_with_a_hostile_name_is_discovered(tmp_path) -> None:
+    """Both corrections at once: the collapse and the name.
+
+    `--untracked-files=all` is what produces the file rather than its parent
+    directory, and `-z` is what produces its name rather than a display form. A
+    regression in either one hides this file, and this is the shape a new probe
+    inside the evidence harness would take.
+    """
+    repository = tmp_path / "nested"
+    undeclared = "tools/phase_5_0_evidence/probes/setuid -> helper.py"
+    _synthetic_repository(repository, {undeclared: "# synthetic\n"})
+
+    assert working_tree_paths(repository) == [undeclared]
+    violation = scope_violation(undeclared)
+    assert violation is not None
+    assert undeclared in violation

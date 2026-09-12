@@ -4,6 +4,25 @@ Readiness statement, design proposal, work breakdown and impact assessment.
 **Revision 12 — remediation R11. Independently security re-reviewed 2026-09-02;
 P5.0-SR1 and P5.0-SR2 Closed on design; package remains `not ready`.**
 
+**Current evidence direction, 2026-09-10 — C-P5.0-LAB-1.** Follow the
+[reserved-laboratory direction](phase-5-0-reserved-laboratory-direction.md) and
+[Claude prompt](phase-5-0-reserved-laboratory-claude-prompt.md). VM expansion is
+deferred. This changes the laboratory trust premise and next work assignment,
+not the accepted production controls, schema or recovery criteria. No finding
+closes; readiness, operational execution and product implementation remain gated.
+Any required criterion split must return for an explicit decision.
+
+**Historical evidence-harness proposal update, 2026-09-10.** The current action is Claude's
+independent review of Codex's [VM alternative](phase-5-0-evidence-vm-design.md)
+and [proposed ADR 0011](../adr/0011-disposable-vm-evidence-boundary.md), under
+the explicit prompt in [Handover information](Handover%20information).
+The proposal changes the outer laboratory ownership/cleanup contract only if
+accepted; it does not amend this package's journal/probe recovery requirements.
+Neither the architecture nor its new management surface is accepted. The
+September 10 findings and EH-R16-1 remain open; no readiness, implementation,
+host inspection, provisioning or execution approval is implied. Revision 12's
+accepted design inputs remain binding; this pointer does not revise its schema.
+
 **Governance update, 2026-09-02.** Peter Duscha approved OD-64 Option A,
 OD-65 Option B and OD-66 Option A / J-1. OD-62 remains Open with G-A recorded
 only as the provisional direction pending P5.0-R5 operational evidence and
@@ -1352,6 +1371,132 @@ to this table and **state no membership of their own**. A membership that appear
 in another passage without this table changing is a defect under stop condition
 **10p**, not a detail.
 
+**The R7 amendment — the `postgres` account.** Ruled by Peter Duscha,
+Acceptance Authority, on **2026-09-06**, on Codex's recommendation, and recorded
+under change-log **C-P5.0-AE**: **Option A is accepted**, and the complete
+supplementary-group set permitted for the `postgres` operating-system account is
+**exactly `ssl-cert`**, with primary group `postgres`.
+
+The gap this closes is evidence-harness finding **EH-R6-1**. The harness's
+database steps run as `postgres`, but this table covered six identities and
+`postgres` was not one of them, so the harness had no reviewed set to construct a
+credential from and refused every such step. Three limits on the amendment,
+stated rather than left to be inferred:
+
+1. **This package does not provision, modify or own the account.** It is an
+   existing host identity, marked as such, and nothing here creates it or
+   changes its memberships. The row states what is *permitted*; a host that
+   differs is a **finding**, refused before a process exists, exactly as the
+   `JNL-52` rule requires of every other row.
+2. **The ruling covers the membership and nothing else.** The shell, password
+   and home columns are recorded as *not asserted by this package*, because the
+   ruling did not state them and no check in this package reads them. Writing a
+   plausible value into them would be the same defect this table exists to
+   prevent.
+3. **`ssl-cert` and `postgres` gain inverse rows** because the identity row names
+   them and this table's rule is that a membership appears here and nowhere else.
+   Their member lists are exact for the same reason every other row's is, so an
+   unexpected member is a failed `JNL-52` case rather than a difference to note.
+   **Corrected by the R8 amendment below:** the two rows are exact in different
+   ways, because `postgres` is the account's *primary* group and `ssl-cert` its
+   supplementary one, and only the second is an explicit `getent group`
+   membership.
+
+**The R8 amendment — what the inverse table's member column means.** Codex
+evidence-harness finding **EH-R8-1**, 2026-09-06. The R7 amendment wrote
+`postgres` into the member list of the `postgres` group. That conflated two
+different relations, and it made this table assert a fact the ruling never
+stated:
+
+- **the identity table's `Primary group` column** is the account's passwd
+  record. It is observed with `id`, and `JNL-52`'s per-identity case compares it.
+- **the inverse table's `Members, exactly` column** is the **fourth field of
+  `getent group`** — the group's *explicit* member list. An account is **not**
+  listed there merely because the group is its primary group; `useradd` does not
+  put it there and `getent` does not report it there.
+
+So a correctly configured host reports `postgres:x:<gid>:` with an empty fourth
+field, and R7's row would have **failed** `JNL-52-GROUP-postgres` for a host that
+matches the ruling exactly. The `postgres` row's member list is therefore
+**empty**, which is the set this table's own identity half implies: the
+supplementary lists are complete, and no identity row names `postgres` as a
+supplementary group. The row is kept rather than deleted because the empty list
+is a claim worth failing on — an account explicitly added to `postgres` would
+hold the cluster's data directory through a group, and that is a finding.
+
+**The ruled facts are unchanged.** Primary group `postgres`, complete
+supplementary set exactly `ssl-cert`. R8 corrects a representation, not the
+membership Peter Duscha ruled, and it seeks no new ruling.
+
+**R9 ruling — correct the four pre-existing inverse rows.** Peter Duscha,
+Acceptance Authority, accepted Codex's recommendation on **2026-09-06**. This
+is a representational correction under the R8 definition of the inverse table,
+not a change to any account's primary or supplementary memberships. The exact
+explicit-member sets are:
+
+- `freedomcoord`: none;
+- `freedomsheet`: none;
+- `discordbot`: `freedomweb` only; and
+- `fbprobe`: none.
+
+Peter Duscha additionally accepted Codex's recommendation on **2026-09-06**
+that the missing inverse row for the already-recorded supplementary membership
+`foundry -> users` is **`users`: `foundry` only**. This likewise changes no
+account membership; it completes the explicit inverse relation already stated
+by the identity table.
+
+The prior defect and its impact are retained here as the reason for the ruling.
+`freedomcoord`, `freedomsheet`, `discordbot` and `fbprobe` each list in their
+inverse row the account whose primary group they are. On a host provisioned as
+§2.13.3 requires, `getent group` reports an empty fourth field for the first
+three and `freedomweb` alone for `discordbot`, so those four `JNL-52-GROUP-*`
+cases would fail and the membership matrix would gate off the access cases. This
+is `JNL-52` correctness finding **EH-R8-2**. It fails closed, but it prevents the
+required evidence from being collected on a correctly provisioned host. The R9
+remediation is authorized to apply only the four exact sets above, remove the
+temporary `PRE_EXISTING_PRIMARY_IN_INVERSE` hold, update focused tests and
+regenerate covered artifacts. It does not authorize harness execution, host
+inspection or any account/group mutation. See change-log **C-P5.0-AF**.
+
+**Post-R9 independent disposition and evidence-harness target-root ruling.**
+Codex independently reviewed the implemented R9 correction on **2026-09-06**
+and closed **EH-R8-2** and **DS-R8-2**. Peter Duscha accepted Codex's next
+recommendation the same day: concrete-plan conflict **C-1** is resolved by
+allowing the harness to create and later remove its own exact disposable target
+root, in addition to paths contained beneath it. The exception applies only
+after the existing `DisposableTarget` validation has established an absolute
+`fb-evidence-*` path at the required minimum depth and outside all forbidden
+ancestors, production locations and the repository. Cleanup is the existing
+non-recursive `rmdir`; unexpected content therefore leaves reported residue and
+cannot be recursively deleted. No arbitrary, shallow, unresolved, sibling or
+escaped path is admitted. This ruling authorizes bounded implementation of
+concrete-plan conflicts **C-2 through C-5**, tests, regenerated dry-run artifacts
+and handback documentation only. It authorizes no evidence run, generated
+vector, SSH, host inspection, privileged command or host/database mutation.
+See change-log **C-P5.0-AG**.
+
+**Post-R10 runtime ruling — Option B.** Peter Duscha accepted Codex's
+recommendation on **2026-09-06**. The reviewed case program is an interpreted
+Python source file, and every vector names the documented Python 3.12
+interpreter explicitly before that file; a shebang is not relied upon. The
+interpreter is invoked with `-I -S`, and the permitted surface is the closed set
+of exact reviewed case-program vectors, not arbitrary Python execution. The
+case-program source and installed bytes are identical and covered by the review
+manifest. Preflight records and validates the interpreter's absolute path,
+version and executable SHA-256; any mismatch makes the affected evidence
+`inconclusive` and prevents a pass. The program may use only Python built-ins
+and the standard-library modules necessary for the already-enumerated bounded
+operations, with no third-party package or site initialization.
+
+The shebang option is rejected because it conceals the actual executable from
+the reviewed vector and causes P-03/P-04 to assert about the script rather than
+the interpreter. Compiling on the target is rejected because the compiler and
+generated bytes would not be pinned by the pre-execution manifest. This ruling
+authorizes only bounded R11 harness remediation for C-2, dependent C-3 and C-5,
+tests and regenerated dry-run artifacts. It grants no harness execution, SSH,
+host/database mutation, Package 5.0 implementation, migration `0014`, cutover,
+OD-62 ruling or Package 5.1+ authority. See change-log **C-P5.0-AH**.
+
 **Identities — primary group, and the complete supplementary list.** *Complete*
 means exhaustive: an identity whose supplementary list is `—` is asserted to be
 in **no** supplementary group, and `JNL-52` fails the case rather than passing it
@@ -1364,20 +1509,27 @@ if `id` reports one.
 | `discordbot` *(existing)* | `discordbot` | **—** | `/bin/bash` *(existing)* | existing | existing | `freedom-bot` | systemd; and anything that can already run as it |
 | `freedomweb` *(existing)* | `freedomweb` | **`discordbot`** | `/usr/sbin/nologin` | — | — | `freedom-web`, `freedom-worker` | systemd |
 | `foundry` *(existing)* | `foundry` | **`sudo`, `users`** | `/bin/bash` | existing | existing | the maintainer's interactive account; the named Platform Administrator | interactive login |
+| **`postgres`** *(existing; **not** provisioned by this package — added by the R7 amendment, change-log **C-P5.0-AE**)* | `postgres` | **`ssl-cert`** | not asserted by this package | not asserted | not asserted | the PostgreSQL 16 server, and the `psql` and `install` steps the evidence plan runs as it | systemd, and the evidence harness's own process boundary |
 | `fbprobe` *(disposable; **evidence only**, inside unconfirmed A-5.0-5)* | `fbprobe` | **—** | `/usr/sbin/nologin` | locked | none | nothing. It runs no service and owns no artifact in the hierarchy | created and removed by the root evidence harness of §2.13.5c, and by nothing else |
 
 **Groups — the inverse, which is the half a membership table usually omits.**
-`getent group` must report exactly these members, and an unexpected member is a
-**failed** `JNL-52` case rather than an incidental difference.
+The **fourth field** of `getent group` must report exactly these members, and an
+unexpected member is a **failed** `JNL-52` case rather than an incidental
+difference. That field is the group's *explicit* member list: a primary
+membership is stated in the identity table above and observed with `id`, and it
+does **not** appear here — the R8 amendment, finding **EH-R8-1**.
 
 | Group | Members, exactly | What membership grants | What it does **not** grant |
 |---|---|---|---|
 | **`freedomjournal`** *(new)* | **`freedomcoord`, `freedomsheet`** — and nobody else | `r-x` on `…/journal` (`0750 root:freedomjournal`) and `r--` on `…/journal/__GEN__.seal` (`0440 root:freedomjournal`) | **no `w` on either**; nothing in `…/archive`; no database privilege of any kind; and **no identity transition** — see the three claims below |
-| **`freedomcoord`** | `freedomcoord` | `r-x` on `…/archive` (`0750 root:freedomcoord`) and `r--` on its `0440` files; and it is the **group** of `…/journal/__GEN__.journal` (`0640 freedomsheet:freedomcoord`), which is **read** | no write anywhere in the hierarchy; no `sudo` rule; no capability |
-| **`freedomsheet`** | `freedomsheet` | nothing by itself. The writer's access to its own journal file is **ownership**, not this group | nothing in `…/journal` the directory, the seal or the archive |
-| `discordbot` *(existing)* | `discordbot`, **`freedomweb`** | group write on the repository worktree — observation **H-1**, a pre-existing condition raised as D5.0-12 / OD-65 item 3 | nothing under `/var/lib/freedom-sheet-writer`, `/opt/freedom-blades/coordinator` or `/etc/freedom-blades`; **and nothing the deploy step reads** (§2.12.5a) |
+| **`freedomcoord`** | **none** — `freedomcoord` is the account's primary group, not an explicit membership | `r-x` on `…/archive` (`0750 root:freedomcoord`) and `r--` on its `0440` files; and it is the **group** of `…/journal/__GEN__.journal` (`0640 freedomsheet:freedomcoord`), which is **read** | no write anywhere in the hierarchy; no `sudo` rule; no capability |
+| **`freedomsheet`** | **none** — `freedomsheet` is the account's primary group, not an explicit membership | nothing by itself. The writer's access to its own journal file is **ownership**, not this group | nothing in `…/journal` the directory, the seal or the archive |
+| `discordbot` *(existing)* | **`freedomweb`** — `discordbot` is the account's primary group and does not appear in this explicit-member relation | group write on the repository worktree — observation **H-1**, a pre-existing condition raised as D5.0-12 / OD-65 item 3 | nothing under `/var/lib/freedom-sheet-writer`, `/opt/freedom-blades/coordinator` or `/etc/freedom-blades`; **and nothing the deploy step reads** (§2.12.5a) |
 | `sudo` *(existing)* | `foundry` | the two `Cmnd_Alias` entries §2.12.4 and §2.13.7 define, each with a fixed absolute executable and no `NOPASSWD` | nothing else by these drop-ins. Whether some *other* rule in `/etc/sudoers.d/` widens it is check **C-1**, **still not run** (§8.1) |
-| `fbprobe` *(disposable)* | `fbprobe` | nothing. It is not in `freedomjournal` or `freedomcoord`, which is what makes `JNL-50` case 8's `EACCES` attributable | — |
+| `users` *(existing; inverse row completed by the R9 ruling)* | `foundry` — and nobody else | the existing supplementary membership already stated by the `foundry` identity row | no Package 5.0 filesystem, database or identity-transition authority |
+| **`postgres`** *(existing; added by the R7 amendment, member list corrected by the R8 amendment)* | **none** — it is the `postgres` account's *primary* group, so its `getent group` fourth field is empty, and no other identity in this table names it as a supplementary group | ownership of the cluster's data directory and of `/var/run/postgresql`, which is observation **H-3** and is how the server reaches its own socket | nothing under `/var/lib/freedom-sheet-writer`, `/opt/freedom-blades/coordinator` or `/etc/freedom-blades`; no membership of `freedomjournal` or `freedomcoord`; and **no `sudo` rule** |
+| **`ssl-cert`** *(existing; added by the R7 amendment)* | `postgres` — and nobody else | read of the server's TLS private key under `/etc/ssl/private`, which is the reason the account holds the membership at all | nothing in this package's hierarchy and no database privilege. It is recorded here because this table is the only place a membership may be stated, **not** because this package grants it |
+| `fbprobe` *(disposable)* | **none** — `fbprobe` is the account's primary group, not an explicit membership | nothing. It is not in `freedomjournal` or `freedomcoord`, which is what makes `JNL-50` case 8's `EACCES` attributable | — |
 
 **Which provisioned identity each evidence identity is.** §2.13.5c's `E1 … E8`
 are launched by a root harness, and three of them correspond to **no** provisioned

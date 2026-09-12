@@ -5,6 +5,17 @@ append-only; a correction adds a new entry that supersedes an earlier one.
 
 | Version / change | Date | Requester | Summary | Scope / schedule / risk effect | Reviews | Approval |
 |---|---|---|---|---|---|---|
+| **C-P5.0-LAB-R** | 2026-09-11 | Claude, as assigned implementer under C-P5.0-LAB-1 | Returns the bounded reserved-laboratory remediation: separate CRP fix PR-20260910-R2-1, three C-7 producer dispositions with bounded local evidence-only producers, and the whole-host reservation/admission/release decision mechanism | [Handback](../review/phase-5-0-reserved-laboratory-handback.md) and submitted, unaccepted [privileged-runner contract](../review/phase-5-0-reserved-laboratory-runner-contract.md). **Permission delta zero** — no new privileged writer, verb, syscall, sudoers rule, capability or identity; the EH-R16-1 remedy's exact diff (four descriptor-relative verbs, four syscalls, an unprivileged lock adapter, a verify-and-write restore) is submitted, not built. Two new planning-tier modules, declared in `COVERED_SOURCES`, the no-execution tier table and the `tests/web` scope guard. `COVERED_SOURCES` 32 → 34; review-input digest now `bbb3854fbdffae00696544465f1cd7bbdf22ad18583056490a6735444800e4fa`, review input only. New finding **LAB-1** reported and not repaired; new risk **LAB-R5** recorded and not accepted. One decision submitted: **D-LAB-1**, the readiness-versus-implementation criterion split for `JNL-47-RECOVERY-STATE`, with a recommendation and not adopted. No scope, authority, privacy, architecture, data-ownership, release-criteria, phase-order or target-range change, so **no new baseline version** under §0.2 | Local synthetic tests with injected effects, `TEST_DATABASE_URL` unset, bot/web serial, verified fallback interpreters: structural 205; ownership reproduction 16; new focused 87; skills 83; harness 1490; bot 3016 passed / 326 skipped; web 1610 passed / 1362 skipped; Foundry 171 passed. Manifest regenerated twice through the non-executing path, byte-identical, 34 covered hashes independently recomputed with zero mismatches. `compileall` and `git diff --check` passed. **No formatter, linter or type checker is configured in this repository** — unconfigured tooling, not a passed check. Every skip is an unverified assertion; the canonical database-enabled web figure is 80 skips, not 1362 | **Returned to Codex for technical review. Nothing accepted, no finding closed, no criterion split adopted, no digest approved for execution, no host touched.** Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; EH-R16-1 Open; `is_executable=False`; migration 0014, deployment, cutover and Package 5.1+ unauthorized |
+| **C-P5.0-LAB-1** | 2026-09-10 | Peter Duscha, in conversation | Authorizes proceeding with exclusive reservation of the disposable laboratory, trusted host administrators and scoped adversarial cases after Codex assesses repercussions; requests documentation and Claude remediation handoff | [Direction and impact assessment](../review/phase-5-0-reserved-laboratory-direction.md). Defers VM expansion from Package 5.0's critical path. Bounded local admission/evidence work and separate CRP fix; no product architecture, schema, authority or recovery criterion change. Reservation reduces shared-host availability; orphaned processes, recovery custody and synthetic-versus-product evidence remain explicit obligations. No completion date promised | Codex recommends this direction; Claude returns one consolidated handback for independent review. New privileged interfaces and any required criterion split remain subject to their existing reviews/decisions | **Direction and bounded local remediation authorized by Peter's instruction to proceed.** No host reservation claimed, operational action/digest approved, residual accepted or finding closed. Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open. ADR 0011 Proposed and deferred from current work |
+| **C-AGENT-1** | 2026-09-10 | Peter Duscha, in conversation | Modularizes the agent working agreement into procedural skills and enforced guards, and makes the long roadmap readable by section instead of in full | **No rule changed.** `.agents/AGENTS.md` is kept whole and remains the single source: it is cited by path from 29 source files and 157 documents, and `docs/implementation-plan.md` is cited by section number from 126 documents, so **neither was split**. Added four skills under `.claude/skills/` (`run-suites`, `handoff-checklist`, `migration-staging`, `rules-sourcing`) that cite the governing documents rather than restating them; two `PreToolUse` guards under `.claude/hooks/` enforcing the secrets rule and refusing Git history rewrites and default-branch publication, with 31 tests; a reading map at the top of the plan; and cross-references from both entry points, the plan §16 and the disposable-server document. No always-applicable rule was moved into a skill. No scope, authority, privacy, architecture, data-ownership, release-criteria, phase-order or target-range change, so **no new baseline version** under §0.2 | Recorded as a clarification under plan §0.2, which requires a dated change-log entry and no new baseline. Guard tests pass, 19 refused and 12 allowed | **Authorized by Peter Duscha in conversation on 2026-09-10.** Tooling and documentation only. No package gate, finding, risk or decision is changed; Package 5.0 remains not ready, P5.0-R5 Blocking, OD-62 Open |
+| **C-P5.0-VM-R** | 2026-09-10 | Claude, as assigned independent reviewer | Delivers the independent design review of ADR 0011 and the VM lifecycle design requested in C-P5.0-VM-H | [VM evidence boundary independent review](../review/phase-5-0-evidence-vm-independent-review.md). Disposition **changes requested**: five Blocking (VM-1 exclusive-controller premise contradicted by the candidate host; VM-2 registry publication re-instantiates PR-20260910-1; VM-3 disposal by an unpinned volume key; VM-4 design §10's guest-root row unsatisfiable; VM-5 the old executor is not disabled), ten Important, three Optional. Recommends completing Package 5.0 evidence on the approved disposable target with the bounded C-8 revision 3 §9.2 mechanism and holding ADR 0011 as a later slice. New risks VM-R4/R5/R6 recorded, none accepted. Documentation only; no source, generated artifact, manifest, environment or operational state changed | Codex revises the design and ADR 0011 against VM-1 … VM-5, documentation only, then returns for the review §G decisions | **Review returned; nothing accepted or decided.** ADR 0011 remains Proposed. Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; EH-R16-1 and PR-20260910-1/2/3 Open; `is_executable=False`; no execution digest approved; migration 0014, deployment, cutover and Package 5.1+ unauthorized |
+| **C-P5.0-VM-H** | 2026-09-10 | Peter Duscha | Requests an explicit Claude prompt in Handover information and consistent current documentation | Assigns Claude the independent review of Codex's proposed ADR 0011/VM design. Aligns roadmap, status, package-plan, decision and risk pointers. Historical records preserved. No effective architecture, scope, schema or operational-authority change | Review pending; prescribed output is `phase-5-0-evidence-vm-independent-review.md` | **Review/documentation task authorized.** VM architecture, privileges, target and budgets remain proposed; no implementation or execution authorized |
+| **C-P5.0-VM-P** | 2026-09-10 | Peter Duscha, in conversation; Codex as proposal author | Authorizes preparation of a simpler ownership/recovery alternative, including reconsidering process-per-step structure. Codex submits [ADR 0011](../adr/0011-disposable-vm-evidence-boundary.md) and [VM lifecycle design](../review/phase-5-0-evidence-vm-design.md) | Proposed fresh synthetic VM per run, external allocation/disposal and separate experiment results. Material outer-harness cleanup and management-surface changes remain unaccepted. Rough new-slice estimate O/ML/P 4/7/12 implementer-days, low confidence; feasibility, host acquisition and C-7 producers excluded. No baseline change effective, no host or implementation action authorized | Independent review required by someone other than Codex, the author. September 10 findings and EH-R16-1 remain open | **Design preparation authorized; architecture, interface expansion, target, resource/retention budget and risk acceptance NOT decided.** Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; no execution digest approved |
+| **C-P5.0-AI** | 2026-09-09 | Independent Reviewer (Codex) | R16 review and bounded remediation handoff | No baseline or gate change. EH-R16-1/2 Blocking; EH-R16-3/4 Important. Preserve existing remediation and later read-only preflight authorization; no execution digest approved. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open | [R16 review](../review/phase-5-0-evidence-harness-r16-independent-review.md); full remediation prompt in [Handover information](../review/Handover%20information). Independent 193 structural and 1335 synthetic tests passed; generated artifacts matched; no host/database execution | **Changes requested; independent re-review required.** This records review disposition, not package acceptance or new execution authority |
+| **C-P5.0-AH** | 2026-09-06 | Peter Duscha / Acceptance Authority | Rule evidence-harness C-2 runtime: Option B, explicit Python interpreter | Accept an explicitly named documented Python 3.12 interpreter in each exact reviewed case-program vector, invoked with `-I -S`. Case source and installed bytes remain identical and manifest-covered; preflight pins absolute path, version and executable SHA-256; mismatches fail closed as `inconclusive`. No arbitrary Python vector, third-party package or site initialization is permitted. Reject the shebang option because it hides the actual executable and invalidates P-03/P-04's subject; reject on-target compilation because generated bytes cannot be pinned before execution. Authorizes bounded R11 remediation of C-2, dependent C-3 and C-5 only. No execution, SSH, host/database mutation, destructive drill, Package 5.0 implementation, migration `0014`, deployment, cutover, OD-62 ruling or Package 5.1+ work | Codex independent review of R10 C-1/C-4 and runtime options; focused C-1/C-4/concrete-plan/no-execution selection: **273 passed**. R11 implementation and a separate Codex pre-execution review remain required | **Option B approved by Peter Duscha 2026-09-06; bounded R11 remediation authorized; no execution authority** |
+| **C-P5.0-AG** | 2026-09-06 | Peter Duscha / Acceptance Authority | Close evidence-harness R9 findings and rule concrete-plan conflict C-1 | **EH-R8-2 and DS-R8-2 are Closed** after Codex's independent review of the R9 implementation. For concrete-plan conflict C-1, accept the harness-created disposable target root as an exact permitted mutation/cleanup target in addition to its descendants. The exception is confined to a root that passes the existing `fb-evidence-*`, absolute-path, forbidden-ancestor and minimum-depth validation; cleanup remains non-recursive `rmdir`, so unexpected content produces reported residue rather than deletion. This does not admit `/`, the repository root, `/var/lib`, a production path, a variable, a glob or an arbitrary sibling. C-2 through C-5 remain implementation conflicts. No evidence check is run or passed, no assumption is confirmed, and no execution authority is granted; Package 5.0 remains `not ready` and P5.0-R5 remains Blocking | Codex independently reran the R9 focused and full suites, generated-artifact checks and dry run: 564 harness, 623 web-focused, 56 non-destructive backup/layout, 3147 bot with seven destructive cases deselected, 2840 web with 80 expected skips, 171 Foundry, clean `compileall`/diff; dry run 64 steps, 39 mutations, 42 cleanup, 16 unresolved, `executable: False`, digest `a3b59f2e7075c8fdc9941f1f4b062329bfc10b0232aae33daa0d9e348ad0e165` | **R9 findings closed and C-1 ruled by Peter Duscha 2026-09-06. Bounded C-2…C-5 remediation authorized; separate Codex pre-execution review and later explicit execution authorization still required** |
+| **C-P5.0-AE** | 2026-09-06 | Peter Duscha / Acceptance Authority | Rule evidence-harness finding **EH-R6-1**: the `postgres` operating-system account's permitted membership | **Option A accepted on Codex's recommendation.** Package-plan **§2.12.2** gains exactly one `postgres` row — primary group `postgres`, complete supplementary set **exactly `ssl-cert`** — with `ssl-cert` and `postgres` inverse group rows for consistency. The account is an **existing host identity**: this package does not provision, modify or own it, and the row states what is *permitted*, so a host that differs refuses rather than passes. The shell, password and home columns are recorded as **not asserted**, the ruling having covered the membership alone. **No other identity changes**, no Package 5.0 scope widens, no assumption is confirmed, no finding other than EH-R6-1's blocked half is addressed, and **no execution authority is granted**: Package 5.0 remains `not ready`, P5.0-R5 remains Blocking, and the evidence run still requires independent Codex pre-execution review and separate maintainer authorization | Codex independently reviewed R6 and recommended Option A without selecting the set; the set is the maintainer's ruling. R7 regressions and the regenerated concrete plan and review manifest are in `docs/review/phase-5-0-evidence-harness-implementation-handback.md` §R7 | **Ruled by Peter Duscha 2026-09-06; returned to Codex for independent pre-execution re-review** |
+| **C-BOT-01** | 2026-09-05 | Gemini / Maintainer | Live Freedom bot crafting defect fix — Herbalist/Herbalism alias resolution | Resolves vocabulary mismatch between Sheet column X ("Expert Herbalist") and column Y / /craft dropdown ("Herbalism Kit") by normalising aliases in `Skills._clean_tool_name()`; adds regression tests in `tests/test_skills.py`; declares `PERMITTED_LIVE_BOT_DEFECT_FIXES` in `tests/web/test_p3_4_static_assets.py`; restarts `freedom-bot` service. No schema, database, migration, or package scope effect | 49 skills unit tests passed; static assets scope guard test passes; live service restarted | **Approved by Maintainer 2026-09-05; submitted for review in `docs/review/live-bot-herbalist-crafting-defect-fix-review.md`** |
 | **C-P5.0-AD** | 2026-09-02 | Codex / Security Reviewer | Reconcile the operational runbook and issue Claude's evidence-harness implementation prompt | Corrects the runbook's A-5.0-3/A-5.0-4 inversion; replaces the circular package-gate prerequisite with the approved evidence-only exception; separates synthetic facsimiles from migration `0014` and production objects; and requires Claude to stop for Codex pre-execution review after implementing and testing the isolated harness and exact cleanup plan. No assumption, finding, residual or package gate closes | Documentation consistency and `git diff --check`; privileged evidence not run | **Implements C-P5.0-AC's already-approved authorization; grants no additional authority** |
 | **C-P5.0-AC** | 2026-09-02 | Peter Duscha / Operations Owner and Acceptance Authority | Authorize bounded Package 5.0 pre-implementation evidence harness | Resolves the readiness/evidence sequencing circularity through a narrow exception: synthetic disposable scaffolding and privileged evidence collection only, executed by Claude after Codex pre-execution review. All draft exclusions and stop conditions bind. Does not authorize migration `0014`, product implementation, production mutation, deployment, cutover, OD-62 or Package 5.1+ | Codex read-only preflight and authorization draft; independent evidence review still required | **Approved by Peter Duscha 2026-09-02** |
 | **C-P5.0-AB** | 2026-09-02 | Peter Duscha / accountable package roles | Approve OD-64 A, OD-65 B and OD-66 A/J-1; record provisional OD-62 G-A direction | Adopts the dedicated coordinator boundary; Sheet-writer isolation, credential relocation, bot hardening, canonical membership and provenance controls; and the full durable sealed/registered journal contract. The group-writable worktree correction is deferred to a separate maintenance change and may not supply deployment inputs. OD-62 remains Open pending P5.0-R5 operational evidence and independent review. Residuals R-5.0-12 through R-5.0-16 are not silently accepted. No implementation, migration, host/database mutation, deployment or cutover is authorized | Revision-12 security design review already delivered; operational and P5.0-R5 review evidence remains outstanding | **OD-64/65/66 approved by Peter Duscha 2026-09-02; OD-62 not ruled** |
@@ -9442,6 +9453,101 @@ planning only.**
 - **Recommendation:** changes requested; complete R10 and return revision 11
   for independent re-review.
 - **Acceptance Authority decision:** not requested or granted.
+
+## C-P5.0-AF — explicit group-inverse representation correction approved
+
+**Date:** 2026-09-06 · **Requester:** Codex independent review · **Status:**
+**approved for bounded documentation and evidence-harness remediation.**
+
+- **Affected requirement, milestone and release:** Package 5.0 readiness,
+  JNL-52 membership evidence and P5.0-R5. No product implementation or release
+  boundary changes.
+- **Reason and alternatives considered:** after R8 correctly defined the group
+  inverse as the fourth field of `getent group`, four older rows still treated
+  primary-group membership as explicit membership. Leaving them unchanged was
+  rejected because it makes JNL-52 fail on the host configuration the package
+  itself specifies. Adding redundant explicit memberships on the host was
+  rejected because it would alter authority to satisfy an incorrect model.
+- **Decision:** Peter Duscha accepted Codex's recommendation on 2026-09-06. The
+  exact explicit-member sets are `freedomcoord = {}`, `freedomsheet = {}`,
+  `discordbot = {freedomweb}`, and `fbprobe = {}`. Primary groups and complete
+  supplementary-group sets remain exactly as already recorded. This is a
+  representational correction, not an account-membership change. Peter also
+  accepted Codex's follow-up recommendation on 2026-09-06 that the previously
+  missing inverse row for the existing `foundry -> users` supplementary
+  membership is `users = {foundry}`. That row completes an already-authoritative
+  relation and grants no new membership.
+- **Added/removed scope:** authorize only the corresponding canonical inverse
+  rows, the `users = {foundry}` inverse row, consistency guard/tests, generated evidence artifacts and handback
+  documentation. Remove the temporary reported-defect hold after tests prove
+  the corrected relation. No host or account mutation is authorized.
+- **Dependency and critical-path effect:** resolves the policy decision needed
+  to remediate EH-R8-2. P5.0-R5 remains Blocking and Package 5.0 remains not
+  ready pending remediation, independent re-review and operational evidence.
+- **Estimate/forecast and capacity effect:** bounded remediation only; no
+  accepted package estimate or forecast changes.
+- **New or changed risks:** removes the known false-negative JNL-52 model once
+  implemented and reviewed. It accepts no residual risk and changes no
+  privilege grant.
+- **Testing, migration, security and operational effect:** focused tests must
+  prove the inverse contains explicit members only, the account table still
+  carries primary and complete supplementary groups, and the manifest digest
+  changes with the corrected source. No migration, database mutation, SSH,
+  privileged command or harness execution is authorized.
+- **Product Owner recommendation:** apply the four exact representational
+  corrections and return them for independent pre-execution review.
+- **Technical Lead and specialist reviews:** Claude may implement the bounded
+  R9 remediation; Codex remains the required Independent and Security Reviewer.
+- **Acceptance Authority decision:** **approved by Peter Duscha on 2026-09-06.**
+  This approval closes the representation-policy decision only. It does not
+  close EH-R8-2 by itself or authorize Package 5.0 implementation or execution.
+
+## C-P5.0-AG — R9 accepted; the disposable target root is a permitted exact target
+
+**Date:** 2026-09-06 · **Requester:** Codex independent review and Peter Duscha
+acceptance · **Status:** **approved for bounded evidence-harness remediation.**
+
+- **Affected requirement, milestone and release:** Package 5.0's authorized
+  pre-implementation evidence harness and P5.0-R5. No product or release
+  requirement changes.
+- **Reason and alternatives considered:** the R9 corrections for EH-R8-2 and
+  DS-R8-2 passed independent review and both findings are Closed. The remaining
+  concrete-plan C-1 question was whether a run may create and remove the exact
+  disposable root it owns, or whether an operator must pre-create that root.
+  Requiring pre-creation was rejected because it adds an unnecessary manual
+  state transition without narrowing the already-validated target. Accepting an
+  arbitrary root was rejected.
+- **Decision:** the harness may target the exact disposable root as well as its
+  descendants only when `DisposableTarget` has already validated an absolute
+  `fb-evidence-*` root at the required minimum depth and outside every forbidden
+  ancestor and production/repository path. The special case applies only to
+  creating that root and reversing it with non-recursive `rmdir`. It does not
+  weaken the descendant checks or authorize recursive cleanup. If the root is
+  non-empty, cleanup refuses/leaves residue for explicit recovery.
+- **Added/removed scope:** C-1 is resolved. Claude may implement only the
+  bounded mechanisms needed to resolve C-2 through C-5, their tests, generated
+  dry-run artifacts and handback documentation. No evidence execution, SSH,
+  host inspection, privileged command, database drill, Package 5.0 product
+  implementation, migration, deployment or cutover is added.
+- **Dependency and critical-path effect:** removes one pre-execution design
+  decision. C-2 through C-5, a further independent Codex pre-execution review,
+  and explicit maintainer execution authority remain on the evidence path.
+- **Estimate/forecast and capacity effect:** bounded harness remediation only;
+  no accepted package estimate or forecast changes.
+- **New or changed risks:** no production exposure is added. The remaining risk
+  is local disposable residue after a failed non-recursive cleanup, which is
+  deliberately visible and recoverable.
+- **Testing, migration, security and operational effect:** tests must prove the
+  exact-root exception cannot admit a broad, shallow, unresolved, production,
+  repository, sibling or descendant-escape target and that cleanup is `rmdir`
+  only. Generated artifacts remain dry-run review material until separately
+  approved. No migration or operational evidence run is authorized.
+- **Product Owner recommendation:** finish C-2 through C-5 under the smallest
+  reviewable mechanisms, then stop for independent pre-execution review.
+- **Technical Lead and specialist reviews:** Claude may implement the bounded
+  remediation; Codex remains the required Independent and Security Reviewer.
+- **Acceptance Authority decision:** **approved by Peter Duscha on 2026-09-06.**
+  This closes EH-R8-2, DS-R8-2 and C-1 only. It is not execution authority.
 
 ## Required fields for later entries
 

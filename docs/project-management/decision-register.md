@@ -1,5 +1,80 @@
 # Decision register
 
+## Open decision submitted — criterion split for `JNL-47-RECOVERY-STATE`, 2026-09-11
+
+**D-LAB-1. Open. Not decided, not assumed, and not pre-approved by the laboratory
+direction.** Claude's [handback](../review/phase-5-0-reserved-laboratory-handback.md) §3.4
+submits the exact readiness-versus-implementation split for the one C-7 case that
+cannot be meaningful without gated product code:
+
+* **Option A (recommended)** — clauses 1–5 (exit status, §2.13.2b state, safe
+  residue path reporting, next-run refusal, named operator recovery) stay a
+  **readiness** criterion under P5.0-R5; clauses 6–7 (generation absence,
+  database-row absence) become an **implementation acceptance** criterion at the
+  Package 5.0 gate, because they are only observable once a coordinator can
+  create a generation to be absent.
+* **Option B** — no split. P5.0-R5 then cannot close before Package 5.0
+  implementation, and implementation cannot start before P5.0-R5 closes. The
+  circularity is stated rather than worked around.
+
+Neither option reduces a requirement. Codex reviews the split; Peter decides in
+the Acceptance Authority role. Until then the case stays declared unresolved and
+the requirement stays in force in full.
+
+**LAB-1's severity classification** is also outstanding and belongs to Codex.
+Claude proposes Important and does not classify its own finding.
+
+## Reserved laboratory remediation returned — C-P5.0-LAB-1, 2026-09-11
+
+The bounded local remediation is complete and returned for technical review. It
+decided nothing: no OD moved, no residual was accepted, no finding was closed and
+no criterion was changed. The permission delta is zero and the EH-R16-1 remedy is
+submitted rather than built. VM-D1/2/3 and ADR 0011 remain deferred and Proposed.
+
+## Current laboratory direction — C-P5.0-LAB-1, 2026-09-10
+
+Peter authorized proceeding with the [reserved disposable laboratory direction](../review/phase-5-0-reserved-laboratory-direction.md)
+and bounded local remediation following Codex's repercussions assessment. Host
+administrators are trusted; unrelated work is excluded during the reservation;
+experimental adversaries retain their explicitly tested powers. This is not a
+claim that a host lock constrains root or that reservation is already enforced.
+
+VM-D1/2/3 and ADR 0011 are deferred from the current Package 5.0 work, not accepted
+or closed. Their historical review remains below. Next action is the
+[Claude remediation prompt](../review/phase-5-0-reserved-laboratory-claude-prompt.md).
+No new host inspection, privileged interface or execution digest is approved.
+The three missing producer dispositions must distinguish feasibility from future
+product evidence; any necessary readiness criterion split requires a concrete
+maintainer decision. Production OD decisions and open package gates are unchanged.
+
+## Proposed evidence-harness decisions — 2026-09-10
+
+The maintainer authorized preparation of the VM alternative and requested the
+explicit Claude review handover. **Only preparation and independent design
+review are authorized.** [ADR 0011](../adr/0011-disposable-vm-evidence-boundary.md)
+and [design §11](../review/phase-5-0-evidence-vm-design.md) await Claude's
+recommendation. These local proposal IDs do not renumber existing OD decisions.
+
+| Proposal | State / decision owner | Required before |
+|---|---|---|
+| VM-D1 — whole-guest outer harness ownership/cleanup contract | Proposed, unaccepted / Peter, after Claude review | Implementing the alternative; does not replace production recovery evidence |
+| VM-D2 — management surface, candidate host and exact feasibility scope | Proposed, unaccepted / Peter as Operations Owner | New host inspection, provisioning, image build or VM creation; none performed |
+| VM-D3 — external trust boundary, capacity and retention limits | Proposed, unaccepted / Peter with independent security recommendation | Baseline and execution approval |
+
+Claude's prompt is [Handover information](../review/Handover%20information).
+No proposal accepts a residual, closes EH-R16-1 or changes OD-62's Open state.
+Package 5.0 remains not ready. Existing decisions below remain binding.
+
+**Review returned 2026-09-10 — changes requested; nothing decided.**
+[`VM evidence boundary independent review`](../review/phase-5-0-evidence-vm-independent-review.md)
+recommends **deferring VM-D1**, narrowing any VM-D2 authorization to a read-only
+host inspection whose first question is whether a sole-controller host exists, and
+holding **VM-D3 not ready to decide** until VM-1, VM-2, VM-3 and VM-6 are corrected.
+It also raises one new item for Codex technical acceptance: an unconditional
+executor refusal keyed to EH-R16-1 rather than to target facts (VM-5).
+The review decides nothing and accepts no residual on Peter's behalf; ADR 0011
+remains **Proposed**.
+
 **Current decision update, 2026-09-02.** Peter Duscha approved **D5.0-11 /
 OD-64 Option A**, **D5.0-12 / OD-65 Option B**, and **D5.0-13 / OD-66 Option
 A / J-1** in all accountable roles. The dedicated coordinator boundary, the

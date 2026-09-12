@@ -256,6 +256,13 @@ class Skills:
             return first_word[:-2]
         if first_word.endswith("'") or first_word.endswith("’"):
             return first_word[:-1]
+        fw_lower = first_word.lower()
+        if fw_lower in ("herbalist", "herbalism"):
+            return "Herbalism"
+        if fw_lower in ("forger", "forgery"):
+            return "Forgery"
+        if fw_lower in ("thief", "thieves"):
+            return "Thieves"
         return first_word
 
     def _parse_item_level(self, item: str) -> Tuple[str, str | None]:
@@ -385,18 +392,10 @@ class Skills:
             # Nothing to record, and no reason to rewrite the cell.
             return self.get_tool_crp(tool_name)
 
-        equivalent = [k for k in self.crp_dict if self._clean_tool_name(k).lower() == clean_search]
-        total = earned
-        for key in equivalent:
-            value = self.crp_dict[key]
-            try:
-                total += float(value)
-            except (TypeError, ValueError) as exc:
-                # Refuse before mutating anything, so a value that cannot be read
-                # is never replaced by one that ignores it.
-                raise ValueError(
-                    f"Existing crafting reputation for '{key}' is not a number: {value!r}."
-                ) from exc
+        equivalent = self._equivalent_crp_keys(clean_search)
+        # Refuse before mutating anything, so a value that cannot be read is
+        # never replaced by one that ignores it.
+        total = self._sum_crp_entries(equivalent) + earned
 
         target_key = equivalent[0] if equivalent else clean_search
         for duplicate in equivalent[1:]:
@@ -405,15 +404,61 @@ class Skills:
         self.crp_modified = True
         return total
 
+    def _equivalent_crp_keys(self, clean_search: str) -> List[str]:
+        """Every column-W entry that names the tool `clean_search` identifies.
+
+        One place decides which stored entries belong to a tool, so a read and a
+        write can never disagree about that set. They did: get_tool_crp()
+        returned the first match while add_tool_crp() summed them all, so a cell
+        holding "60 (Herbalist), 50 (Herbalism)" read as 60 and became 111 when
+        one point was earned (PR-20260910-R2-1). The alias table makes those two
+        spellings one tool, and one tool holds one total.
+
+        The identity rule is _clean_tool_name()'s, which both callers already
+        used for lookup, so this widens nothing: it is the existing bridge
+        applied consistently rather than a new one. Entry keys are left alone --
+        this is a read, and OD-06 keeps free-text column W unmerged on disk until
+        reputation is actually awarded for the tool.
+        """
+        return [
+            key
+            for key in self.crp_dict
+            if self._clean_tool_name(key).lower() == clean_search
+        ]
+
+    def _sum_crp_entries(self, keys: List[str]) -> float:
+        """Total the given column-W entries, refusing any value that is not one.
+
+        Raises ValueError rather than skipping an unreadable entry, so no caller
+        can produce a total that quietly omits reputation the character earned.
+        get_tool_crp() catches it and reports 0.0, which is what a single
+        unreadable entry has always read as.
+        """
+        total = 0.0
+        for key in keys:
+            value = self.crp_dict[key]
+            try:
+                total += float(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Existing crafting reputation for '{key}' is not a number: {value!r}."
+                ) from exc
+        return total
+
     def get_tool_crp(self, tool_name: str) -> float:
-        """Return the crafting reputation accumulated for one tool."""
+        """Return the crafting reputation accumulated for one tool.
+
+        Every equivalent entry counts, because add_tool_crp() folds every
+        equivalent entry into the total it writes. The read is pure: nothing is
+        consolidated, renamed or persisted here, and crp_modified is untouched.
+        """
         clean_search = self._clean_tool_name(tool_name).lower()
-        for name, value in self.crp_dict.items():
-            if self._clean_tool_name(name).lower() == clean_search:
-                try:
-                    return float(value)
-                except (TypeError, ValueError):
-                    return 0.0
+        equivalent = self._equivalent_crp_keys(clean_search)
+        if equivalent:
+            try:
+                return self._sum_crp_entries(equivalent)
+            except ValueError:
+                return 0.0
         # Sheets predating per-tool tracking hold a single untagged total, which
         # records no tool. Returning it for any requested tool preserves the
         # behaviour those characters have today, but rules 6.3.3.1 (PDF p.17)

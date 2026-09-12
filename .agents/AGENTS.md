@@ -19,6 +19,32 @@ silently choosing one.
 The root `AGENTS.md` and `CLAUDE.md` files are discovery entry points. This
 file is the canonical working agreement and must not be bypassed.
 
+### Skills and enforced guards — aids, never authority
+
+Agents that support them additionally load four procedural skills under
+`.claude/skills/` and two `PreToolUse` guards under `.claude/hooks/`, registered
+in `.claude/settings.json`. Three rules govern them, and they are not
+negotiable.
+
+1. **This file remains the single source.** A skill **cites** this document and
+   `docs/implementation-plan.md`; it does not restate a rule as a second
+   authority. Where a skill and this file disagree, this file wins and the
+   disagreement is a defect to report, not a choice to make.
+2. **No always-applicable rule may live in a skill.** A skill applies only when
+   it is invoked, so a rule placed in one is a rule that silently did not apply
+   on the run that forgot it. Product invariants, secrets rules, gate
+   discipline, the Discord-versus-Freedom-bot distinction and the two
+   test-environment traps in "Running the suites" stay here, in force always.
+3. **An agent without skill or hook support is held to the same agreement.**
+   The tooling is a convenience for one client. It creates no second standard
+   and excuses nothing.
+
+The four skills are `run-suites`, `handoff-checklist`, `migration-staging` and
+`rules-sourcing`. The two guards refuse secret-file access and Git history
+rewrites, and refuse commits and pushes on the default branch; a guard refusal
+is a stop condition, not an obstacle to route around. Their tests are
+`python3 .claude/hooks/test_guards.py`.
+
 ## Product context and direction
 
 The Freedom Blades Platform supports the Freedom Blades Discord community. Its
@@ -524,11 +550,18 @@ external media services. Do not use real player data or credentials in fixtures.
 Two facts about this repository make it easy to produce a green run that proves
 nothing. Both are load-bearing; state them in any evidence that cites a figure.
 
-**The test interpreters are not in the repository.** `./venv` and `./venv-web`
-are the *runtime* environments and have no pytest installed. The suites run
-under `/opt/discord-bots/venv` (bot) and `/opt/discord-bots/venv-web` (web), a
-survival of the filesystem migration. `./venv-web/bin/python -m pytest` reports
-`No module named pytest`; that is the wrong interpreter, not a broken suite.
+The `run-suites` skill carries this procedure for agents that support skills.
+It cites this section and does not replace it.
+
+**The repository and test environment have different paths.** Work in
+`/opt/freedom-blades/platform`. The documented disposable test environment is
+`oracle-test`, where the Python interpreter is
+`/opt/freedom-blades/runtime/venv-web/bin/python` for both bot and web suites.
+Do not use the historical `/opt/discord-bots/` environments as the default test
+setup. Interpreter paths on one host do not establish their availability on
+another. Follow `docs/operations/disposable-test-server.md` for synchronization,
+dependencies and execution; a missing pytest is an environment problem, not a
+broken suite.
 
 **`TEST_DATABASE_URL` must be exported**, naming the Unix-domain socket:
 `postgresql+psycopg:///freedom_test`. Without it every database-marked test
@@ -539,16 +572,32 @@ a pass: the correct figure is **80**, and `-rs` prints the reason for each.
 Run the two suites **serially**. They share one disposable database (finding
 F-6), so a parallel run is not a faster verification — it is a different one.
 
-```
+After synchronizing the current workspace using that document's secret-excluding
+procedure, run the following **on `oracle-test`**, from the repository directory:
+
+```bash
+cd /opt/freedom-blades/platform
+export PATH='/usr/lib/postgresql/16/bin:/usr/bin:/bin'
 export TEST_DATABASE_URL='postgresql+psycopg:///freedom_test'
-/opt/discord-bots/venv/bin/python     -m pytest -q -rs tests/test_*.py
-/opt/discord-bots/venv-web/bin/python -m pytest -q -rs tests/web
+/opt/freedom-blades/runtime/venv-web/bin/python -m pytest -q -rs tests/test_*.py
+/opt/freedom-blades/runtime/venv-web/bin/python -m pytest -q -rs tests/web
 node --test "foundry-module/tests/"*.test.mjs
 ```
+
+These environment instructions do not override a task-specific restriction on
+SSH, host inspection, database operations or destructive tests. When such a
+restriction applies, report the checks not run and the reason.
 
 Re-run the full set against the tree you are actually submitting. A figure
 carried over from an earlier tree is an assertion about a state that no longer
 exists.
+
+### Disposable Linux Test Server (`oracle-test` / `138.2.182.39`)
+
+A dedicated, explicitly disposable Linux test server (`oracle-test` / `138.2.182.39`)
+is available with administrative access for isolated test execution and system drills.
+See canonical [`docs/operations/disposable-test-server.md`](../docs/operations/disposable-test-server.md)
+for environment specifications, safe synchronization procedures, and test execution commands.
 
 ## Contributor and agent workflow
 
@@ -577,7 +626,8 @@ While editing:
 - never bypass authorization, validation, audit logging, or failing checks to
   make a feature appear complete.
 
-Before handing off:
+Before handing off — the `handoff-checklist` skill carries this list and the
+plan's §16.3 report contents together, and does not replace either:
 
 1. run narrow relevant tests, then the full available suite;
 2. run configured formatting, linting, and type checks;

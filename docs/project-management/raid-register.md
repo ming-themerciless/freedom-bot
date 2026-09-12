@@ -1,5 +1,65 @@
 # RAID register
 
+## Reserved laboratory remediation returned — C-P5.0-LAB-1, 2026-09-11
+
+Claude's [handback](../review/phase-5-0-reserved-laboratory-handback.md) and the
+submitted [runner contract](../review/phase-5-0-reserved-laboratory-runner-contract.md)
+move the LAB entries below without closing any of them. Nothing here is accepted.
+
+| Local ID | Type / owner | State and treatment |
+|---|---|---|
+| LAB-R1 | Risk / Operations Owner | **Partially treated, not closed.** The cooperative-admission decision mechanism and the writer inventory are implemented and tested (`tools/phase_5_0_evidence/reservation.py`, 41 injected cases); the lock **adapter** is proposed and not built, so no reservation is enforced yet. The no-malicious-root claim is stated in `LOCK_LIMITS` and asserted by a test. |
+| LAB-R2 | Risk / Technical Lead | **Treated in decision, not in enforcement.** Quarantine has no outgoing transition, recovery never resumes a reservation, an expired deadline moves a run to `recovering` and authorizes no takeover, and release requires observed child-process termination and settled transactions with `None` treated as `False`. Enforcement still needs the lock adapter and the EH-R16-1 remedy. |
+| LAB-R3 | Risk / Security Reviewer | **Open and unchanged.** Reservation does not close EH-R16-1: the handback and contract §0 state that the run's own experimental writers remain able to substitute objects. The unconditional real-execution refusal is retained. |
+| LAB-D1 | Dependency / Technical Lead and Acceptance Authority | **Analysed; one split submitted.** All three C-7 cases have bounded local producers establishing feasibility only, and all three remain declared unresolved. `JNL-47-RECOVERY-STATE` cannot be meaningful without gated product code; the exact criterion split is submitted with a recommendation in handback §3.4 and is **not adopted**. |
+| LAB-D2 | Dependency / Codex and Operations Owner | **Unchanged.** Twelve target facts remain unconfirmed and were not populated. The later read-only preflight remains assigned to Codex and unperformed. |
+| LAB-R4 | Risk / Delivery Lead | **Unchanged.** `PARTICIPATING_ENTRY_POINTS` enumerates the seven entry points that must serialize on the lock, which makes the availability cost explicit. No additional environment was added. |
+| PR-20260910-R2-1 | Issue / Claude, Codex review | **Fixed, pending review.** Reproduced before change on the reported cell; reads and writes now aggregate equivalent entries through one shared identity rule with no persistence on read; 17 regression tests, 17 of which fail against the pre-fix read. Claude does not close its own finding. |
+| **LAB-1** | Issue / Claude, **new 2026-09-11**, Codex classifies | A §2.13.2b run reaching state S-B on residue alone reports **no named operator recovery**: `CleanupOutcome.recovery_procedure` carries only the configuration recovery and only when a capture was retained, while `journal.RECOVERY_PROCEDURE` is never attached. Reported and **not repaired** — the fix changes an accepted contract behind the outstanding design checkpoint. Reproduced by a labelled defect-reproduction test that deliberately asserts the record fails. Proposed Important. |
+| **LAB-R5** | Risk / Technical Lead, **new 2026-09-11**, not accepted | The EH-R16-1 remedy requires four descriptor-relative verbs and four new syscalls in the reviewed case program (contract §9.2). That expands the trusted computing base's verb table from 16 to 20. The exact diff is submitted for Codex review and **nothing is implemented**; the permission delta added by this pass is **zero**. |
+
+## Reserved laboratory impact — C-P5.0-LAB-1, 2026-09-10
+
+The [direction](../review/phase-5-0-reserved-laboratory-direction.md) is authorized;
+the following controls are obligations to implement/review, not verified facts.
+
+| Local ID | Type / owner | State and treatment |
+|---|---|---|
+| LAB-R1 | Risk / Operations Owner | Reservation can be bypassed accidentally by another trusted agent or automation. Whole-host scheduling, cooperative admission and writer inventory required; no malicious-root exclusion claim. |
+| LAB-R2 | Risk / Technical Lead | Crash, lock release or timeout can leave children or transactions active. Quarantine blocks automatic reuse until termination, residue and recovery are established. |
+| LAB-R3 | Risk / Security Reviewer | Test-created privileged writers can still substitute recovery inputs/destinations. Explicit case scope, source custody and quiescence remain required; reservation does not close EH-R16-1. |
+| LAB-D1 | Dependency / Technical Lead and Acceptance Authority | Three C-7 producers missing. Minimum synthetic facsimiles may establish feasibility, not production behavior. Resolve each requirement first; submit any necessary criterion split without waiving it. |
+| LAB-D2 | Dependency / Codex and Operations Owner | Twelve target facts unconfirmed. Existing later preflight follows implementation review; no host collection performed by this direction. |
+| LAB-R4 | Risk / Delivery Lead | Whole-host reservation delays other test/development work. Serialize and name the owner; do not add infrastructure by default. Track accepted evidence and closed blockers rather than raw test counts. |
+| PR-20260910-R2-1 | Issue / Claude, Codex review | Blocking CRP alias read/write inconsistency. Separate bounded fix and threshold regressions in the active prompt. |
+
+VM proposal risks below remain historical unresolved risks against that deferred
+alternative. No production residual or package gate is accepted by LAB-1.
+
+## Proposed VM evidence boundary — 2026-09-10
+
+These entries describe the [unaccepted VM proposal](../review/phase-5-0-evidence-vm-design.md),
+not verified host facts or accepted residuals. Claude's independent review is
+assigned in [Handover information](../review/Handover%20information).
+
+| Local ID | Type / owner | State and next action |
+|---|---|---|
+| VM-R1 | Risk / Operations Owner, independent security reviewer | New hypervisor/controller privilege boundary could expose host resources. Unaccepted; Claude reviews confinement and ownership, then Peter decides VM-D2/3. |
+| VM-A1 | Assumption / Operations Owner | KVM, capacity and required confinement on candidate oracle-test are unverified. No new inspection authorized; exact feasibility scope follows review and VM-D2. |
+| VM-R2 | Risk / Technical Lead, independent reviewer | Guest behavior may not establish target filesystem/durability or host-specific controls; guest compromise can invalidate observations. Require per-band equivalence and observation-integrity limits before evidence acceptance. |
+| VM-R3 | Risk / Operations Owner | Controller crash or unavailable management service may leave an allocation. Require durable identity-bound recovery, quarantine and verified disposal; no automatic clean claim. |
+| VM-DP1 | Dependency / Acceptance Authority | Independent review by Claude and VM-D1/2/3 decisions precede implementation/operations. ADR 0011 remains proposed. |
+| VM-R4 | Risk / Operations Owner | **Raised 2026-09-10 by VM-1.** The design's exclusive-controller premise is contradicted by `oracle-test`'s documented multi-agent passwordless-root profile, and adopting it as management host would convert the confirmed disposable target into a trusted component. Unaccepted; Codex must name a sole-controller host or withdraw the premise. |
+| VM-R5 | Risk / Technical Lead, independent reviewer | **Raised 2026-09-10 by VM-2 and VM-3.** The registry publication path re-instantiates PR-20260910-1's staged-write-then-rename mechanism, and disposal deletes by a volume key the cited libvirt documentation does not pin for a directory-backed pool. Unaccepted; a destructive operation can reach an unowned host resource. |
+| VM-R6 | Risk / Technical Lead | **Raised 2026-09-10 by VM-4 and VM-5.** No in-guest ownership guard is proposed, so design §10's "affected evidence not silently passed" is unsatisfiable; and the existing executor is refused only by data-conditional target facts an already-authorized preflight would clear, not by EH-R16-1. Unaccepted. |
+
+Claude's independent review returned **changes requested** on 2026-09-10:
+[`VM evidence boundary independent review`](../review/phase-5-0-evidence-vm-independent-review.md).
+VM-R4, VM-R5 and VM-R6 are recorded from it and **none is accepted**.
+
+EH-R16-1, PR-20260910-1/2/3 and P5.0-R5 remain open. These local IDs do not
+replace existing finding, risk or OD identities. No package gate is changed.
+
 **Evidence authorization update, 2026-09-02.** Peter Duscha authorized the
 bounded pre-implementation evidence harness needed to test A-5.0-4/A-5.0-5 and
 P5.0-R4/P5.0-R5 in a synthetic disposable environment. This resolves the

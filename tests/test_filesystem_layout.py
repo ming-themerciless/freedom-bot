@@ -47,3 +47,39 @@ def test_canonical_layout_is_wired_into_active_deployment_files():
         "/etc/freedom-blades",
     ):
         assert required in combined, f"active deployment files do not carry {required}"
+
+
+MANDATORY_ENTRY_POINTS = (
+    ROOT / ".agents" / "AGENTS.md",
+    ROOT / "AGENTS.md",
+    ROOT / "CLAUDE.md",
+)
+
+
+def test_mandatory_entry_points_do_not_contain_independent_rsync_recipes():
+    """DS-R2-2: Operational sync instructions must live solely in disposable-test-server.md."""
+    findings = []
+    for path in MANDATORY_ENTRY_POINTS:
+        text = path.read_text(encoding="utf-8")
+        if "rsync " in text:
+            findings.append(str(path.relative_to(ROOT)))
+    assert not findings, f"Entry points contain independent rsync recipes: {findings}"
+
+
+def test_mandatory_entry_points_do_not_claim_postgres_18_is_authoritative():
+    """DS-R2-2: PostgreSQL 16 is the authoritative lane; 18 must not be claimed authoritative."""
+    findings = []
+    for path in MANDATORY_ENTRY_POINTS:
+        text = path.read_text(encoding="utf-8")
+        if "PostgreSQL 18 with local test database" in text or "PostgreSQL 18 as authoritative" in text:
+            findings.append(str(path.relative_to(ROOT)))
+    assert not findings, f"Entry points claim PostgreSQL 18: {findings}"
+
+
+def test_mandatory_entry_points_reference_canonical_disposable_server_doc():
+    """DS-R2-2: Entry points must point to docs/operations/disposable-test-server.md."""
+    for path in MANDATORY_ENTRY_POINTS:
+        text = path.read_text(encoding="utf-8")
+        assert "docs/operations/disposable-test-server.md" in text, (
+            f"{path.relative_to(ROOT)} does not link to canonical docs/operations/disposable-test-server.md"
+        )

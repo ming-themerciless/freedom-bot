@@ -614,3 +614,223 @@ def test_other_master_tool_lookup_ignores_the_target_itself():
 
     assert skills._find_other_master_tool("Smith's Tools") is None
     assert skills._find_other_master_tool("Jeweler's Tools") == "Smith"
+
+
+def test_clean_tool_name_artisan_aliases():
+    skills = Skills()
+    assert skills._clean_tool_name("Herbalism Kit") == "Herbalism"
+    assert skills._clean_tool_name("Herbalist") == "Herbalism"
+    assert skills._clean_tool_name("Herbalism") == "Herbalism"
+    assert skills._clean_tool_name("Forger") == "Forgery"
+    assert skills._clean_tool_name("Forgery Kit") == "Forgery"
+    assert skills._clean_tool_name("Thief") == "Thieves"
+    assert skills._clean_tool_name("Thieves' Tools") == "Thieves"
+
+
+def test_artisan_crafting_skill_matches_its_tool_alias():
+    """The artisan/tool vocabulary mismatch, on an independently built fixture.
+
+    Column X carries artisan vocabulary and column Y and `/craft` carry tool
+    vocabulary. Before the alias fix `_clean_tool_name` reduced each name to its
+    first word, so `Herbalist` and `Herbalism` never matched, the crafting skill
+    was skipped, and the lookup fell through to an unadorned column-Y entry —
+    which defaults to `journeyman`.
+
+    **This fixture is synthetic and minimal.** It is two cells constructed here
+    to exercise that one mismatch: one artisan tier, its tool, and a second tool
+    with no crafting skill behind it. It is deliberately not a transcription of
+    any character's row, and the tier differs from the one in the original
+    report; the assertion's purpose — that the alias resolves and that the
+    journeyman fallback is what it would otherwise have returned — is unchanged.
+    """
+    skills = Skills()
+    sheet_data = {
+        "skills": "Master Herbalist",
+        "proficiencies": "Herbalism Kit, Tinker's Tools",
+    }
+    skills.load_from_sheet_data(lambda k: sheet_data.get(k))
+
+    # The alias resolves across the two vocabularies, so the artisan tier wins.
+    assert skills.get_current_tool_level("Herbalism Kit") == "master"
+    # And the fallback still applies where no crafting skill backs the tool,
+    # which is the value the defect produced for the aliased tool.
+    assert skills.get_current_tool_level("Tinker's Tools") == "journeyman"
+
+
+# --- Equivalent CRP entries aggregate consistently on read and write ---
+#
+# Regression tests for PR-20260910-R2-1, found 2026-09-10. The artisan alias
+# table made "Herbalist" and "Herbalism" one tool, but get_tool_crp() returned
+# the first matching entry while add_tool_crp() summed every matching entry. A
+# cell holding "60 (Herbalist), 50 (Herbalism)" therefore read as 60 and became
+# 111 the moment one point was earned, and the Master gate at 100 refused a
+# character holding 110. Every fixture below is synthetic.
+
+
+def test_equivalent_alias_entries_are_totalled_on_read():
+    """The reported cell: two spellings of one tool, read as one total."""
+    skills = _loaded("60 (Herbalist), 50 (Herbalism)")
+
+    assert skills.crp_dict == {"herbalist": 60, "herbalism": 50}
+    assert skills.get_tool_crp("Herbalism Kit") == 110.0
+
+
+def test_equivalent_alias_entries_are_totalled_in_either_order():
+    """Reversing the entries used to change the answer from 60 to 50."""
+    skills = _loaded("50 (Herbalism), 60 (Herbalist)")
+
+    assert skills.get_tool_crp("Herbalism Kit") == 110.0
+    assert skills.get_tool_crp("Herbalist") == 110.0
+
+
+@pytest.mark.parametrize(
+    "cell, lookup",
+    [
+        ("60 (Herbalist), 50 (Herbalism)", "Herbalism Kit"),
+        ("50 (Herbalism), 60 (Herbalist)", "Herbalism Kit"),
+        ("60 (Forger), 50 (Forgery)", "Forgery Kit"),
+        ("50 (Forgery), 60 (Forger)", "Forgery Kit"),
+        ("60 (Thief), 50 (Thieves)", "Thieves' Tools"),
+        ("50 (Thieves), 60 (Thief)", "Thieves' Tools"),
+    ],
+)
+def test_every_alias_family_totals_in_both_orders(cell, lookup):
+    skills = _loaded(cell)
+
+    assert skills.get_tool_crp(lookup) == 110.0
+
+
+@pytest.mark.parametrize(
+    "cell, lookup",
+    [
+        ("60 (Herbalist), 50 (Herbalism)", "Herbalism Kit"),
+        ("50 (Herbalism), 60 (Herbalist)", "Herbalism Kit"),
+        ("60 (Forger), 50 (Forgery)", "Forgery Kit"),
+        ("60 (Thief), 50 (Thieves)", "Thieves' Tools"),
+        ("2.5 (Smith's tools), 2.5 (Smith)", "Smith's Tools"),
+    ],
+)
+def test_earning_one_point_increases_the_prior_read_by_exactly_one(cell, lookup):
+    """The invariant the defect broke: a read and the write that follows it
+    describe the same total, so earning one point adds one point."""
+    skills = _loaded(cell)
+
+    before = skills.get_tool_crp(lookup)
+    after = skills.add_tool_crp(lookup, 1)
+
+    assert after == before + 1
+    assert skills.get_tool_crp(lookup) == after
+
+
+def test_the_master_gate_reads_the_combined_alias_total():
+    """110 points across two spellings clears the 100-point threshold.
+
+    Before the fix the gate read 60 and refused a qualified character until a
+    later craft happened to consolidate the entries.
+    """
+    skills = _skills(
+        crp_dict={"herbalist": 60, "herbalism": 50},
+        crafting={"Herbalist": "expert"},
+    )
+
+    assert skills.get_tool_crp("Herbalism Kit") == 110.0
+    assert skills.get_tool_crp("Herbalism Kit") >= Skills.MASTER_CRP_REQUIREMENT
+
+
+def test_the_master_gate_still_refuses_a_combined_total_below_the_threshold():
+    """Aggregation is not a way past the gate: 40 plus 50 is still under 100."""
+    skills = _skills(
+        crp_dict={"herbalist": 40, "herbalism": 50},
+        crafting={"Herbalist": "expert"},
+    )
+    actor = _StubActor(skills)
+
+    with pytest.raises(ValueError, match="100 crafting reputation points"):
+        skills.learn_proficiency(
+            actor=actor, bot=None, ability_modifier=3, downtime=5,
+            tool="Herbalism Kit",
+        )
+
+    assert skills.downtime_progress == {}
+    assert actor.resources.downtime == 60
+
+
+def test_reading_equivalent_entries_persists_and_mutates_nothing():
+    """A read is a read. The stored entries, the raw cell and the modified flag
+    are all untouched, so no /craft-free path can rewrite column W."""
+    skills = _loaded("60 (Herbalist), 50 (Herbalism)")
+
+    assert skills.get_tool_crp("Herbalism Kit") == 110.0
+
+    assert skills.crp_dict == {"herbalist": 60, "herbalism": 50}
+    assert skills.crp == "60 (Herbalist), 50 (Herbalism)"
+    assert skills.crp_modified is False
+    assert "crp" not in skills.get_sheet_data()
+
+
+def test_distinct_tools_are_still_never_totalled_together():
+    """Aggregation follows the alias table and nothing wider. Painter and
+    Potter share no cleaned name and must stay apart."""
+    skills = _loaded("2.5 (Painter), 5 (Potter)")
+
+    assert skills.get_tool_crp("Painter's Supplies") == 2.5
+    assert skills.get_tool_crp("Potter's Tools") == 5.0
+
+
+def test_an_untagged_total_is_still_not_added_to_a_tool_total():
+    """OD-34: the untagged legacy total answers for a tool only when no tagged
+    entry does. Aggregating equivalents must not start folding it in."""
+    skills = _skills(crp_dict={"general": 120, "herbalist": 10})
+
+    assert skills.get_tool_crp("Herbalism Kit") == 10.0
+    assert skills.get_tool_crp("Jeweler's Tools") == 0.0
+
+
+def test_an_untagged_only_cell_still_answers_for_any_tool():
+    skills = _skills(crp_dict={"general": 120})
+
+    assert skills.get_tool_crp("Herbalism Kit") == 120.0
+
+
+def test_an_unreadable_equivalent_entry_reads_as_zero_and_refuses_the_write():
+    """A total that silently omitted an unreadable entry would be worse than no
+    total, so the read reports 0.0 as it always has and the write refuses."""
+    skills = _skills(crp_dict={"herbalist": 60, "herbalism": "not a number"})
+
+    assert skills.get_tool_crp("Herbalism Kit") == 0.0
+    with pytest.raises(ValueError, match="is not a number"):
+        skills.add_tool_crp("Herbalism Kit", 1)
+    assert skills.crp_dict == {"herbalist": 60, "herbalism": "not a number"}
+    assert skills.crp_modified is False
+
+
+def test_an_unparsed_cell_is_still_fail_closed_for_both_read_and_write():
+    """A cell nobody could read in full records no per-tool total at all."""
+    skills = _loaded("60 (Herbalist), 50 (Herbalism), BROKEN")
+
+    assert skills.crp_unparsed is True
+    assert skills.crp_dict == {}
+    assert skills.can_record_tool_crp() is False
+    assert skills.get_tool_crp("Herbalism Kit") == 0.0
+    with pytest.raises(ValueError, match="must be reconciled"):
+        skills.add_tool_crp("Herbalism Kit", 1)
+
+
+def test_a_mastered_cell_is_still_refused_for_writes_after_aggregation():
+    """OD-29: "Master" is terminal and is never replaced by a total."""
+    skills = _loaded("Master")
+
+    assert skills.can_record_tool_crp() is False
+    with pytest.raises(ValueError, match="must be reconciled"):
+        skills.add_tool_crp("Herbalism Kit", 1)
+    assert skills.crp == "Master"
+    assert skills.crp_modified is False
+
+
+def test_awarding_zero_returns_the_aggregated_total_without_writing():
+    """The zero-award short circuit reads through the same aggregation."""
+    skills = _loaded("60 (Herbalist), 50 (Herbalism)")
+
+    assert skills.add_tool_crp("Herbalism Kit", 0) == 110.0
+    assert skills.crp_dict == {"herbalist": 60, "herbalism": 50}
+    assert skills.crp_modified is False

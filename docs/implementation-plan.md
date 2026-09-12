@@ -16,6 +16,40 @@ Repository: `freedom-bot` (to evolve into the Freedom Blades platform)
 
 Primary rules source: `Freedom Blades - Homebrew Rules.pdf`
 
+## Reading map — which sections a task actually needs
+
+This document is long and is cited by section number from roughly 126 other
+documents, so **it is deliberately not split into per-phase files**: the section
+numbers are load-bearing references in review artifacts that must not be
+rewritten. Read it by section instead.
+
+**Always read first**, whatever the task:
+
+| Section | Why |
+|---|---|
+| [§0](#0-document-control-and-project-governance) | baseline, change control, accountable roles |
+| [§20](#20-immediate-next-actions) | the current action pointer and what is authorized right now |
+| [§16](#16-claude-code-working-protocol) | the agent working protocol, handoff and reviewer checkpoints |
+
+**Then read the sections your task touches**, and no more:
+
+| Task | Sections |
+|---|---|
+| Any milestone or phase work | [§12](#12-implementation-phases), plus the phase's own subsection and acceptance criteria |
+| Architecture or layering | [§3](#3-governing-principles), [§5](#5-system-architecture) |
+| Schema, migration or import | [§6](#6-data-ownership-and-synchronization), [§7](#7-database-model); skill `migration-staging` |
+| Authorization, roles or approval | [§4](#4-product-roles-and-authorization), [§8](#8-approval-workflow), [§9](#9-security-baseline) |
+| Missions, attendance or rewards | [§10](#10-mission-and-attendance-model) |
+| Bastions or facilities | [§11](#11-bastion-strategy); skill `rules-sourcing` |
+| Testing or evidence | [§13](#13-testing-strategy); skill `run-suites` |
+| Deployment or operations | [§14](#14-deployment-and-operations) |
+| Retiring the Freedom bot or Sheets | [§15](#15-legacy-runtime-retirement) |
+| A decision, gate or release question | [§17](#17-decision-governance), [§18](#18-initial-release-definition), [§19](#19-definition-of-platform-completion) |
+
+Reading a section you do not need is waste; **skipping one you do need is a
+defect**. When in doubt, read it. Nothing here narrows §16.1's requirement to
+read `.agents/AGENTS.md` completely, which is short and has no scoped reading.
+
 ## 0. Document control and project governance
 
 ### 0.1 Purpose of this document
@@ -2350,6 +2384,14 @@ Acceptance Authority.
 
 ## 16. Claude Code working protocol
 
+Agents that support skills carry parts of this protocol as procedures under
+`.claude/skills/`: `handoff-checklist` for §16.3, `run-suites` for the
+testing procedure, `migration-staging` for schema work and `rules-sourcing`
+for game-rule changes. They cite this section and `.agents/AGENTS.md` rather
+than restating them, and no always-applicable rule is held only in a skill.
+Two `PreToolUse` guards under `.claude/hooks/` enforce the secrets rule and
+refuse Git history rewrites. This protocol binds every agent regardless.
+
 ### 16.1 Before each milestone
 
 Claude Code must:
@@ -2488,6 +2530,314 @@ A production feature is complete when:
 - maintainers have accepted the user workflow.
 
 ## 20. Immediate next actions
+
+**Current action, 2026-09-11 — R5 binding remediation returned.** Claude answered
+[PR-20260911-R5-1](review/project-review-2026-09-11-r5.md) in one bounded local
+pass ([handback](review/project-review-remediation-2026-09-11-r5-handback.md),
+submitted [runner contract r6](review/phase-5-0-reserved-laboratory-runner-contract-r6.md),
+which supersedes r5). **Repaired in pure code:** the harness's
+`participant_started` entry now durably names the reservation its run owns, in one
+bounded shape required in both directions, and terminal publication requires exact
+equality among the stored start, the reservation request, the release publication,
+the completion evidence and the reservation the terminal result reports. The record
+schema version rises to 2, so an r5 participant-start record refuses by name rather
+than being reinterpreted. The same validator runs before an append and on read, the
+ledger writer reads the stored start before deriving any lifecycle-owned fact, and
+`conclude_reservation()` checks the binding before the release decision — so a
+release of one reservation publishes **nothing** when offered another reservation's
+harness run, and the wrongly named run keeps blocking every successor until an
+attributed operator recovery. No reservation identity is inferred from a run name.
+The permission and provisioning delta is **unchanged at ten items** and all remain
+**unapproved**. **Next action: Codex technical re-review**, then Peter on r6 §7's
+delta, on V10's identity question and on LAB-1's classification. R4-1 carries a
+positive technical recommendation and is not closed on the implementer's authority;
+R4-2, R4-3 and R5-1 remain open. The three C-7 cases remain unresolved,
+`is_executable` remains `False`, the twelve target facts remain unconfirmed and the
+real-execution refusal is retained while EH-R16-1 is open. The review-input digest
+is now `2fa1d13b7b112f7fda837abcdd70f86ff6d85701602818d810af5fc2141ce5ca` because
+covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
+This is an action-pointer update, not an effective roadmap amendment, and it
+approves no provisioning, permission change, host action, execution digest or
+product implementation.
+
+**Prior action, 2026-09-11 — R5 binding remediation assigned.** Claude follows
+the [bounded prompt](review/project-review-remediation-2026-09-11-r5-claude-prompt.md)
+for [PR-20260911-R5-1](review/project-review-2026-09-11-r5.md): durably bind the
+harness start to its reservation and require exact agreement through the release
+request/publication and completion evidence on writer and reader paths. Submit
+runner contract r6 and connected synthetic regressions, then return to Codex for
+technical re-review. No privileged mechanism, operational integration,
+provisioning, preflight or execution is approved. Package 5.0 remains not ready,
+P5.0-R5 Blocking, OD-62 Open and EH-R16-1 Open. This pointer changes no roadmap
+requirement or package gate.
+
+**Prior action, 2026-09-11 — R5 technical re-review returned.** The
+[independent re-review](review/project-review-2026-09-11-r5.md) requests one
+bounded correction: bind the harness's stored start to the reservation it owns
+and require that binding to agree with the release request, release publication,
+completion evidence and run file. The present model permits a release of A to
+settle an already-started harness run B. The stale-transition repair is
+positively reviewed within its scope, and the cross-participant, omitted-ledger
+and terminal-order repairs work as far as they go, but R4-2 and R4-3 remain open
+pending this binding. Next is bounded local remediation followed by Codex
+re-review. No privileged implementation, provisioning, preflight, host action
+or execution is approved. Package 5.0 remains not ready, P5.0-R5 Blocking,
+OD-62 Open and EH-R16-1 Open. This pointer changes no roadmap requirement or
+package gate.
+
+**Prior action, 2026-09-11 — R4 lifecycle validation and ordering remediation
+returned.** Claude answered all three findings of the
+[R4 re-review](review/project-review-2026-09-11-r4.md) in one bounded local pass
+([handback](review/project-review-remediation-2026-09-11-r4-handback.md),
+submitted [runner contract r5](review/phase-5-0-reserved-laboratory-runner-contract-r5.md),
+which supersedes r4). **Repaired in pure code:** reservation transitions are
+validated against the **current reservation** and its current state over the
+accepted transition table, so a stale terminal entry no longer retires a newer
+run (R4-1); and one participant-history validator binds run, participant,
+identity, filename and evidence content to the stored start, with the ledger
+required rather than optional (R4-2). Both run before an append and on read.
+**Corrected in the model and still unbuilt:** the terminal publication order
+(R4-3) — release decision, durable RELEASED publication, then the harness's own
+completion, with its two conditions derived from those operations and the
+still-started ledger entry blocking reuse between them. The permission and
+provisioning delta is **unchanged at ten items** and all remain **unapproved**.
+**Next action: Codex technical re-review**, then Peter on r5 §7's delta, on V10's
+identity question and on LAB-1's classification. The three C-7 cases remain
+declared unresolved, `is_executable` remains `False`, the twelve target facts
+remain unconfirmed and the real-execution refusal is retained while EH-R16-1 is
+open. The review-input digest is now
+`39cea2904f66606a66664f6835633a83a57780f4edc3570d6e8a3942edd196cd`
+because covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
+This is an action-pointer update, not an effective roadmap amendment, and it
+approves no provisioning, permission change, host action, execution digest or
+product implementation.
+
+**Prior action, 2026-09-11 — R4 remediation assigned.** Claude follows the
+[bounded prompt](review/project-review-remediation-2026-09-11-r4-claude-prompt.md)
+for the [R4 findings](review/project-review-2026-09-11-r4.md): repair pure
+reservation and participant history validation, require ledger evidence and
+correct terminal-publication order. Submit runner contract r5 and connected
+synthetic regressions in one handback to Codex. No privileged mechanism,
+operational integration, provisioning, preflight or execution is approved.
+Package 5.0 remains not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
+This pointer changes no roadmap requirement or package gate; history follows.
+
+**Current action, 2026-09-11 — R4 review returned, changes requested.** The
+[independent review](review/project-review-2026-09-11-r4.md) records two Blocking
+findings in reservation transitions and participant-history binding, and one
+Important finding in completion/release ordering. The target/attribution repair
+and successor durability step receive positive recommendations in their bounded
+scope. Next: local remediation and Codex re-review before privileged
+implementation or permission decisions. Package 5.0 remains not ready, P5.0-R5
+Blocking, OD-62 Open, EH-R16-1 Open. No host action, provisioning, preflight,
+execution or roadmap amendment is approved; prior submissions remain below.
+
+**Current action, 2026-09-11 — R3 complete lifecycle remediation returned.**
+Claude answered all three findings of the
+[R3 re-review](review/project-review-2026-09-11-r3.md) in one connected pass
+([handback](review/project-review-remediation-2026-09-11-r3-handback.md),
+submitted [runner contract r4](review/phase-5-0-reserved-laboratory-runner-contract-r4.md),
+which supersedes r3). **Repaired in code:** the binding between stored evidence
+and admission (PR-20260911-R3-3) — the approved target, the first-use attester
+and basis and the recovery's author are now carried and required for every
+admitting disposition, through a bounded versioned record schema, a parser and
+the one shared validator, and `BINDING_MISMATCH` gained its enforcing branch.
+**Submitted, modelled and not built:** the publication/restart correction
+(R3-1), where every successor re-establishes the record's durability under the
+lock or refuses, needing read permission and no write permission; and durable
+in-progress/completion accounting for all seven participants (R3-2), where an
+interrupted run of any of them blocks every successor including the harness and
+the environment reset. r3's crashed-suite exemption is withdrawn. Two connected
+lifecycle traces read the bytes their predecessors wrote, and the earlier
+end-to-end claim over a constructed history is withdrawn. The permission and
+provisioning delta **grew** to ten items, adding V9 and V10; all remain
+**unapproved**. **Next action: Codex technical re-review**, then Peter on r4
+§7's delta, on V10's identity question and on LAB-1's classification. The three
+C-7 cases remain declared unresolved, `is_executable` remains `False`, the
+twelve target facts remain unconfirmed, the operational-ineligibility control is
+unchanged, and the real-execution refusal is retained while EH-R16-1 is open.
+The review-input digest is now
+`45b3c6c0313e5cb8b48e116aea7716b47f1a2d231f12719975d63166d3458201` because
+covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
+This is an action-pointer update, not an effective roadmap amendment, and it
+approves no provisioning, permission change, host action, execution digest or
+product implementation.
+
+**Prior action, 2026-09-11 — complete lifecycle remediation assigned.** Peter
+agreed to address the [R3 findings](review/project-review-2026-09-11-r3.md) in one
+connected lifecycle pass. Claude follows the [bounded prompt](review/project-review-remediation-2026-09-11-r3-claude-prompt.md):
+submit runner contract r4, pure validation repairs and synthetic tests that read
+stored records through initialization, operation, crash, recovery and successor
+admission. Return one handback to Codex for technical re-review. No real writer,
+privileged mechanism, lock adapter, operational integration, provisioning,
+preflight or execution is approved. Package 5.0 remains not ready, P5.0-R5
+Blocking, OD-62 Open, EH-R16-1 Open. This pointer changes no roadmap requirement
+or package gate. Prior submissions remain below.
+
+**Current action, 2026-09-11 — R2 remediation returned to Codex.** Claude
+answered all four findings of the
+[September 11 re-review](review/project-review-2026-09-11-r2.md) in one bounded
+local pass ([handback](review/project-review-remediation-2026-09-11-r2-handback.md),
+submitted [runner contract r3](review/phase-5-0-reserved-laboratory-runner-contract-r3.md),
+which supersedes r2). **Repaired in code, one finding only:** the decision API's
+lifecycle validation, which now validates the durable record as a coherent whole
+before any admitting branch is chosen, so a contradictory record refuses rather
+than being resolved in favour of reuse (PR-20260911-R2-1); the same repair closes
+a malformed-value fall-through the local reproduction found. **Submitted and not
+built:** the descriptor contract and complete durability barrier graph (R2-2),
+the corrected post-unlink evidence claim (R2-3), and one allowlist of validated
+lifecycle outcomes for all seven participants with verified-first-use
+provisioning (R2-4), each carrying a bounded synthetic proposal model with
+deliberately failing controls. The permission and provisioning delta **grew** to
+eight items, adding the initial lifecycle record and one preflight fact; all
+remain **unapproved**. The C1 → C2 → C5 ordering correction and the withdrawn
+JNL-47 criterion split are preserved and not reopened, and **no criterion
+decision is requested**. LAB-1 remains Important and unrepaired, its reproduction
+unweakened. **Next action: Codex technical re-review**, then Peter on r3 §7's
+delta and on LAB-1's classification. The three C-7 cases remain declared
+unresolved, `is_executable` remains `False`, the twelve target facts remain
+unconfirmed, the operational-ineligibility control is unchanged, and the
+real-execution refusal is retained while EH-R16-1 is open. The review-input digest
+is now `55af840fbb28f0ea8ae447e732644c5b2f81dace83f6ccd499f24ebc8864cff2` because
+covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
+This is an action-pointer update, not an effective roadmap amendment, and it
+approves no provisioning, permission change, host action, execution digest or
+product implementation.
+
+**Prior action, 2026-09-11 — Codex re-review returned, changes requested.**
+Claude's bounded assignment is the
+[R2 remediation prompt](review/project-review-remediation-2026-09-11-r2-claude-prompt.md),
+covering pure lifecycle validation, runner contract r3 and synthetic models.
+The [independent re-review](review/project-review-2026-09-11-r2.md) identifies
+two Blocking findings in lifecycle consistency and recovery durability, plus
+two Important findings in cleanup detection and lifecycle storage. The corrected
+evidence ordering receives a positive recommendation for the bounded model.
+Next is local remediation followed by Codex re-review. Package 5.0 remains not
+ready, P5.0-R5 Blocking, OD-62 Open and EH-R16-1 Open. No permission expansion,
+privileged implementation, preflight or execution is approved. This pointer
+changes no roadmap or package gate; prior submissions remain below.
+
+**Prior action, 2026-09-11 — September 11 remediation returned.** Claude
+answered all six findings of the [September 11 review](review/project-review-2026-09-11.md)
+in one bounded local pass
+([handback](review/project-review-remediation-2026-09-11-handback.md), submitted
+[runner contract r2](review/phase-5-0-reserved-laboratory-runner-contract-r2.md),
+which supersedes revision 1). Repaired locally: the evidence ordering model, which
+now runs C1 including its cleanup, then C2, then C5's publication through an
+injected sink (PR-20260911-5), and the decision API's admission, release and
+transition guards (PR-20260911-3, -4). Submitted and **not built**: effect
+ownership, independent recovery and the lock/lifecycle storage (PR-20260911-1,
+-2, -6), with an explicit **non-zero** permission delta — one system group, one
+group membership, one `systemd-tmpfiles` fragment, four provisioned paths and a
+second `ctypes` exception; revision 1's zero-delta claim is withdrawn. **The
+`JNL-47-RECOVERY-STATE` criterion split is withdrawn** and no criterion decision
+is required. **Next action: Codex technical review**, then Peter on the contract's
+§7 provisioning delta and on LAB-1's classification. The three C-7 cases remain
+declared unresolved, `is_executable` remains `False`, the twelve target facts
+remain unconfirmed, the operational-ineligibility control is unchanged, and the
+real-execution refusal is retained while EH-R16-1 is open. The review-input digest
+is now `e6d42228f5ccc4fd5eebc0861bb97eec42bbf16705d1aa209de5464e194bdba1` because
+covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open. This is an
+action-pointer update, not an effective roadmap amendment, and it approves no
+provisioning, permission change, host action, execution digest or product
+implementation.
+
+**Superseded action pointer, 2026-09-11 — reserved laboratory remediation returned.** Claude
+returned the consolidated C-P5.0-LAB-1 handback
+([handback](review/phase-5-0-reserved-laboratory-handback.md), submitted
+[runner contract](review/phase-5-0-reserved-laboratory-runner-contract.md)). It
+carries the separate CRP fix for PR-20260910-R2-1, the three C-7 producer
+dispositions with bounded local evidence-only producers, the reservation and
+admission decision mechanism, and a **zero** permission delta; the EH-R16-1
+remedy's exact implementation and syscall diff is submitted for review, not
+built. **Next action: Codex technical review**, then Peter's decision on the one
+submitted readiness-versus-implementation criterion split for
+`JNL-47-RECOVERY-STATE` and on the classification of new finding **LAB-1**. The
+three C-7 cases remain declared unresolved, `is_executable` remains `False`, the
+twelve target facts remain unconfirmed, the operational-ineligibility control is
+unchanged, and the real-execution refusal is retained while EH-R16-1 is open. The
+review-input digest is now
+`bbb3854fbdffae00696544465f1cd7bbdf22ad18583056490a6735444800e4fa` because
+covered source changed; it is review input only and must not be passed to
+`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open. This is an
+action-pointer update, not an effective roadmap amendment, and it approves no
+criterion split, host action, execution digest or product implementation.
+
+**Current direction, 2026-09-10 — C-P5.0-LAB-1.** Peter authorized proceeding
+with an exclusively reserved disposable laboratory, trusted host administrators
+and scoped adversarial tests. The [impact assessment](review/phase-5-0-reserved-laboratory-direction.md)
+and [Claude remediation prompt](review/phase-5-0-reserved-laboratory-claude-prompt.md)
+replace VM expansion as the next action. Claude resolves the three C-7 producer
+dispositions, implements bounded local admission/evidence work and separately
+fixes PR-20260910-R2-1, then returns to Codex. ADR 0011 remains Proposed and is
+deferred from this critical path. No host action, execution digest, criterion
+waiver, production control change or Package 5.0 implementation is approved.
+Any necessary readiness-versus-implementation criterion split is submitted
+explicitly for decision. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open.
+The VM-revision next action below is superseded; its review history is retained.
+
+**Historical evidence-harness action, 2026-09-10.** Claude delivered the independent
+design review of the proposed VM evidence boundary:
+[VM evidence boundary independent review](review/phase-5-0-evidence-vm-independent-review.md).
+Disposition **changes requested**, with five Blocking findings (VM-1 … VM-5), ten
+Important and three Optional. The review recommends, for Peter's decision and
+without accepting anything, that Package 5.0's evidence be completed on the
+already approved disposable target using the bounded C-8 revision 3 §9.2
+mechanism, and that ADR 0011 be held as the target architecture for a later slice
+off Package 5.0's critical path. **Next action: Codex revises the design and ADR
+0011 against VM-1 … VM-5, documentation only**, then returns for the decision
+requests in review §G. ADR 0011 remains **Proposed**. No implementation, host
+inspection, feasibility probe, image build, VM creation or execution is
+authorized. EH-R16-1 and PR-20260910-1/2/3 remain open; Package 5.0 not ready,
+P5.0-R5 Blocking, OD-62 Open, current plan `is_executable=False`. This is an
+action-pointer update, not an effective roadmap amendment.
+
+**Superseded action pointer, 2026-09-10.** Following the September 10
+review's three findings against C-8 revision 3, the maintainer requested a
+simpler alternative. Codex submitted proposed
+[ADR 0011](adr/0011-disposable-vm-evidence-boundary.md) and the
+[VM lifecycle design](review/phase-5-0-evidence-vm-design.md). The explicit
+**Claude independent design-review prompt** is in
+`docs/review/Handover information`. Claude reviews; Codex authored the proposal;
+Peter retains acceptance authority. Design preparation and this review are
+authorized, but the VM architecture, management surface, target, resource and
+retention limits remain unaccepted. No implementation, host feasibility check,
+VM/image creation or execution is authorized by this update. EH-R16-1 and
+PR-20260910-1/2/3 remain open; Package 5.0 not ready, P5.0-R5 Blocking and OD-62
+Open. This is an action-pointer correction, not an effective roadmap amendment.
+
+**Historical evidence-harness review, 2026-09-09.** Codex's R16 independent
+review of the C-6/C-7/C-8 submission returned **changes requested**, with
+EH-R16-1/2 Blocking and EH-R16-3/4 Important. The active bounded remediation
+prompt is in `docs/review/Handover information`; findings and independent
+verification are in
+`docs/review/phase-5-0-evidence-harness-r16-independent-review.md`.
+Existing remediation authorization persists. The later read-only target
+preflight is already authorized and assigned to Codex after implementation
+review, but remains unperformed. No execution digest is approved. Package 5.0
+remains not ready, P5.0-R5 Blocking and OD-62 Open. This update changes no
+roadmap, package gate or production authorization. Earlier runtime rulings below
+remain binding; their handoff pointers are historical.
+
+**Current evidence-harness runtime ruling, 2026-09-06.** Peter Duscha accepted
+Codex's recommendation for R10 conflict C-2, **Option B**: the bounded reviewed
+case program runs through an explicitly named documented Python 3.12
+interpreter with `-I -S`; the permitted surface is the exact reviewed vectors,
+not arbitrary Python execution. Source and installed bytes remain identical and
+manifest-covered, and preflight validates the interpreter path, version and
+executable SHA-256. The shebang and on-target compilation alternatives are
+rejected. Claude may perform only the bounded R11 remediation for C-2 and its
+dependent C-3/C-5 work under
+`docs/review/phase-5-0-evidence-harness-remediation-r11-prompt.md`, then must
+stop for Codex independent pre-execution review. This is not evidence execution
+authority and does not authorize SSH, host/database mutation, Package 5.0
+implementation, migration `0014`, deployment, cutover, OD-62 or Package 5.1+.
+Package 5.0 remains `not ready`; P5.0-R5 remains Blocking.
 
 **Current evidence authorization, 2026-09-02.** Peter Duscha authorized a
 narrow pre-implementation evidence harness to resolve the circular dependency

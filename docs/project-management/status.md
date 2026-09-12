@@ -1,6 +1,563 @@
 # Project status
 
-## Current update — pre-implementation evidence harness authorized
+## Current status — R5 reservation binding remediation returned to Codex, 2026-09-11
+
+Claude answered [PR-20260911-R5-1](../review/project-review-2026-09-11-r5.md) in
+one bounded local pass
+([handback](../review/project-review-remediation-2026-09-11-r5-handback.md),
+submitted [runner contract r6](../review/phase-5-0-reserved-laboratory-runner-contract-r6.md),
+which supersedes r5). **Repaired in pure code:** the harness's stored start now
+durably names the reservation its run owns, in one bounded shape required in both
+directions, and terminal publication requires exact equality among the stored
+start, the reservation request, the release publication, the completion evidence
+and the terminal result. The record schema version rises to 2, so an r5
+participant-start record refuses by name rather than being reinterpreted; the same
+validator runs before an append and on stored bytes; the ledger writer reads the
+stored start before deriving any lifecycle-owned fact; and the conclusion checks
+the binding before the release decision, so a release offered another
+reservation's harness run publishes nothing and that run keeps blocking every
+successor until an attributed operator recovery. No reservation identity is
+inferred from a run name.
+
+Local verification, restricted-pass interpreters, `TEST_DATABASE_URL` unset:
+structural 217, R4 regressions 76, new R5 regressions 58, complete harness 1859,
+bot 3018 passed / 326 skipped, web 1610 passed / 1362 skipped, Foundry 171 passed.
+Every skip is unverified; the database-enabled web baseline is 80. No formatter,
+linter or type checker is configured or installed — unavailable, not a pass. With
+the repair reversed in a scratch copy, 36 of the 58 new rows fail. Manifest and
+plan regenerated twice through the non-executing CLI, byte-identical, all 36
+hashes recomputed and matched; new review-input digest
+`2fa1d13b7b112f7fda837abcdd70f86ff6d85701602818d810af5fc2141ce5ca`, review input
+only and never for `--execute`.
+
+**Next: Codex technical re-review**, then Peter on r6 §7's ten-item delta, on
+V10's identity question and on LAB-1's classification. R4-1 carries a positive
+technical recommendation and is not closed on the implementer's authority; R4-2,
+R4-3 and R5-1 remain open. The permission and provisioning delta is unchanged at
+ten unapproved items. No privileged implementation, provisioning, preflight, host
+action or execution is approved. Package 5.0 remains not ready, P5.0-R5 Blocking,
+OD-62 Open and EH-R16-1 Open; `is_executable` False, the twelve target facts
+unconfirmed, the three C-7 cases unresolved, LAB-1 Important and unrepaired, and
+the bot was not restarted. All existing restrictions remain.
+
+## Superseded assignment — R5 reservation binding remediation, 2026-09-11
+
+Claude follows the [R5 prompt](../review/project-review-remediation-2026-09-11-r5-claude-prompt.md)
+to repair [PR-20260911-R5-1](../review/project-review-2026-09-11-r5.md): bind
+the harness's stored start to its reservation and validate exact agreement with
+the release request/publication and completion evidence on writer and stored-byte
+reader paths. Submit runner contract r6 and one handback, then return to Codex
+for technical re-review. Existing local remediation authorization persists.
+
+No privileged implementation, provisioning, preflight, host action or execution
+is approved. Package 5.0 remains not ready, P5.0-R5 Blocking, OD-62 Open and
+EH-R16-1 Open; all existing restrictions remain.
+
+## Latest review — changes requested, 2026-09-11 R5
+
+[Codex re-review](../review/project-review-2026-09-11-r5.md) records one Blocking
+finding: releasing reservation A can complete another reservation's already-
+started harness run B because the stored start has no reservation binding and
+the evidence validator checks only for a nonempty value. R4-1 receives a
+positive bounded recommendation; R4-2 and R4-3 remain open pending this repair.
+Independent local evidence: structural plus R4 regressions 293 passed; complete
+synthetic harness 1801 passed, zero skips. No operational checks ran.
+
+## Prior status — R4 lifecycle remediation returned to Codex, 2026-09-11
+
+Claude answered all three [R4 findings](../review/project-review-2026-09-11-r4.md)
+in one bounded local pass:
+[handback](../review/project-review-remediation-2026-09-11-r4-handback.md),
+submitted [runner contract r5](../review/phase-5-0-reserved-laboratory-runner-contract-r5.md),
+which supersedes r4. **Repaired in pure code:** reservation transitions validated
+against the current reservation and its current state over the accepted
+transition table (R4-1), and one participant-history validator binding run,
+participant, identity, filename and evidence content to the stored start, with
+the ledger required rather than optional (R4-2). Both run before an append and on
+read. **Corrected in the model, unbuilt:** the terminal publication order (R4-3),
+with the harness's two completion conditions derived from the release decision
+and the release publication rather than injected.
+
+Verification, restricted-pass interpreters with `TEST_DATABASE_URL` unset:
+structural 217, harness 1801, bot 3018 passed / 326 skipped, web 1610 passed /
+1362 skipped, Foundry 171 passed, `git diff --check` passed, scoped `compileall`
+ok. **Every skip is unverified**; the database-enabled web baseline is 80. No
+formatter, linter or type checker is configured or installed. With the three
+repairs reversed in a scratch copy, 49 of the 76 new regressions fail, so they
+detect the original defects. Manifest and plan regenerated twice, byte-identical,
+36 hashes recomputed and matched; new **review-input-only** digest
+`39cea2904f66606a66664f6835633a83a57780f4edc3570d6e8a3942edd196cd`.
+
+The permission and provisioning delta is **unchanged at ten items** and all
+remain unapproved. **Next: Codex technical re-review**, then Peter on r5 §7's
+delta, on V10's identity question and on LAB-1's classification. Package 5.0 not
+ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open; `is_executable` False, the
+twelve target facts unconfirmed, the three C-7 cases unresolved and the
+real-execution refusal retained. All existing restrictions remain.
+
+## Superseded assignment — R4 lifecycle remediation, 2026-09-11
+
+Claude follows the [R4 prompt](../review/project-review-remediation-2026-09-11-r4-claude-prompt.md):
+repair pure history validation and participant binding, require ledger evidence,
+and correct completion/release ordering. Submit runner contract r5 and connected
+synthetic regressions, then return to Codex for technical re-review. No privileged
+implementation or permission expansion is approved. Package 5.0 not ready,
+P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open; all existing restrictions remain.
+
+## Latest review — changes requested, 2026-09-11 R4
+
+[Codex re-review](../review/project-review-2026-09-11-r4.md) identifies two Blocking
+history-validation findings and one Important completion-order finding. Target
+and attribution binding, and the proposed successor durability step, receive
+positive bounded recommendations. Next: local remediation and Codex re-review.
+Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open. No privileged
+implementation, provisioning, preflight or execution is approved.
+
+## Current status — R3 lifecycle remediation returned to Codex, 2026-09-11
+
+Claude answered all three [R3 findings](../review/project-review-2026-09-11-r3.md)
+in one connected pass:
+[handback](../review/project-review-remediation-2026-09-11-r3-handback.md),
+submitted [runner contract r4](../review/phase-5-0-reserved-laboratory-runner-contract-r4.md),
+which supersedes r3. **Repaired in code:** the binding between stored evidence and
+admission — approved target, first-use attester and basis, and recovery author are
+carried and required for every admitting disposition through a bounded versioned
+record schema, its parser and the one shared validator. **Submitted and not
+built:** the publication/restart correction, where every successor re-establishes
+the record's durability under the lock or refuses; and durable
+in-progress/completion accounting for all seven participants, where an interrupted
+run of any of them blocks every successor. The crashed-suite exemption is
+withdrawn and no participant exemption is proposed.
+
+Local verification: structural 217, harness 1723, bot 3018 passed / 326 skipped,
+web 1610 passed / 1362 skipped, Foundry 171 passed, `git diff --check` passed.
+**Every skip is unverified**; the database-enabled web baseline is 80, not 1362.
+No database, host, provisioning or execution check was run. Review-input digest
+`45b3c6c0313e5cb8b48e116aea7716b47f1a2d231f12719975d63166d3458201`, **not
+execution approval**.
+
+The permission and provisioning delta **grew to ten items** (V9, a group-writable
+run-ledger directory; V10, confirming the seven participants' identities and a
+maintainer decision on separating them). All remain unapproved.
+
+**Next: Codex technical re-review**, then Peter on r4 §7's delta, V10 and LAB-1's
+classification. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1
+Open, LAB-1 Important and unrepaired. No operational implementation, permission
+expansion, preflight or execution is approved; all restrictions and open gates
+below remain.
+
+## Superseded assignment — complete lifecycle remediation, 2026-09-11 R3
+
+Peter agreed to a consolidated lifecycle pass. Claude followed the
+[R3 prompt](../review/project-review-remediation-2026-09-11-r3-claude-prompt.md):
+runner contract r4, pure validation repairs and connected synthetic tests reading
+stored records across initialization, operation, crash, recovery and reuse.
+Next checkpoint is Codex technical re-review. No operational implementation or
+permission expansion is approved; all restrictions and open gates below remain.
+
+## Latest review — changes requested, 2026-09-11 R3
+
+[Codex re-review](../review/project-review-2026-09-11-r3.md) records two Blocking
+lifecycle gaps and one Important target-binding gap in the current submission.
+Next: bounded local design/model remediation and technical re-review. The earlier
+state-validation repair receives a positive recommendation. Package 5.0 remains
+not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open. No privileged
+implementation, provisioning, preflight or execution is approved.
+
+## Current status — R2 remediation returned to Codex, 2026-09-11
+
+Claude answered all four findings of the
+[September 11 re-review](../review/project-review-2026-09-11-r2.md) in one bounded
+local pass: [consolidated handback](../review/project-review-remediation-2026-09-11-r2-handback.md)
+and the submitted [runner contract r3](../review/phase-5-0-reserved-laboratory-runner-contract-r3.md),
+which supersedes r2.
+
+**Repaired in code — one finding.** `reservation.validate_lifecycle()` validates
+the durable lifecycle record as a coherent whole — state, disposition,
+predecessor identity and attached evidence — **before** any admitting branch is
+chosen, so a release record can no longer override the state it contradicts
+(PR-20260911-R2-1). The local reproduction also found a malformed-value
+fall-through that admitted with no refusal at all; the same repair closes it.
+Reservation tests 81 → 113.
+
+**Submitted and not built.** The descriptor contract and complete durability
+barrier graph (R2-2), the corrected post-unlink evidence claim (R2-3), and one
+allowlist of validated lifecycle outcomes for all seven participants with
+verified-first-use provisioning (R2-4). Two bounded synthetic proposal models
+were written for them, `durability_model.py` and `lifecycle_storage.py`, both
+planning tier, with the r2 sequence, the post-check and the `O_PATH` `fsync` as
+deliberately failing controls. **No privileged mechanism, filesystem writer, lock
+adapter or operational integration exists, and nothing was provisioned.**
+
+**The permission and provisioning delta grew to eight items**, adding the initial
+lifecycle record (V7) and one preflight fact about the directory barrier (V8).
+All eight remain **unapproved**.
+
+**Verification, local only.** Structural 217 passed; harness 1657 passed, no
+skips; bot 3018 passed / 326 skipped; web 1610 passed / 1362 skipped; Foundry 171
+passed. `git diff --check` passed. Every skip is an unverified assertion: without
+`TEST_DATABASE_URL` the web suite's skip count is 1362 against a
+database-enabled baseline of 80, so **no PostgreSQL correctness was established**.
+No formatter, linter or type checker is configured or available. No real
+filesystem durability drill was run, and no remote, host, database or operational
+check was performed. New review-input digest, **not execution approval**:
+`55af840fbb28f0ea8ae447e732644c5b2f81dace83f6ccd499f24ebc8864cff2`.
+
+The C1 → C2 → C5 ordering correction and the withdrawn JNL-47 criterion split are
+preserved and not reopened; **no criterion decision is requested**. LAB-1 remains
+Important and unrepaired, its reproduction unweakened.
+
+Next: Codex technical re-review, then Peter on r3 §7's delta and LAB-1's
+classification. No gate, provisioning delta or execution digest is approved.
+Package 5.0 not ready; P5.0-R5 Blocking; OD-62 and EH-R16-1 Open. All existing
+restrictions remain in force.
+
+## Prior status — Codex re-review returned, 2026-09-11
+
+Claude's next assignment is issued in the
+[R2 remediation prompt](../review/project-review-remediation-2026-09-11-r2-claude-prompt.md):
+pure lifecycle validation, runner contract r3 and bounded synthetic models,
+then Codex re-review. No privileged implementation or operational work is approved.
+
+**Changes requested:** [September 11 re-review](../review/project-review-2026-09-11-r2.md).
+Two Blocking findings remain in lifecycle consistency and recovery durability;
+two Important findings concern cleanup detection and lifecycle storage. The
+evidence-order correction is technically recommended for its bounded model.
+Local structural checks: 205 passed; harness: 1546 passed, no skips. A separate
+synthetic reproduction admits contradictory RUNNING/QUARANTINED histories.
+No remote, database or operational verification was performed.
+
+Next: bounded local correction and Codex re-review. No gate, provisioning delta
+or execution digest is approved. Package 5.0 not ready; P5.0-R5 Blocking;
+OD-62 and EH-R16-1 Open. All existing restrictions remain in force.
+
+## Prior status — September 11 remediation returned, 2026-09-11
+
+Claude answered all six findings of the
+[September 11 review](../review/project-review-2026-09-11.md) in one bounded
+local pass: [consolidated handback](../review/project-review-remediation-2026-09-11-handback.md)
+and the submitted [runner contract r2](../review/phase-5-0-reserved-laboratory-runner-contract-r2.md),
+which supersedes revision 1.
+
+**Repaired locally.** The evidence ordering model now runs C1 including its
+cleanup, then C2, then C5's publication through an injected sink, so absence
+after a cleanup failure is *creation never reached* rather than a generation
+deleted (PR-20260911-5). Admission requires explicit lifecycle evidence with no
+default, release distinguishes an unobserved residue check from an observed empty
+one, and `advance()` refuses to admit or release without the corresponding
+validated decision (PR-20260911-3, -4). Reservation tests 41 → 81; feasibility
+tests 46 → 62.
+
+**Submitted and not built.** Effect ownership, independent recovery and the
+lock/lifecycle storage (PR-20260911-1, -2, -6). The permission delta is
+**not zero** — one system group, one group membership, one `systemd-tmpfiles`
+fragment, four provisioned paths and a second `ctypes` exception — and revision
+1's zero-delta claim is withdrawn.
+
+**The `JNL-47-RECOVERY-STATE` criterion split is withdrawn.** Its rationale was
+wrong: under the approved order a cleanup failure ends the run at C1, so no
+generation is ever created for the requirement to be about. **No decision is
+requested of Peter by this pass.** Two items await a maintainer after Codex's
+review: the contract's §7 provisioning delta, and **LAB-1**'s classification.
+LAB-1 is still reported and still not repaired.
+
+Next: **Codex technical review**. The later authorized read-only preflight remains
+assigned to Codex and unperformed.
+
+Nothing closed. All three C-7 cases remain declared unresolved; the plan remains
+`is_executable=False`; the twelve target facts remain unconfirmed; the
+operational-ineligibility and missing-coverage controls are unchanged; the
+real-execution refusal is retained. Review-input digest is now
+`e6d42228f5ccc4fd5eebc0861bb97eec42bbf16705d1aa209de5464e194bdba1`, review input
+only. Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; EH-R16-1 and the
+project-review findings Open. No provisioning, permission change, host action,
+execution digest, product implementation, migration 0014, deployment or cutover
+is approved.
+
+Suite figures against the submitted tree, all with `TEST_DATABASE_URL` unset and
+bot/web serial: harness **1546** passed; bot 3016 passed, 326 skipped; web 1610
+passed, 1362 skipped; Foundry 171 passed; skills 83 passed. **Every skip is an
+unverified assertion** — the canonical database-enabled web figure is 80 skips,
+not 1362, so these results establish no PostgreSQL evidence. No formatter, linter
+or type checker is configured in this repository; that is unconfigured tooling,
+not a passed check.
+
+## Superseded status — reserved laboratory remediation returned, 2026-09-11
+
+Claude returned the consolidated C-P5.0-LAB-1 submission:
+[handback](../review/phase-5-0-reserved-laboratory-handback.md) and the submitted
+[privileged-runner contract](../review/phase-5-0-reserved-laboratory-runner-contract.md).
+Delivered: the separate CRP fix for PR-20260910-R2-1, reproduced before change
+and covered by 17 regression tests; the three C-7 producer dispositions with
+bounded local evidence-only producers and their negative controls; and the
+whole-host reservation, admission and release decision mechanism with 41 injected
+cases. The permission delta is **zero**, and the EH-R16-1 remedy's exact
+implementation and syscall diff is submitted rather than built.
+
+Two items need a decision and neither is assumed: the readiness-versus-
+implementation **criterion split** for `JNL-47-RECOVERY-STATE` (handback §3.4,
+with a recommendation), and the classification of new finding **LAB-1** — a
+§2.13.2b run reaching S-B on residue alone reports no named operator recovery.
+
+Next: **Codex technical review** of the handback, the contract's §9.2 permission
+diff and the criterion split, then Peter's decisions. The later authorized
+read-only preflight remains assigned to Codex and unperformed.
+
+Nothing closed. All three C-7 cases remain declared unresolved; the plan remains
+`is_executable=False`; the twelve target facts remain unconfirmed; the
+operational-ineligibility control is unchanged; the real-execution refusal is
+retained. Review-input digest is now
+`bbb3854fbdffae00696544465f1cd7bbdf22ad18583056490a6735444800e4fa`, review input
+only. Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; EH-R16-1 and the
+project-review findings Open. No host action, execution digest, product
+implementation, migration 0014, deployment or cutover is approved.
+
+Suite figures against the submitted tree, all with `TEST_DATABASE_URL` unset and
+bot/web serial: harness 1490 passed; bot 3016 passed, 326 skipped; web 1610
+passed, 1362 skipped; Foundry 171 passed. **Every skip is an unverified
+assertion** — the canonical database-enabled web figure is 80 skips, not 1362, so
+these results establish no PostgreSQL evidence. No formatter, linter or type
+checker is configured in this repository; that is unconfigured tooling, not a
+passed check.
+
+## Current direction — reserved disposable laboratory, 2026-09-10
+
+Peter authorized proceeding with exclusive reservation, trusted host administrators
+and scoped adversarial tests after asking for a repercussions assessment. Codex's
+[direction and impact assessment](../review/phase-5-0-reserved-laboratory-direction.md)
+records C-P5.0-LAB-1. VM expansion is deferred from Package 5.0's critical path;
+ADR 0011 remains Proposed. No host reservation or inspection has occurred.
+
+Next: Claude completes the [bounded local remediation](../review/phase-5-0-reserved-laboratory-claude-prompt.md):
+three C-7 producer dispositions first, reservation/admission tests and the separate
+CRP fix PR-20260910-R2-1. New privileged interfaces remain behind review. Codex
+reviews the consolidated handback before the existing later preflight/execution
+sequence. A necessary readiness-criterion split must be explicit, not assumed.
+
+This supersedes the VM-revision next action below. It closes no finding or gate.
+Package 5.0 not ready; P5.0-R5 Blocking; OD-62 Open; EH-R16-1 and project-review
+findings remain open. Twelve target facts remain unconfirmed and the current
+plan is not executable. No operational digest or product implementation approved.
+
+## Historical update — VM design review returned, changes requested, 2026-09-10
+
+Claude delivered the independent design review of Codex's proposed VM evidence
+boundary:
+[`VM evidence boundary independent review`](../review/phase-5-0-evidence-vm-independent-review.md).
+Disposition: **changes requested**. Five findings are Blocking (VM-1 … VM-5),
+ten Important, three Optional.
+
+The review credits the architectural claim — no outer cleanup command consumes a
+guest path — and finds that the proposal reproduces the same defect class one
+layer up: the registry publication path re-instantiates PR-20260910-1, disposal
+deletes by an identity the cited documentation does not pin, and the
+exclusive-controller premise is contradicted by `oracle-test`'s documented
+multi-agent root access. §10's guest-root row is not satisfiable by anything the
+design proposes, and the claim that the old executor is "disabled" is not true of
+the tree.
+
+Recommended direction, for Peter's decision and **not accepted here**: complete
+Package 5.0's evidence on the already approved disposable target using the
+bounded C-8 §9.2 mechanism, and hold ADR 0011 as the target architecture for a
+later slice off Package 5.0's critical path. The reasoning is sequencing: the
+binding constraints are three missing C-7 producers and twelve unconfirmed target
+facts, and the VM proposal moves the latter further from an authorized read.
+
+Next: Codex revises the design and ADR 0011 against VM-1 … VM-5, documentation
+only, then returns for the §G decisions. ADR 0011 remains **Proposed**.
+
+No finding or gate closes, and no risk or residual is accepted by this review.
+Package 5.0 **not ready**, P5.0-R5 **Blocking**, OD-62 **Open**, EH-R16-1
+**Open**, PR-20260910-1/2/3 **Open**, current plan `is_executable=False`. No
+execution digest is approved. No host action, implementation or execution was
+authorized or performed.
+
+## Superseded update — simpler evidence boundary proposed, 2026-09-10
+
+The [September 10 review](../review/project-review-2026-09-10.md) returned two
+Blocking and one Important finding against C-8 revision 3. Following the
+maintainer's request to prepare a simpler alternative, Codex submitted
+[ADR 0011](../adr/0011-disposable-vm-evidence-boundary.md) and the
+[VM lifecycle design](../review/phase-5-0-evidence-vm-design.md). Both are
+**proposed, not accepted or implemented**. Preparation authorization is recorded
+in change-log C-P5.0-VM-P; no operational expansion is accepted.
+
+Recommended direction: a fresh synthetic VM per evidence run, with external
+ownership and disposal. Experimental success and laboratory disposal remain
+separate. KVM availability, host capacity, confinement and evidence equivalence
+are unverified. Next: **Claude's independent design review**, explicitly assigned
+in [Handover information](../review/Handover%20information), followed by the
+bounded feasibility/scope decisions in design §11. Codex authored the proposal
+and cannot independently approve it. Review handback was delivered at
+[`docs/review/phase-5-0-evidence-vm-independent-review.md`](../review/phase-5-0-evidence-vm-independent-review.md)
+on 2026-09-10 with disposition **changes requested**; see the current update above.
+
+No finding or gate closes. Package 5.0 **not ready**, P5.0-R5 **Blocking**,
+OD-62 **Open**, EH-R16-1 **Open**, current plan `is_executable=False`.
+No host action, implementation or execution digest was approved by this update.
+
+The R2 submission description below is historical; its claim that restoration
+was bound to verified bytes was rejected by PR-20260910-1.
+
+## Current update — project review R2 returned; C-8 design at its third revision
+
+**Remediation update, 2026-09-09 (R2).** Codex's second project review requested
+changes to the C-8 design and withheld execution approval. Claude returned the
+corrected design and the independent evidence and document corrections. The
+handback is
+[`project review R2 remediation handback`](../review/project-review-remediation-2026-09-09-r2-handback.md);
+the design is
+[`C-8 ownership design, third revision`](../review/phase-5-0-evidence-harness-c8-ownership-design-r16-3.md),
+**submitted for technical review, not accepted and not implemented**.
+
+All three R2 findings are conceded. The design now covers the **whole
+lifecycle** rather than cleanup, with an operation-by-operation ledger of all 139
+execution and 47 cleanup steps and an execution-time root guard before each of
+128 root-dependent steps. Configuration restoration is bound to the **bytes that
+were verified**, held by the executor, rather than to a pathname reopened in a
+second process; the previous revision's `[proved]` label and its `digest` verb
+are withdrawn as the recommendation. The blanket "not closable on Linux"
+statements are withdrawn and replaced with a four-class, eight-candidate
+comparison, and the previous recommendation to accept the seven probe removals
+blanket is **reversed** in favour of a quiescence check. Five residuals and three
+interface decisions are routed; **none is accepted**. Dated errata correct the
+prior handback and the second revision without rewriting either.
+
+The evidence correction is implemented: the shared fake now models object
+identity and byte content, and four reproductions inject an actual substitution
+and assert which object or which bytes an effect consumed. **EH-R16-1 remains
+open with its existing identity** and its mechanism is still not implemented. No
+file under `tools/` changed.
+
+The previous handback's claim that the sanitized material was already committed
+is **withdrawn**: read-only inspection found the report untracked with no
+matching commits in the scoped searches. That is the observed scope, not proof
+of absence from any remote and not evidence of exposure.
+
+Synthetic verification against the submitted tree, `TEST_DATABASE_URL` unset, on
+explicitly identified fallback interpreters: 193 structural, 16 ownership
+reproductions, 54 R13 regressions, 1391 harness, 2990 bot passed with 326
+skipped, 1610 web passed with 1362 skipped, 171 Foundry, `compileall` and
+`git diff --check` clean. Manifest regeneration is not applicable because no
+covered source changed; both artifacts were regenerated twice through the
+non-executing path and matched byte for byte, and the 32 source hashes were
+re-verified independently with 0 mismatches. The digest
+`ec1e3e70…56f2839` is **review input only**. The database skips are unverified
+assertions, not integration evidence. No formatter, linter or type checker is
+configured or installed. `oracle-test` was not contacted, the read-only preflight
+was not performed and remains Codex's, and the twelve target facts remain
+unconfirmed. Package 5.0 remains not ready, P5.0-R5 Blocking, OD-62 Open, and
+`is_executable` is False. Product implementation, migration 0014, deployment,
+cutover and Package 5.1+ remain unauthorized.
+
+The next step is Codex's technical review of the third revision.
+
+## Superseded — project-review remediation returned; C-8 design revised
+
+**Remediation update, 2026-09-09.** Claude returned the bounded project-review
+remediation. The handback is
+[`project-review remediation handback`](../review/project-review-remediation-2026-09-09-handback.md).
+
+Finding 3, the live-derived test fixture and its report, is implemented and
+sanitized. Finding 2 is conceded: the previously submitted C-8 ownership design
+is **rejected** and a corrected artifact is submitted for technical acceptance at
+[`C-8 ownership design, second revision`](../review/phase-5-0-evidence-harness-c8-ownership-design-r16-2.md).
+Finding 1 retains its identity as **EH-R16-1 and remains open**; its mechanism is
+deliberately not implemented, because the design checkpoint has to be accepted
+first. No file under `tools/` changed.
+
+The corrected design concedes that `mkdirat` followed by `openat` does not detect
+child replacement and that the earlier root-permission argument does not hold,
+enumerates the plan's actual directory and mode contracts, states the two
+intervals that cannot be closed on Linux, and routes two proposed interface
+changes and four residuals for decision rather than assuming them. The defect is
+reproduced under injected boundaries in a module whose cases are explicitly
+labelled as reproductions of an open finding.
+
+Synthetic verification, `TEST_DATABASE_URL` unset, on explicitly identified
+fallback interpreters: 193 structural, 60 skills, 13 ownership reproductions, 39
+R16 regressions, 1388 harness, 2990 bot passed with 326 skipped, 1610 web passed
+with 1362 skipped, 171 Foundry. Manifest regeneration is not applicable because
+no covered source changed; the digest is unchanged and the 32 source hashes were
+re-verified with 0 mismatches. The database skips are unverified assertions, not
+integration evidence. No formatter, linter or type checker is configured or
+installed. `oracle-test` was not contacted, the read-only preflight was not
+performed, and the twelve target facts remain unconfirmed. Package 5.0 remains
+not ready, P5.0-R5 Blocking, OD-62 Open, and `is_executable` is False. Product
+implementation, migration 0014, deployment, cutover and Package 5.1+ remain
+unauthorized.
+
+## Superseded — R16 remediation returned; C-8 design awaiting review
+
+**Remediation update, 2026-09-09.** Claude returned the bounded R16 remediation
+for independent re-review. The handback is
+[`R16 remediation handback`](../review/phase-5-0-evidence-harness-remediation-r16-handback.md).
+
+EH-R16-2, EH-R16-3 and EH-R16-4 are corrected with regressions. **EH-R16-1 is a
+design submitted for technical review and is not implemented**, because the
+prompt requires the revised C-8 ownership/recovery design to be reviewed before
+the mechanism is built and R16 recorded that checkpoint as skipped. The design is
+[`C-8 ownership design R16`](../review/phase-5-0-evidence-harness-c8-ownership-design-r16.md);
+the cleanup, executor and case-program sources are unchanged.
+
+EH-R16-4 restores Band 7's three producers to unresolved under conflict C-7, so
+**`is_executable` is `False`** and the executor's second gate refuses the shipped
+plan. The supplied-observation schema is version 2 and the review manifest is
+version 9.
+
+Synthetic verification, `TEST_DATABASE_URL` unset, on an explicitly local
+fallback interpreter: 193 structural tests, 39 new R16 regressions, 1375 harness
+tests, 2990 bot passed with 326 skipped, 1610 web passed with 1362 skipped, 171
+Foundry Node tests. Both generated artifacts regenerated twice byte-identically
+and 32 covered sources re-hashed with 0 mismatches. These are not operational or
+database results, and the skip counts are the restriction rather than a pass. No
+execution digest is approved. `oracle-test` was not contacted. The read-only
+preflight remains authorized, assigned to Codex and unexercised; the twelve
+target facts remain unconfirmed. Package 5.0 remains not ready, P5.0-R5 Blocking
+and OD-62 Open. Product implementation, migration 0014, deployment, cutover and
+Package 5.1+ remain unauthorized.
+
+## Superseded — R16 evidence-harness review; remediation assigned
+
+**Review update, 2026-09-09.** Codex returned the C-6/C-7/C-8 submission
+with changes requested. EH-R16-1/2 are Blocking (ownership checks after
+dependent cleanup; inferred rather than observed provenance refusal).
+EH-R16-3/4 are Important (incomplete required-case accounting; missing external
+producers marked resolved). The review is
+[`R16 independent review`](../review/phase-5-0-evidence-harness-r16-independent-review.md).
+The active, full Claude remediation prompt is in
+[`Handover information`](../review/Handover%20information).
+
+Independent synthetic verification: 193 structural tests, then 1335 harness
+tests passed with TEST_DATABASE_URL unset using an explicitly local fallback
+interpreter; both generated artifacts matched. These are not operational or
+database results. No execution digest is approved. The maintainer's bounded
+remediation authorization persists; no repeat approval is needed. The later
+read-only preflight remains authorized, assigned to Codex, and unperformed;
+the twelve target facts remain unconfirmed. Package 5.0 remains not ready,
+P5.0-R5 Blocking and OD-62 Open. Product implementation, migration 0014,
+deployment, cutover and Package 5.1+ remain unauthorized.
+
+## Prior update — evidence-harness runtime Option B ruled; R11 authorized
+
+**Decision update, 2026-09-06.** Peter Duscha accepted Codex's recommendation
+for R10 conflict C-2: every reviewed case-program vector explicitly names the
+documented Python 3.12 interpreter and invokes it with `-I -S`. The case source
+and installed bytes remain identical and manifest-covered; preflight validates
+the interpreter's absolute path, version and executable SHA-256. Only the exact
+reviewed case-program vectors are admitted—this is not general Python execution.
+Interpreter or isolated-runtime mismatch is fail-closed as `inconclusive`.
+
+Bounded R11 remediation of C-2, dependent C-3 and C-5 is authorized under
+`docs/review/phase-5-0-evidence-harness-remediation-r11-prompt.md`. C-1 and C-4
+are accepted on review; the focused review selection passed **273 tests**. R11
+must return to Codex for a separate independent pre-execution review. No
+`--execute`, SSH, host/database mutation, destructive drill, Package 5.0 product
+implementation, migration `0014`, deployment, cutover, OD-62 ruling or Package
+5.1+ work is authorized. Package 5.0 remains `not ready` and P5.0-R5 remains
+Blocking. Controlled record: change-log **C-P5.0-AH**.
+
+## Superseded — pre-implementation evidence harness authorized
 
 **Authorization update, 2026-09-02.** Peter Duscha approved the bounded Package
 5.0 pre-implementation evidence harness in the Operations Owner and Acceptance

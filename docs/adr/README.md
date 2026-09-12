@@ -120,5 +120,13 @@ easy to read as more than it is:
 
 ## Format
 
+**Proposed addition, 2026-09-10.**
+[0011 — One disposable VM per privileged evidence run](0011-disposable-vm-evidence-boundary.md)
+is submitted by Codex following the maintainer's request for a simpler evidence
+harness design. It is not accepted or implemented; Claude's independent review
+is assigned in [Handover information](../review/Handover%20information).
+It changes no production architecture or package
+gate by being listed here.
+
 Context → Decision → Consequences → Alternatives considered. Keep them short;
 the reasoning matters more than the prose.
