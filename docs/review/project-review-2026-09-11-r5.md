@@ -1,5 +1,11 @@
 # Independent technical re-review — runner contract r5
 
+**Follow-up:** this historical review's PR-20260911-R5-1 finding was closed by
+the maintainer after the r6 re-review recorded in
+[`project-review-2026-09-12-r5-closure.md`](project-review-2026-09-12-r5-closure.md).
+The R4-2 and R4-3 dependent findings were also closed there. The changes-requested
+disposition below remains the accurate record of the r5 submission.
+
 Date: 2026-09-11. Reviewer: Codex. Disposition: **changes requested**.
 
 Scope: the R4 remediation handback, runner contract r5, the connected lifecycle

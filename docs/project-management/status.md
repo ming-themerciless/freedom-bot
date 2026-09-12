@@ -1,6 +1,36 @@
 # Project status
 
-## Current status — R5 reservation binding remediation returned to Codex, 2026-09-11
+## Current status — R5 remediation findings closed, 2026-09-12
+
+Codex completed the independent technical re-review of runner contract r6 and
+the R5 implementation. Per the maintainer's disposition,
+[PR-20260911-R5-1, PR-20260911-R4-2 and PR-20260911-R4-3 are closed](../review/project-review-2026-09-12-r5-closure.md).
+R4-1 retains its earlier positive technical recommendation and is not closed by
+this decision. These are scoped review-finding dispositions; they do not approve
+Package 5.0 or close its separate readiness finding P5.0-R5.
+
+The correction stores the harness reservation on `participant_started`, requires
+the profile-specific shape, rejects schema-1 histories, applies the same
+semantic validator before append and on read, derives completion from the
+stored start, and checks the binding before release publication. Verification
+with `TEST_DATABASE_URL` unset: focused R3/R4/R5 regressions **192 passed**,
+structural no-execution suite **217 passed**, complete synthetic evidence
+harness **1859 passed, zero skips**. No SSH, host, database, provisioning,
+preflight, privileged, or real execution checks ran under the active handover
+restriction.
+
+Next maintainer decisions: r6 §7's ten-item permission/provisioning delta, V10's
+identity question, and LAB-1's classification. The delta remains unapproved;
+LAB-1 remains Important and unrepaired; the three C-7 cases remain unresolved;
+`is_executable` remains False; the twelve target facts are unconfirmed; and
+EH-R16-1 remains Open. Package 5.0 remains not ready, package-level P5.0-R5
+remains Blocking, and OD-62 remains Open. No execution, provisioning, host
+action, or permission expansion is authorized.
+
+## Historical current-status report — R5 reservation binding remediation, 2026-09-11
+
+The following status snapshot is preserved as written on 2026-09-11. Its review
+pending/open-finding statements are superseded by the 2026-09-12 status above.
 
 Claude answered [PR-20260911-R5-1](../review/project-review-2026-09-11-r5.md) in
 one bounded local pass

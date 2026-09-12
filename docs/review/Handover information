@@ -1,7 +1,38 @@
-# Handback — R5 reservation-to-harness binding remediation returned, 2026-09-11
+# Codex re-review complete — R5 reservation binding, 2026-09-12
 
-**Status: returned to Codex for technical re-review. Nothing is accepted, no
-finding is closed, and no execution is authorized.**
+**Status: the maintainer accepted the bounded technical disposition.**
+PR-20260911-R5-1, PR-20260911-R4-2 and PR-20260911-R4-3 are closed. R4-1 retains
+its prior positive technical recommendation and is not closed by this
+disposition. These finding closures do not close package-level P5.0-R5 or
+authorize execution, provisioning, host work, or a permission change.
+
+* Closure record: [R5 remediation re-review and finding disposition](project-review-2026-09-12-r5-closure.md).
+* Submitted design reviewed: [runner contract r6](phase-5-0-reserved-laboratory-runner-contract-r6.md).
+
+The re-review found the durable binding on the harness start, exact equality
+checks across the stored start, release request/publication and completion
+evidence, shared writer/reader validation, and the pre-release step-zero check
+technically sound in the reviewed scope. Verification: focused R3/R4/R5
+regressions **192 passed**, structural no-execution suite **217 passed**, and
+complete synthetic harness **1859 passed, zero skips**. No operational checks
+ran under the active restriction.
+
+The next maintainer decisions remain r6 §7's ten-item permission/provisioning
+delta, V10's identity question, and LAB-1's classification. LAB-1 remains
+Important and unrepaired; the three C-7 cases remain unresolved; `is_executable`
+is **False**; the twelve target facts remain unconfirmed; EH-R16-1 remains Open;
+and the real-execution refusal remains in force. Package 5.0 remains not ready,
+P5.0-R5 remains Blocking, and OD-62 remains Open. All other active restrictions
+remain in force.
+
+---
+
+# Historical handback — R5 reservation-to-harness binding remediation, 2026-09-11
+
+The following handback is preserved as the 2026-09-11 snapshot. Its statements
+that review was pending and findings remained open were current at that date and
+are superseded by the 2026-09-12 disposition at the top of this file and in the
+linked closure record.
 
 * Consolidated handback:
   [`project-review-remediation-2026-09-11-r5-handback.md`](project-review-remediation-2026-09-11-r5-handback.md)

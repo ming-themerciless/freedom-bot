@@ -1,5 +1,12 @@
 # Independent technical re-review — runner contract r4
 
+**Follow-up:** PR-20260911-R4-2 and PR-20260911-R4-3 were closed by the
+maintainer after the r6 re-review recorded in
+[`project-review-2026-09-12-r5-closure.md`](project-review-2026-09-12-r5-closure.md).
+R4-1 retains its separate positive technical recommendation; the follow-up does
+not record that finding as closed. The changes-requested disposition below
+remains the accurate record of the r4 submission.
+
 Date: 2026-09-11. Reviewer: Codex. Disposition: **changes requested**.
 
 Scope: the R3 remediation handback, runner contract r4, the connected lifecycle
