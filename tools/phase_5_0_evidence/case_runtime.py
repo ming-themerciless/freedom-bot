@@ -251,6 +251,26 @@ class ArgumentKind(str, Enum):
     #: `TARGET_PATH`; and it admits exactly one value, so it is a constant the
     #: vector states rather than a path a caller chooses.
     ROOT_PATH = "root_path"
+    #: **r6 §6.2.** An index into the descriptor table the step inherited. The
+    #: executor clears `FD_CLOEXEC` on a declared set starting at descriptor 3
+    #: and hands the step a table naming each entry; this argument is an index
+    #: into that table and into nothing else. It is never a number a caller
+    #: chooses freely, and a step that needs a descriptor it was not given
+    #: refuses rather than opening a path to obtain one.
+    DIRFD = "dirfd"
+    #: **r6 §6.2.** Exactly one path component — no separator, no `.`, no `..`.
+    #: The prefix is bound by the descriptor the `DIRFD` argument names, so a
+    #: component that could carry a separator would be a pathname that binding
+    #: does not cover.
+    COMPONENT = "component"
+
+
+#: The bounds a `DIRFD` index and a `COMPONENT` are checked against, in the
+#: planner and again in the program. Stated here as well as there because both
+#: sides validate and neither excuses the other.
+FIRST_DIRFD = 3
+MAX_DIRFD = 31
+MAX_COMPONENT_BYTES = 255
 
 
 #: Every `open(2)` flag combination the package-plan cases name, and no other.
@@ -370,6 +390,42 @@ CASE_VERBS: Mapping[str, VerbSpec] = {
             "FS_IOC_SETFLAGS clearing FS_IMMUTABLE_FL and no other bit — "
             "conflict C-6. It is E4's refusal (EPERM, for want of A10/A11), E6's "
             "positive control and the first half of E5's two-step case.",
+        ),
+        _verb(
+            "openat",
+            (ArgumentKind.DIRFD, ArgumentKind.OPEN_MODE, ArgumentKind.COMPONENT),
+            "openat(2) resolving one component relative to a descriptor the "
+            "step inherited, with O_NOFOLLOW, then fstat and close. It is the "
+            "descriptor-bound replacement for the pathname open — r6 §1.3 — and "
+            "the device and inode it reports are what a caller compares with "
+            "the identity a previous lookup recorded.",
+        ),
+        _verb(
+            "unlinkat",
+            (ArgumentKind.DIRFD, ArgumentKind.COMPONENT),
+            "unlinkat(2) with flag 0. The prefix is bound by the descriptor and "
+            "**the final component is not**: this removes whatever the name "
+            "resolves to at the moment of the call, which r6 §1.4.5 states "
+            "rather than denies. Quiescence is the prevention and the pre-check "
+            "is the only genuine detection.",
+        ),
+        _verb(
+            "renameat",
+            (
+                ArgumentKind.DIRFD,
+                ArgumentKind.COMPONENT,
+                ArgumentKind.DIRFD,
+                ArgumentKind.COMPONENT,
+            ),
+            "renameat(2) between two components, each relative to a descriptor "
+            "the step inherited.",
+        ),
+        _verb(
+            "fstatat",
+            (ArgumentKind.DIRFD, ArgumentKind.COMPONENT),
+            "fstatat(2) with AT_SYMLINK_NOFOLLOW, reporting whether the name "
+            "resolves and to which device and inode. It is the post-removal "
+            "**absence check**: it cannot report which object a removal took.",
         ),
         _verb(
             "mkroot",
@@ -660,6 +716,42 @@ def _validate_argument(
             raise PlanRefused(
                 f"Verb {verb!r} argument {index} is {argument!r}; the reviewed "
                 f"write modes are {list(WRITE_MODES)}."
+            )
+        return
+    if kind is ArgumentKind.DIRFD:
+        if not argument.isdigit():
+            raise PlanRefused(
+                f"Verb {verb!r} argument {index} is {argument!r}; a descriptor "
+                "argument is a non-negative decimal index into the table the "
+                "step inherits."
+            )
+        position = int(argument)
+        if position < FIRST_DIRFD or position > MAX_DIRFD:
+            raise PlanRefused(
+                f"Verb {verb!r} argument {index} is {argument!r}; the inherited "
+                f"table starts at descriptor {FIRST_DIRFD} and is bounded at "
+                f"{MAX_DIRFD}. Descriptors 0, 1 and 2 are the standard streams "
+                "and are never part of a declared set, and an index outside the "
+                "table is a descriptor nobody declared."
+            )
+        return
+    if kind is ArgumentKind.COMPONENT:
+        if not argument or "/" in argument or argument in (".", ".."):
+            raise PlanRefused(
+                f"Verb {verb!r} argument {index} is {argument!r}; a component "
+                "argument is exactly one path component. A separator or a "
+                "relative segment would reach past the descriptor that binds "
+                "the prefix, which is the whole property the kind exists for."
+            )
+        if len(argument.encode("utf-8")) > MAX_COMPONENT_BYTES:
+            raise PlanRefused(
+                f"Verb {verb!r} argument {index} is longer than NAME_MAX."
+            )
+        if argument != argument.strip() or not argument.isprintable():
+            raise PlanRefused(
+                f"Verb {verb!r} argument {index} is {argument!r}; a component "
+                "carries no surrounding whitespace and no unprintable "
+                "character."
             )
         return
     if argument != GENERATION_LINK_NAME:

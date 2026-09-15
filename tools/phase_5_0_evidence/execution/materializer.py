@@ -72,6 +72,7 @@ from .boundary import (
     IdentityRefusal,
     SystemIdentityLookup,
 )
+from .recovery_store import BARRIER_ORDER, StorePublication
 
 #: A materializer that is not armed writes nothing. The CLI arms one on exactly
 #: one line, inside the `--execute` branch.
@@ -96,6 +97,11 @@ MATERIALIZATION_WRITE_FAILED = "write-failed"
 #: Recorded by the executor when a materialization failed its
 #: immediately-before-execution revalidation and was therefore never attempted.
 MATERIALIZATION_VALIDATION_REFUSED = "validation-refused"
+#: **r6 §2.3.** The independent recovery basis was not durably published, so the
+#: first configuration mutation may not occur. It is a refusal rather than a
+#: warning because a mutation with no recoverable basis is the state §2.1 found
+#: revision 1 in: an unprovided copy is not a safeguard.
+MATERIALIZATION_RECOVERY_BASIS_MISSING = "recovery-basis-not-published"
 
 #: Every value `MaterializationResult.failure` may take. Fixed, safe and short,
 #: for the same reason `LAUNCH_FAILURES` is.
@@ -111,6 +117,7 @@ MATERIALIZATION_FAILURES: frozenset[str] = frozenset(
         MATERIALIZATION_IDENTITY_UNKNOWN,
         MATERIALIZATION_WRITE_FAILED,
         MATERIALIZATION_VALIDATION_REFUSED,
+        MATERIALIZATION_RECOVERY_BASIS_MISSING,
     }
 )
 
@@ -280,9 +287,281 @@ class SystemMaterializer:
             os.close(descriptor)
 
 
+# ---------------------------------------------------------------------------
+# r6 §2.3 — the mutation's precondition, and r6 §2.4 — verify-and-write restore
+# ---------------------------------------------------------------------------
+
+
+#: Stated before the check, because the check is meaningless without it.
+RECOVERY_BASIS_RULE = (
+    "No first configuration mutation may occur until both the recoverable "
+    "bytes and all the metadata needed to discover and verify them after a "
+    "crash are durably published.",
+    "Two halves. *Recoverable bytes* is the copy. *Metadata needed to discover "
+    "them* includes the run directory's own entry in the recovery parent, "
+    "because discovery is `readdir` of that parent and an entry is durable only "
+    "when its containing directory is synchronized.",
+    "A read-back, a digest comparison, a successful rename and a successful "
+    "write are each **not** a barrier. A sequence that performs one in place of "
+    "a barrier has performed no barrier.",
+)
+
+#: r6 §2.4's two barriers, in order. `restore-data` covers each temporary's
+#: bytes; `restore-entry` covers the destination directory's entries **after
+#: the last rename**.
+RESTORATION_BARRIERS = ("restore-data", "restore-entry")
+
+
+def publication_permits_mutation(publication: "StorePublication") -> bool:
+    """M1's own precondition: every §2.3.3 barrier crossed, and nothing less.
+
+    It reads `mutation_permitted` and re-checks the barrier set rather than
+    trusting the flag alone, because the flag and the set are two statements
+    about the same publication and a mutation is not the place to discover they
+    disagree. The argument is the typed publication and nothing looser: a
+    duck-typed one would let an object that merely has the right attribute
+    names permit a configuration mutation.
+    """
+    if not isinstance(publication, StorePublication):
+        return False
+    crossed = tuple(publication.barriers_crossed)
+    return publication.mutation_permitted and all(
+        name in crossed for name in BARRIER_ORDER
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RestorationOutcome:
+    """What one restoration concluded. **`renamed` and `durable` are two fields.**
+
+    r6 §2.4 names the case: a rename succeeds and its directory barrier fails.
+    The destination's *name* then resolves to the restored bytes and the
+    *durable* namespace still holds the pre-restoration entry, so a power loss
+    at that instant returns the destination to the mutated configuration. A
+    restoration is therefore **never reported durable from a rename alone**, and
+    L2's reload verification has `durable` as its prerequisite.
+    """
+
+    renamed: tuple[str, ...] = ()
+    durable: bool = False
+    failure: str = ""
+    reasons: tuple[str, ...] = ()
+    leftovers: tuple[str, ...] = ()
+    barriers_crossed: tuple[str, ...] = ()
+
+    @property
+    def mixed(self) -> bool:
+        """An interruption between two renames leaves a mixed configuration.
+
+        It is why the post-reload verification is a separate observation and why
+        failing it is S-B rather than a retry.
+        """
+        return bool(self.renamed) and bool(self.failure)
+
+
+#: The restore refusals, each its own classification.
+RESTORE_RECORD_MISSING = "recovery-record-missing"
+RESTORE_DIGEST_MISMATCH = "stored-copy-does-not-match-its-record"
+RESTORE_DESTINATION_MISMATCH = "record-names-another-destination"
+RESTORE_WRITE_FAILED = "restoration-write-failed"
+RESTORE_BARRIER_FAILED = "restoration-barrier-failed"
+RESTORE_LEFTOVER_TEMPORARY = "restoration-temporary-present"
+
+RESTORE_FAILURES: frozenset[str] = frozenset(
+    {
+        RESTORE_RECORD_MISSING,
+        RESTORE_DIGEST_MISMATCH,
+        RESTORE_DESTINATION_MISMATCH,
+        RESTORE_WRITE_FAILED,
+        RESTORE_BARRIER_FAILED,
+        RESTORE_LEFTOVER_TEMPORARY,
+    }
+)
+
+#: The suffix a restoration temporary carries. An interruption leaves one; it is
+#: detected on restart by listing the destination directory, **reported**, and
+#: removed by an operator before a retry — never by the next run.
+RESTORE_TEMPORARY_SUFFIX = ".restore.tmp"
+
+
+def restore_configuration(
+    *,
+    inventory,
+    filesystem,
+    store,
+    run_id: str,
+    configuration_role: str,
+    destination_directory: str,
+    owner_uid: int,
+    owner_gid: int,
+    mode: int = 0o640,
+    fail_at: str = "",
+) -> RestorationOutcome:
+    """r6 §2.4: verify against the independent store, then write and publish.
+
+    The order, and every step is the contract's:
+
+    1. read the stored copy into **one held buffer**; digest that buffer;
+       compare with the record. A mismatch refuses and the run reaches S-B;
+    2. the record's destination must be the destination being restored. **A
+       copy whose digest matches but whose record names a different destination
+       is restored nowhere**; the destination is part of the binding;
+    3. write each temporary exclusively, `fchown`, `fchmod`, and cross
+       `restore-data` — **all temporaries written and synchronized before any
+       rename**;
+    4. issue the renames in a fixed order;
+    5. cross `restore-entry` **after the last rename**; and
+    6. the post-reload verification is the caller's, and it has `durable` as its
+       prerequisite.
+
+    The destination is never half-written: the bytes go to a temporary and the
+    rename is atomic.
+    """
+    from ..durability_model import DescriptorMode
+
+    traversal = inventory.traversal(configuration_role)
+    leftovers = tuple(
+        name
+        for name in inventory.listing(configuration_role)
+        if name.endswith(RESTORE_TEMPORARY_SUFFIX)
+    )
+    if leftovers:
+        return RestorationOutcome(
+            failure=RESTORE_LEFTOVER_TEMPORARY,
+            leftovers=leftovers,
+            reasons=(
+                "an earlier restoration was interrupted and its temporaries are "
+                "still present. They are reported and removed by an operator "
+                "before a retry, because a retry over an unexplained temporary "
+                "is a write into a state nobody has established.",
+            ),
+        )
+
+    discovered = {run.run_id: run for run in store.discover()}
+    basis = discovered.get(run_id)
+    if basis is None or not basis.usable:
+        return RestorationOutcome(
+            failure=RESTORE_RECORD_MISSING,
+            reasons=(
+                "the independent store holds no usable recovery basis for this "
+                "run, so there is nothing to restore from. The captures under "
+                "the disposable root are not a basis: their custody is the "
+                "custody in question.",
+            )
+            + (basis.reasons if basis is not None else ()),
+        )
+
+    buffers: dict[str, bytes] = {}
+    for record in basis.records:
+        name = record.destination.rpartition("/")[2]
+        expected = f"{destination_directory}/{name}"
+        if record.destination != expected:
+            return RestorationOutcome(
+                failure=RESTORE_DESTINATION_MISMATCH,
+                reasons=(
+                    "a stored record names a destination other than the one "
+                    "being restored. A copy that verifies is still restored "
+                    "nowhere when its record places it elsewhere.",
+                ),
+            )
+        buffer = store.read_copy(run_id, name)
+        if hashlib.sha256(buffer).hexdigest() != record.content_digest:
+            return RestorationOutcome(
+                failure=RESTORE_DIGEST_MISMATCH,
+                reasons=(
+                    "the stored copy does not digest to the value its record "
+                    "binds, so these are not the bytes the capture took.",
+                ),
+            )
+        buffers[name] = buffer
+
+    crossed: list[str] = []
+    written: list[str] = []
+    try:
+        for name in sorted(buffers):
+            temporary = f"{name}{RESTORE_TEMPORARY_SUFFIX}"
+            descriptor = filesystem.create_file(traversal, temporary)
+            try:
+                filesystem.write(descriptor.number, buffers[name])
+                os.fchown(descriptor.number, owner_uid, owner_gid)
+                os.fchmod(descriptor.number, mode)
+                if fail_at == "restore-data":
+                    raise OSError("injected failure before the data barrier")
+                filesystem.fsync(descriptor.number, barrier="restore-data")
+            finally:
+                filesystem.close(descriptor.number)
+            written.append(temporary)
+        if written and "restore-data" not in crossed:
+            crossed.append("restore-data")
+    except Exception:
+        return RestorationOutcome(
+            failure=RESTORE_WRITE_FAILED,
+            leftovers=tuple(written),
+            reasons=(
+                "a restoration temporary could not be written or synchronized. "
+                "The destination is untouched, the run reaches S-B, and the "
+                "retry begins from the store.",
+            ),
+        )
+
+    renamed: list[str] = []
+    for name in sorted(buffers):
+        try:
+            filesystem.renameat(
+                traversal,
+                f"{name}{RESTORE_TEMPORARY_SUFFIX}",
+                traversal,
+                name,
+            )
+        except Exception:
+            return RestorationOutcome(
+                renamed=tuple(renamed),
+                failure=RESTORE_WRITE_FAILED,
+                barriers_crossed=tuple(crossed),
+                reasons=(
+                    "a rename failed part-way through a multi-file restoration, "
+                    "so the configuration is mixed. That is S-B and a separate "
+                    "observation, never a retry.",
+                ),
+            )
+        renamed.append(name)
+
+    if fail_at == "restore-entry":
+        return RestorationOutcome(
+            renamed=tuple(renamed),
+            durable=False,
+            failure=RESTORE_BARRIER_FAILED,
+            barriers_crossed=tuple(crossed),
+            reasons=(
+                "the renames are visible and the containing entry was not "
+                "synchronized, so a power loss now returns the destination to "
+                "the mutated configuration. **This is not a durable "
+                "restoration** and the post-reload verification does not run.",
+            ),
+        )
+    try:
+        inventory.fsync_entry(configuration_role)
+    except Exception:
+        return RestorationOutcome(
+            renamed=tuple(renamed),
+            durable=False,
+            failure=RESTORE_BARRIER_FAILED,
+            barriers_crossed=tuple(crossed),
+            reasons=(
+                "the destination directory's entry barrier did not return "
+                "success, so the restoration is visible and not durable.",
+            ),
+        )
+    crossed.append("restore-entry")
+    return RestorationOutcome(
+        renamed=tuple(renamed), durable=True, barriers_crossed=tuple(crossed)
+    )
+
+
 __all__ = [
     "FileMaterializer",
     "MATERIALIZATION_CAPTURE_INCOMPLETE",
+    "MATERIALIZATION_RECOVERY_BASIS_MISSING",
     "MATERIALIZATION_CONTENT_REFUSED",
     "MATERIALIZATION_DESTINATION_NOT_REVIEWED",
     "MATERIALIZATION_DIGEST_MISMATCH",
@@ -294,6 +573,19 @@ __all__ = [
     "MATERIALIZATION_WRITE_FAILED",
     "MATERIALIZER_NOT_ARMED",
     "MaterializationResult",
+    "RECOVERY_BASIS_RULE",
+    "RESTORATION_BARRIERS",
+    "RESTORE_BARRIER_FAILED",
+    "RESTORE_DESTINATION_MISMATCH",
+    "RESTORE_DIGEST_MISMATCH",
+    "RESTORE_FAILURES",
+    "RESTORE_LEFTOVER_TEMPORARY",
+    "RESTORE_RECORD_MISSING",
+    "RESTORE_TEMPORARY_SUFFIX",
+    "RESTORE_WRITE_FAILED",
     "RecordingMaterializer",
+    "RestorationOutcome",
     "SystemMaterializer",
+    "publication_permits_mutation",
+    "restore_configuration",
 ]

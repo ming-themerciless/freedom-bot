@@ -418,11 +418,16 @@ FIRST_USE_RECOVERY: Mapping[FirstUseRefusal, tuple[str, ...]] = {
     FirstUseRefusal.INTERRUPTED_INITIALIZATION: (
         "The temporary is reported by absolute path and is not removed "
         "automatically.",
-        "An operator removes the temporary after establishing that no record was "
-        "published, and initialization is then attempted again from the "
-        "beginning.",
-        "The interrupted attempt published nothing, so no participant was ever "
-        "admitted on it.",
+        "If the final record name does not resolve, nothing was published: an "
+        "operator removes the temporary after establishing that, and "
+        "initialization is then attempted again from the beginning.",
+        "If the final record name resolves to the same inode as the temporary, "
+        "the exclusive publication stopped between its link and its unlink "
+        "(runner contract r6 §6.2, amendment D1) and the record was published. "
+        "An operator removes only the temporary; initialization is not repeated, "
+        "and the next participant's re-seal establishes the record's durability.",
+        "If the final name resolves to any other object, neither case holds, and "
+        "the host stays refused until an operator establishes what it is.",
     ),
     FirstUseRefusal.NO_FIRST_USE_EVIDENCE: (
         "Obtain the attestation. A first use is a positive claim about the host, "

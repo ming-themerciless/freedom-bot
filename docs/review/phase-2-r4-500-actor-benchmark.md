@@ -222,10 +222,10 @@ git diff --check
 ## 9. Changed Files and Working-Tree Preservation Statement
 
 The following dedicated files were created/modified for this benchmark:
-- `[NEW]` [tests/benchmark_snapshot_500.py](file:///opt/discord-bots/freedom-bot/tests/benchmark_snapshot_500.py) — non-pytest benchmark harness & synthetic generator
-- `[NEW]` [tests/test_benchmark_harness.py](file:///opt/discord-bots/freedom-bot/tests/test_benchmark_harness.py) — focused unit, integration, and regression tests
-- `[NEW]` [docs/review/phase-2-r4-500-actor-benchmark.md](file:///opt/discord-bots/freedom-bot/docs/review/phase-2-r4-500-actor-benchmark.md) — benchmark report (this file)
-- `[MODIFY]` [docs/operations/phase-2-maintainer-closeout.md](file:///opt/discord-bots/freedom-bot/docs/operations/phase-2-maintainer-closeout.md) — updated §4.3 with recommended threshold link
+- `[NEW]` [tests/benchmark_snapshot_500.py](../../tests/benchmark_snapshot_500.py) — non-pytest benchmark harness & synthetic generator
+- `[NEW]` [tests/test_benchmark_harness.py](../../tests/test_benchmark_harness.py) — focused unit, integration, and regression tests
+- `[NEW]` [docs/review/phase-2-r4-500-actor-benchmark.md](../../docs/review/phase-2-r4-500-actor-benchmark.md) — benchmark report (this file)
+- `[MODIFY]` [docs/operations/phase-2-maintainer-closeout.md](../../docs/operations/phase-2-maintainer-closeout.md) — updated §4.3 with recommended threshold link
 
 **Working Tree Preservation Statement:** All pre-existing uncommitted changes in the repository were preserved without reset, reformat, or overwriting.
 

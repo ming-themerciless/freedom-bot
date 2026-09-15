@@ -1,5 +1,215 @@
 # RAID register
 
+## D1/D2 correction re-review — Blocking admission defect — 2026-09-15
+
+The independent
+[re-review](../review/project-review-2026-09-15-reserved-laboratory-d1-d2-corrections.md)
+adds **PR-20260915-LAB-D12-1 — Blocking**. A lifecycle record's leftover
+publication temporary is not checked by the authoritative admission path, so
+the six ordinary participants can proceed on the final record while the
+interrupted publication remains unresolved. All seven must refuse until
+attributable recovery.
+
+Peter approves V6 as a read-only prerequisite survey only; I3 remains
+unconfirmed and controlled write verification remains separately gated. The
+authorized preflight stays queued behind remediation and re-review.
+
+## Historical — D1/D2 accepted; preflight queued behind independent document review — 2026-09-15
+
+Peter approves D1 and D2 and authorizes the documented read-only target
+preflight. Their contract delta is applied to r6. A different Independent
+Reviewer must review the edit before preflight because Codex applied it.
+The D1/D2 amendment moves from proposed to applied-in-contract, awaiting that
+review; no target fact is confirmed and no operational mutation is authorized.
+*Corrected 2026-09-15:* this entry first said that "LAB-D1 and LAB-D2" moved.
+Those RAID items are the C-7 producer dependency and the twelve unconfirmed
+target facts. They are unrelated to the D1/D2 amendment and unchanged.
+
+## Historical — reserved-laboratory one-shot authority re-review accepted — 2026-09-15
+
+Codex's independent
+[re-review](../review/project-review-2026-09-15-reserved-laboratory-one-shot-authority.md)
+closes **PR-20260914-LABI-R2-1** with no residual finding inside the explicitly
+stated ordinary-object-graph boundary. Arbitrary same-interpreter Python remains
+outside that claim; treating it as adversarial would require a separately
+approved process boundary.
+
+LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-R6, LAB-D1/C-7 and LAB-D2 remain open. No
+target fact was observed and no operational action is authorized. The next
+action is maintainer direction on the standing blockers and proposed decisions.
+
+## Historical — reserved-laboratory one-shot authority remediation assigned — 2026-09-15
+
+The independent
+[live-authority re-review](../review/project-review-2026-09-14-reserved-laboratory-live-authority.md)
+adds **PR-20260914-LABI-R2-1 — Blocking**. Clearing `_authority` revokes one
+object but records no non-reusable invocation transition: the live callback can
+call `_issue_authority()` again after consumption, or assign a fully bound
+constructed permit to the mutable registration. Both public synthetic
+regressions reach a second armed execution under one durable start.
+
+Peter assigns the bounded
+[C-P5.0-LAB-I-R2 remediation](../review/phase-5-0-reserved-laboratory-live-authority-r2-claude-prompt.md).
+It must make issuance single-transition, make consumption depend on
+invocation-owned state not replaceable through the reviewed callback graph,
+retain the two reproductions and add independent reversals. The finding remains
+open until independent Codex re-review; the implementer cannot close it.
+
+LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-R6, LAB-D1/C-7 and LAB-D2 remain open. No
+target fact was observed and no operational action is authorized.
+
+## Historical — reserved-laboratory call-graph remediation returned; awaiting Codex re-review — 2026-09-14
+
+The bounded remediation of Codex's re-review finding is
+[returned](../review/phase-5-0-reserved-laboratory-call-graph-remediation-handback.md)
+for independent technical and security re-review. It moves one issue **without
+closing it**, because an implementer does not close a review finding.
+
+* **PR-20260914-LABI-R1-1 — Blocking** — the executable call graph is repaired
+  and has public regressions. `ParticipantIntegration.run_harness` owns the
+  harness call through one orchestration path; the armed executor requires an
+  unforgeable `EffectPermit` issued only after a durable `participant_started`
+  and bound by equality to the harness participant, run id and reservation; the
+  release evidence is derived from the executor's own cleanup, residue and
+  restoration outcome and from the session's own open lock descriptor; §5.12's
+  two terminal entries are published before the lock is released; and an
+  exception leaves the durable start unsettled. The reviewer's `session=object()`
+  reproduction refuses and reaches no effect, and the reversal that restores the
+  presence-only check makes that regression fail. **Awaiting re-review.**
+
+**PR-20260913-LABI-1 and -2 were accepted by the 2026-09-14 re-review** and are
+carried below as closed by that review rather than by this pass.
+
+**LAB-R6 is unchanged and still open.** The six non-harness integration points
+exist and nothing outside the repository calls them. The re-review agreed this
+must not be closed here: an integration point refuses on an absent lock, so
+wiring the six on an unprovisioned host would stop the bot suite, the web suite,
+the Foundry tests, synchronization, dependency updates and the environment
+reset. Closing it needs a separately authorized, ordered provisioning-and-wiring
+rollout. No wrapper was weakened and no lock is created on demand. Mitigation
+today: they are not connected.
+
+**New observation carried with this pass.** r6 §5.7's **T7** and **T8** — the
+reservation's own `admitted` and `running` entries — are published by
+`run_harness`, because without them `conclude_reservation` refuses a release of a
+reservation the stored history never admitted and §5.12 has no reachable
+successful path. If the intended owner of those two durable writes is an
+out-of-band operator action rather than the harness, that is a maintainer's
+ruling and is raised as question 2 of the handback.
+
+LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-R6, LAB-D1/C-7 and LAB-D2 remain open. No
+target fact was observed and no operational action is authorized.
+
+## Reserved-laboratory remediation returned; awaiting Codex re-review — 2026-09-14
+
+The C-P5.0-LAB-I-R1 remediation is
+[returned](../review/phase-5-0-reserved-laboratory-implementation-remediation-handback.md)
+for independent technical and security re-review. It moves the three issues
+below **without closing any of them**, because an implementer does not close a
+review finding.
+
+* **PR-20260913-LABI-1** — the fail-open path is repaired and has public
+  regressions: the reviewed capture set is bound at the integration boundary,
+  the whole requested set is validated before the recovery run directory
+  exists, the destination a record binds is derived rather than supplied,
+  publication verification and restart discovery both establish the
+  correspondence restoration consumes, and the reviewer's `/wrong/destination`
+  reproduction refuses and publishes nothing. **Awaiting re-review.**
+* **PR-20260913-LABI-2** — a non-empty creating-step identity is now a
+  mandatory prerequisite of set, clear and removal; three inputs refuse before
+  any `ioctl`, `unlinkat` or `rmdir`; equality is the only admitting branch; and
+  every production creation path records the identity inside the creation. The
+  reviewer's unrecorded-removal reproduction refuses and the file survives.
+  **Awaiting re-review.**
+* **PR-20260913-LABI-3** — the protocol is wired through
+  `execution/participants.py` for all seven entry points, the CLI's `--execute`
+  branch, the boundary's declared descriptor table and the 35 reviewed steps
+  that were `install`/`chattr` vectors; `PERMITTED_EXECUTABLES` is 20.
+  **One part is explicitly incomplete and carried as an open item:** the six
+  non-harness integration points exist and nothing outside the repository calls
+  them, because this authorization forbids invoking a real participant.
+  **Awaiting re-review and a follow-up authorization.**
+
+**New risk carried forward — LAB-R6.** An integration point refuses on an absent
+lock or an absent reservation record. Wiring the six participants to call one on
+an **unprovisioned** host would therefore stop the bot suite, the web suite, the
+Foundry tests, synchronization, dependency updates and the environment reset.
+The r6 §7 delta must be provisioned, or the wiring made conditional, before the
+six are connected operationally. Mitigation today: they are not connected.
+
+LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-D1/C-7 and LAB-D2 remain open. No target
+fact was observed and no operational action is authorized.
+
+## Reserved-laboratory implementation review — changes requested, 2026-09-13
+
+The independent technical and security
+[review](../review/project-review-2026-09-13-reserved-laboratory-implementation.md)
+adds three open implementation issues without closing any LAB entry:
+
+* **PR-20260913-LABI-1 — Blocking:** recovery publication can authorize M1 when
+  the stored destination is not the configuration destination restoration will
+  accept.
+* **PR-20260913-LABI-2 — Blocking:** a missing creating-step identity bypasses
+  the flag/removal ownership comparison; public `remove_object()` deleted an
+  unrecorded file in the independent reproduction.
+* **PR-20260913-LABI-3 — Important:** the new enforcement objects have no
+  consumer in the executor, CLI or any of the seven participant entry points,
+  and the old `install`/`chattr` plan remains.
+
+LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-D1/C-7 and LAB-D2 remain open. No target
+fact was observed and no operational action is authorized.
+
+## Reserved-laboratory mechanism implemented; awaiting Codex review — 2026-09-13
+
+The C-P5.0-LAB-I implementation is
+[returned](../review/phase-5-0-reserved-laboratory-implementation-handback.md)
+for independent technical and security review. It moves the LAB entries below
+**without closing any of them**, and code that exists is not a risk that closed.
+
+* **LAB-R1** — the controls it names are now built rather than proposed: the
+  cooperative lock adapter, the reservation record, the run ledger and the
+  fail-closed admission all exist as mechanism. **Not closed.** Nothing is
+  provisioned, so nothing is enforced on the target, and the modes are accident
+  guards rather than barriers between the seven shared-identity participants.
+* **LAB-R2** — unchanged in substance and now exercised over real files: no
+  outgoing transition from quarantine, no resumption by recovery, no identity
+  reuse, and an unsettled run blocking every successor including the reset.
+* **LAB-R3** — **Open and unchanged.** The reservation still does not close
+  EH-R16-1: the run's own experimental writers remain able to substitute an
+  object mid-run, and r6 §1 is the whole of the answer to that.
+* **LAB-R5** — unchanged. Package-level P5.0-R5 remains **Blocking**; no
+  operational evidence was produced and none was authorized.
+* **LAB-D1 / C-7** — the producer-to-importer adapter that was missing now
+  exists and **resolves nothing**: with all eight variants supplied and every
+  record well formed, all three cases stay unresolved, none is covered, and the
+  importer classifies no record at all.
+* **LAB-D2** — unchanged. All twelve target facts remain unconfirmed and V6, V8
+  and V10 remain unperformed.
+
+**Three items are raised for a reviewer's ruling and are not decided here:** the
+`linkat`/`unlinkat` substitute for an unreachable `RENAME_NOREPLACE`; the
+listing descriptor r6 §1.3.3 does not enumerate while §§2.5 and 5.11 require
+`readdir`; and `PERMITTED_EXECUTABLES` remaining at 22 rather than r6 §6.4's 20.
+
+No disposable-server action was performed and none is authorized.
+
+## Reserved-laboratory local implementation authorized — 2026-09-13
+
+C-P5.0-LAB-I authorizes repository implementation and local tests for the r6
+mechanism. It treats LAB-R1/LAB-R2/LAB-R3 and LAB-R5 only by permitting the
+specified controls to be built; none closes until independent review and later
+target evidence. LAB-D1/C-7 remains unresolved pending producer implementation
+and review. LAB-D2 remains unchanged because all target facts are unconfirmed.
+No disposable-server action is authorized.
+
+## LAB-1 local issue closed — 2026-09-13
+
+Codex's independent [R3 re-review](../review/project-review-2026-09-13-lab1-rereview-r3.md)
+accepts PR-20260912-LAB1-2 with no residual finding. **LAB-1 is Closed** in its
+local remediation scope. LAB-R1 through LAB-R5 are not closed by that result:
+reservation enforcement is still unbuilt, C-7 and EH-R16-1 remain unresolved,
+the twelve target facts remain unconfirmed, and no real execution is authorized.
+
 ## Reserved laboratory remediation returned — C-P5.0-LAB-1, 2026-09-11
 
 Claude's [handback](../review/phase-5-0-reserved-laboratory-handback.md) and the

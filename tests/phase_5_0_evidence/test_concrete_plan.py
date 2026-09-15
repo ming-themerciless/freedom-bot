@@ -28,7 +28,6 @@ from tools.phase_5_0_evidence.cleanup import (
 from tools.phase_5_0_evidence.cleanup import _REVERSALS
 from tools.phase_5_0_evidence.concrete_plan import (
     COORDINATOR_ROLE,
-    EMPTY_SOURCE,
     MAPPED_OS_USER,
     MAPPED_POSTGRES_ROLE,
     ConcretePlan,
@@ -47,8 +46,11 @@ from tools.phase_5_0_evidence.required_cases import (
     check_case_coverage,
 )
 from tools.phase_5_0_evidence.plan import (
+    CONFIGURATION_ROLE,
     PERMITTED_EXECUTABLES,
+    RETIRED_EXECUTABLES,
     CommandStep,
+    EffectKind,
     MutationKind,
     StepRole,
     validate_argv,
@@ -100,18 +102,64 @@ def test_no_generated_argument_carries_a_placeholder_or_a_variable(plan) -> None
             assert argument == argument.strip()
 
 
+def commands(plan):
+    """Every step that is a **command**. The descriptor-bound effects are not.
+
+    r6 §6.4 retired `/usr/bin/install` and `/usr/bin/chattr`, and what replaced
+    them carries no argument vector at all — so a test about argument vectors
+    asks this for its subjects, and `test_every_effect_step_carries_no_vector`
+    below asserts that the complement really is vectorless.
+    """
+    return [
+        step
+        for step in list(plan.steps) + list(plan.cleanup_plan.steps)
+        if not step.is_effect
+    ]
+
+
+def effect_steps(plan):
+    """Every descriptor-bound effect, from both halves of the plan."""
+    return [
+        step
+        for step in list(plan.steps) + list(plan.cleanup_plan.steps)
+        if step.is_effect
+    ]
+
+
 def test_every_generated_vector_revalidates_against_the_target(plan) -> None:
     """The generator's output is put back through the guard that would have
     refused it. A vector that only validates at construction is a vector nobody
     checked after the last edit."""
-    for step in plan.steps:
+    for step in commands(plan):
         assert validate_argv(step.argv, target=plan.target) == step.argv
-    for step in plan.cleanup_plan.steps:
-        assert validate_argv(step.argv, target=plan.target) == step.argv
+
+
+def test_every_effect_step_carries_no_vector_and_no_executable(plan) -> None:
+    """**r6 §6.4.** An effect names no program, so there is none to validate.
+
+    This is what retiring `install` and `chattr` means: the effects that
+    replaced them are issued by the executor on a descriptor it holds, and there
+    is no argument vector in which a different program could be named.
+    """
+    issued = effect_steps(plan)
+    assert issued, "the generator emits descriptor-bound effects"
+    for step in issued:
+        assert step.argv == ()
+        assert step.run_as == "root"
+        with pytest.raises(PlanRefused):
+            validate_argv(step.argv, target=plan.target)
+
+
+def test_neither_retired_executable_appears_anywhere_in_the_plan(plan) -> None:
+    """**r6 §6.4.** `install` and `chattr` are gone from every reviewed vector."""
+    for step in list(plan.steps) + list(plan.cleanup_plan.steps):
+        assert not (set(step.argv) & RETIRED_EXECUTABLES), step.step_id
+    assert not (RETIRED_EXECUTABLES & PERMITTED_EXECUTABLES)
+    assert len(PERMITTED_EXECUTABLES) == 20
 
 
 def test_no_generated_command_resolves_through_path(plan) -> None:
-    for step in list(plan.steps) + list(plan.cleanup_plan.steps):
+    for step in commands(plan):
         executable = step.argv[0]
         assert executable.startswith("/"), step.step_id
         assert executable in PERMITTED_EXECUTABLES or executable == INTERPRETER_PATH
@@ -150,7 +198,6 @@ def test_every_path_is_inside_the_target_or_is_one_of_the_named_exceptions(plan)
     two filenames and no third.
     """
     permitted_outside = set(PERMITTED_EXECUTABLES) | {
-        EMPTY_SOURCE,
         f"{CONFIG_DIR}/pg_hba.conf",
         f"{CONFIG_DIR}/pg_ident.conf",
         "/usr/sbin/nologin",
@@ -158,9 +205,10 @@ def test_every_path_is_inside_the_target_or_is_one_of_the_named_exceptions(plan)
         # Conflict C-2, Option B. The interpreter is an executable, not an
         # object, and it is admitted only by the case-program grammar.
         INTERPRETER_PATH,
-        # The reviewed case-program source, named as `install`'s **source** and
-        # never as a destination — the same shape as `/dev/null` above and as
-        # the pre-change capture of the two PostgreSQL files.
+        # The reviewed case-program source. `install` is retired — r6 §6.4 — so
+        # this no longer appears as its source; the path stays admitted because
+        # the case-program grammar names the reviewed script as the
+        # interpreter's argument.
         CASE_PROGRAM_SOURCE_PATH,
     }
     for step in list(plan.steps) + list(plan.cleanup_plan.steps):
@@ -171,14 +219,21 @@ def test_every_path_is_inside_the_target_or_is_one_of_the_named_exceptions(plan)
 
 
 def test_only_pg_hba_and_pg_ident_are_written_outside_the_target_root(plan) -> None:
-    """A *write* outside the root, specifically. `install SRC DST` writes DST."""
-    written: set[str] = set()
-    for step in list(plan.steps) + list(plan.cleanup_plan.steps):
-        if step.argv[0] == "/usr/bin/install" and "--directory" not in step.argv:
-            written.add(step.argv[-1])
-        elif step.argv[0] == "/usr/bin/install":
-            written.add(step.argv[-1])
-    outside = {path for path in written if not path.startswith(ROOT)}
+    """A *write* outside the root, specifically.
+
+    Since r6 §6.4 there is no `install` vector to read a destination off. Every
+    object this plan creates or changes outside the root is a descriptor-bound
+    configuration effect, and both of them bind the same two reviewed
+    components — which is now checked against the effect's declared set rather
+    than inferred from the last word of a vector.
+    """
+    outside: set[str] = set()
+    for step in effect_steps(plan):
+        if not step.effect.components:
+            assert step.effect.path.startswith(ROOT), step.step_id
+            continue
+        for component in step.effect.components:
+            outside.add(f"{CONFIG_DIR}/{component}")
     assert outside == {
         f"{CONFIG_DIR}/pg_hba.conf",
         f"{CONFIG_DIR}/pg_ident.conf",
@@ -197,7 +252,7 @@ def test_the_generated_plan_names_the_approved_database_and_never_freedom_test(p
 
 
 def test_every_psql_step_uses_the_approved_socket_directory(plan) -> None:
-    for step in list(plan.steps) + list(plan.cleanup_plan.steps):
+    for step in commands(plan):
         if step.argv[0] != "/usr/bin/psql":
             continue
         assert "--host" in step.argv
@@ -359,6 +414,12 @@ def test_every_mutation_kind_can_actually_build_a_reversal() -> None:
 def test_no_generated_cleanup_step_can_express_a_recursive_or_broad_removal(plan) -> None:
     for step in plan.cleanup_plan.steps:
         assert not (set(step.argv) & FORBIDDEN_CLEANUP_TOKENS), step.step_id
+        if step.is_effect:
+            # An effect expresses no breadth at all: it names one path
+            # component under one held descriptor, and `DescriptorEffect`
+            # refuses a separator, `.` and `..` at construction.
+            assert "/" not in step.effect.name
+            continue
         if step.argv[0] == "/usr/bin/rm":
             assert step.argv[1] == "--force" and step.argv[2] == "--"
             assert len(step.argv) == 4
@@ -370,7 +431,7 @@ def test_directories_are_removed_deepest_first_and_only_with_rmdir(plan) -> None
     order = [
         step.argv[-1]
         for step in plan.cleanup_plan.steps
-        if step.argv[0] == "/usr/bin/rmdir"
+        if step.argv[:1] == ("/usr/bin/rmdir",)
     ]
     assert order[-1] == ROOT
     for shallower, deeper in zip(order, order[1:]):
@@ -385,20 +446,25 @@ def test_directories_are_removed_deepest_first_and_only_with_rmdir(plan) -> None
         if step.kind is CleanupStepKind.REVALIDATE:
             assert step.removes == "" and step.mutation_ids == ()
             continue
-        if step.argv[-1] in order:
+        if step.argv and step.argv[-1] in order:
             assert step.argv[0] == "/usr/bin/rmdir"
 
 
 def test_attributes_are_cleared_before_their_files_are_removed(plan) -> None:
+    """The ordering, now over the descriptor-bound clear rather than `chattr`."""
     positions = {step.step_id: index for index, step in enumerate(plan.cleanup_plan.steps)}
-    for step in plan.cleanup_plan.steps:
-        if step.argv[0] != "/usr/bin/chattr":
-            continue
-        path = step.argv[-1]
+    cleared = [
+        step
+        for step in plan.cleanup_plan.steps
+        if step.is_effect and step.effect.kind is EffectKind.CLEAR_FLAG
+    ]
+    assert cleared, "the derived cleanup clears the flags it set"
+    for step in cleared:
+        path = step.effect.path
         removal = [
             other
             for other in plan.cleanup_plan.steps
-            if other.argv[0] == "/usr/bin/rm" and other.argv[-1] == path
+            if other.argv[:1] == ("/usr/bin/rm",) and other.argv[-1] == path
         ]
         assert removal, path
         assert positions[step.step_id] < positions[removal[0].step_id]
@@ -409,7 +475,7 @@ def test_memberships_are_removed_before_users_and_users_before_groups(plan) -> N
         return min(
             index
             for index, step in enumerate(plan.cleanup_plan.steps)
-            if step.argv[0] == executable
+            if step.argv[:1] == (executable,)
         )
 
     assert first("/usr/sbin/gpasswd") < first("/usr/sbin/userdel") < first("/usr/sbin/groupdel")
@@ -441,24 +507,40 @@ def test_configuration_is_restored_reloaded_verified_then_roles_dropped(plan) ->
     )
 
 
-def test_the_restore_reinstalls_the_byte_exact_capture(plan) -> None:
+def test_the_restore_verifies_the_byte_exact_capture_it_writes(plan) -> None:
+    """**r6 §2.4.** The restore is verify-and-write, not a reinstall.
+
+    The `install` this replaces copied from `R/before`, whose custody is the
+    custody in question. The effect names the **independent** store's component
+    instead, and the destination is derived from the reviewed configuration
+    directory rather than read off the last word of a vector.
+    """
+    assert plan.cleanup_plan.restore_steps
     for step in plan.cleanup_plan.restore_steps:
-        assert step.argv[0] == "/usr/bin/install"
-        source, destination = step.argv[-2], step.argv[-1]
-        assert source.startswith(f"{ROOT}/before/")
-        assert destination.startswith(CONFIG_DIR + "/")
-        assert source.rsplit("/", 1)[1] == destination.rsplit("/", 1)[1]
+        assert step.is_effect
+        assert step.effect.kind is EffectKind.RESTORE_CONFIGURATION
+        assert step.effect.configuration_role == CONFIGURATION_ROLE
+        assert len(step.effect.components) == 1
+        (component,) = step.effect.components
+        assert step.effect.path == f"{CONFIG_DIR}/{component}"
 
 
-def test_the_captures_the_restore_needs_are_created_before_the_configuration_changes(plan) -> None:
+def test_the_capture_the_restore_needs_is_published_before_the_configuration_changes(
+    plan,
+) -> None:
+    """One capture effect, binding both reviewed components, before M1."""
     captures = [
         step
         for step in plan.steps
-        if step.argv[0] == "/usr/bin/install" and step.argv[-1].startswith(f"{ROOT}/before/")
+        if step.is_effect and step.effect.kind is EffectKind.CAPTURE_CONFIGURATION
     ]
-    assert len(captures) == 2
-    for step in captures:
-        assert step.argv[-2].startswith(CONFIG_DIR + "/")
+    assert len(captures) == 1
+    (capture,) = captures
+    assert set(capture.effect.components) == {"pg_hba.conf", "pg_ident.conf"}
+    order = {step.step_id: index for index, step in enumerate(plan.steps)}
+    for materialization in plan.materializations:
+        assert materialization.capture_step_id == capture.step_id
+        assert order[materialization.after_step_id] >= order[capture.step_id]
 
 
 def test_a_partial_run_that_reached_one_configuration_file_still_gets_the_whole_phase(plan) -> None:
@@ -510,7 +592,7 @@ def test_the_only_vector_that_removes_the_root_is_a_non_recursive_rmdir(plan) ->
 
     # And nothing else in the whole plan names the root as an object to remove.
     for step in list(plan.steps) + list(plan.cleanup_plan.steps):
-        if step.argv[-1] != ROOT:
+        if not step.argv or step.argv[-1] != ROOT:
             continue
         # `stat` is R14's precondition `R-B-ROOT`: it stops a run early when the
         # root plainly already exists, and — since R14 — establishes nothing.
@@ -826,7 +908,9 @@ def test_the_case_program_prerequisites_sit_between_its_install_and_its_first_us
     install = next(
         index
         for index, step in enumerate(plan.steps)
-        if step.argv[0] == "/usr/bin/install" and step.argv[-1].endswith("/bin/case")
+        if step.is_effect
+        and step.effect.kind is EffectKind.INSTALL_PAYLOAD
+        and step.effect.path.endswith("/bin/case")
     )
     # The first use **of the installed program**. The bootstrap vector runs the
     # reviewed source from the repository tree instead — conflict C-8 — because

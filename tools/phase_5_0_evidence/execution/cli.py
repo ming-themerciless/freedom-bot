@@ -47,7 +47,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Protocol, Sequence
 
 from ..approved_target import APPROVED_TARGET_FACTS, CONFIRMATION_TOKEN
 from ..case_runtime import (
@@ -76,7 +76,7 @@ from ..capability import (
 )
 from ..capture import CapturePolicy
 from ..concrete_plan import ConcretePlan, build_concrete_plan
-from ..errors import HarnessError
+from ..errors import HarnessError, PlanRefused
 from ..expectations import (
     CAPSH_CONSTRUCTED_IDENTITIES,
     ROOT_IDENTITY,
@@ -90,8 +90,29 @@ from .artifact import (
     write_run_record,
 )
 from .boundary import RecordingBoundary, SubprocessBoundary
-from .executor import REFUSED_EXIT_CODE, ExecutingRunner, ExecutorRefused
+from .descriptors import DescriptorInventory, PosixFilesystem
+from .executor import (
+    EVIDENCE_ROLE,
+    REFUSED_EXIT_CODE,
+    ROOT_ROLE,
+    DescriptorBoundEffects,
+    ExecutingRunner,
+    ExecutorRefused,
+)
 from .materializer import RecordingMaterializer, SystemMaterializer
+from .participants import (
+    PARTICIPANT_ENTRY_POINTS,
+    EffectPermit,
+    HarnessObservations,
+    HarnessRun,
+    ParticipantIntegration,
+    ParticipantRefused,
+    validate_run_identifier,
+)
+from .recovery_store import RecoveryStore
+from ..durability_model import Quiescence
+from ..lifecycle_storage import Participant
+from ..reservation import ReservationRequest
 
 #: The repository root, three levels up from this file. Computed rather than
 #: configured, so the covered-source read cannot be pointed somewhere else.
@@ -794,6 +815,101 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Write the human-readable concrete plan Markdown to this path.",
     )
+    # **r6 §5, PR-20260913-LABI-3.** The four values the reservation protocol
+    # needs from the operator. They are arguments rather than derived values
+    # because each is a *claim* the stored record checks: the run id binds this
+    # run's ledger entry and its recovery directory, the reservation binds the
+    # start the completion must name, and the author and time are attribution.
+    parser.add_argument(
+        "--run-id",
+        default="",
+        help=(
+            "This run's identifier. It becomes a ledger filename, a recovery "
+            "directory name and a role in a refusal, so it is bounded before "
+            "any of the three — letters, digits, dot, dash and underscore, at "
+            "most 64 characters."
+        ),
+    )
+    parser.add_argument(
+        "--reservation",
+        default="",
+        help=(
+            "The reservation this run belongs to. It is written into the run's "
+            "durable `participant_started` entry before the first effect, and "
+            "the completion's evidence must name exactly that reservation — "
+            "equality, both ways."
+        ),
+    )
+    parser.add_argument(
+        "--author",
+        default="",
+        help="Who is running this. Recorded in the ledger, never inferred.",
+    )
+    parser.add_argument(
+        "--at",
+        default="",
+        help="The run's timestamp, in the record schema's own format.",
+    )
+    # **r6 §5.12, PR-20260914-LABI-R1-1.** The reservation the terminal
+    # publication concludes. `ReservationRequest` refuses a blank owner,
+    # deadline or recovery owner, so there is no default reservation and no
+    # reservation nobody is accountable for.
+    parser.add_argument(
+        "--reservation-owner",
+        default="",
+        help="Who holds the reservation. There is no default owner.",
+    )
+    parser.add_argument(
+        "--requested-at",
+        default="",
+        help="When the reservation was requested, in the record schema's format.",
+    )
+    parser.add_argument(
+        "--deadline",
+        default="",
+        help=(
+            "The reservation deadline. Reaching it moves the run to RECOVERING "
+            "and authorizes nobody to take the host."
+        ),
+    )
+    parser.add_argument(
+        "--recovery-owner",
+        default="",
+        help="Who recovers this reservation if it is interrupted or quarantined.",
+    )
+    # **r6 §1.6.** The three external observations no process in this package
+    # can make. Each is a tri-state on purpose: unsupplied is *not observed*,
+    # which quarantines, and is never the same as an observed false.
+    parser.add_argument(
+        "--observed-by",
+        default="",
+        help=(
+            "Who made the external observations below, and who is named as "
+            "having searched for residue. An observation with no author is an "
+            "assertion with no author."
+        ),
+    )
+    for option, condition in (
+        ("--processes-ended", "every process the run started has exited"),
+        (
+            "--transactions-settled",
+            "every server-side transaction the run opened has settled",
+        ),
+        (
+            "--transient-units-inactive",
+            "no transient unit the run created is still active",
+        ),
+    ):
+        parser.add_argument(
+            option,
+            choices=("true", "false"),
+            default=None,
+            help=(
+                f"Whether {condition}, as observed rather than inferred. "
+                "Omitting it is *not observed*, which gates every B3-dependent "
+                "effect and quarantines the reservation at release."
+            ),
+        )
     parser.add_argument(
         "--run-record-out",
         default="",
@@ -887,7 +1003,55 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
 
+    # **r6 §5, PR-20260913-LABI-3 and PR-20260914-LABI-R1-1.** The harness is one
+    # of seven participants, and this is where it joins the protocol. It does not
+    # merely construct the integration point beside the executor — the re-review
+    # found that constructing the objects without calling their protocol enforces
+    # nothing. `ParticipantIntegration.run_harness` **owns** the call: it takes
+    # the cooperative lock, re-seals, reads, validates, surveys, admits,
+    # publishes the durable `participant_started`, issues the permit the armed
+    # executor requires, runs the work below, derives the release evidence from
+    # what that work observed, publishes §5.12's two terminal entries and only
+    # then releases the lock.
+    #
+    # **Every operational gate above stays closed.** `plan.is_executable` is
+    # False and the twelve target facts are unconfirmed, so
+    # `ExecutingRunner.__post_init__` refuses this construction today — before
+    # the lock is taken and before anything durable is written, which is why a
+    # standing refusal publishes no run entry. `reservation.REAL_EXECUTION_REFUSAL`
+    # stands independently at admission. The wiring below is wiring, not
+    # permission.
+    integration = ParticipantIntegration(
+        participant=Participant.HARNESS_CLI,
+        host=plan.target.host,
+        target_identity=plan.target.identity,
+        author=args.author,
+        at=args.at,
+        reservation_id=args.reservation,
+        # The harness takes the lock **for the reservation** and refuses rather
+        # than waiting behind another participant: waiting would hold a
+        # reservation open behind a suite.
+        wait_for_lock=False,
+    )
+    inventory = DescriptorInventory()
+    filesystem = PosixFilesystem(inventory)
+    recovery = RecoveryStore(inventory=inventory, filesystem=filesystem)
     try:
+        run_id = validate_run_identifier(args.run_id)
+        # **r6 §1.6.** One observation, read once. It gates every B3-dependent
+        # effect *and* supplies two of the release's conditions; a second copy
+        # supplied separately to the release would be the two-readers drift.
+        quiescence = _quiescence(args)
+        request = ReservationRequest(
+            reservation_id=args.reservation,
+            owner=args.reservation_owner,
+            host=plan.target.host,
+            target_identity=plan.target.identity,
+            requested_at=args.requested_at,
+            deadline=args.deadline,
+            recovery_owner=args.recovery_owner,
+            real_execution=True,
+        )
         runner = ExecutingRunner(
             plan=plan,
             # The one place a boundary that can start a process is constructed,
@@ -896,15 +1060,57 @@ def main(argv: Sequence[str] | None = None) -> int:
             # The one place a materializer that can write a file is constructed,
             # and it is armed on the same line, in the same branch.
             materializer=SystemMaterializer(armed=True),
+            # The one place an effect issuer that can `mkdirat`, `ioctl` and
+            # `unlinkat` is constructed, armed on the same line, in the same
+            # branch. It replaced `/usr/bin/install` and `/usr/bin/chattr`.
+            effects=DescriptorBoundEffects(
+                inventory=inventory,
+                filesystem=filesystem,
+                recovery=recovery,
+                armed=True,
+                quiescence=quiescence,
+            ),
+            session=integration,
+            run_id=run_id,
+            reservation_id=args.reservation,
             reviewed_digest=args.reviewed_digest,
             confirmation_token=args.confirm_target,
             source_bytes=sources,
         )
-    except (ExecutorRefused, HarnessError) as exc:
+    except (ExecutorRefused, HarnessError, ParticipantRefused, PlanRefused) as exc:
+        inventory.close()
         sys.stderr.write(f"REFUSED — nothing was executed.\n{exc}\n")
         return REFUSED_EXIT_CODE
 
-    outcome = runner.execute()
+    try:
+        harness = execute_under_reservation(
+            integration=integration,
+            runner=runner,
+            request=request,
+            run_id=run_id,
+            quiescence=quiescence,
+            observed_by=args.observed_by,
+            searched_at=args.at,
+        )
+    except ParticipantRefused as exc:
+        inventory.close()
+        sys.stderr.write(f"REFUSED — the reservation protocol refused.\n{exc}\n")
+        return REFUSED_EXIT_CODE
+    finally:
+        inventory.close()
+
+    outcome = runner.last_outcome
+    if outcome is None:
+        # The work never returned an outcome, so the run is unsettled and the
+        # ledger says so. Nothing is claimed about what it left behind.
+        sys.stderr.write(
+            "REFUSED — the harness did not reach its executor.\n"
+            f"  refusal          : {harness.run.refusal or '—'}\n"
+            f"  reasons          : {', '.join(harness.run.reasons) or '—'}\n"
+            f"  durable start    : {harness.run.started}\n"
+            f"  unsettled        : {harness.run.unsettled}\n"
+        )
+        return REFUSED_EXIT_CODE
     # **R13, EH-R13-5.** Eligibility and persistence are two lines, because they
     # are two facts. The previous version printed the first under the second's
     # label and wrote no file at all, so a successful run reported an artifact
@@ -925,8 +1131,102 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"  cleanup skipped  : {len(outcome.cleanup_skipped)}\n"
         f"  artifact eligible: {outcome.artifact_admissible}\n"
         f"  run record       : {written}\n"
+        # **§5.12.** The reservation's own conclusion, reported beside the run's.
+        # `released` is both halves or neither: between steps 2 and 3 the record
+        # says released and the run is still in progress, and an unsettled run
+        # refuses every successor including the environment reset.
+        f"  reservation      : "
+        f"{harness.terminal.decision.value if harness.terminal is not None else '—'}\n"
+        f"  release durable  : {harness.released}\n"
+        f"  run completed    : {harness.run.completed}\n"
+        f"  run unsettled    : {harness.run.unsettled}\n"
     )
     return outcome.exit_code
+
+
+def _quiescence(args) -> Quiescence:
+    """r6 §1.6's three observations, exactly as the operator stated them.
+
+    `None` stays `None`. An option nobody passed is an observation nobody made,
+    and `Quiescence.missing()` reports it as such — it never becomes `False`,
+    because *"not checked"* and *"checked and false"* are different things to
+    tell an operator, and it never becomes `True`.
+    """
+    def stated(value: str | None) -> bool | None:
+        return None if value is None else value == "true"
+
+    return Quiescence(
+        observed=any(
+            value is not None
+            for value in (
+                args.processes_ended,
+                args.transactions_settled,
+                args.transient_units_inactive,
+            )
+        ),
+        processes_ended=stated(args.processes_ended),
+        transactions_settled=stated(args.transactions_settled),
+        transient_units_inactive=stated(args.transient_units_inactive),
+        observed_by=args.observed_by,
+    )
+
+
+class HarnessRunner(Protocol):
+    """What the orchestration path needs of the thing it drives — three methods.
+
+    A small protocol owned by its consumer, so the one function that sequences
+    the harness states what it requires instead of naming a concrete class it
+    happens to be handed. `ExecutingRunner` satisfies it; so does the recording
+    double the composition test observes the ordering with, which is the point:
+    the ordering is a property of this function, not of the executor.
+    """
+
+    def accept_permit(self, permit: EffectPermit) -> None: ...
+
+    def execute(self): ...
+
+    def run_observations(
+        self, outcome, *, observed_by: str, searched_at: str
+    ) -> HarnessObservations: ...
+
+
+def execute_under_reservation(
+    *,
+    integration: ParticipantIntegration,
+    runner: HarnessRunner,
+    request: ReservationRequest,
+    run_id: str,
+    quiescence: Quiescence,
+    observed_by: str,
+    searched_at: str,
+) -> HarnessRun:
+    """The executable harness call, as one orchestration path — §5.6 and §5.12.
+
+    **PR-20260914-LABI-R1-1.** It is a function rather than four statements
+    inside `main` so that the composition can be driven, and observed, by a test
+    over a laboratory under `tmp_path`: the ordering this enforces is a property
+    of the call graph, and a test that asserted the construction of the objects
+    would be asserting the very thing the re-review found insufficient.
+
+    Everything below the `work` closure happens **inside** the lock, after the
+    admission and after the durable start. The closure is handed the permit, it
+    hands it to the executor — which refuses unless it is genuinely issued and
+    bound to this run and this reservation — and it returns what the run
+    established. It returns nothing about its own completion: r6 §5.12 derives
+    the harness's two conditions from the release decision and the release
+    publication, and an injected one is refused at the writer.
+    """
+
+    def work(permit: EffectPermit) -> HarnessObservations:
+        runner.accept_permit(permit)
+        outcome = runner.execute()
+        return runner.run_observations(
+            outcome, observed_by=observed_by, searched_at=searched_at
+        ).with_quiescence(quiescence)
+
+    return integration.run_harness(
+        run_id=run_id, work=work, request=request, observed_by=observed_by
+    )
 
 
 def _write_run_record(outcome, destination: str, runner) -> str:

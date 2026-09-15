@@ -160,6 +160,11 @@ PLANNING_TIER_NAMES = {
     "observations",
     "plan",
     "provenance",
+    # **C-P5.0-LAB-I.** The r6 §7 provisioning definitions. It is in this tier
+    # because it is data: it creates no group, writes no file, installs no
+    # fragment, changes no mode and runs no command, and the scans below assert
+    # that rather than trusting the docstring.
+    "provisioning",
     "records",
     # **R13, EH-R13-4.** The required-case table and the coverage check that
     # refuses a plan in which a required case is neither produced nor declared
@@ -201,6 +206,12 @@ EXECUTION_TIER_NAMES = {
     "boundary",
     "case_program",
     "cli",
+    # **C-P5.0-LAB-I.** The r6 §1.3 descriptor custody chain. It is in this tier
+    # because it opens directories and files and issues durability barriers on
+    # them, which is the whole of what it is for; it starts no process, and
+    # every root it opens is a path a caller hands it rather than a constant it
+    # reaches for.
+    "descriptors",
     # **R16, conflict C-7.** The ingestion entry point. It is in this tier
     # because it reads a payload from a path and writes the classified artifact
     # to one, and for no other reason: it constructs no boundary, no executor and
@@ -208,7 +219,27 @@ EXECUTION_TIER_NAMES = {
     # asserts that against its import set rather than trusting the docstring.
     "evidence_cli",
     "executor",
+    # **C-P5.0-LAB-I.** The cooperative lock adapter. It is in this tier because
+    # it opens the provisioned lock inode and calls `flock` on it. It creates
+    # nothing, unlinks nothing and breaks no lock another participant holds.
+    "host_lock",
+    # **C-P5.0-LAB-I.** The reservation record, on disk. It is in this tier
+    # because it writes a file; the rules it writes under are
+    # `lifecycle_storage`'s, imported rather than restated.
+    "lifecycle_record",
     "materializer",
+    # **C-P5.0-LAB-I-R1.** The seven-participant integration point of r6 §5. It
+    # is in this tier because it takes the cooperative lock and publishes the
+    # two durable ledger entries; it starts no process, synchronizes no tree and
+    # resets no environment, and every participant's own work is injected.
+    "participants",
+    # **C-P5.0-LAB-I.** The independent recovery store of r6 §2.2. It is in this
+    # tier because it copies configuration bytes to a durable location outside
+    # the disposable root and synchronizes them there.
+    "recovery_store",
+    # **C-P5.0-LAB-I.** The seven-participant run ledger, on disk. Same tier and
+    # same reason as `lifecycle_record`, and the same imported rules.
+    "run_ledger",
 }
 
 #: The exact standard-library modules the case program may import. It runs under

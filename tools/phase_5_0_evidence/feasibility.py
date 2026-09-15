@@ -96,6 +96,7 @@ from .journal import (
     CLEANUP_FAILURE_VARIANTS,
     FAILURE_STAGES,
     GENERATION_ARTIFACTS,
+    RecoveryStep,
     classify_cleanup_failure_state,
     classify_stage_failure,
 )
@@ -104,6 +105,7 @@ from .observations import (
     OBSERVATION_SCHEMA,
     OBSERVATION_SCHEMA_VERSION,
     SYNTHETIC_TARGET_IDENTITY,
+    Custody,
 )
 from .provenance import (
     ApprovedRevision,
@@ -537,6 +539,11 @@ class SequenceObservation:
     residue: tuple[str, ...] = ()
     configuration_risk: tuple[str, ...] = ()
     recovery_procedure: tuple[str, ...] = ()
+    residue_recovery_procedure: tuple[RecoveryStep, ...] = ()
+    #: The configuration cause itself, carried beside its procedure so the
+    #: evidence clause can ask whether a *present* cause was answered rather
+    #: than whether *some* procedure was named — r6 §8.1.
+    retained_recovery_inputs: tuple[str, ...] = ()
 
     @property
     def publication_reached(self) -> bool:
@@ -650,6 +657,8 @@ def run_sequence(
             residue=outcome.residue,
             configuration_risk=outcome.configuration_risk,
             recovery_procedure=outcome.recovery_procedure,
+            residue_recovery_procedure=outcome.residue_recovery_procedure,
+            retained_recovery_inputs=outcome.retained_recovery_inputs,
         )
 
     if not cleanup_completed:
@@ -794,6 +803,11 @@ class RecoveryRun:
     residue: tuple[str, ...]
     configuration_risk: tuple[str, ...]
     recovery_procedure: tuple[str, ...]
+    residue_recovery_procedure: tuple[RecoveryStep, ...]
+    #: The retained configuration captures, which are the configuration
+    #: recovery's cause. Empty means that cause is absent and its procedure is
+    #: not required — it does not mean the residue cause is answered.
+    retained_recovery_inputs: tuple[str, ...]
     next_run_refuses: bool
     #: Whether the run ever reached C5. `False` for both cleanup-failure
     #: variants, and **observed** rather than assumed: the same model with the
@@ -804,6 +818,47 @@ class RecoveryRun:
     artifacts: tuple[str, ...] = ()
     registry_row_present: bool = False
     stopped_at: str | None = None
+
+
+    def as_fields(self) -> dict[str, str]:
+        """Render this run in `JNL-47-RECOVERY-STATE`'s field vocabulary.
+
+        Mechanical and total, exactly as `LabRun.as_fields` is: every field the
+        schema declares is filled from something the run observed, so a field
+        the model does not observe fails here rather than being defaulted to
+        something plausible.
+
+        **The two recovery causes stay apart — r6 §8.1.** `residue_recovery_named`
+        answers the residue cause and `configuration_recovery_named` answers the
+        configuration cause, and neither answers for the other. That separation
+        is LAB-1's whole disposition, and collapsing it here would reintroduce
+        the defect one layer down from where it was repaired.
+        """
+        schema = BAND_7_SCHEMA["JNL-47-RECOVERY-STATE"]
+        values = {
+            "exit_code": str(self.exit_code),
+            "state": self.state,
+            "residue_path_count": str(len(self.residue)),
+            "generation_present": "yes" if self.artifacts else "no",
+            "database_row_present": "yes" if self.registry_row_present else "no",
+            "next_run_refuses": "yes" if self.next_run_refuses else "no",
+            "residue_recovery_named": (
+                "yes" if self.residue_recovery_procedure else "no"
+            ),
+            "configuration_capture_retained": (
+                "yes" if self.retained_recovery_inputs else "no"
+            ),
+            "configuration_recovery_named": (
+                "yes" if self.recovery_procedure else "no"
+            ),
+        }
+        missing = sorted(schema.field_names() - set(values))
+        if missing:
+            raise ObservationRefused(
+                f"the recovery run observes no value for {missing}. A field the "
+                "producer does not observe is not one it may default."
+            )
+        return values
 
 
 def next_run_refuses(*, residue: Sequence[str], configuration_risk: Sequence[str]) -> bool:
@@ -854,6 +909,8 @@ def run_recovery_experiment(*, variant: str, cleanup_completes: bool = False) ->
         residue=observed.residue,
         configuration_risk=observed.configuration_risk,
         recovery_procedure=observed.recovery_procedure,
+        residue_recovery_procedure=observed.residue_recovery_procedure,
+        retained_recovery_inputs=observed.retained_recovery_inputs,
         next_run_refuses=next_run_refuses(
             residue=observed.residue, configuration_risk=observed.configuration_risk
         ),
@@ -862,36 +919,6 @@ def run_recovery_experiment(*, variant: str, cleanup_completes: bool = False) ->
         registry_row_present=observed.registry_row_present,
         stopped_at=observed.stopped_at,
     )
-
-
-#: **LAB-1 — a defect this experiment found, reported and not repaired here.**
-#:
-#: §2.13.2b requires an S-B run to report *the named operator recovery*, and
-#: `classify_cleanup_failure_state` compares that clause like the other six. Two
-#: named operator recoveries exist in the package and they are for different
-#: things: `journal.RECOVERY_PROCEDURE` is the five-step residue recovery, and
-#: `cleanup.RECOVERY_PROCEDURE` is the four-step configuration recovery.
-#:
-#: `CleanupOutcome.recovery_procedure` carries only the second, and only when a
-#: configuration capture was retained. So a run that reaches S-B on **residue
-#: alone** — which is both variants of this case — reports no named recovery at
-#: all, and the case fails on that clause.
-#:
-#: Attaching the residue procedure would change `CleanupOutcome`'s accepted
-#: contract and add a `cleanup` → `journal` dependency, which is a mechanism
-#: change behind the existing design checkpoint. So the experiment observes what
-#: is actually there, the record fails, and the failure is the finding. It is
-#: **not** weakened to make an unimplemented property appear to pass. The exact
-#: proposed repair and its regression expectations are in runner contract r2 §8.
-LAB_1 = (
-    "LAB-1: a §2.13.2b run that reaches S-B on residue alone reports no named "
-    "operator recovery. `CleanupOutcome.recovery_procedure` carries only the "
-    "configuration recovery and only when a capture was retained, while "
-    "`journal.RECOVERY_PROCEDURE` — the five-step residue recovery §2.13.2b "
-    "actually calls for here — is never attached to the outcome. Proposed "
-    "Important; the repair changes an accepted harness contract and is "
-    "submitted for review rather than made here."
-)
 
 
 def classify_recovery_experiment(
@@ -907,11 +934,12 @@ def classify_recovery_experiment(
     rather than to a model that cannot publish at all. This is the
     PR-20260911-5 correction.
 
-    **It still fails, and the failure is finding `LAB_1`.**
-    `recovery_procedure_named` is read off the outcome the harness really
-    produced, and the harness really produces none for a residue-only S-B. A
-    record that passed here would be one whose input had been adjusted until it
-    did.
+    **LAB-1 is checked against the procedure carried by the actual outcome.**
+    The residue-only failure path must name residue recovery; a configuration
+    failure must name configuration recovery; and a state containing both must
+    name both. Each cause and each procedure is passed to the classifier
+    separately — r6 §8.1 — so naming one procedure cannot answer for the other,
+    and an outcome that names nothing produces a failed record.
     """
     run = run_recovery_experiment(variant=variant, cleanup_completes=cleanup_completes)
     return classify_cleanup_failure_state(
@@ -922,13 +950,114 @@ def classify_recovery_experiment(
         generation_present=bool(run.artifacts),
         database_row_present=run.registry_row_present,
         next_run_refuses=run.next_run_refuses,
-        recovery_procedure_named=bool(run.recovery_procedure),
+        residue_recovery_named=bool(run.residue_recovery_procedure),
+        configuration_capture_retained=bool(run.retained_recovery_inputs),
+        configuration_recovery_named=bool(run.recovery_procedure),
     )
 
 
 # ---------------------------------------------------------------------------
 # Emission — and why it can never be counted
 # ---------------------------------------------------------------------------
+
+
+def producer_records(
+    *,
+    run_id: str,
+    review_manifest_digest: str,
+    collected_by: str = "implementer",
+    collected_at: str = "2026-09-13",
+    arrangement: Arrangement = Arrangement.CORRECT,
+) -> tuple[dict[str, object], ...]:
+    """Run all three producers and render every variant as an importer record.
+
+    **This is the adapter C-7 asks for, and it resolves C-7 for exactly nobody.**
+    What it supplies is the missing half of the path: until now the producers
+    computed classified records and the importer accepted hand-written ones, so
+    nothing joined the two and *"a producer exists"* and *"a record is well
+    formed"* were never checked against each other. They are now, end to end.
+
+    Three things keep the path from becoming coverage, and none of them is
+    weakened here:
+
+    1. every record carries `SYNTHETIC_TARGET_IDENTITY` and
+       `Custody.SYNTHETIC_FIXTURE`, so a payload from here pointed at the
+       approved target is refused by the importer for naming the wrong target;
+    2. `concrete_plan` still declares all three cases **unresolved** and
+       `ExternalCase.producer_artifact_reviewed` is still `False`, so
+       `classify_supplied_observations` reports them in `unresolved_cases` and
+       never in `covered`, however well formed the records are; and
+    3. `EvidenceResult.eligible_for_operational_acceptance` is unconditionally
+       `False` — EH-R16-3.
+
+    A **facsimile** can establish feasibility: that the design's ordering,
+    refusal and state rules are constructible and falsifiable. It cannot
+    establish product evidence, because no product code exists to observe.
+    `arrangement` carries the false-success control through the same adapter, so
+    a defective arrangement produces records that **fail** classification rather
+    than records that quietly do not exist.
+    """
+    records: list[dict[str, object]] = []
+
+    def envelope(case_id: str, variant: str, fields: Mapping[str, str]) -> dict:
+        return {
+            "case_id": case_id,
+            "variant": variant,
+            "target_identity": SYNTHETIC_TARGET_IDENTITY,
+            "run_id": run_id,
+            "review_manifest_digest": review_manifest_digest,
+            "custody": Custody.SYNTHETIC_FIXTURE.value,
+            "collected_by": collected_by,
+            "collected_at": collected_at,
+            "fields": dict(fields),
+        }
+
+    # JNL-51-PROVENANCE-OMITTED — one variant, and the host's record state is
+    # the only part the run itself cannot observe, so it is read off the host
+    # the deployment produced rather than asserted.
+    host = _SyntheticHost()
+    _deploy(host, Omission.PROVENANCE_RECORD)
+    run = run_provenance_experiment(
+        omission=Omission.PROVENANCE_RECORD, arrangement=arrangement
+    )
+    fields = run.as_fields("JNL-51-PROVENANCE-OMITTED")
+    fields["apr_present"] = "yes" if host.approval_record is not None else "no"
+    fields["pvr_present"] = "yes" if host.provenance_record is not None else "no"
+    records.append(
+        envelope("JNL-51-PROVENANCE-OMITTED", "provenance-omitted", fields)
+    )
+
+    # JNL-47-NO-GENERATION-ON-FAILURE — one record per injection point, and the
+    # case is not covered until all five are supplied.
+    for stage in FAILURE_STAGES:
+        staged = run_stage_failure_experiment(stage=stage, arrangement=arrangement)
+        records.append(
+            envelope(
+                "JNL-47-NO-GENERATION-ON-FAILURE",
+                stage,
+                staged.as_fields("JNL-47-NO-GENERATION-ON-FAILURE"),
+            )
+        )
+
+    # JNL-47-RECOVERY-STATE — one record per §2.13.2b variant.
+    for variant in CLEANUP_FAILURE_VARIANTS:
+        recovery = run_recovery_experiment(variant=variant)
+        records.append(
+            envelope("JNL-47-RECOVERY-STATE", variant, recovery.as_fields())
+        )
+
+    return tuple(records)
+
+
+def producer_report(
+    *, run_id: str, review_manifest_digest: str, **overrides
+) -> "FeasibilityReport":
+    """The three producers' records, in the importer's envelope, bounded."""
+    return synthetic_report(
+        producer_records(
+            run_id=run_id, review_manifest_digest=review_manifest_digest, **overrides
+        )
+    )
 
 
 def synthetic_payload(records: Iterable[Mapping[str, object]]) -> bytes:
@@ -1183,33 +1312,32 @@ def feasibility_dispositions() -> tuple[FeasibilityFinding, ...]:
                 "the next invocation, and — in the corrected ordering — that "
                 "both absence clauses hold because the run ends at C1 before C5 "
                 "is reached, observed on an injected publication sink that the "
-                "positive control shows does record a publication. Six of the "
-                "seven clauses. It also found LAB-1: the seventh, the named "
-                "operator recovery, is **not** reported for a residue-only S-B, "
-                "so these records are failed records and are a labelled defect "
-                "reproduction rather than a passing case."
+                "positive control shows does record a publication. The named "
+                "residue procedure and, when applicable, the separate "
+                "configuration-capture procedure are both carried by the actual "
+                "S-B outcome; the negative control fails when neither is named. "
+                "All seven harness-level clauses are exercised."
             ),
             does_not_establish=(
                 "that the real `init-generation` orders C1's cleanup before C5, "
                 "that the real cleanup fails in the modelled way, or that the "
-                "real coordinator creates nothing when it stops there. That is "
-                "the same product half the other two cases carry, and it is not "
-                "a different kind of gap. **Corrected 2026-09-11 "
-                "(PR-20260911-5):** the submitted disposition called the two "
-                "absence clauses vacuous and asked for a readiness/implementation "
-                "criterion split on that basis. The rationale was wrong and the "
-                "split request is withdrawn."
+                "real coordinator creates nothing when it stops there, or that "
+                "its operator-facing run record presents both procedures "
+                "correctly. Those remain Package 5.0 implementation acceptance "
+                "checks. **Corrected 2026-09-11 (PR-20260911-5):** the submitted "
+                "disposition called the two absence clauses vacuous and asked "
+                "for a readiness/implementation criterion split on that basis. "
+                "The rationale was wrong and the split request is withdrawn."
             ),
             carried_by=(
                 "the Package 5.0 implementation acceptance test for §2.13.2b: "
                 "the same two variants run against the built coordinator on the "
-                "reserved disposable host."
+                "reserved disposable host, including run-record encoding and "
+                "operator-facing presentation."
             ),
             locally_producible=True,
             meaningful_without_product_code=True,
             records=_records_ok(recovery_records),
-            expected_status=Status.FAILED,
-            observed_defect=LAB_1,
         ),
     )
 
@@ -1249,7 +1377,6 @@ __all__ = [
     "FEASIBILITY_SCOPE",
     "FeasibilityFinding",
     "FeasibilityReport",
-    "LAB_1",
     "LabRun",
     "NOT_COVERAGE",
     "Omission",

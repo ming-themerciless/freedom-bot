@@ -88,6 +88,7 @@ from tools.phase_5_0_evidence.plan import OBSERVED_IDENTITY, CommandStep
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     cleanup_observations_for,
     DISPOSABLE_ACCOUNTS,
     DISPOSABLE_GROUPS,
@@ -738,7 +739,17 @@ class Boundary:
     scripted: dict = field(default_factory=dict)
     calls: list = field(default_factory=list)
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append(step_id)
         if step_id in self.scripted:
             return self.scripted[step_id]
@@ -773,6 +784,7 @@ def runner(plan: ConcretePlan, boundary: Boundary) -> ExecutingRunner:
         source_bytes=dict(SOURCES),
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
 
 
@@ -904,6 +916,7 @@ def test_a_step_whose_contract_cannot_be_built_is_not_satisfied() -> None:
         source_bytes=dict(SOURCES),
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
     outcome = broken.execute()
     assert outcome.stopped_at == "B5-E1"
@@ -926,6 +939,7 @@ def test_the_comparison_uses_the_manifests_digest_not_the_installed_file() -> No
         source_bytes=other,
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
     outcome = changed.execute()
     assert outcome.stopped_at == "P-05"

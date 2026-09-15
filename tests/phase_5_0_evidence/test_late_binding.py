@@ -42,6 +42,7 @@ from tools.phase_5_0_evidence.plan import CommandStep
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     bound_argv,
     cleanup_observations_for,
     observations_for,
@@ -166,8 +167,15 @@ def test_a_step_whose_declaration_disagrees_with_its_vector_is_refused_at_plan_t
 # Substitution
 # ---------------------------------------------------------------------------
 
-UIDS = {"freedomcoord": 5001, "freedomsheet": 5002, "fbprobe": 5003}
-GIDS = {"freedomcoord": 5001, "freedomsheet": 5002, "fbprobe": 5003, "freedomjournal": 5004}
+UIDS = {"freedomcoord": 5001, "freedomsheet": 5002, "fbprobe": 5003, "postgres": 900}
+GIDS = {
+    "freedomcoord": 5001,
+    "freedomsheet": 5002,
+    "fbprobe": 5003,
+    "freedomjournal": 5004,
+    # Pre-existing, and the reviewed restoration `fchown`s to it — r6 §2.4.
+    "postgres": 900,
+}
 
 
 def uid_of(name: str) -> int:
@@ -307,7 +315,7 @@ def test_only_the_capability_band_declares_a_binding_site() -> None:
         step.step_id
         for step in plan.steps
         if step.band == "capability"
-        and step.argv[0] == "/usr/sbin/capsh"
+        and step.argv[:1] == ("/usr/sbin/capsh",)
         and any(argument.startswith("--uid=") for argument in step.argv)
     }
     assert {f"B5-E{n}" for n in (1, 2, 3, 4, 5, 6, 8)} <= with_sites
@@ -358,7 +366,17 @@ class Boundary:
     calls: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
     scripted: dict = field(default_factory=dict)
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append((step_id, tuple(argv)))
         return self.scripted.get(step_id, CommandResult(exit_status=0, timed_out=False))
 
@@ -408,6 +426,7 @@ def make_runner(
         source_bytes=dict(SOURCES),
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
     keywords.update(overrides)
     return runner_class(**keywords)
@@ -444,13 +463,27 @@ def test_the_boundary_is_handed_the_substituted_vector() -> None:
     assert "--gid=5002" in e1
     assert "--groups=5002,5004" in e1
     assert not any(argument.endswith("=freedomsheet") for argument in e1)
-    # And every other step is handed exactly its reviewed vector.
+    # And every other **command** step is handed exactly its reviewed vector. A
+    # descriptor-bound effect is handed to nobody: it starts no process, so it
+    # never reaches the boundary at all.
     for step in plan.steps:
+        if step.is_effect:
+            assert step.step_id not in handed, step.step_id
+            continue
         if not step.bindings:
             assert handed[step.step_id] == tuple(step.argv), step.step_id
 
 
 def test_a_run_that_cannot_resolve_an_identity_stops_before_the_step() -> None:
+    """An unresolvable identity stops the run at the **first** step that needs it.
+
+    Since r6 §6.4 that is earlier than `B5-E1`: the descriptor-bound creation of
+    the seal `fchown`s it to `root:freedomjournal`, and it resolves that group
+    through the same injected NSS boundary the `capsh` construction does. So the
+    run stops before any process is started at all, which is a stronger form of
+    the property this test has always asserted — and `B5-E1` is still never
+    reached.
+    """
     plan = runnable_plan()
     boundary = satisfying(plan, Boundary())
     lookup = Lookup()
@@ -458,8 +491,12 @@ def test_a_run_that_cannot_resolve_an_identity_stops_before_the_step() -> None:
 
     outcome = make_runner(plan, boundary, identity_lookup=lookup).execute()
 
-    assert outcome.stopped_at == "B5-E1"
-    assert "late binding refused" in outcome.stop_reason
+    stopped = next(
+        step for step in plan.steps if step.step_id == outcome.stopped_at
+    )
+    assert stopped.is_effect
+    assert stopped.effect.group == "freedomjournal"
+    assert outcome.stopped_at not in dict(boundary.calls)
     assert "B5-E1" not in dict(boundary.calls)
     # The message says nothing about which account, which id or what the
     # operating system said.

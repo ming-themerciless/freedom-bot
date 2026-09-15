@@ -2,6 +2,79 @@
 
 This document defines the operational profile, access method, and execution instructions for the dedicated disposable Linux test environment.
 
+**Current restriction, 2026-09-15 — preflight authorized but not yet released.**
+Peter authorizes V6 as a read-only prerequisite survey, but the preflight
+remains queued behind remediation and independent re-review of Blocking
+PR-20260915-LAB-D12-1. It does not prove `linkat` viability or close I3. Until
+that review accepts the remediation, SSH, synchronization and host inspection
+remain out of scope. Provisioning, permission or group changes,
+`systemd-tmpfiles`, database operations, generated-vector execution, real
+participant invocation, real boundary/materializer use and `--execute` remain
+unauthorized in every case. No item of the r6 §7 delta is provisioned, no
+reservation is claimed and this host must remain untouched until the document
+checkpoint closes. See
+the active [handover](../review/Handover%20information) and
+[Codex re-review](../review/project-review-2026-09-15-reserved-laboratory-one-shot-authority.md).
+
+**Current state, 2026-09-14 — the mechanism is wired in the repository; this
+host is still untouched.** The C-P5.0-LAB-I-R1 remediation is
+[returned for independent re-review](../review/phase-5-0-reserved-laboratory-implementation-remediation-handback.md).
+Reservation enforcement now has a repository-owned integration point for all
+seven participants — `tools/phase_5_0_evidence/execution/participants.py` — and
+the harness CLI's `--execute` branch assembles it. **Nothing here is enforced by
+any of that**, for two separate reasons, and both matter:
+
+* **the six non-harness participants are not wired to it.** The bot suite, the
+  web suite, the Foundry tests, §3.2 synchronization, §3.5 dependency updates
+  and §4 environment reset run exactly as they do today. Connecting them is a
+  follow-up authorization, and RAID item **LAB-R6** records why it must not
+  precede provisioning: an integration point refuses on an absent lock, so
+  wiring it on an unprovisioned host would stop every suite; and
+* **every r6 §7 item this host would need remains unapproved and
+  unprovisioned** — the `freedomlab` group, `ubuntu`'s membership, the
+  `systemd-tmpfiles` fragment, the laboratory and recovery directories, the
+  ledger directory and the initialized `lifecycle.json`. The mechanism refuses
+  on an absent lock or record rather than creating either.
+
+**No reservation is claimed by this document.** Nothing was run, synchronized,
+inspected or changed on this host, and V6, V8 and V10 remain unperformed.
+
+**Current authorization boundary, 2026-09-14.** C-P5.0-LAB-I-R1 authorizes
+repository changes and local tests with `TEST_DATABASE_URL` unset only. It does
+**not** authorize SSH, synchronization, inspection, preflight, provisioning,
+permission changes, database operations, generated-vector execution or execution
+on this server, and it does not authorize invoking any of the seven integration
+points against a real participant. Claude stops after its remediation handback
+for independent Codex re-review.
+
+**Prior state, 2026-09-13 — the mechanism exists; this host is untouched.**
+The C-P5.0-LAB-I implementation is
+[returned for independent review](../review/phase-5-0-reserved-laboratory-implementation-handback.md).
+Reservation enforcement is now **implemented in the repository** and is still
+**enforced by nothing here**: every one of the r6 §7 items this host would need
+— the `freedomlab` group, `ubuntu`'s membership, the `systemd-tmpfiles`
+fragment, the laboratory and recovery directories, the ledger directory and the
+initialized `lifecycle.json` — remains **unapproved and unprovisioned**, and the
+mechanism refuses on an absent lock or record rather than creating either. **No
+reservation is claimed by this document.** Nothing was run, synchronized,
+inspected or changed on this host, and V6, V8 and V10 remain unperformed.
+
+**Current authorization boundary, 2026-09-13.** C-P5.0-LAB-I authorizes
+repository implementation and local tests only. It does **not** authorize SSH,
+synchronization, inspection, preflight, provisioning, permission changes,
+database operations or execution on this server. Provisioning definitions may
+be prepared in the repository for review but may not be applied. Claude must
+stop after its implementation handback for independent Codex review.
+
+**Prior review state, 2026-09-13.** The independent
+[LAB-1 R3 re-review](../review/project-review-2026-09-13-lab1-rereview-r3.md)
+accepts the local raw-byte remediation with no residual finding. This does not
+authorize use of this host: reservation enforcement and the r6 provisioning
+delta remain unimplemented, C-7 and EH-R16-1 remain unresolved, the twelve
+target facts remain unconfirmed, and `is_executable` remains `False`. The next
+action is maintainer direction on those blockers, followed only by separately
+authorized implementation review, read-only preflight and execution decisions.
+
 **Current laboratory direction and restriction, 2026-09-10.** C-P5.0-LAB-1
 uses exclusive whole-host reservation, trusted administrators and scoped
 adversarial cases; see the [direction and impact assessment](../review/phase-5-0-reserved-laboratory-direction.md).
@@ -9,6 +82,16 @@ During a reservation all other project work, including tests, synchronization
 and dependency updates, must wait for verified release. A lock expiry or crashed
 executor does not authorize takeover. Reservation enforcement is not implemented
 or verified yet, and no reservation is claimed by this document.
+
+**Maintainer design choice, 2026-09-12.** All seven participants are intended to
+use the shared `ubuntu` identity; no separate identities are wanted. The
+maintainer accepts the exact ten-item r6 §7 delta as the design basis. This is
+not a provisioning or host-operation authorization. The choice records the
+trusted-operator assumption and the disposable host's isolation rationale; it
+does not make the shared UID a security boundary between participants or
+confirm the target's actual entry-point identities. The current handover remains
+local-only: no SSH, synchronization, preflight, permission changes, provisioning
+or real execution. See the [decision and remediation note](../review/project-review-2026-09-12-lab1-disposition.md).
 
 **Reservation contract, 2026-09-11.** The decision half is now written down:
 `tools/phase_5_0_evidence/reservation.py` carries the six reservation states, the

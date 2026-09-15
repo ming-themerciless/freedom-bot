@@ -177,7 +177,62 @@ MANIFEST_SCHEMA = "phase-5-0-evidence-review-manifest"
 #: A digest approved under version 8 covered a plan that reported itself
 #: executable with three producers missing, and an importer that could report a
 #: complete result with no capability evidence in it. That is a different plan.
-MANIFEST_VERSION = 9
+#:
+#: **10** is the LAB-1 repair — runner contract r6 §8.1, accepted 2026-09-12.
+#: The supplied-observation schema is **version 3**: `JNL-47-RECOVERY-STATE`
+#: records the two recovery causes and the two recovery procedures separately,
+#: replacing the single `recovery_procedure_named`. Under version 9 the evidence
+#: clause was one boolean over both procedures, so a run that left residue and
+#: named only the *configuration* recovery satisfied *"the named operator
+#: recovery is reported"*. That is the reporting gap LAB-1 named, relocated from
+#: the outcome into the record that judges it. A digest approved under version 9
+#: covered a plan whose recovery clause could be answered by the wrong
+#: procedure, so it stops matching rather than being reinterpreted.
+#:
+#: **11** is the C-P5.0-LAB-I implementation of runner contract r6's
+#: reserved-laboratory mechanism, 2026-09-13. It moves for two reasons and both
+#: are changes in what a digest covers rather than in how a plan is rendered.
+#:
+#: * **The covered set grows by five files.** `execution/descriptors.py`,
+#:   `execution/host_lock.py`, `execution/lifecycle_record.py`,
+#:   `execution/recovery_store.py` and `execution/run_ledger.py` are the
+#:   mechanism, and `provisioning.py` carries the r6 §7 definitions. A digest
+#:   approved under version 10 covered a tree in which none of them existed, so
+#:   it is not a digest for this one.
+#: * **The reviewed verb table grows from 16 to 20.** r6 §6.2's four
+#:   descriptor-relative verbs — `openat`, `unlinkat`, `renameat`, `fstatat` —
+#:   and their two new argument kinds change what an admissible vector *is*. A
+#:   digest approved under version 10 covered a grammar in which no vector could
+#:   name a descriptor at all.
+#:
+#: What does **not** move: the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, and `is_executable` stays `False` with C-7's
+#: three cases declared unresolved. Implementation is not resolution, and a
+#: digest is review input rather than execution approval in either version.
+#: **12** is the C-P5.0-LAB-I-R1 remediation of Codex findings
+#: PR-20260913-LABI-1, -2 and -3, 2026-09-14. It moves for three reasons, and
+#: each is a change in what a digest covers rather than in how a plan is
+#: rendered.
+#:
+#: * **The covered set grows by one file.** `execution/participants.py` is the
+#:   repository-owned integration point for all seven entries of
+#:   `reservation.PARTICIPATING_ENTRY_POINTS`. A digest approved under version
+#:   11 covered a tree in which the protocol was enforced by nothing.
+#: * **`plan.PERMITTED_EXECUTABLES` falls from 22 to 20.** r6 §6.4's retirement
+#:   of `/usr/bin/install` and `/usr/bin/chattr` changes what an admissible
+#:   vector *is*: a version-11 digest covered a grammar in which both were
+#:   permitted and 27 reviewed steps named one of them.
+#: * **Those 27 steps are no longer argument vectors.** They are
+#:   descriptor-bound effects, reviewed as `plan.DescriptorEffect` rows, so the
+#:   manifest pins an effect's kind, role, component, mode and ownership where
+#:   it used to pin a command line.
+#:
+#: What does **not** move: the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, and `is_executable` stays `False` with C-7's
+#: three cases declared unresolved. Integration is repository wiring, not
+#: permission to invoke it, and a digest is review input rather than execution
+#: approval in either version.
+MANIFEST_VERSION = 12
 
 #: The source files whose exact bytes the manifest pins, relative to the
 #: repository root. Enumerated rather than globbed: a file added to the package
@@ -199,9 +254,15 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/execution/boundary.py",
     "tools/phase_5_0_evidence/execution/case_program.py",
     "tools/phase_5_0_evidence/execution/cli.py",
+    "tools/phase_5_0_evidence/execution/descriptors.py",
     "tools/phase_5_0_evidence/execution/evidence_cli.py",
     "tools/phase_5_0_evidence/execution/executor.py",
+    "tools/phase_5_0_evidence/execution/host_lock.py",
+    "tools/phase_5_0_evidence/execution/lifecycle_record.py",
     "tools/phase_5_0_evidence/execution/materializer.py",
+    "tools/phase_5_0_evidence/execution/participants.py",
+    "tools/phase_5_0_evidence/execution/recovery_store.py",
+    "tools/phase_5_0_evidence/execution/run_ledger.py",
     "tools/phase_5_0_evidence/expectations.py",
     "tools/phase_5_0_evidence/feasibility.py",
     "tools/phase_5_0_evidence/filesystem.py",
@@ -214,6 +275,7 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/observations.py",
     "tools/phase_5_0_evidence/plan.py",
     "tools/phase_5_0_evidence/provenance.py",
+    "tools/phase_5_0_evidence/provisioning.py",
     "tools/phase_5_0_evidence/records.py",
     "tools/phase_5_0_evidence/required_cases.py",
     "tools/phase_5_0_evidence/reservation.py",
@@ -258,6 +320,38 @@ EXIT_CLASSIFICATIONS = (
 
 def _sha256_hex(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _effect_row(effect) -> dict | None:
+    """**r6 §1.4, C-P5.0-LAB-I-R1.** One descriptor-bound effect, pinned.
+
+    This is what the manifest pins where it used to pin an `install` or a
+    `chattr` command line. Every field is a name or a number a reviewer
+    approves, and none of them is a pathname the executor resolves: the role
+    selects a descriptor the inventory already holds and the component is one
+    path component under it. `path` is documentation — the absolute path the
+    object has — and nothing resolves it.
+
+    `None` for a command step, so a reviewer reading the manifest sees which
+    steps are effects and which are vectors without inferring it from an empty
+    `argv`.
+    """
+    if effect is None:
+        return None
+    return {
+        "kind": effect.kind.value,
+        "directory_role": effect.directory_role,
+        "name": effect.name,
+        "path": effect.path,
+        "mode": f"{effect.mode:04o}" if effect.mode else "",
+        "owner": effect.owner,
+        "group": effect.group,
+        "flags": list(effect.flags),
+        "payload_source": effect.payload_source,
+        "configuration_role": effect.configuration_role,
+        "components": list(effect.components),
+        "evidence_role": effect.evidence_role,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,6 +460,9 @@ class ReviewManifest:
                     "band": step.band,
                     "run_as": step.run_as,
                     "argv": list(step.argv),
+                    # **r6 §6.4, C-P5.0-LAB-I-R1.** The descriptor-bound effect
+                    # this step is instead of a command, or `null`.
+                    "effect": _effect_row(step.effect),
                     "purpose": step.purpose,
                     "evidence_case_ids": list(step.evidence_case_ids),
                     "mutation_ids": list(step.mutation_ids),
@@ -458,6 +555,9 @@ class ReviewManifest:
                     "kind": step.kind.value,
                     "run_as": step.run_as,
                     "argv": list(step.argv),
+                    # **r6 §6.4, C-P5.0-LAB-I-R1.** The descriptor-bound effect
+                    # this step is instead of a command, or `null`.
+                    "effect": _effect_row(step.effect),
                     "removes": step.removes,
                     "mutation_ids": list(step.mutation_ids),
                     "satisfying_statuses": list(step.satisfying_statuses),

@@ -81,6 +81,15 @@
       },
       {
         "arguments": [
+          "dirfd",
+          "component"
+        ],
+        "arity": 2,
+        "purpose": "fstatat(2) with AT_SYMLINK_NOFOLLOW, reporting whether the name resolves and to which device and inode. It is the post-removal **absence check**: it cannot report which object a removal took.",
+        "verb": "fstatat"
+      },
+      {
+        "arguments": [
           "write_mode",
           "target_path"
         ],
@@ -129,6 +138,16 @@
       },
       {
         "arguments": [
+          "dirfd",
+          "open_mode",
+          "component"
+        ],
+        "arity": 3,
+        "purpose": "openat(2) resolving one component relative to a descriptor the step inherited, with O_NOFOLLOW, then fstat and close. It is the descriptor-bound replacement for the pathname open \u2014 r6 \u00a71.3 \u2014 and the device and inode it reports are what a caller compares with the identity a previous lookup recorded.",
+        "verb": "openat"
+      },
+      {
+        "arguments": [
           "write_mode",
           "target_path"
         ],
@@ -144,6 +163,17 @@
         "arity": 2,
         "purpose": "rename(2) between two paths, both strictly inside the disposable root.",
         "verb": "rename"
+      },
+      {
+        "arguments": [
+          "dirfd",
+          "component",
+          "dirfd",
+          "component"
+        ],
+        "arity": 4,
+        "purpose": "renameat(2) between two components, each relative to a descriptor the step inherited.",
+        "verb": "renameat"
       },
       {
         "arguments": [],
@@ -183,6 +213,15 @@
         "arity": 1,
         "purpose": "unlink(2).",
         "verb": "unlink"
+      },
+      {
+        "arguments": [
+          "dirfd",
+          "component"
+        ],
+        "arity": 2,
+        "purpose": "unlinkat(2) with flag 0. The prefix is bound by the descriptor and **the final component is not**: this removes whatever the name resolves to at the moment of the call, which r6 \u00a71.4.5 states rather than denies. Quiescence is the prevention and the pre-check is the only genuine detection.",
+        "verb": "unlinkat"
       }
     ],
     "write_modes": [
@@ -193,18 +232,24 @@
   "cleanup_steps": [
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0640",
-        "--owner",
-        "postgres",
-        "--group",
-        "postgres",
-        "/var/lib/fb-evidence-p5-0/before/pg_ident.conf",
-        "/etc/postgresql/16/main/pg_ident.conf"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [
+          "pg_ident.conf"
+        ],
+        "configuration_role": "pgconf",
+        "directory_role": "",
+        "evidence_role": "",
+        "flags": [],
+        "group": "postgres",
+        "kind": "restore_configuration",
+        "mode": "0640",
+        "name": "",
+        "owner": "postgres",
+        "path": "/etc/postgresql/16/main/pg_ident.conf",
+        "payload_source": ""
+      },
       "kind": "restore",
       "mutation_ids": [
         "postgres_config_line:pg_ident.conf:freedomcoord->freedom_migration_coordinator"
@@ -221,18 +266,24 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0640",
-        "--owner",
-        "postgres",
-        "--group",
-        "postgres",
-        "/var/lib/fb-evidence-p5-0/before/pg_hba.conf",
-        "/etc/postgresql/16/main/pg_hba.conf"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [
+          "pg_hba.conf"
+        ],
+        "configuration_role": "pgconf",
+        "directory_role": "",
+        "evidence_role": "",
+        "flags": [],
+        "group": "postgres",
+        "kind": "restore_configuration",
+        "mode": "0640",
+        "name": "",
+        "owner": "postgres",
+        "path": "/etc/postgresql/16/main/pg_hba.conf",
+        "payload_source": ""
+      },
       "kind": "restore",
       "mutation_ids": [
         "postgres_config_line:pg_hba.conf:freedomcoord->freedom_migration_coordinator"
@@ -263,6 +314,7 @@
         "SELECT pg_reload_conf()"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reload",
       "mutation_ids": [],
       "refusal_required": false,
@@ -291,6 +343,7 @@
         "SELECT 1"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "verify",
       "mutation_ids": [],
       "refusal_required": false,
@@ -321,6 +374,7 @@
         "SELECT 1"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "verify",
       "mutation_ids": [],
       "refusal_required": true,
@@ -339,6 +393,7 @@
         "fb-evidence-s4.service"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "transient_unit:fb-evidence-s4.service"
@@ -370,6 +425,7 @@
         "DROP ROLE IF EXISTS freedom_migration_coordinator"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "postgres_role:freedom_migration_coordinator"
@@ -400,6 +456,7 @@
         "DROP DATABASE IF EXISTS fb_evidence_p5_0"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "postgres_database:fb_evidence_p5_0"
@@ -416,13 +473,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/probe/stage2.target"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "stage2.target",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/probe/stage2.target",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/probe/stage2.target"
@@ -439,13 +508,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.close"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "000001.close",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.close",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.close"
@@ -462,13 +543,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.seal"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "000001.seal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.seal",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.seal"
@@ -485,13 +578,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.journal"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "000001.journal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.journal",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.journal"
@@ -508,13 +613,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/journal/000001.seal"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "000001.seal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.seal",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/journal/000001.seal"
@@ -531,13 +648,25 @@
     },
     {
       "applies_with": [],
-      "argv": [
-        "/usr/bin/chattr",
-        "-ia",
-        "--",
-        "/var/lib/fb-evidence-p5-0/journal/000001.journal"
-      ],
+      "argv": [],
       "capture": "exit_status_only",
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [
+          "immutable",
+          "append_only"
+        ],
+        "group": "",
+        "kind": "clear_flag",
+        "mode": "",
+        "name": "000001.journal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.journal",
+        "payload_source": ""
+      },
       "kind": "reversal",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/journal/000001.journal"
@@ -561,6 +690,7 @@
         "/var/lib/fb-evidence-p5-0/before/pg_ident.conf"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/before/pg_ident.conf"
@@ -590,6 +720,7 @@
         "/var/lib/fb-evidence-p5-0/before/pg_hba.conf"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/before/pg_hba.conf"
@@ -619,6 +750,7 @@
         "/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target"
@@ -642,6 +774,7 @@
         "/var/lib/fb-evidence-p5-0/probe-ro/s4-0.moved"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe-ro/s4-0.moved"
@@ -665,6 +798,7 @@
         "/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink"
@@ -688,6 +822,7 @@
         "/var/lib/fb-evidence-p5-0/probe/s4-1.target"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/s4-1.target"
@@ -711,6 +846,7 @@
         "/var/lib/fb-evidence-p5-0/probe/stage2.target"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/stage2.target"
@@ -734,6 +870,7 @@
         "/var/lib/fb-evidence-p5-0/probe/stage1.moved"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/stage1.moved"
@@ -757,6 +894,7 @@
         "/var/lib/fb-evidence-p5-0/probe/stage1.target"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/stage1.target"
@@ -780,6 +918,7 @@
         "/var/lib/fb-evidence-p5-0/archive/000001.close"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.close"
@@ -803,6 +942,7 @@
         "/var/lib/fb-evidence-p5-0/archive/000001.seal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.seal"
@@ -826,6 +966,7 @@
         "/var/lib/fb-evidence-p5-0/archive/000001.journal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.journal"
@@ -849,6 +990,7 @@
         "/var/lib/fb-evidence-p5-0/journal/current"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/journal/current"
@@ -872,6 +1014,7 @@
         "/var/lib/fb-evidence-p5-0/journal/000001.seal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/journal/000001.seal"
@@ -895,6 +1038,7 @@
         "/var/lib/fb-evidence-p5-0/journal/000001.journal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/journal/000001.journal"
@@ -918,6 +1062,7 @@
         "/var/lib/fb-evidence-p5-0/bin/case"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/bin/case"
@@ -940,6 +1085,7 @@
         "/var/lib/fb-evidence-p5-0/probe-ro"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/probe-ro"
@@ -962,6 +1108,7 @@
         "/var/lib/fb-evidence-p5-0/probe"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/probe"
@@ -984,6 +1131,7 @@
         "/var/lib/fb-evidence-p5-0/bin"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/bin"
@@ -1006,6 +1154,7 @@
         "/var/lib/fb-evidence-p5-0/before"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/before"
@@ -1034,6 +1183,7 @@
         "/var/lib/fb-evidence-p5-0/archive"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/archive"
@@ -1056,6 +1206,7 @@
         "/var/lib/fb-evidence-p5-0/journal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/journal"
@@ -1083,6 +1234,7 @@
         "/var/lib/fb-evidence-p5-0"
       ],
       "capture": "case_result",
+      "effect": null,
       "kind": "revalidate",
       "mutation_ids": [],
       "refusal_required": false,
@@ -1103,6 +1255,7 @@
         "/var/lib/fb-evidence-p5-0"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0"
@@ -1132,6 +1285,7 @@
         "freedomjournal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "group_membership:freedomsheet"
@@ -1156,6 +1310,7 @@
         "freedomjournal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "group_membership:freedomcoord"
@@ -1178,6 +1333,7 @@
         "fbprobe"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_account:fbprobe"
@@ -1200,6 +1356,7 @@
         "freedomsheet"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_account:freedomsheet"
@@ -1222,6 +1379,7 @@
         "freedomcoord"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_account:freedomcoord"
@@ -1244,6 +1402,7 @@
         "fbprobe"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_group:fbprobe"
@@ -1266,6 +1425,7 @@
         "freedomsheet"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_group:freedomsheet"
@@ -1288,6 +1448,7 @@
         "freedomcoord"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_group:freedomcoord"
@@ -1310,6 +1471,7 @@
         "freedomjournal"
       ],
       "capture": "exit_status_only",
+      "effect": null,
       "kind": "reversal",
       "mutation_ids": [
         "os_group:freedomjournal"
@@ -1484,7 +1646,7 @@
     },
     {
       "mutation_id": "file:/var/lib/fb-evidence-p5-0/before/pg_ident.conf",
-      "performed_by": "B6-02",
+      "performed_by": "B6-01",
       "reversed_by": "CL-15"
     },
     {
@@ -1519,12 +1681,12 @@
     },
     {
       "mutation_id": "postgres_database:fb_evidence_p5_0",
-      "performed_by": "B6-03",
+      "performed_by": "B6-02",
       "reversed_by": "CL-08"
     },
     {
       "mutation_id": "postgres_role:freedom_migration_coordinator",
-      "performed_by": "B6-04",
+      "performed_by": "B6-03",
       "reversed_by": "CL-07"
     },
     {
@@ -1675,7 +1837,7 @@
         "key": "case_program"
       },
       {
-        "expected": "c2c8dbcb41c3565ff744ce5d8d6faeaa3d9892f21635dfbb67629dba8ef33f39",
+        "expected": "188af751d2a306b88697b152332389d00d357a3dd0ee37859c6eb352f6359de0",
         "key": "case_program_sha256"
       },
       {
@@ -1808,7 +1970,7 @@
     {
       "band": "journal",
       "case_id": "JNL-47-RECOVERY-STATE",
-      "collection_procedure": "record the exit code and the \u00a72.13.2b state the run reported; count the residue paths it named; record whether any generation artifact and any database row exist; attempt a second run and record whether it refused; and record whether the named operator recovery procedure was reported. One record per variant",
+      "collection_procedure": "record the exit code and the \u00a72.13.2b state the run reported; count the residue paths it named; record whether any generation artifact and any database row exist; attempt a second run and record whether it refused; record whether the run named the five-step residue recovery; and record whether a configuration capture was retained and, if so, whether the run named the four-step configuration recovery. Each procedure is recorded separately because each answers a different cause. One record per variant",
       "producer": "a run on the disposable host whose cleanup failed, once after a probe stage had failed and once after a fully passing probe",
       "producer_artifact_reviewed": false,
       "producer_review_reference": "",
@@ -1823,10 +1985,10 @@
   "harness_name": "phase-5-0-evidence-harness",
   "harness_version": "0.7.0-pre-execution",
   "manifest_schema": "phase-5-0-evidence-review-manifest",
-  "manifest_version": 9,
+  "manifest_version": 12,
   "materializations": [
     {
-      "after_step_id": "B6-04",
+      "after_step_id": "B6-03",
       "band": "postgresql",
       "byte_count": 975,
       "capture_step_id": "B6-01",
@@ -1864,10 +2026,10 @@
       "step_id": "B6-M1"
     },
     {
-      "after_step_id": "B6-04",
+      "after_step_id": "B6-03",
       "band": "postgresql",
       "byte_count": 258,
-      "capture_step_id": "B6-02",
+      "capture_step_id": "B6-01",
       "destination": "/etc/postgresql/16/main/pg_ident.conf",
       "evidence_case_ids": [
         "HBA-POST-CHANGE-ORDERING"
@@ -2423,15 +2585,15 @@
     },
     {
       "path": "tools/phase_5_0_evidence/case_runtime.py",
-      "sha256": "936371c58186b3586b391535e043fed5a1acec9489405cf21230054f08357499"
+      "sha256": "15261b6cd98bdbf53ecd7f467d82230068c0193be49d524ea86581715bf9f66f"
     },
     {
       "path": "tools/phase_5_0_evidence/cleanup.py",
-      "sha256": "257df73d2f5fe16c0e023e4d0bf6f9b15e421887a6a0fbb771ed45e50e4f88b0"
+      "sha256": "2def1ec4e170ec364405925bddb805a818b2e81201fe22a8587a3ab83f56b6aa"
     },
     {
       "path": "tools/phase_5_0_evidence/concrete_plan.py",
-      "sha256": "66fa23e4de80b9ce766be126fed11266140963dd81e288bd520ae9d739475461"
+      "sha256": "d24ba5ca94b5a910197e23a87fbc69a9c090509d733c5d9a371abee282e5c483"
     },
     {
       "path": "tools/phase_5_0_evidence/durability_model.py",
@@ -2447,19 +2609,23 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/artifact.py",
-      "sha256": "09a883d89c61a4b85719779598f067bd9b99cd5eca439aa33e4932e7e153f64f"
+      "sha256": "64ad95ce188316111c4f3f205580f500bf85ce3992882b2ecd1fe7af46006e27"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/boundary.py",
-      "sha256": "e94c4af58c81207a619ea8cc0f15185106f3c75b23804ae707aeed3e81cd2bc8"
+      "sha256": "1354b600cab03e649e90cd780e47c57a1cb4d0e7abc394cd063888005ebc5c32"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/case_program.py",
-      "sha256": "c2c8dbcb41c3565ff744ce5d8d6faeaa3d9892f21635dfbb67629dba8ef33f39"
+      "sha256": "188af751d2a306b88697b152332389d00d357a3dd0ee37859c6eb352f6359de0"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/cli.py",
-      "sha256": "4b16a23e80734712e59b5900b5663a484f5402c39d624c5e6ba1d5869876f4b1"
+      "sha256": "485f960f1dee97feaef4a6c1f8e002c27262a427db470cd91c5dd36f057cb4d1"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/descriptors.py",
+      "sha256": "91de32e2ade8c1aa518e04defb8f968aa4881eb3e199ac8ebc391766ce546542"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/evidence_cli.py",
@@ -2467,11 +2633,31 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/executor.py",
-      "sha256": "95a830d518b18d753025013d876dd046e9bd73dc1e40203f6fdb2effc37348ff"
+      "sha256": "a5b17330fb6bfe5c1903f8feb0aaf41203d68b1b2d781099ca646ecb97af48f5"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/host_lock.py",
+      "sha256": "2eab78fb2ad8b0746a79ef7100c9c9b05327cd9a69b7d96999c34f2092bff38d"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/lifecycle_record.py",
+      "sha256": "d7d38ccf704f091937cc8b0719670c2f65065bf77614817e282874d2a5ca9407"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/materializer.py",
-      "sha256": "783ac6fac6067e89b23b632ad1eaa5f6825a70787a429e9ddb679f10ce6bdeda"
+      "sha256": "0598e9bf4175f5a8a270d28f78cdc831ea2c0d89bd65d34bda3fd97f93898ff3"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/participants.py",
+      "sha256": "430965c81d6fc746d46cb64b6be626c70339047c355ffd28fbb93685b082199a"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/recovery_store.py",
+      "sha256": "e6d0c18857439a43e6614b939425fd95667feadb1a0e2eb27a5dd3dbed576142"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/run_ledger.py",
+      "sha256": "ab050d86870e39ebf97f1e3759b052596555f7cbd865925f140c7b2c26ef3e63"
     },
     {
       "path": "tools/phase_5_0_evidence/expectations.py",
@@ -2479,7 +2665,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/feasibility.py",
-      "sha256": "08ce6266e9e547f4e7dcab4c14c862e163b8556ffcde664124bb77e959dc0781"
+      "sha256": "f7ca0eeb682ad2adee4453c531c2a89a08b7d206b0b0a6f599b40c315c6050e4"
     },
     {
       "path": "tools/phase_5_0_evidence/filesystem.py",
@@ -2495,11 +2681,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/journal.py",
-      "sha256": "c6ee33177832cca9935631818255fd032958f5ba3483e9551f7c812f97b570ae"
+      "sha256": "9678c5a20c8bcc582172f3df55f09ba04a260c2cd5fded7c7bfde7e10ebd9e22"
     },
     {
       "path": "tools/phase_5_0_evidence/lifecycle_storage.py",
-      "sha256": "c468eab924a80dedf318ae4ce5ba6aa55671a7f36004f1c1ea96981814326011"
+      "sha256": "cc135b83e71d2317410f9b4114174cad119118b2ac7d89a4a8d900cb63024e7a"
     },
     {
       "path": "tools/phase_5_0_evidence/manifest.py",
@@ -2511,15 +2697,19 @@
     },
     {
       "path": "tools/phase_5_0_evidence/observations.py",
-      "sha256": "8cd5ddd8527b8a5d75eaf93af226d5e800c949028b94ef16b1df6f02a900699c"
+      "sha256": "e4cfc6e1b23053387b8307f33ec7e369bfbf7e98c2a12d0fe4f3cff35f582db6"
     },
     {
       "path": "tools/phase_5_0_evidence/plan.py",
-      "sha256": "f4dfb2da51d7410ed382111c9b2a30a4184cb83cbd0ff0334c072882e728a9a2"
+      "sha256": "0c76f7d8206fb4b0114ea53587fe9a0c0c348932143c8aee3ec4766315a60fbb"
     },
     {
       "path": "tools/phase_5_0_evidence/provenance.py",
       "sha256": "d939ab1b11d9bcecb0158f1fc5da3d9a265f569377e37ea1a60db970c95091c1"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/provisioning.py",
+      "sha256": "9658392cf53f2bffb554cd46640533a9a478c32d4c8696b42585f89178e10614"
     },
     {
       "path": "tools/phase_5_0_evidence/records.py",
@@ -2535,7 +2725,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/review_manifest.py",
-      "sha256": "4e099e24de31bb44236fe4fc8bc2f7995ac36c3093b22e350729d46020b734de"
+      "sha256": "0faef4546b8674e8c8e23c66b836a0fa7e585e57cb6860c9e22067ccfc246440"
     },
     {
       "path": "tools/phase_5_0_evidence/sudoers.py",
@@ -2555,6 +2745,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -2618,6 +2809,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_group:freedomjournal",
@@ -2654,6 +2846,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_group:freedomcoord"
@@ -2686,6 +2879,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_group:freedomsheet"
@@ -2718,6 +2912,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_group:fbprobe"
@@ -2750,6 +2945,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_account:freedomcoord"
@@ -2782,6 +2978,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_account:freedomsheet"
@@ -2814,6 +3011,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "os_account:fbprobe"
@@ -2846,6 +3044,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -2884,6 +3083,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -2927,6 +3127,7 @@
         "control": "postgres",
         "subject": "fb_evidence_p5_0"
       },
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "postgres_database:fb_evidence_p5_0"
@@ -2985,6 +3186,7 @@
         "control": "postgres",
         "subject": "freedom_migration_coordinator"
       },
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "postgres_role:freedom_migration_coordinator"
@@ -3031,6 +3233,7 @@
       "bindings": [],
       "capture": "unit_directives",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [
         "transient_unit:fb-evidence-s4.service"
@@ -3069,6 +3272,7 @@
       "bindings": [],
       "capture": "capability_masks",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3100,6 +3304,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3132,6 +3337,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3166,6 +3372,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3200,6 +3407,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3234,6 +3442,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3273,6 +3482,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3312,6 +3522,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3351,6 +3562,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3386,6 +3598,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3419,6 +3632,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3451,6 +3665,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3502,6 +3717,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3553,6 +3769,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3604,6 +3821,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3655,6 +3873,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3706,6 +3925,7 @@
       "bindings": [],
       "capture": "group_members",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3756,6 +3976,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3818,6 +4039,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3880,6 +4102,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -3942,6 +4165,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4004,6 +4228,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4066,6 +4291,7 @@
       "bindings": [],
       "capture": "account_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4132,6 +4358,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [
         "directory:/var/lib/fb-evidence-p5-0"
       ],
@@ -4246,6 +4473,7 @@
       "bindings": [],
       "capture": "file_mode",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4294,27 +4522,31 @@
       "step_id": "B3-02"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0750",
-        "--owner",
-        "root",
-        "--group",
-        "freedomjournal",
-        "/var/lib/fb-evidence-p5-0/journal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomjournal",
+        "kind": "create_directory",
+        "mode": "0750",
+        "name": "journal",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/journal exists as root:freedomjournal 0750.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/journal as root:freedomjournal 0750 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/journal"
@@ -4332,27 +4564,31 @@
       "step_id": "B3-03"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0750",
-        "--owner",
-        "root",
-        "--group",
-        "freedomcoord",
-        "/var/lib/fb-evidence-p5-0/archive"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomcoord",
+        "kind": "create_directory",
+        "mode": "0750",
+        "name": "archive",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/archive",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/archive exists as root:freedomcoord 0750.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/archive as root:freedomcoord 0750 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/archive"
@@ -4370,27 +4606,31 @@
       "step_id": "B3-04"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0700",
-        "--owner",
-        "root",
-        "--group",
-        "root",
-        "/var/lib/fb-evidence-p5-0/before"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "root",
+        "kind": "create_directory",
+        "mode": "0700",
+        "name": "before",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/before",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/before exists as root:root 0700.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/before as root:root 0700 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/before"
@@ -4408,27 +4648,31 @@
       "step_id": "B3-05"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0755",
-        "--owner",
-        "root",
-        "--group",
-        "root",
-        "/var/lib/fb-evidence-p5-0/bin"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "root",
+        "kind": "create_directory",
+        "mode": "0755",
+        "name": "bin",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/bin",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/bin exists as root:root 0755.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/bin as root:root 0755 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/bin"
@@ -4446,27 +4690,31 @@
       "step_id": "B3-06"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0755",
-        "--owner",
-        "root",
-        "--group",
-        "root",
-        "/opt/freedom-blades/platform/tools/phase_5_0_evidence/execution/case_program.py",
-        "/var/lib/fb-evidence-p5-0/bin/case"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "bin",
+        "evidence_role": "",
+        "flags": [],
+        "group": "root",
+        "kind": "install_payload",
+        "mode": "0755",
+        "name": "case",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/bin/case",
+        "payload_source": "tools/phase_5_0_evidence/execution/case_program.py"
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "a missing source stops the band: the disposable host's repository tree is the one the manifest was computed over, and an absent file means it is not.",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/bin/case exists as root:root 0755, byte-identical to the reviewed source.",
+      "expected_refusal": "content whose digest is not the manifest's is refused rather than installed, and an occupied final name is `EEXIST`.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/bin/case exists as root:root 0755, byte-identical to the reviewed source, published exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/bin/case"
@@ -4474,7 +4722,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Install the reviewed case program. The source is tools/phase_5_0_evidence/execution/case_program.py, whose exact bytes the review manifest covers; `install` copies them, so the installed bytes are the reviewed bytes and the manifest's source digest is also the installation digest.",
+      "purpose": "**P2.** Install the reviewed case program from one held buffer. The bytes are tools/phase_5_0_evidence/execution/case_program.py's, which the review manifest covers, and they are digested against the manifest's value at the last possible moment \u2014 so the installed bytes are the reviewed bytes, and no second read of any pathname happens between the check and the write. `install` was removed here: it re-resolved the destination for each of its own effects and succeeded whether or not something was already at the name.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -4492,6 +4740,7 @@
       "bindings": [],
       "capture": "file_capabilities",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4531,6 +4780,7 @@
       "bindings": [],
       "capture": "file_mode",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4590,6 +4840,7 @@
       "bindings": [],
       "capture": "case_runtime",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4624,6 +4875,7 @@
       "bindings": [],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4648,27 +4900,31 @@
       "step_id": "P-06"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0640",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomcoord",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/journal/000001.journal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomcoord",
+        "kind": "create_object",
+        "mode": "0640",
+        "name": "000001.journal",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/journal/000001.journal exists, empty, as freedomsheet:freedomcoord 0640.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/journal/000001.journal exists, empty, as freedomsheet:freedomcoord 0640, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/journal/000001.journal"
@@ -4686,27 +4942,31 @@
       "step_id": "B3-08"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0440",
-        "--owner",
-        "root",
-        "--group",
-        "freedomjournal",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/journal/000001.seal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomjournal",
+        "kind": "create_object",
+        "mode": "0440",
+        "name": "000001.seal",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.seal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/journal/000001.seal exists, empty, as root:freedomjournal 0440.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/journal/000001.seal exists, empty, as root:freedomjournal 0440, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/journal/000001.seal"
@@ -4724,27 +4984,31 @@
       "step_id": "B3-09"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0440",
-        "--owner",
-        "root",
-        "--group",
-        "freedomcoord",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/archive/000001.journal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomcoord",
+        "kind": "create_object",
+        "mode": "0440",
+        "name": "000001.journal",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/archive/000001.journal exists, empty, as root:freedomcoord 0440.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/archive/000001.journal exists, empty, as root:freedomcoord 0440, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.journal"
@@ -4762,27 +5026,31 @@
       "step_id": "B3-10"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0440",
-        "--owner",
-        "root",
-        "--group",
-        "freedomcoord",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/archive/000001.seal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomcoord",
+        "kind": "create_object",
+        "mode": "0440",
+        "name": "000001.seal",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.seal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/archive/000001.seal exists, empty, as root:freedomcoord 0440.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/archive/000001.seal exists, empty, as root:freedomcoord 0440, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.seal"
@@ -4800,27 +5068,31 @@
       "step_id": "B3-11"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0440",
-        "--owner",
-        "root",
-        "--group",
-        "freedomcoord",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/archive/000001.close"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomcoord",
+        "kind": "create_object",
+        "mode": "0440",
+        "name": "000001.close",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.close",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/archive/000001.close exists, empty, as root:freedomcoord 0440.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/archive/000001.close exists, empty, as root:freedomcoord 0440, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/archive/000001.close"
@@ -4851,6 +5123,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -4874,22 +5147,33 @@
       "step_id": "B3-13"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+a",
-        "--",
-        "/var/lib/fb-evidence-p5-0/journal/000001.journal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [
+          "append_only"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.journal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; lsattr reports the +a flag.",
+      "expected_refusal": "a missing creating-step record, an absent object or an identity that is not the recorded one refuses before the ioctl, and an unestablished quiescence refuses the effect and every dependent one.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `a` on /var/lib/fb-evidence-p5-0/journal/000001.journal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/journal/000001.journal"
@@ -4897,7 +5181,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Set +a on /var/lib/fb-evidence-p5-0/journal/000001.journal, as \u00a72.13.3 specifies.",
+      "purpose": "Set the append_only inode flag on /var/lib/fb-evidence-p5-0/journal/000001.journal, as \u00a72.13.3 specifies.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -4907,22 +5191,33 @@
       "step_id": "B3-14"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/journal/000001.seal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "journal",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.seal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/journal/000001.seal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; lsattr reports the +i flag.",
+      "expected_refusal": "a missing creating-step record, an absent object or an identity that is not the recorded one refuses before the ioctl, and an unestablished quiescence refuses the effect and every dependent one.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/journal/000001.seal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/journal/000001.seal"
@@ -4930,7 +5225,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Set +i on /var/lib/fb-evidence-p5-0/journal/000001.seal, as \u00a72.13.3 specifies.",
+      "purpose": "Set the immutable inode flag on /var/lib/fb-evidence-p5-0/journal/000001.seal, as \u00a72.13.3 specifies.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -4940,22 +5235,33 @@
       "step_id": "B3-15"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.journal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.journal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; lsattr reports the +i flag.",
+      "expected_refusal": "a missing creating-step record, an absent object or an identity that is not the recorded one refuses before the ioctl, and an unestablished quiescence refuses the effect and every dependent one.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/archive/000001.journal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.journal"
@@ -4963,7 +5269,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Set +i on /var/lib/fb-evidence-p5-0/archive/000001.journal, as \u00a72.13.3 specifies.",
+      "purpose": "Set the immutable inode flag on /var/lib/fb-evidence-p5-0/archive/000001.journal, as \u00a72.13.3 specifies.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -4973,22 +5279,33 @@
       "step_id": "B3-16"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.seal"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.seal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.seal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; lsattr reports the +i flag.",
+      "expected_refusal": "a missing creating-step record, an absent object or an identity that is not the recorded one refuses before the ioctl, and an unestablished quiescence refuses the effect and every dependent one.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/archive/000001.seal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.seal"
@@ -4996,7 +5313,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Set +i on /var/lib/fb-evidence-p5-0/archive/000001.seal, as \u00a72.13.3 specifies.",
+      "purpose": "Set the immutable inode flag on /var/lib/fb-evidence-p5-0/archive/000001.seal, as \u00a72.13.3 specifies.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -5006,22 +5323,33 @@
       "step_id": "B3-17"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.close"
-      ],
+      "argv": [],
       "band": "identity",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.close",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.close",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; lsattr reports the +i flag.",
+      "expected_refusal": "a missing creating-step record, an absent object or an identity that is not the recorded one refuses before the ioctl, and an unestablished quiescence refuses the effect and every dependent one.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/archive/000001.close.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.close"
@@ -5029,7 +5357,7 @@
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Set +i on /var/lib/fb-evidence-p5-0/archive/000001.close, as \u00a72.13.3 specifies.",
+      "purpose": "Set the immutable inode flag on /var/lib/fb-evidence-p5-0/archive/000001.close, as \u00a72.13.3 specifies.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -5048,6 +5376,7 @@
       "bindings": [],
       "capture": "attribute_flags",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5093,6 +5422,7 @@
       "bindings": [],
       "capture": "attribute_flags",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5138,6 +5468,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5170,6 +5501,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5206,6 +5538,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5261,6 +5594,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5316,6 +5650,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5372,6 +5707,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5428,6 +5764,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5484,6 +5821,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5539,6 +5877,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5594,6 +5933,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5649,6 +5989,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5705,6 +6046,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5761,6 +6103,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5817,6 +6160,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5873,6 +6217,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5929,6 +6274,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -5985,6 +6331,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6041,6 +6388,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6084,27 +6432,31 @@
       "step_id": "B3-38"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0770",
-        "--owner",
-        "root",
-        "--group",
-        "freedomsheet",
-        "/var/lib/fb-evidence-p5-0/probe"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_directory",
+        "mode": "0770",
+        "name": "probe",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/probe",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe exists as root:freedomsheet 0770.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/probe as root:freedomsheet 0770 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/probe"
@@ -6122,27 +6474,31 @@
       "step_id": "B4-01"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--directory",
-        "--mode",
-        "0770",
-        "--owner",
-        "root",
-        "--group",
-        "freedomsheet",
-        "/var/lib/fb-evidence-p5-0/probe-ro"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "root",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_directory",
+        "mode": "0770",
+        "name": "probe-ro",
+        "owner": "root",
+        "path": "/var/lib/fb-evidence-p5-0/probe-ro",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe-ro exists as root:freedomsheet 0770.",
+      "expected_refusal": "`EEXIST` refuses: an entry already at that name is an object this run did not create and may not own.",
+      "expected_result": "the exclusive `mkdirat` created /var/lib/fb-evidence-p5-0/probe-ro as root:freedomsheet 0770 and the root's containing-entry barrier returned success.",
       "identity_name": "",
       "mutation_ids": [
         "directory:/var/lib/fb-evidence-p5-0/probe-ro"
@@ -6160,27 +6516,31 @@
       "step_id": "B4-02"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0660",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomsheet",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/probe/stage1.target"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_object",
+        "mode": "0660",
+        "name": "stage1.target",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/probe/stage1.target",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe/stage1.target exists, empty, as freedomsheet:freedomsheet 0660.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/probe/stage1.target exists, empty, as freedomsheet:freedomsheet 0660, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/stage1.target"
@@ -6198,27 +6558,31 @@
       "step_id": "B4-03"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0660",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomsheet",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/probe/stage2.target"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_object",
+        "mode": "0660",
+        "name": "stage2.target",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/probe/stage2.target",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe/stage2.target exists, empty, as freedomsheet:freedomsheet 0660.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/probe/stage2.target exists, empty, as freedomsheet:freedomsheet 0660, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/stage2.target"
@@ -6236,27 +6600,31 @@
       "step_id": "B4-04"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0660",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomsheet",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/probe/s4-1.target"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_object",
+        "mode": "0660",
+        "name": "s4-1.target",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/probe/s4-1.target",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe/s4-1.target exists, empty, as freedomsheet:freedomsheet 0660.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/probe/s4-1.target exists, empty, as freedomsheet:freedomsheet 0660, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe/s4-1.target"
@@ -6274,27 +6642,31 @@
       "step_id": "B4-05"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0660",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomsheet",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe-ro",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_object",
+        "mode": "0660",
+        "name": "s4-0.unlink",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink exists, empty, as freedomsheet:freedomsheet 0660.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink exists, empty, as freedomsheet:freedomsheet 0660, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe-ro/s4-0.unlink"
@@ -6312,27 +6684,31 @@
       "step_id": "B4-06"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0660",
-        "--owner",
-        "freedomsheet",
-        "--group",
-        "freedomsheet",
-        "/dev/null",
-        "/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe-ro",
+        "evidence_role": "",
+        "flags": [],
+        "group": "freedomsheet",
+        "kind": "create_object",
+        "mode": "0660",
+        "name": "s4-2.target",
+        "owner": "freedomsheet",
+        "path": "/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "",
-      "expected_result": "exit 0; /var/lib/fb-evidence-p5-0/probe-ro/s4-2.target exists, empty, as freedomsheet:freedomsheet 0660.",
+      "expected_refusal": "`EEXIST` refuses: something is already at that name and this run did not put it there.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target exists, empty, as freedomsheet:freedomsheet 0660, created exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/probe-ro/s4-2.target"
@@ -6350,22 +6726,33 @@
       "step_id": "B4-07"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+a",
-        "--",
-        "/var/lib/fb-evidence-p5-0/probe/stage2.target"
-      ],
+      "argv": [],
       "band": "filesystem",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "probe",
+        "evidence_role": "",
+        "flags": [
+          "append_only"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "stage2.target",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/probe/stage2.target",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
       "expected_refusal": "EOPNOTSUPP means the filesystem has no flag interface and A-5.0-5 is unconfirmable on it; the probe is failed, not inconclusive.",
-      "expected_result": "exit 0.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `a` on /var/lib/fb-evidence-p5-0/probe/stage2.target.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/probe/stage2.target"
@@ -6392,6 +6779,7 @@
       "bindings": [],
       "capture": "attribute_flags",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6440,6 +6828,7 @@
       "bindings": [],
       "capture": "mount_facts",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6494,6 +6883,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6555,6 +6945,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6628,6 +7019,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6683,6 +7075,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6743,6 +7136,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6816,6 +7210,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6854,6 +7249,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6891,6 +7287,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -6946,6 +7343,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7001,6 +7399,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7056,6 +7455,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7111,6 +7511,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7165,6 +7566,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7219,6 +7621,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7292,6 +7695,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7364,6 +7768,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7418,6 +7823,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7478,6 +7884,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7551,6 +7958,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7589,6 +7997,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7626,6 +8035,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7691,6 +8101,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7738,6 +8149,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7774,6 +8186,7 @@
       "bindings": [],
       "capture": "unit_directives",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7857,6 +8270,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -7929,6 +8343,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8000,6 +8415,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8073,6 +8489,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8146,6 +8563,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8220,6 +8638,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8290,6 +8709,7 @@
       ],
       "capture": "case_identity",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8325,6 +8745,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8424,6 +8845,7 @@
       ],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8478,6 +8900,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8578,6 +9001,7 @@
       ],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8638,6 +9062,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8737,6 +9162,7 @@
       ],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8837,6 +9263,7 @@
       ],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -8879,22 +9306,33 @@
       "step_id": "B5-C6-07"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.journal"
-      ],
+      "argv": [],
       "band": "capability",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.journal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.journal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "a failure stops the run. Cleanup clears both flags before removing either file, so a flag this step could not set is a flag cleanup does not need \u2014 but a chattr that fails here is evidence the harness's own authority is not what the rest of the band assumed.",
-      "expected_result": "exit 0; the immutable flag is set again on /var/lib/fb-evidence-p5-0/archive/000001.journal.",
+      "expected_refusal": "a failure stops the run. Cleanup clears both flags before removing either file, so a flag this step could not set is a flag cleanup does not need \u2014 but a flag effect that fails here is evidence the harness's own authority is not what the rest of the band assumed.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/archive/000001.journal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.journal"
@@ -8912,22 +9350,33 @@
       "step_id": "B5-C6-08"
     },
     {
-      "argv": [
-        "/usr/bin/chattr",
-        "+i",
-        "--",
-        "/var/lib/fb-evidence-p5-0/archive/000001.seal"
-      ],
+      "argv": [],
       "band": "capability",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [],
+        "configuration_role": "",
+        "directory_role": "archive",
+        "evidence_role": "",
+        "flags": [
+          "immutable"
+        ],
+        "group": "",
+        "kind": "set_flag",
+        "mode": "",
+        "name": "000001.seal",
+        "owner": "",
+        "path": "/var/lib/fb-evidence-p5-0/archive/000001.seal",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "a failure stops the run. Cleanup clears both flags before removing either file, so a flag this step could not set is a flag cleanup does not need \u2014 but a chattr that fails here is evidence the harness's own authority is not what the rest of the band assumed.",
-      "expected_result": "exit 0; the immutable flag is set again on /var/lib/fb-evidence-p5-0/archive/000001.seal.",
+      "expected_refusal": "a failure stops the run. Cleanup clears both flags before removing either file, so a flag this step could not set is a flag cleanup does not need \u2014 but a flag effect that fails here is evidence the harness's own authority is not what the rest of the band assumed.",
+      "expected_result": "the flag is set on the inode the descriptor holds; `lsattr` reports `i` on /var/lib/fb-evidence-p5-0/archive/000001.seal.",
       "identity_name": "",
       "mutation_ids": [
         "file_attribute:/var/lib/fb-evidence-p5-0/archive/000001.seal"
@@ -8957,6 +9406,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9017,6 +9467,7 @@
       "bindings": [],
       "capture": "case_result",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9065,35 +9516,43 @@
       "step_id": "B5-C6-11"
     },
     {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0600",
-        "--owner",
-        "postgres",
-        "--group",
-        "postgres",
-        "/etc/postgresql/16/main/pg_hba.conf",
-        "/var/lib/fb-evidence-p5-0/before/pg_hba.conf"
-      ],
+      "argv": [],
       "band": "postgresql",
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": {
+        "components": [
+          "pg_hba.conf",
+          "pg_ident.conf"
+        ],
+        "configuration_role": "pgconf",
+        "directory_role": "",
+        "evidence_role": "before",
+        "flags": [],
+        "group": "",
+        "kind": "capture_configuration",
+        "mode": "",
+        "name": "",
+        "owner": "",
+        "path": "/etc/postgresql/16/main",
+        "payload_source": ""
+      },
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
-      "expected_refusal": "a failure here stops the band: without the capture there is nothing to restore, so the configuration mutation must not run.",
-      "expected_result": "exit 0; the capture exists and is byte-identical.",
+      "expected_refusal": "a failure at any barrier, a source that changed across the read, or a requested set that is not the reviewed one refuses **before** the first configuration mutation \u2014 so there is nothing to recover from.",
+      "expected_result": "every \u00a72.3.3 barrier returned success, the stored copies and records verify against the reviewed capture set, and the publication reports `mutation_permitted`.",
       "identity_name": "",
       "mutation_ids": [
-        "file:/var/lib/fb-evidence-p5-0/before/pg_hba.conf"
+        "file:/var/lib/fb-evidence-p5-0/before/pg_hba.conf",
+        "file:/var/lib/fb-evidence-p5-0/before/pg_ident.conf"
       ],
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "Capture pg_hba.conf byte-exactly before it is changed. Cleanup reinstalls this capture rather than deleting a line by pattern.",
+      "purpose": "Capture both reviewed configuration files byte-exactly, into the independent recovery store outside the disposable root, and publish them durably. The digest is computed over the one held buffer the read produced, never over a re-read of a pathname, and each record binds its bytes to exactly the destination the restoration will write.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -9101,44 +9560,6 @@
         0
       ],
       "step_id": "B6-01"
-    },
-    {
-      "argv": [
-        "/usr/bin/install",
-        "--mode",
-        "0600",
-        "--owner",
-        "postgres",
-        "--group",
-        "postgres",
-        "/etc/postgresql/16/main/pg_ident.conf",
-        "/var/lib/fb-evidence-p5-0/before/pg_ident.conf"
-      ],
-      "band": "postgresql",
-      "bindings": [],
-      "capture": "exit_status_only",
-      "catalog_question": null,
-      "establishes_ownership_by_creation": [],
-      "establishes_ownership_of": [],
-      "establishes_ownership_of_contained": [],
-      "evidence_case_ids": [],
-      "expected_refusal": "a failure here stops the band: without the capture there is nothing to restore, so the configuration mutation must not run.",
-      "expected_result": "exit 0; the capture exists and is byte-identical.",
-      "identity_name": "",
-      "mutation_ids": [
-        "file:/var/lib/fb-evidence-p5-0/before/pg_ident.conf"
-      ],
-      "nothing_created_statuses": [],
-      "observation_expectations": [],
-      "preexisting_statuses": [],
-      "purpose": "Capture pg_ident.conf byte-exactly before it is changed. Cleanup reinstalls this capture rather than deleting a line by pattern.",
-      "refusal_required": false,
-      "role": "standalone",
-      "run_as": "root",
-      "satisfying_statuses": [
-        0
-      ],
-      "step_id": "B6-02"
     },
     {
       "argv": [
@@ -9158,6 +9579,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9178,7 +9600,7 @@
       "satisfying_statuses": [
         0
       ],
-      "step_id": "B6-03"
+      "step_id": "B6-02"
     },
     {
       "argv": [
@@ -9198,6 +9620,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9218,7 +9641,7 @@
       "satisfying_statuses": [
         0
       ],
-      "step_id": "B6-04"
+      "step_id": "B6-03"
     },
     {
       "argv": [
@@ -9238,6 +9661,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9255,6 +9679,49 @@
       "refusal_required": false,
       "role": "standalone",
       "run_as": "postgres",
+      "satisfying_statuses": [
+        0
+      ],
+      "step_id": "B6-04"
+    },
+    {
+      "argv": [
+        "/usr/bin/psql",
+        "--no-psqlrc",
+        "--no-password",
+        "--set",
+        "ON_ERROR_STOP=1",
+        "--host",
+        "/var/run/postgresql",
+        "--dbname",
+        "fb_evidence_p5_0",
+        "--username",
+        "freedom_migration_coordinator",
+        "--command",
+        "SELECT 1"
+      ],
+      "band": "postgresql",
+      "bindings": [],
+      "capture": "exit_status_only",
+      "catalog_question": null,
+      "effect": null,
+      "establishes_ownership_by_creation": [],
+      "establishes_ownership_of": [],
+      "establishes_ownership_of_contained": [],
+      "evidence_case_ids": [
+        "HBA-POSITIVE-CONTROL"
+      ],
+      "expected_refusal": "a refusal here makes every denial below inconclusive \u2014 a denial beside a failed control attributes nothing.",
+      "expected_result": "exit 0.",
+      "identity_name": "",
+      "mutation_ids": [],
+      "nothing_created_statuses": [],
+      "observation_expectations": [],
+      "preexisting_statuses": [],
+      "purpose": "The positive control of the peer/HBA boundary: the mapped identity asking for the mapped role over the local socket must authenticate.",
+      "refusal_required": false,
+      "role": "control",
+      "run_as": "freedomcoord",
       "satisfying_statuses": [
         0
       ],
@@ -9280,26 +9747,25 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [
-        "HBA-POSITIVE-CONTROL"
+        "HBA-DENY-freedomsheet"
       ],
-      "expected_refusal": "a refusal here makes every denial below inconclusive \u2014 a denial beside a failed control attributes nothing.",
-      "expected_result": "exit 0.",
+      "expected_refusal": "non-zero \u2014 peer authentication fails because the map admits only the mapped identity.",
+      "expected_result": "",
       "identity_name": "",
       "mutation_ids": [],
       "nothing_created_statuses": [],
       "observation_expectations": [],
       "preexisting_statuses": [],
-      "purpose": "The positive control of the peer/HBA boundary: the mapped identity asking for the mapped role over the local socket must authenticate.",
-      "refusal_required": false,
-      "role": "control",
-      "run_as": "freedomcoord",
-      "satisfying_statuses": [
-        0
-      ],
+      "purpose": "freedomsheet must not reach the coordinator role. The identity map names one system user and no other.",
+      "refusal_required": true,
+      "role": "dependent",
+      "run_as": "freedomsheet",
+      "satisfying_statuses": [],
       "step_id": "B6-06"
     },
     {
@@ -9322,46 +9788,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
-      "establishes_ownership_by_creation": [],
-      "establishes_ownership_of": [],
-      "establishes_ownership_of_contained": [],
-      "evidence_case_ids": [
-        "HBA-DENY-freedomsheet"
-      ],
-      "expected_refusal": "non-zero \u2014 peer authentication fails because the map admits only the mapped identity.",
-      "expected_result": "",
-      "identity_name": "",
-      "mutation_ids": [],
-      "nothing_created_statuses": [],
-      "observation_expectations": [],
-      "preexisting_statuses": [],
-      "purpose": "freedomsheet must not reach the coordinator role. The identity map names one system user and no other.",
-      "refusal_required": true,
-      "role": "dependent",
-      "run_as": "freedomsheet",
-      "satisfying_statuses": [],
-      "step_id": "B6-07"
-    },
-    {
-      "argv": [
-        "/usr/bin/psql",
-        "--no-psqlrc",
-        "--no-password",
-        "--set",
-        "ON_ERROR_STOP=1",
-        "--host",
-        "/var/run/postgresql",
-        "--dbname",
-        "fb_evidence_p5_0",
-        "--username",
-        "freedom_migration_coordinator",
-        "--command",
-        "SELECT 1"
-      ],
-      "band": "postgresql",
-      "bindings": [],
-      "capture": "exit_status_only",
-      "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9380,7 +9807,7 @@
       "role": "dependent",
       "run_as": "fbprobe",
       "satisfying_statuses": [],
-      "step_id": "B6-08"
+      "step_id": "B6-07"
     },
     {
       "argv": [
@@ -9404,6 +9831,7 @@
       "bindings": [],
       "capture": "exit_status_only",
       "catalog_question": null,
+      "effect": null,
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
@@ -9422,7 +9850,7 @@
       "role": "dependent",
       "run_as": "freedomcoord",
       "satisfying_statuses": [],
-      "step_id": "B6-09"
+      "step_id": "B6-08"
     }
   ],
   "supplied_observations": {
@@ -9490,7 +9918,15 @@
             "shape": "yes_no"
           },
           {
-            "name": "recovery_procedure_named",
+            "name": "residue_recovery_named",
+            "shape": "yes_no"
+          },
+          {
+            "name": "configuration_capture_retained",
+            "shape": "yes_no"
+          },
+          {
+            "name": "configuration_recovery_named",
             "shape": "yes_no"
           }
         ],
@@ -9560,7 +9996,7 @@
     "max_payload_bytes": 262144,
     "max_records": 64,
     "schema": "freedom-blades/phase-5.0/supplied-observation",
-    "schema_version": 2,
+    "schema_version": 3,
     "synthetic_target_identity": "SYNTHETIC-FIXTURE",
     "withheld": [
       "Overall required-case completeness is withheld. The required cases outside this importer's scope are produced by the executed plan, and no validated execution observation has been joined to this result under the same target, run and review-manifest digest.",
@@ -9669,7 +10105,7 @@
       "band": "journal",
       "blocks_mutation_ids": [],
       "conflict_id": "C-7",
-      "design_requires": "JNL-47-RECOVERY-STATE \u2014 record the exit code and the \u00a72.13.2b state the run reported; count the residue paths it named; record whether any generation artifact and any database row exist; attempt a second run and record whether it refused; and record whether the named operator recovery procedure was reported. One record per variant.",
+      "design_requires": "JNL-47-RECOVERY-STATE \u2014 record the exit code and the \u00a72.13.2b state the run reported; count the residue paths it named; record whether any generation artifact and any database row exist; attempt a second run and record whether it refused; record whether the run named the five-step residue recovery; and record whether a configuration capture was retained and, if so, whether the run named the four-step configuration recovery. Each procedure is recorded separately because each answers a different cause. One record per variant.",
       "evidence_case_ids": [
         "JNL-47-RECOVERY-STATE"
       ],

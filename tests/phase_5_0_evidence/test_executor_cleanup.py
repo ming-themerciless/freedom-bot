@@ -46,6 +46,8 @@ from tools.phase_5_0_evidence.execution.executor import (
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
+    refusing_effects,
     cleanup_observations_for,
     bound_argv,
     observations_for,
@@ -107,6 +109,11 @@ class FakeIdentityLookup:
             "freedomcoord": (5001, 5001),
             "freedomsheet": (5002, 5002),
             "fbprobe": (5003, 5003),
+            # `postgres` is **pre-existing**, not disposable. The reviewed
+            # restoration `fchown`s the configuration back to it — r6 §2.4 —
+            # so the injected NSS boundary has to answer for it. The numbers
+            # are this file's, like every other one here.
+            "postgres": (900, 900),
         }
     )
     groups: dict = field(
@@ -114,6 +121,7 @@ class FakeIdentityLookup:
             "freedomcoord": 5001,
             "freedomsheet": 5002,
             "fbprobe": 5003,
+            "postgres": 900,
             "freedomjournal": 5004,
         }
     )
@@ -149,7 +157,17 @@ class RaisingBoundary:
     raise_on: dict[str, BaseException] = field(default_factory=dict)
     calls: list[str] = field(default_factory=list)
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append(step_id)
         if step_id in self.raise_on:
             raise self.raise_on[step_id]
@@ -212,6 +230,7 @@ def runner(plan: ConcretePlan, fake: RaisingBoundary, **overrides) -> ExecutingR
         source_bytes=dict(SOURCES),
         materializer=FakeMaterializer(),
         identity_lookup=FakeIdentityLookup(),
+        effects=RecordingEffects(),
     )
     keywords.update(overrides)
     return ExecutingRunner(**keywords)
@@ -270,7 +289,17 @@ def assert_applicable_cleanup_ran_once(outcome, plan: ConcretePlan, fake) -> Non
         for step in outcome.cleanup_steps
         if step.stop_reason == RECOVERY_INPUT_RETAINED
     }
+    # A descriptor-bound cleanup effect starts no process, so it never reaches
+    # the boundary at all — the issuer records it instead. Both halves are
+    # checked: a command reaches the boundary exactly once unless it was
+    # retained, and an effect reaches the boundary never.
+    effects = {
+        step.step_id for step in plan.cleanup_plan.steps if step.is_effect
+    }
     for step_id in expected:
+        if step_id in effects:
+            assert fake.calls.count(step_id) == 0, step_id
+            continue
         assert fake.calls.count(step_id) == (0 if step_id in retained else 1), step_id
     # Nothing outside the applicable set was called at all, and everything
     # outside it is accounted for.
@@ -440,9 +469,17 @@ def test_an_exception_at_each_mutation_class_runs_the_whole_cleanup_once(
 ) -> None:
     plan = runnable_plan()
     fake = satisfying(plan)
-    fake.raise_on[step_id] = OSError(f"the {kind} step failed unexpectedly")
+    step = next(one for one in plan.steps if one.step_id == step_id)
+    overrides = {}
+    if step.is_effect:
+        # A descriptor-bound effect starts no process, so it fails at the issuer
+        # rather than by raising out of the boundary. The property under test is
+        # the same: whatever the failure, the applicable cleanup runs once.
+        overrides["effects"] = refusing_effects(step)
+    else:
+        fake.raise_on[step_id] = OSError(f"the {kind} step failed unexpectedly")
 
-    outcome = runner(plan, fake).execute()
+    outcome = runner(plan, fake, **overrides).execute()
 
     assert outcome.stopped_at == step_id
     assert outcome.mutations_reached
@@ -556,10 +593,15 @@ def test_an_execution_exception_with_successful_cleanup_is_still_a_failed_run() 
     creation = {
         step.step_id for step in plan.steps if step.establishes_ownership_by_creation
     }
+    by_id = {step.step_id: step for step in plan.steps}
     step_id = next(
         MUTATION_KINDS[kind]
         for kind in sorted(MUTATION_KINDS)
         if MUTATION_KINDS[kind] not in creation
+        # An effect raises no exception out of the boundary: it starts no
+        # process. The property this test is about — an unexpected exception
+        # leaves S-A rather than S-B — belongs to the boundary path.
+        and not by_id[MUTATION_KINDS[kind]].is_effect
     )
     fake.raise_on[step_id] = RuntimeError("something the harness did not expect")
 
@@ -609,15 +651,21 @@ def test_a_cleanup_boundary_exception_does_not_skip_the_remaining_steps() -> Non
     stopping would leave more behind than continuing."""
     plan = runnable_plan()
     fake = satisfying(plan)
-    first_cleanup = plan.cleanup_plan.steps[0]
-    fake.raise_on[first_cleanup.step_id] = OSError("the restore could not be run")
+    first_command = next(
+        step for step in plan.cleanup_plan.steps if not step.is_effect
+    )
+    fake.raise_on[first_command.step_id] = OSError("the step could not be run")
 
     outcome = runner(plan, fake).execute()
 
     assert_applicable_cleanup_ran_once(outcome, plan, fake)
     assert outcome.cleanup.state != "S-C"
     assert outcome.cleanup.state == "S-B"
-    failed = outcome.cleanup_steps[0]
+    failed = next(
+        recorded
+        for recorded in outcome.cleanup_steps
+        if recorded.step_id == first_command.step_id
+    )
     assert failed.satisfied is False
     assert failed.launch_failure == LAUNCH_BOUNDARY_FAILURE
     assert outcome.artifact_admissible is False
@@ -632,7 +680,9 @@ def test_a_cleanup_step_is_revalidated_immediately_before_it_runs() -> None:
     victim = next(
         (index, step)
         for index, step in enumerate(tampered_steps)
-        if step.kind is CleanupStepKind.REVERSAL and step.removes.startswith("/")
+        if step.kind is CleanupStepKind.REVERSAL
+        and not step.is_effect
+        and step.removes.startswith("/")
     )
     index, step = victim
     tampered_steps[index] = dataclasses.replace(step, run_as="mallory")
@@ -672,7 +722,9 @@ def test_a_failure_of_the_cleanup_machinery_is_s_b_and_names_declared_residue(
     reversal = next(
         step
         for step in plan.cleanup_plan.steps
-        if step.kind is CleanupStepKind.REVERSAL and step.removes.startswith("/")
+        if step.kind is CleanupStepKind.REVERSAL
+        and not step.is_effect
+        and step.removes.startswith("/")
     )
     fake.raise_on[reversal.step_id] = OSError("this object was not removed")
 

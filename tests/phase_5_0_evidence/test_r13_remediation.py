@@ -15,8 +15,9 @@ end rather than about which vectors were requested.
 """
 from __future__ import annotations
 
+import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,9 @@ from tools.phase_5_0_evidence.capture import CapturePolicy, sanitize
 from tools.phase_5_0_evidence.case_runtime import (
     CASE_PROGRAM_SOURCE_PATH,
     INTERPRETER_PATH,
+)
+from tools.phase_5_0_evidence.journal import (
+    RECOVERY_PROCEDURE as RESIDUE_RECOVERY_PROCEDURE,
 )
 from tools.phase_5_0_evidence.cleanup import (
     NOT_ATTEMPTED,
@@ -44,24 +48,50 @@ from tools.phase_5_0_evidence.concrete_plan import (
     build_concrete_plan,
 )
 from tools.phase_5_0_evidence.execution.artifact import (
+    CANONICAL_CONFIGURATION_RECOVERY,
+    CANONICAL_RESIDUE_RECOVERY,
+    CLEANUP_FIELDS,
+    CONFIGURATION_PROCEDURE_NOT_CANONICAL,
+    CONFIGURATION_PROCEDURE_WITHOUT_RETENTION,
+    DOCUMENT_FIELDS,
     DOCUMENT_TYPE,
     NOT_ADMISSIBLE,
+    NOT_THE_DOCUMENT_WRITTEN,
+    RESIDUE_PROCEDURE_MALFORMED,
+    RESIDUE_PROCEDURE_NOT_CANONICAL,
+    RESIDUE_PROCEDURE_WITHOUT_RESIDUE,
+    RUN_RECORD_SCHEMA_VERSION,
     RunRecordRefused,
+    build_run_record,
     validate_run_record,
     write_run_record,
 )
+from tools.phase_5_0_evidence.execution import artifact as artifact_module
 from tools.phase_5_0_evidence.execution.boundary import (
     CommandResult,
     IdentityAbsent,
 )
 from tools.phase_5_0_evidence.execution.executor import (
+    EFFECT_IDENTITY_MISMATCH,
+    EFFECT_IDENTITY_NOT_RECORDED,
+    EFFECT_OBJECT_ABSENT,
+    EffectRefused,
     ExecutingRunner,
     ExecutorRefused,
 )
-from tools.phase_5_0_evidence.execution.materializer import MaterializationResult
+from tools.phase_5_0_evidence.execution.materializer import (
+    RESTORATION_BARRIERS,
+    MaterializationResult,
+    RestorationOutcome,
+)
+from tools.phase_5_0_evidence.execution.recovery_store import (
+    BARRIER_ORDER,
+    StorePublication,
+)
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     cleanup_observations_for,
     bound_argv,
     observations_for,
@@ -131,6 +161,11 @@ class FakeIdentityLookup:
             "freedomcoord": (5001, 5001),
             "freedomsheet": (5002, 5002),
             "fbprobe": (5003, 5003),
+            # `postgres` is **pre-existing**, not disposable. The reviewed
+            # restoration `fchown`s the configuration back to it — r6 §2.4 —
+            # so the injected NSS boundary has to answer for it. The numbers
+            # are this file's, like every other one here.
+            "postgres": (900, 900),
         }
     )
     groups: dict = field(
@@ -138,6 +173,7 @@ class FakeIdentityLookup:
             "freedomcoord": 5001,
             "freedomsheet": 5002,
             "fbprobe": 5003,
+            "postgres": 900,
             "freedomjournal": 5004,
         }
     )
@@ -558,7 +594,17 @@ class FakeHost:
             return None
         return None
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         # **PR-20260909-R2-1.** The injection point, applied before the step's
         # own effect, so a scripted substitution happens in the interval
         # between the previous step and this one rather than at set-up time.
@@ -587,6 +633,269 @@ class FakeHost:
         return self.scripted[step_id]
 
 
+@dataclass
+class HostEffects:
+    """r6 §1.4's effect issuer, over the same fake host — **and bound like it**.
+
+    `harness_fixtures.RecordingEffects` records and writes nothing, which is
+    right for a module that only needs the run to get past an effect step. This
+    module models the host, so its issuer has to change it — and, more
+    importantly, has to carry the **binding** the real issuer carries, or every
+    reproduction in `test_r16_1_ownership_reproduction.py` would be a statement
+    about a double that was more permissive than the thing it stands for.
+
+    Two properties are modelled and both are load-bearing:
+
+    * **the parent is held, not re-resolved.** Every effect is issued relative
+      to the descriptor the creating step opened. The fake spells that as: the
+      identity the parent had when it was created is remembered, and an effect
+      whose parent has since been replaced reaches **the object the descriptor
+      holds** rather than what the pathname now resolves to; and
+    * **the object is the one the creating step recorded.** A flag, a removal
+      and a restoration each compare the current identity with the recorded one
+      and refuse on anything but equality — PR-20260913-LABI-2.
+
+    What it does **not** model, because r6 §1.4.4 says the mechanism does not
+    cover it either: in-place mutation of a file whose inode is unchanged.
+    """
+
+    host: FakeHost
+    refuse: set = field(default_factory=set)
+    #: `path` → the identity the creating effect recorded for it.
+    recorded: dict = field(default_factory=dict)
+    #: The **independent** recovery store: destination → the captured bytes and
+    #: the identity they were read from. It is a separate dictionary from the
+    #: host's objects on purpose — that separation is r6 §2.2's whole point.
+    store: dict = field(default_factory=dict)
+    issued: list = field(default_factory=list)
+    steps: list = field(default_factory=list)
+    #: Set when the last publication crossed every barrier.
+    published: bool = False
+
+    # -- the paths an effect names -------------------------------------------
+
+    @property
+    def root(self) -> str:
+        return self.host.plan.target.root_path
+
+    def _path(self, directory_role: str, name: str) -> str:
+        if directory_role == "root":
+            return f"{self.root}/{name}"
+        return f"{self.root}/{directory_role}/{name}"
+
+    def _parent(self, directory_role: str) -> str:
+        return self.root if directory_role == "root" else f"{self.root}/{directory_role}"
+
+    # -- what the executor calls ---------------------------------------------
+
+    def declared_transfer(self) -> tuple:
+        return ()
+
+    def create_directory_object(
+        self, *, parent_role, name, role="", mode=0o700, step_id=""
+    ):
+        path = self._path(parent_role, name)
+        self._refuse_if_asked(step_id, "create_directory")
+        if self.host.has(f"path:{path}"):
+            raise EffectRefused(
+                "exclusive creation refused: an entry is already at that name."
+            )
+        identity = self.host._allocate()
+        self.host.objects.add(f"path:{path}")
+        self.host.identities[f"path:{path}"] = identity
+        self.recorded[path] = identity
+        self._note(step_id, "create-directory", path, identity)
+        return str(identity)
+
+    def create_object(
+        self,
+        *,
+        directory_role,
+        name,
+        content=b"",
+        uid=None,
+        gid=None,
+        mode=0o640,
+        step_id="",
+    ):
+        path = self._path(directory_role, name)
+        self._refuse_if_asked(step_id, "create_object")
+        if self.host.has(f"path:{path}"):
+            raise EffectRefused(
+                "exclusive creation refused: an entry is already at that name."
+            )
+        self.host.write(path, content, step_id=step_id, action="create-object")
+        identity = self.host.identity_of(path)
+        self.recorded[path] = identity
+        return str(identity)
+
+    def install_case_program(
+        self,
+        *,
+        content,
+        sha256,
+        directory_role="bin",
+        name="case-program",
+        temporary=".case-program.tmp",
+        uid=None,
+        gid=None,
+        mode=0o555,
+        step_id="",
+    ):
+        if hashlib.sha256(content).hexdigest() != sha256:
+            raise EffectRefused("the bytes are not the reviewed bytes.")
+        path = self._path(directory_role, name)
+        self._refuse_if_asked(step_id, "install_payload")
+        if self.host.has(f"path:{path}"):
+            raise EffectRefused("exclusive publication refused.")
+        self.host.write(path, content, step_id=step_id, action="install-payload")
+        identity = self.host.identity_of(path)
+        self.recorded[path] = identity
+        return str(identity)
+
+    def set_inode_flags(self, *, directory_role, name, add, step_id=""):
+        self._bound(directory_role, name, step_id, "set_flag")
+
+    def clear_inode_flags(self, *, directory_role, name, remove, step_id=""):
+        self._bound(directory_role, name, step_id, "clear_flag")
+
+    def remove_object(self, *, directory_role, name, is_directory=False, step_id=""):
+        path = self._bound(directory_role, name, step_id, "remove_object")
+        key = f"path:{path}"
+        self.host.objects.discard(key)
+        self.host.identities.pop(key, None)
+        self.host.contents.pop(key, None)
+        self.recorded.pop(path, None)
+        return path
+
+    def publish_recovery_basis(
+        self,
+        *,
+        run_id,
+        reservation_id,
+        captured_by,
+        capture_set,
+        configuration_role,
+        evidence_role="",
+        step_id="",
+    ):
+        self._refuse_if_asked(step_id, "capture_configuration")
+        for component in capture_set.components:
+            destination = capture_set.destination_for(component)
+            content = self.host.content_of(destination)
+            if content is None:
+                raise EffectRefused("the configuration file could not be read.")
+            identity = self.host.identity_of(destination)
+            # The digest is over the **buffer** the read produced, and the store
+            # is outside the host's object set — r6 §2.2.
+            self.store[destination] = (content, identity)
+            self._note(step_id, "capture-source", destination, identity, content)
+        self.published = True
+        if evidence_role:
+            # r6 §2.5's retained evidence copy, written **from the store** after
+            # the basis is durable. It is not the basis, and the fake keeps the
+            # two apart for the same reason the mechanism does.
+            for component in capture_set.components:
+                destination = capture_set.destination_for(component)
+                content, _identity = self.store[destination]
+                self.create_object(
+                    directory_role=evidence_role,
+                    name=component,
+                    content=content,
+                    mode=0o600,
+                    step_id=step_id,
+                )
+        return StorePublication(
+            published=True,
+            mutation_permitted=True,
+            barriers_crossed=BARRIER_ORDER,
+            run_directory_name=run_id,
+        )
+
+    def restore_configuration(
+        self,
+        *,
+        run_id,
+        configuration_role,
+        destination_directory,
+        owner_uid,
+        owner_gid,
+        mode=0o640,
+        step_id="",
+    ):
+        self._refuse_if_asked(step_id, "restore_configuration")
+        if not self.store:
+            raise EffectRefused("the independent store holds no usable basis.")
+        renamed = []
+        for destination, (content, identity) in sorted(self.store.items()):
+            self._note(step_id, "restore-source", destination, identity, content)
+            self.host.write(
+                destination, content, step_id=step_id, action="restore"
+            )
+            renamed.append(destination)
+        return RestorationOutcome(
+            renamed=tuple(renamed),
+            durable=True,
+            barriers_crossed=RESTORATION_BARRIERS,
+        )
+
+    # -- internals ------------------------------------------------------------
+
+    def _refuse_if_asked(self, step_id: str, kind: str) -> None:
+        """The injection point and the refusal, in `FakeHost.run`'s own order.
+
+        A substitution scripted for an effect step has to be applied in the
+        interval immediately before that effect, exactly as one scripted for a
+        command step is applied immediately before the process starts. Doing it
+        here rather than at set-up time is what makes an injected replacement a
+        replacement rather than a differently-built fixture.
+        """
+        injection = self.host.injections.pop(step_id, None)
+        if injection is not None:
+            injection(self.host)
+        if step_id and step_id in self.refuse:
+            raise EffectRefused(f"the fake issuer was asked to refuse {kind}.")
+
+    def _note(self, step_id, action, path, identity, content=None) -> None:
+        self.issued.append((action, path, identity))
+        self.steps.append(step_id)
+        self.host.consumed.append(
+            Consumption(step_id, action, path, identity, content)
+        )
+
+    def _bound(self, directory_role: str, name: str, step_id: str, kind: str) -> str:
+        """The pre-check: a mandatory record, a present object, and equality."""
+        self._refuse_if_asked(step_id, kind)
+        path = self._path(directory_role, name)
+        recorded = self.recorded.get(path)
+        if recorded is None:
+            raise EffectRefused(
+                "no creating-step identity was recorded for this entry.",
+                classification=EFFECT_IDENTITY_NOT_RECORDED,
+            )
+        found = self.host.identity_of(path)
+        if found is None:
+            raise EffectRefused(
+                "the recorded object is not at that name.",
+                classification=EFFECT_OBJECT_ABSENT,
+            )
+        if found != recorded:
+            raise EffectRefused(
+                "the object at that name is not the object this run recorded.",
+                classification=EFFECT_IDENTITY_MISMATCH,
+            )
+        self._note(step_id, kind.replace("_", "-"), path, found)
+        return path
+
+
+def _is_effect(plan: ConcretePlan, step_id: str) -> bool:
+    """Whether the named step — in either half of the plan — is an effect."""
+    return any(
+        step.step_id == step_id and step.is_effect
+        for step in (*plan.steps, *plan.cleanup_plan.steps)
+    )
+
+
 def runner(plan: ConcretePlan, host: FakeHost, **overrides) -> ExecutingRunner:
     keywords = dict(
         plan=plan,
@@ -596,6 +905,7 @@ def runner(plan: ConcretePlan, host: FakeHost, **overrides) -> ExecutingRunner:
         source_bytes=dict(SOURCES),
         materializer=FakeMaterializer(host=host),
         identity_lookup=FakeIdentityLookup(),
+        effects=HostEffects(host=host),
     )
     keywords.update(overrides)
     return ExecutingRunner(**keywords)
@@ -911,9 +1221,17 @@ def test_a_failed_restoration_retains_its_recovery_inputs(kind) -> None:
     plan = runnable_plan()
     host = FakeHost(plan)
     failing = _first_of_kind(plan, kind)
-    host.overrides[failing] = CommandResult(exit_status=1, timed_out=False)
+    overrides = {}
+    if _is_effect(plan, failing):
+        # **r6 §6.4.** The restore is a descriptor-bound effect since `install`
+        # was retired, so it is failed at the issuer rather than scripted at the
+        # boundary. The property is unchanged: a restoration that did not
+        # complete retains the recovery inputs it would have read.
+        overrides["effects"] = HostEffects(host=host, refuse={failing})
+    else:
+        host.overrides[failing] = CommandResult(exit_status=1, timed_out=False)
 
-    outcome = runner(plan, host).execute()
+    outcome = runner(plan, host, **overrides).execute()
 
     assert outcome.cleanup.state == "S-B"
     for path in _capture_paths(plan):
@@ -948,11 +1266,9 @@ def test_a_successful_restoration_removes_its_recovery_inputs() -> None:
 def test_a_retained_capture_keeps_the_directories_that_hold_it() -> None:
     plan = runnable_plan()
     host = FakeHost(plan)
-    host.overrides[_first_of_kind(plan, CleanupStepKind.RESTORE)] = CommandResult(
-        exit_status=1, timed_out=False
-    )
+    failing = _first_of_kind(plan, CleanupStepKind.RESTORE)
 
-    runner(plan, host).execute()
+    runner(plan, host, effects=HostEffects(host=host, refuse={failing})).execute()
 
     assert host.has(f"path:{ROOT}/before")
     assert host.has(f"path:{ROOT}")
@@ -1262,14 +1578,104 @@ def test_a_reported_run_record_exists_and_reads_back(tmp_path: Path) -> None:
     document = json.loads(destination.read_text(encoding="utf-8"))
     validate_run_record(document, expected_steps=len(outcome.steps))
     assert document["document_type"] == DOCUMENT_TYPE
+    assert document["schema_version"] == RUN_RECORD_SCHEMA_VERSION == 3
     assert len(document["steps"]) == len(outcome.steps)
     assert document["cleanup"]["state"] == outcome.cleanup.state
+    assert document["cleanup"]["residue_recovery_procedure"] == []
     assert document["review_manifest_digest"] == built.manifest_digest
     # The evidence a reviewer would look for is in it.
     identity_step = next(
         entry for entry in document["steps"] if entry["step_id"] == "P-06"
     )
     assert dict(identity_step["observations"])["verb"] == "identity"
+
+    malformed = {
+        **document,
+        "cleanup": {
+            **document["cleanup"],
+            "residue_recovery_procedure": [
+                {"order": 1, "action": "inspect", "rationale": ""}
+            ],
+        },
+    }
+    with pytest.raises(RunRecordRefused, match="malformed residue-recovery step"):
+        validate_run_record(malformed, expected_steps=len(outcome.steps))
+
+
+def test_a_residue_recovery_procedure_survives_the_run_record(tmp_path: Path) -> None:
+    """The populated form of the field the schema went to version 2 for.
+
+    The clean run above encodes an empty residue procedure, which a write that
+    dropped the field entirely would also produce. This encodes the five-step
+    procedure an S-B run really carries, reads it back off disk and requires the
+    validator to accept it — so the encoder is exercised in the state the field
+    exists for, not only in the state where it is empty.
+    """
+    plan = runnable_plan()
+    host = FakeHost(plan)
+    built = runner(plan, host)
+    outcome = built.execute()
+
+    stopped = replace(
+        outcome,
+        cleanup=replace(
+            outcome.cleanup,
+            residue=("/var/lib/fb-evidence-r1/probe",),
+            residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+        ),
+    )
+
+    destination = tmp_path / "s-b-run-record.json"
+    write_run_record(
+        stopped,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+    document = json.loads(destination.read_text(encoding="utf-8"))
+    validate_run_record(document, expected_steps=len(stopped.steps))
+
+    encoded = document["cleanup"]["residue_recovery_procedure"]
+    assert [entry["order"] for entry in encoded] == [1, 2, 3, 4, 5]
+    assert encoded == [
+        {"order": step.order, "action": step.action, "rationale": step.rationale}
+        for step in RESIDUE_RECOVERY_PROCEDURE
+    ]
+
+
+def test_a_residue_recovery_procedure_out_of_order_is_refused() -> None:
+    """The order is the procedure. A reordered list is a different instruction."""
+    plan = runnable_plan()
+    host = FakeHost(plan)
+    built = runner(plan, host)
+    outcome = built.execute()
+    stopped = replace(
+        outcome,
+        cleanup=replace(
+            outcome.cleanup,
+            residue=("/var/lib/fb-evidence-r1/probe",),
+            residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+        ),
+    )
+
+    document = build_run_record(
+        stopped,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+    reordered = {
+        **document,
+        "cleanup": {
+            **document["cleanup"],
+            "residue_recovery_procedure": list(
+                reversed(document["cleanup"]["residue_recovery_procedure"])
+            ),
+        },
+    }
+    with pytest.raises(RunRecordRefused, match="malformed residue-recovery step"):
+        validate_run_record(
+            reordered, expected_steps=len(reordered["steps"])
+        )
 
 
 def test_an_inadmissible_run_writes_nothing(tmp_path: Path) -> None:
@@ -1337,3 +1743,887 @@ def test_the_cli_distinguishes_eligibility_from_persistence() -> None:
     assert "artifact eligible:" in source
     assert "run record       :" in source
     assert "artifact written : {outcome.artifact_admissible}" not in source
+
+
+# ---------------------------------------------------------------------------
+# PR-20260912-LAB1-1 — the run-record reader accepts a substituted procedure
+# ---------------------------------------------------------------------------
+
+#: The re-review's own substitution: one well-shaped, consecutively ordered step
+#: whose instruction is the opposite of the procedure it replaced.
+ARBITRARY_RESIDUE_PROCEDURE = (
+    {
+        "order": 1,
+        "action": "IGNORE THE RESIDUE AND CONTINUE",
+        "rationale": "arbitrary replacement",
+    },
+)
+
+RESIDUE_PATH = "/var/lib/fb-evidence-p5-0/probe"
+RETAINED_CAPTURE = "/var/lib/fb-evidence-p5-0/before/pg_hba.conf"
+
+
+def _built_run():
+    plan = runnable_plan()
+    host = FakeHost(plan)
+    built = runner(plan, host)
+    return plan, built, built.execute()
+
+
+def _outcome_and_document(**cleanup_fields):
+    """A real run outcome with the named cleanup fields, and its run record."""
+    plan, built, outcome = _built_run()
+    stopped = replace(outcome, cleanup=replace(outcome.cleanup, **cleanup_fields))
+    document = build_run_record(
+        stopped,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+    return stopped, document
+
+
+def _with_cleanup(document: dict, **fields) -> dict:
+    return {**document, "cleanup": {**document["cleanup"], **fields}}
+
+
+def test_a_substituted_residue_procedure_is_refused_on_read_back() -> None:
+    """PR-20260912-LAB1-1, in the re-review's own words.
+
+    A schema-2 record whose five-step residue recovery was replaced by one
+    arbitrary ordered instruction was **accepted**: the reader checked the shape
+    and the order of each entry and never compared the value with
+    `journal.RECOVERY_PROCEDURE` or with the residue that requires it. The
+    record then said the run named the operator recovery when it named the
+    opposite of it.
+    """
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    substituted = _with_cleanup(
+        document, residue_recovery_procedure=[dict(ARBITRARY_RESIDUE_PROCEDURE[0])]
+    )
+
+    with pytest.raises(RunRecordRefused):
+        validate_run_record(substituted, expected_steps=len(stopped.steps))
+
+
+def test_the_reproduction_holds_for_a_record_with_no_steps() -> None:
+    """The reproduction exactly as it was run: `expected_steps=0`.
+
+    `expected_steps` constrains the step list and says nothing about cleanup, so
+    a record that satisfies it can still carry a substituted procedure. Stating
+    it at zero steps keeps the two claims from being confused.
+    """
+    _stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    minimal = _with_cleanup(
+        {**document, "steps": []},
+        steps=[],
+        residue_recovery_procedure=[dict(ARBITRARY_RESIDUE_PROCEDURE[0])],
+    )
+
+    with pytest.raises(RunRecordRefused):
+        validate_run_record(minimal, expected_steps=0)
+
+
+CANONICAL_RESIDUE_ENTRIES = [
+    {"order": step.order, "action": step.action, "rationale": step.rationale}
+    for step in RESIDUE_RECOVERY_PROCEDURE
+]
+
+
+def _changed_action() -> list[dict]:
+    entries = [dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES]
+    entries[2]["action"] = "as root, remove whatever is in the way"
+    return entries
+
+
+def _changed_rationale() -> list[dict]:
+    entries = [dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES]
+    entries[0]["rationale"] = "because the run said so"
+    return entries
+
+
+def _shorter_procedure() -> list[dict]:
+    return [dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES[:3]]
+
+
+def _additional_step() -> list[dict]:
+    entries = [dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES]
+    entries.append(
+        {
+            "order": len(entries) + 1,
+            "action": "declare the host recovered",
+            "rationale": "an extra ordered step is still an ordered list",
+        }
+    )
+    return entries
+
+
+#: Every substitution that keeps the shape the version-2 reader checked. Each row
+#: is a document a shape check accepts and a content check must not.
+SUBSTITUTED_RESIDUE_PROCEDURES = [
+    ("arbitrary replacement", [dict(ARBITRARY_RESIDUE_PROCEDURE[0])]),
+    ("changed action text", _changed_action()),
+    ("changed rationale text", _changed_rationale()),
+    ("shorter, consecutively ordered", _shorter_procedure()),
+    ("one additional ordered step", _additional_step()),
+    ("empty while residue remains", []),
+]
+
+
+@pytest.mark.parametrize(
+    "label, procedure",
+    SUBSTITUTED_RESIDUE_PROCEDURES,
+    ids=[label for label, _ in SUBSTITUTED_RESIDUE_PROCEDURES],
+)
+def test_a_residue_procedure_that_is_not_the_canonical_one_is_refused(
+    label: str, procedure: list
+) -> None:
+    """Content, compared against the canonical value — not shape, not length.
+
+    Each row survives every check version 2 made: three keys, consecutive order,
+    non-empty strings. What separates them from the procedure an operator is
+    actually told to follow is the text, so the text is what is compared.
+    """
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    substituted = _with_cleanup(document, residue_recovery_procedure=procedure)
+
+    with pytest.raises(RunRecordRefused, match="canonical"):
+        validate_run_record(substituted, expected_steps=len(stopped.steps))
+
+
+def test_a_residue_procedure_out_of_order_is_still_refused() -> None:
+    """The preserved version-2 case. Order is the procedure; it refuses first."""
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    reordered = _with_cleanup(
+        document,
+        residue_recovery_procedure=list(
+            reversed(document["cleanup"]["residue_recovery_procedure"])
+        ),
+    )
+
+    with pytest.raises(RunRecordRefused, match=RESIDUE_PROCEDURE_MALFORMED):
+        validate_run_record(reordered, expected_steps=len(stopped.steps))
+
+
+def test_a_missing_residue_procedure_field_is_refused() -> None:
+    """A dropped field is a missing claim, not a claim about nothing."""
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    without = {
+        key: value for key, value in document["cleanup"].items()
+        if key != "residue_recovery_procedure"
+    }
+
+    with pytest.raises(RunRecordRefused, match="exactly the fields"):
+        validate_run_record(
+            {**document, "cleanup": without}, expected_steps=len(stopped.steps)
+        )
+
+
+def test_a_residue_procedure_without_residue_is_refused() -> None:
+    """The mirror clause: a procedure with no cause is an unexplained claim."""
+    stopped, document = _outcome_and_document(residue=())
+    assert document["cleanup"]["residue_recovery_procedure"] == []
+    planted = _with_cleanup(
+        document, residue_recovery_procedure=[dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES]
+    )
+
+    with pytest.raises(RunRecordRefused, match=RESIDUE_PROCEDURE_WITHOUT_RESIDUE):
+        validate_run_record(planted, expected_steps=len(stopped.steps))
+
+
+#: The configuration cause, given the same treatment. `cleanup.RECOVERY_PROCEDURE`
+#: is four lines of text rather than ordered steps, so the substitutions are the
+#: ones that shape carries no information about.
+SUBSTITUTED_CONFIGURATION_PROCEDURES = [
+    ("empty while captures are retained", []),
+    (
+        "changed text",
+        list(CANONICAL_CONFIGURATION_RECOVERY[:-1]) + ["4. Re-run the harness."],
+    ),
+    ("shorter", list(CANONICAL_CONFIGURATION_RECOVERY[:2])),
+    (
+        "the residue procedure in its place",
+        [entry["action"] for entry in CANONICAL_RESIDUE_ENTRIES],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, procedure",
+    SUBSTITUTED_CONFIGURATION_PROCEDURES,
+    ids=[label for label, _ in SUBSTITUTED_CONFIGURATION_PROCEDURES],
+)
+def test_a_configuration_procedure_that_is_not_canonical_is_refused(
+    label: str, procedure: list
+) -> None:
+    stopped, document = _outcome_and_document(
+        retained_recovery_inputs=(RETAINED_CAPTURE,),
+        recovery_procedure=RECOVERY_PROCEDURE,
+    )
+    substituted = _with_cleanup(document, recovery_procedure=procedure)
+
+    with pytest.raises(RunRecordRefused, match=CONFIGURATION_PROCEDURE_NOT_CANONICAL):
+        validate_run_record(substituted, expected_steps=len(stopped.steps))
+
+
+def test_a_missing_configuration_procedure_field_is_refused() -> None:
+    stopped, document = _outcome_and_document(
+        retained_recovery_inputs=(RETAINED_CAPTURE,),
+        recovery_procedure=RECOVERY_PROCEDURE,
+    )
+    without = {
+        key: value for key, value in document["cleanup"].items()
+        if key != "recovery_procedure"
+    }
+
+    with pytest.raises(RunRecordRefused, match="exactly the fields"):
+        validate_run_record(
+            {**document, "cleanup": without}, expected_steps=len(stopped.steps)
+        )
+
+
+def test_a_configuration_procedure_without_retained_captures_is_refused() -> None:
+    stopped, document = _outcome_and_document(retained_recovery_inputs=())
+    assert document["cleanup"]["recovery_procedure"] == []
+    planted = _with_cleanup(document, recovery_procedure=list(RECOVERY_PROCEDURE))
+
+    with pytest.raises(
+        RunRecordRefused, match=CONFIGURATION_PROCEDURE_WITHOUT_RETENTION
+    ):
+        validate_run_record(planted, expected_steps=len(stopped.steps))
+
+
+def test_neither_procedure_answers_for_the_other() -> None:
+    """LAB-1's clause inside the record — runner contract r6 §8.1.
+
+    Residue present and only the configuration procedure carried, and then the
+    mirror: a retained capture with only the residue procedure carried. Each is
+    a complete, well-shaped, canonical procedure — for the other cause. Both are
+    refused, which is what *"neither answers for the other"* has to mean in a
+    reader as well as in the operator message.
+    """
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    configuration_only = _with_cleanup(
+        document,
+        residue_recovery_procedure=[],
+        recovery_procedure=list(RECOVERY_PROCEDURE),
+    )
+    with pytest.raises(RunRecordRefused, match=RESIDUE_PROCEDURE_NOT_CANONICAL):
+        validate_run_record(configuration_only, expected_steps=len(stopped.steps))
+
+    stopped, document = _outcome_and_document(
+        retained_recovery_inputs=(RETAINED_CAPTURE,),
+        recovery_procedure=RECOVERY_PROCEDURE,
+    )
+    residue_only = _with_cleanup(
+        document,
+        recovery_procedure=[],
+        residue_recovery_procedure=[dict(entry) for entry in CANONICAL_RESIDUE_ENTRIES],
+    )
+    with pytest.raises(RunRecordRefused, match=RESIDUE_PROCEDURE_WITHOUT_RESIDUE):
+        validate_run_record(residue_only, expected_steps=len(stopped.steps))
+
+
+#: The three cause combinations that must be **accepted**, so the repair is shown
+#: to refuse substitutes rather than to refuse everything. Each is exactly what
+#: `cleanup.classify_cleanup` attaches for that combination.
+ACCEPTED_CAUSE_COMBINATIONS = [
+    (
+        "residue alone",
+        {
+            "residue": (RESIDUE_PATH,),
+            "residue_recovery_procedure": RESIDUE_RECOVERY_PROCEDURE,
+        },
+    ),
+    (
+        "configuration alone",
+        {
+            "retained_recovery_inputs": (RETAINED_CAPTURE,),
+            "recovery_procedure": RECOVERY_PROCEDURE,
+        },
+    ),
+    (
+        "both causes",
+        {
+            "residue": (RESIDUE_PATH,),
+            "residue_recovery_procedure": RESIDUE_RECOVERY_PROCEDURE,
+            "retained_recovery_inputs": (RETAINED_CAPTURE,),
+            "recovery_procedure": RECOVERY_PROCEDURE,
+        },
+    ),
+    ("neither cause", {}),
+]
+
+
+@pytest.mark.parametrize(
+    "label, fields",
+    ACCEPTED_CAUSE_COMBINATIONS,
+    ids=[label for label, _ in ACCEPTED_CAUSE_COMBINATIONS],
+)
+def test_the_exact_procedures_for_the_causes_present_are_accepted(
+    label: str, fields: dict, tmp_path: Path
+) -> None:
+    """Through the public write/read-back function, not only through the reader.
+
+    `write_run_record` requires `artifact_admissible`, which requires S-C, so the
+    populated forms are constructed here the way the version-2 round-trip test
+    constructs them: a real run outcome with the cleanup fields replaced. That is
+    the only way this document carries a recovery procedure at all today, and it
+    is stated rather than implied.
+    """
+    plan, built, outcome = _built_run()
+    stopped = replace(outcome, cleanup=replace(outcome.cleanup, **fields))
+
+    destination = tmp_path / f"{label.replace(' ', '-')}.json"
+    write_run_record(
+        stopped,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+
+    document = json.loads(destination.read_text(encoding="utf-8"))
+    validate_run_record(document, expected_steps=len(stopped.steps))
+    assert document["cleanup"]["residue_recovery_procedure"] == [
+        {"order": step.order, "action": step.action, "rationale": step.rationale}
+        for step in fields.get("residue_recovery_procedure", ())
+    ]
+    assert document["cleanup"]["recovery_procedure"] == list(
+        fields.get("recovery_procedure", ())
+    )
+
+
+class _TamperingDestination:
+    """A destination that writes faithfully and reads back something else.
+
+    A substituted read-back cannot be produced by writing a different document:
+    the writer serializes what it compares. This supplies the only other thing
+    that can differ — the bytes that come back — so the whole-document comparison
+    is exercised against a file the writer really wrote.
+    """
+
+    def __init__(self, path: Path, tamper) -> None:
+        self.path = path
+        self._tamper = tamper
+        #: What the writer handed over, and what it got back. Recorded so a
+        #: regression can state what the two byte strings actually were rather
+        #: than assert only that a refusal happened — PR-20260912-LAB1-2.
+        self.written: bytes | None = None
+        self.read_back: bytes | None = None
+
+    def write_bytes(self, data: bytes) -> int:
+        self.written = data
+        return self.path.write_bytes(data)
+
+    def read_bytes(self) -> bytes:
+        self.read_back = self._tamper(self.path.read_bytes())
+        return self.read_back
+
+
+def _substitute(field_path: tuple[str, ...], value):
+    def tamper(raw: bytes) -> bytes:
+        document = json.loads(raw.decode("utf-8"))
+        target = document
+        for key in field_path[:-1]:
+            target = target[key]
+        target[field_path[-1]] = value
+        return json.dumps(document, indent=2, sort_keys=True).encode("utf-8")
+
+    return tamper
+
+
+#: Emitted values the reader does not otherwise constrain. Each one substituted
+#: for something well-shaped, so only the whole-document comparison refuses it.
+UNCONSTRAINED_SUBSTITUTIONS = [
+    ("target identity", ("target_identity",), "somebody-else"),
+    ("manifest digest", ("review_manifest_digest",), "0" * 64),
+    ("stop reason", ("stop_reason",), "nothing went wrong"),
+    ("completed flag", ("completed",), False),
+    ("mutations reached", ("mutations_reached",), ["M-01"]),
+    ("cleanup exit code", ("cleanup", "exit_code"), 3),
+    # `False == 0` in Python, so mapping equality alone would accept this.
+    # The byte comparison is what refuses it.
+    ("exit code written as a boolean", ("cleanup", "exit_code"), False),
+    ("preserved list", ("cleanup", "preserved"), ["/var/lib/fb-evidence-p5-0/kept"]),
+    (
+        "configuration risk",
+        ("cleanup", "configuration_risk"),
+        ["the risk that was not reported"],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, field_path, value",
+    UNCONSTRAINED_SUBSTITUTIONS,
+    ids=[label for label, _, _ in UNCONSTRAINED_SUBSTITUTIONS],
+)
+def test_any_other_substituted_value_is_refused_on_read_back(
+    label: str, field_path: tuple, value, tmp_path: Path
+) -> None:
+    """`expected_steps` still matches, and the document is still refused."""
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(
+        tmp_path / "run-record.json", _substitute(field_path, value)
+    )
+
+    with pytest.raises(RunRecordRefused, match=NOT_THE_DOCUMENT_WRITTEN):
+        write_run_record(
+            outcome,
+            destination,
+            target_identity=plan.target.identity,
+            manifest_digest=built.manifest_digest,
+        )
+
+
+def test_a_partially_flushed_run_record_is_refused(tmp_path: Path) -> None:
+    """Half a document is not a document, and it is not a written artifact."""
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(
+        tmp_path / "run-record.json", lambda raw: raw[: len(raw) // 2]
+    )
+
+    with pytest.raises(RunRecordRefused, match=NOT_THE_DOCUMENT_WRITTEN):
+        write_run_record(
+            outcome,
+            destination,
+            target_identity=plan.target.identity,
+            manifest_digest=built.manifest_digest,
+        )
+
+
+def test_a_version_2_run_record_is_refused_by_version_rather_than_reinterpreted() -> None:
+    """The incompatible contract refuses by name — it is not read both ways.
+
+    Under version 2 an arbitrary ordered procedure was a **valid** record. Under
+    version 3 it is not. Accepting both under one version number would be the
+    weak meaning surviving beside the corrected one, so the version moves.
+    """
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    version_2 = {
+        **_with_cleanup(
+            document,
+            residue_recovery_procedure=[dict(ARBITRARY_RESIDUE_PROCEDURE[0])],
+        ),
+        "schema_version": 2,
+    }
+
+    with pytest.raises(RunRecordRefused, match="another schema"):
+        validate_run_record(version_2, expected_steps=len(stopped.steps))
+
+
+def test_the_validated_field_set_is_the_set_the_encoder_emits() -> None:
+    """The two key sets are pinned to `build_run_record`, not written beside it.
+
+    A field added to the encoder and not to the validated set would be a value
+    written into the record and never checked on the way back.
+    """
+    _stopped, document = _outcome_and_document()
+
+    assert set(document) == DOCUMENT_FIELDS
+    assert set(document["cleanup"]) == CLEANUP_FIELDS
+
+
+def test_the_canonical_values_are_the_procedures_the_operator_is_given() -> None:
+    """Derived from `journal` and `cleanup`, so the two cannot drift apart."""
+    assert CANONICAL_RESIDUE_RECOVERY == tuple(
+        (step.order, step.action, step.rationale)
+        for step in RESIDUE_RECOVERY_PROCEDURE
+    )
+    assert CANONICAL_CONFIGURATION_RECOVERY == tuple(RECOVERY_PROCEDURE)
+    assert len(CANONICAL_RESIDUE_RECOVERY) == 5
+
+
+# ---------------------------------------------------------------------------
+# The negative controls for the two comparisons the repair rests on
+# ---------------------------------------------------------------------------
+
+
+def test_gutting_the_canonical_comparison_makes_the_regression_fail(monkeypatch) -> None:
+    """The control for `_matches_canonical`.
+
+    With the comparison hardcoded to `True` — the way an unimplemented check is
+    made to look implemented — the re-review's reproduction is accepted again.
+    Every canonical-content regression above therefore constrains that function
+    and not something adjacent to it.
+    """
+    monkeypatch.setattr(
+        artifact_module, "_matches_canonical", lambda read, canonical: True
+    )
+    stopped, document = _outcome_and_document(
+        residue=(RESIDUE_PATH,),
+        residue_recovery_procedure=RESIDUE_RECOVERY_PROCEDURE,
+    )
+    substituted = _with_cleanup(
+        document, residue_recovery_procedure=[dict(ARBITRARY_RESIDUE_PROCEDURE[0])]
+    )
+
+    validate_run_record(substituted, expected_steps=len(stopped.steps))
+
+
+def test_gutting_the_read_back_comparison_makes_the_regression_fail(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The control for `_read_back_matches`, stated the same way.
+
+    The signature gained `raw` under PR-20260912-LAB1-2, so the hardcoded
+    replacement takes it too. The substituted `target_identity` below is refused
+    by the raw comparison as well as by the mapping comparison, so this control
+    now shows the whole read-back seam is load-bearing rather than isolating the
+    mapping half; the conjunct-level control is the next test.
+    """
+    monkeypatch.setattr(
+        artifact_module,
+        "_read_back_matches",
+        lambda raw, written, document, serialized: True,
+    )
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(
+        tmp_path / "run-record.json",
+        _substitute(("target_identity",), "somebody-else"),
+    )
+
+    write_run_record(
+        outcome,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PR-20260912-LAB1-2 — the raw bytes read back were never compared
+# ---------------------------------------------------------------------------
+
+#: The R2 re-review's finding, in one sentence: `write_run_record` decoded and
+#: parsed the bytes it read and then compared only the resulting **mapping** and
+#: a fresh canonical re-serialization of it. The bytes that came back were
+#: discarded at the moment they arrived, so every difference JSON parsing
+#: collapses — surrounding whitespace, re-indentation, a repeated member name —
+#: survived a function whose documented claim was *"the bytes are the ones that
+#: were written"*.
+#:
+#: Each tamper below therefore produces bytes that are **not** the bytes written
+#: and that **do** parse to the same mapping. That combination is what separates
+#: a raw-byte comparison from every weaker check, and it is asserted in each
+#: regression rather than implied.
+
+
+def _identity_bytes(raw: bytes) -> bytes:
+    """The destination behaving correctly: the bytes written, unchanged."""
+    return raw
+
+
+def _surround(prefix: bytes = b"", suffix: bytes = b""):
+    def tamper(raw: bytes) -> bytes:
+        return prefix + raw + suffix
+
+    return tamper
+
+
+def _reindent(raw: bytes) -> bytes:
+    """Same document, different serialization. No member name or value changes."""
+    return json.dumps(json.loads(raw.decode("utf-8")), indent=4, sort_keys=True).encode(
+        "utf-8"
+    )
+
+
+def _duplicate_member(container_path: tuple[str, ...], key: str):
+    """Emit one member a second time, with the value it already has.
+
+    Duplicate JSON member names are not an error to `json.loads`, which keeps the
+    last occurrence — so a duplicate carrying the *same* value parses to exactly
+    the mapping the writer serialized. It is nonetheless a different document:
+    RFC 8259 leaves duplicate names' handling to the implementation, so two
+    readers may legitimately disagree about what this file says. A writer that
+    claims the read-back is the document it wrote may not accept it.
+    """
+
+    def tamper(raw: bytes) -> bytes:
+        text = raw.decode("utf-8")
+        container = json.loads(text)
+        for part in container_path:
+            container = container[part]
+        rendered = json.dumps(container[key])
+        if container_path:
+            opening = f'"{container_path[-1]}": {{\n'
+            indent = "  " * (len(container_path) + 1)
+        else:
+            opening = "{\n"
+            indent = "  "
+        cut = text.index(opening) + len(opening)
+        return (text[:cut] + f'{indent}"{key}": {rendered},\n' + text[cut:]).encode(
+            "utf-8"
+        )
+
+    return tamper
+
+
+#: Every read-back the submitted writer accepted, and the two the re-review
+#: reproduced by hand. Each row is bytes that differ from what was written and
+#: parse to the mapping that was written.
+COLLAPSING_TAMPERS = [
+    ("a leading newline", _surround(prefix=b"\n")),
+    ("a trailing newline", _surround(suffix=b"\n")),
+    ("a newline at each end", _surround(prefix=b"\n", suffix=b"\n")),
+    ("trailing spaces", _surround(suffix=b"   ")),
+    ("leading whitespace of several kinds", _surround(prefix=b" \t\r\n")),
+    ("a different indent", _reindent),
+    ("a duplicate schema_version", _duplicate_member((), "schema_version")),
+    ("a duplicate document_type", _duplicate_member((), "document_type")),
+    ("a duplicate nested cleanup state", _duplicate_member(("cleanup",), "state")),
+    (
+        "a duplicate nested cleanup exit code",
+        _duplicate_member(("cleanup",), "exit_code"),
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label, tamper",
+    COLLAPSING_TAMPERS,
+    ids=[label for label, _ in COLLAPSING_TAMPERS],
+)
+def test_read_back_bytes_that_are_not_the_bytes_written_are_refused(
+    label: str, tamper, tmp_path: Path
+) -> None:
+    """PR-20260912-LAB1-2, through the public writer.
+
+    The refusal must be the existing fixed one, and it must happen before the
+    function can return a path — a written artifact is reported for these bytes
+    or it is not reported at all.
+    """
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(tmp_path / "run-record.json", tamper)
+
+    with pytest.raises(RunRecordRefused, match=NOT_THE_DOCUMENT_WRITTEN):
+        write_run_record(
+            outcome,
+            destination,
+            target_identity=plan.target.identity,
+            manifest_digest=built.manifest_digest,
+        )
+
+    # Why the mapping comparison could not refuse it: the bytes differ and the
+    # documents do not.
+    assert destination.read_back != destination.written
+    assert json.loads(destination.read_back.decode("utf-8")) == json.loads(
+        destination.written.decode("utf-8")
+    )
+
+
+def test_the_duplicate_key_reproduction_is_the_one_the_re_review_ran(
+    tmp_path: Path,
+) -> None:
+    """The reviewer's second reproduction, stated as bytes rather than by name.
+
+    A second `"schema_version": 3` member, with the value unchanged. The point of
+    requiring the same value is that it removes every explanation but the raw
+    bytes: the mapping is identical, the canonical re-serialization is identical,
+    the schema check passes, and `validate_run_record` passes. Only a comparison
+    that kept the bytes can tell these two files apart.
+    """
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(
+        tmp_path / "run-record.json", _duplicate_member((), "schema_version")
+    )
+
+    with pytest.raises(RunRecordRefused, match=NOT_THE_DOCUMENT_WRITTEN):
+        write_run_record(
+            outcome,
+            destination,
+            target_identity=plan.target.identity,
+            manifest_digest=built.manifest_digest,
+        )
+
+    read_back = destination.read_back.decode("utf-8")
+    assert read_back.count('"schema_version"') == 2
+    parsed = json.loads(read_back)
+    assert parsed["schema_version"] == RUN_RECORD_SCHEMA_VERSION == 3
+    # Everything the writer used to check still holds of these bytes.
+    assert parsed == json.loads(destination.written.decode("utf-8"))
+    assert json.dumps(parsed, indent=2, sort_keys=True).encode("utf-8") == (
+        destination.written
+    )
+    validate_run_record(parsed, expected_steps=len(outcome.steps))
+
+
+def test_the_whitespace_reproduction_is_the_one_the_re_review_ran(
+    tmp_path: Path,
+) -> None:
+    """The reviewer's first reproduction: `b"\\n" + serialized + b"\\n"`."""
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(
+        tmp_path / "run-record.json", _surround(prefix=b"\n", suffix=b"\n")
+    )
+
+    with pytest.raises(RunRecordRefused, match=NOT_THE_DOCUMENT_WRITTEN):
+        write_run_record(
+            outcome,
+            destination,
+            target_identity=plan.target.identity,
+            manifest_digest=built.manifest_digest,
+        )
+
+    assert destination.read_back == b"\n" + destination.written + b"\n"
+
+
+def test_the_exact_bytes_written_and_returned_are_accepted(tmp_path: Path) -> None:
+    """The positive half: a faithful destination still yields a written record.
+
+    Without this the correction could be a writer that refuses everything, which
+    would satisfy every regression above and write no evidence at all.
+    """
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(tmp_path / "run-record.json", _identity_bytes)
+
+    returned = write_run_record(
+        outcome,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+
+    assert returned is destination
+    assert destination.read_back == destination.written
+    assert destination.path.read_bytes() == destination.written
+    validate_run_record(
+        json.loads(destination.path.read_text(encoding="utf-8")),
+        expected_steps=len(outcome.steps),
+    )
+
+
+@pytest.mark.parametrize(
+    "label, fields",
+    ACCEPTED_CAUSE_COMBINATIONS,
+    ids=[label for label, _ in ACCEPTED_CAUSE_COMBINATIONS],
+)
+def test_the_accepted_cause_combinations_survive_the_raw_byte_binding(
+    label: str, fields: dict, tmp_path: Path
+) -> None:
+    """The four accepted combinations, re-stated against the byte comparison.
+
+    They are already accepted through a real `Path` destination above. This runs
+    them through the recording destination as well, so the evidence that the four
+    still pass is evidence about the same comparison the refusals exercise.
+    """
+    plan, built, outcome = _built_run()
+    stopped = replace(outcome, cleanup=replace(outcome.cleanup, **fields))
+    destination = _TamperingDestination(
+        tmp_path / f"{label.replace(' ', '-')}.json", _identity_bytes
+    )
+
+    write_run_record(
+        stopped,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+
+    assert destination.read_back == destination.written
+    validate_run_record(
+        json.loads(destination.path.read_text(encoding="utf-8")),
+        expected_steps=len(stopped.steps),
+    )
+
+
+# ---------------------------------------------------------------------------
+# The negative controls for the raw-byte binding
+# ---------------------------------------------------------------------------
+
+
+def _without_the_raw_comparison(raw, written, document, serialized) -> bool:
+    """`_read_back_matches` exactly as it was before PR-20260912-LAB1-2.
+
+    Not a weakened stand-in written for the control: the two conjuncts are the
+    submitted implementation, and `raw` is accepted and ignored the way the
+    submitted writer ignored it by never passing it.
+    """
+    return (
+        written == document
+        and json.dumps(written, indent=2, sort_keys=True).encode("utf-8") == serialized
+    )
+
+
+@pytest.mark.parametrize(
+    "label, tamper",
+    COLLAPSING_TAMPERS,
+    ids=[label for label, _ in COLLAPSING_TAMPERS],
+)
+def test_reversing_only_the_raw_byte_conjunct_accepts_every_collapsing_tamper(
+    label: str, tamper, monkeypatch, tmp_path: Path
+) -> None:
+    """The negative control PR-20260912-LAB1-2 asks for, at conjunct level.
+
+    Hardcoding the whole comparison to `True` proves the seam matters and does not
+    say **which** conjunct does the work. This removes only `raw == serialized`
+    and leaves the mapping and re-serialization comparisons exactly as they were
+    submitted — and every row the writer now refuses is accepted again. So the
+    regressions above constrain the raw-byte comparison specifically, and the
+    mapping comparison demonstrably cannot do that job.
+    """
+    monkeypatch.setattr(
+        artifact_module, "_read_back_matches", _without_the_raw_comparison
+    )
+    plan, built, outcome = _built_run()
+    destination = _TamperingDestination(tmp_path / "run-record.json", tamper)
+
+    write_run_record(
+        outcome,
+        destination,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+
+
+def test_the_raw_comparison_is_the_first_thing_the_read_back_seam_states(
+    tmp_path: Path,
+) -> None:
+    """Called directly, with the two reproductions as its inputs.
+
+    `_read_back_matches` is the one named comparison the binding lives in, and
+    the bytes are one of its inputs. Stating that here as well as through the
+    writer means a change to the seam's contract cannot pass by leaving the
+    writer's call site untouched.
+    """
+    plan, built, outcome = _built_run()
+    document = build_run_record(
+        outcome,
+        target_identity=plan.target.identity,
+        manifest_digest=built.manifest_digest,
+    )
+    serialized = json.dumps(document, indent=2, sort_keys=True).encode("utf-8")
+
+    assert artifact_module._read_back_matches(
+        serialized, json.loads(serialized.decode("utf-8")), document, serialized
+    )
+    for tampered in (
+        b"\n" + serialized + b"\n",
+        _duplicate_member((), "schema_version")(serialized),
+    ):
+        parsed = json.loads(tampered.decode("utf-8"))
+        # The two weaker conjuncts hold; the seam still refuses.
+        assert _without_the_raw_comparison(tampered, parsed, document, serialized)
+        assert not artifact_module._read_back_matches(
+            tampered, parsed, document, serialized
+        )

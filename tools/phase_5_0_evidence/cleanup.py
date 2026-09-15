@@ -123,12 +123,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Mapping, NamedTuple, Sequence
 
 from .capture import CapturePolicy
 from .case_runtime import INTERPRETER_PATH, build_bootstrap_vector
 from .errors import PlanRefused
-from .plan import Mutation, MutationKind
+from .journal import RECOVERY_PROCEDURE as RESIDUE_RECOVERY_PROCEDURE
+from .journal import RecoveryStep
+from .plan import (
+    CONFIGURATION_ROLE,
+    DescriptorEffect,
+    EffectKind,
+    Mutation,
+    MutationKind,
+)
 from .records import CleanupState
 from .targets import DisposableTarget
 
@@ -145,8 +153,10 @@ NON_DESTRUCTIVE_WHEN_ABSENT = frozenset(
     {
         "/usr/bin/rm",
         "/usr/bin/rmdir",
-        "/usr/bin/chattr",
-        "/usr/bin/install",
+        # `/usr/bin/chattr` and `/usr/bin/install` are **gone** — r6 §6.4,
+        # applied in C-P5.0-LAB-I-R1. The flag clear and the configuration
+        # restoration are descriptor-bound effects now, and `is_safe_to_rerun`
+        # states separately why each is re-runnable.
         "/usr/bin/psql",
         "/usr/bin/systemctl",
         "/usr/sbin/userdel",
@@ -252,7 +262,17 @@ class CleanupStep:
     #: effect has no observation to make. The one exception is `REVALIDATE`,
     #: whose whole purpose **is** the observation.
     capture: CapturePolicy = CapturePolicy.EXIT_STATUS_ONLY
+    #: **r6 §§1.4.5 and 2.4, C-P5.0-LAB-I-R1.** The descriptor-bound effect this
+    #: step is, instead of a command. The two cleanup steps that used to be
+    #: `install` and `chattr` vectors carry one and **no argument vector at
+    #: all**: the executor issues the syscall itself, on a descriptor it holds.
+    effect: "DescriptorEffect | None" = None
     note: str = ""
+
+    @property
+    def is_effect(self) -> bool:
+        """True for a descriptor-bound cleanup step. It has no argument vector."""
+        return self.effect is not None
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, CleanupStepKind):
@@ -261,8 +281,26 @@ class CleanupStep:
             raise PlanRefused(
                 f"Cleanup step {self.step_id!r} does not say which identity runs it."
             )
-        if not self.argv:
-            raise PlanRefused("A cleanup step needs a command.")
+        if self.effect is not None:
+            if not isinstance(self.effect, DescriptorEffect):
+                raise PlanRefused(
+                    f"Cleanup step {self.step_id!r} names an effect that is not "
+                    "one of the reviewed descriptor-bound effects."
+                )
+            if self.argv:
+                raise PlanRefused(
+                    f"Cleanup step {self.step_id!r} is a descriptor-bound "
+                    "effect and carries an argument vector. An effect names no "
+                    "executable at all."
+                )
+            if self.run_as != "root":
+                raise PlanRefused(
+                    f"Cleanup step {self.step_id!r} issues a descriptor-bound "
+                    f"effect as {self.run_as!r}. The executor holds the "
+                    "descriptors and issues every effect itself, as root."
+                )
+        elif not self.argv:
+            raise PlanRefused("A cleanup step needs a command or an effect.")
         offending = sorted(set(self.argv) & FORBIDDEN_CLEANUP_TOKENS)
         if offending:
             raise PlanRefused(
@@ -431,25 +469,38 @@ def _revalidate_root(
     )
 
 
-def _clear_attributes(target: DisposableTarget, mutation: Mutation) -> tuple[tuple[str, ...], str, tuple[int, ...], str]:
+def _clear_attributes(target: DisposableTarget, mutation: Mutation) -> "_Reversed":
+    """**L3's first half**, replacing `chattr -ia`.
+
+    `chattr -ia` resolved the pathname inside a tool this design does not own,
+    so the flags were cleared on whatever the name meant at that instant. The
+    effect clears them on the inode a held descriptor refers to, after a
+    pre-check that requires the identity the creating step recorded and refuses
+    on anything but equality — PR-20260913-LABI-2.
+
+    Both flags are cleared in one effect before the file is removed, as
+    §2.13.2a's `finally` does, and that is why a removal failure is a *reported*
+    residue rather than a silent one.
+    """
     path = target.contained_path(mutation.identifier)
-    return (
-        # One combined `chattr` mode argument, `-ia`, rather than the two separate
-        # `-i -a` this emitted before. **EH-R4-1**: `-a` is a member of
-        # `FORBIDDEN_CLEANUP_TOKENS` — it is there because `-a` means `--archive`
-        # to `cp` and `rm` — so `CleanupStep.__post_init__` refused every attribute
-        # reversal outright, and the `FILE_ATTRIBUTE` entry of `_REVERSALS` could
-        # not be constructed under any input. No test built one: the suite checked
-        # that the table had an entry per kind, not that the entry produced a step.
-        # `-ia` is a single valid `chattr` mode that clears both flags, so the
-        # guard keeps its meaning for every executable to which `-a` really is a
-        # breadth option, and the reversal exists.
-        ("/usr/bin/chattr", "-ia", "--", path),
-        path,
-        (0,),
-        "Both flags are cleared in one mode argument before the file is removed — "
-        "§2.13.2a's `finally` does the same, and it is why a removal failure is a "
-        "*reported* residue rather than a silent one.",
+    parent, _, name = path.rpartition("/")
+    return _Reversed(
+        argv=(),
+        removes=path,
+        satisfying=(0,),
+        note=(
+            "Both inode flags are cleared on the held descriptor before the "
+            "file is removed — §2.13.2a's `finally` does the same, and it is "
+            "why a removal failure is a *reported* residue rather than a "
+            "silent one."
+        ),
+        effect=DescriptorEffect(
+            kind=EffectKind.CLEAR_FLAG,
+            directory_role=parent.rpartition("/")[2],
+            name=name,
+            path=path,
+            flags=("immutable", "append_only"),
+        ),
     )
 
 
@@ -527,19 +578,40 @@ def _drop_database(target: DisposableTarget, mutation: Mutation) -> tuple[tuple[
     )
 
 
-def _restore_config(target: DisposableTarget, mutation: Mutation) -> tuple[tuple[str, ...], str, tuple[int, ...], str]:
+def _restore_config(target: DisposableTarget, mutation: Mutation) -> "_Reversed":
+    """**L1**, replacing `install <capture> <live>` — r6 §2.4's verify-and-write.
+
+    The `install` this replaces read the capture under the disposable root,
+    whose custody is the custody in question, and reported a restoration from a
+    successful copy. The effect reads the **independent** store instead,
+    verifies the stored bytes against the record that binds them to *this*
+    destination, writes every temporary and synchronizes it before any rename,
+    and reports `renamed` and `durable` as two separate facts — so a rename
+    whose directory barrier failed is not a durable restoration and the reload
+    verification does not run on it.
+    """
     filename = mutation.file_path.rsplit("/", 1)[-1]
     live = target.config_path(filename)
-    backup = target.contained_path(f"{target.root_path}/before/{filename}")
-    return (
-        ("/usr/bin/install", "--mode", "0640", "--owner", "postgres", "--group", "postgres", backup, live),
-        live,
-        (0,),
-        "Restoration is a reinstall of the byte-exact pre-change capture taken "
-        "before the line was added, so cleanup restores the recorded starting "
-        "state rather than deleting a line by pattern. It restores the file and "
-        "nothing else: the running server keeps the harness's rules in memory "
-        "until the reload step that follows every restore.",
+    return _Reversed(
+        argv=(),
+        removes=live,
+        satisfying=(0,),
+        note=(
+            "Restoration verifies the byte-exact pre-change capture in the "
+            "independent recovery store against the record binding it to this "
+            "destination, then writes and publishes it durably. It restores the "
+            "file and nothing else: the running server keeps the harness's "
+            "rules in memory until the reload step that follows every restore."
+        ),
+        effect=DescriptorEffect(
+            kind=EffectKind.RESTORE_CONFIGURATION,
+            configuration_role=CONFIGURATION_ROLE,
+            components=(filename,),
+            path=live,
+            mode=0o640,
+            owner="postgres",
+            group="postgres",
+        ),
     )
 
 
@@ -552,8 +624,25 @@ def _stop_unit(target: DisposableTarget, mutation: Mutation) -> tuple[tuple[str,
     )
 
 
+class _Reversed(NamedTuple):
+    """What one reversal is: a command, or a descriptor-bound effect.
+
+    The eight command reversals return four values and `effect` defaults to
+    `None`; the two that r6 §6.4 moved off `install` and `chattr` return an
+    effect and an **empty** argument vector. One shape, so the derivation below
+    reads one thing.
+    """
+
+    argv: tuple[str, ...]
+    removes: str
+    satisfying: tuple[int, ...]
+    note: str
+    effect: DescriptorEffect | None = None
+
+
 _Reversal = Callable[
-    [DisposableTarget, Mutation], tuple[tuple[str, ...], str, tuple[int, ...], str]
+    [DisposableTarget, Mutation],
+    tuple[tuple[str, ...], str, tuple[int, ...], str] | _Reversed,
 ]
 
 #: One reversal per mutation kind, and no kind without one.
@@ -837,13 +926,16 @@ class CleanupPlan:
         for mutation in reversed(config):
             by_file.setdefault(mutation.file_path, []).append(mutation)
         for file_path, group in by_file.items():
-            argv, removes, satisfying, note = _restore_config(target, group[0])
+            argv, removes, satisfying, note, effect = _restore_config(
+                target, group[0]
+            )
             add(lambda step_id, argv=argv, removes=removes, satisfying=satisfying,
-                note=note, group=group: CleanupStep(
+                note=note, group=group, effect=effect: CleanupStep(
                     step_id=step_id,
                     kind=CleanupStepKind.RESTORE,
                     run_as="root",
                     argv=argv,
+                    effect=effect,
                     removes=removes,
                     mutation_ids=tuple(m.mutation_id for m in group),
                     satisfying_statuses=satisfying,
@@ -902,7 +994,9 @@ class CleanupPlan:
                     f"Mutation kind {mutation.kind.value!r} has no reversal, so it "
                     "cannot be declared."
                 )
-            argv, removes, satisfying, note = reversal(target, mutation)
+            argv, removes, satisfying, note, effect = _Reversed(
+                *reversal(target, mutation)
+            )
             # **R16, conflict C-8.** The one object this run creates
             # **exclusively** is the disposable root, and it is the one whose
             # removal has to prove it is removing what the run made. The
@@ -930,16 +1024,25 @@ class CleanupPlan:
             # completed, and the run would have reported S-B for a defect in its
             # own plan. The identity is derived from the executable rather than
             # written per entry, so a reversal added later cannot forget it.
-            run_as = "postgres" if argv[0] == "/usr/bin/psql" else "root"
+            run_as = (
+                "postgres" if argv and argv[0] == "/usr/bin/psql" else "root"
+            )
             requires = recovery_requirement(removes)
+            kind = (
+                CleanupStepKind.RESTORE
+                if effect is not None
+                and effect.kind is EffectKind.RESTORE_CONFIGURATION
+                else CleanupStepKind.REVERSAL
+            )
             add(lambda step_id, argv=argv, removes=removes, satisfying=satisfying,
                 note=note, mutation=mutation, run_as=run_as,
-                requires=requires,
+                requires=requires, effect=effect, kind=kind,
                 revalidation_id=revalidation_id: CleanupStep(
                     step_id=step_id,
-                    kind=CleanupStepKind.REVERSAL,
+                    kind=kind,
                     run_as=run_as,
                     argv=argv,
+                    effect=effect,
                     removes=removes,
                     mutation_ids=(mutation.mutation_id,),
                     satisfying_statuses=satisfying,
@@ -1103,7 +1206,7 @@ class CleanupPlan:
                 return False
             if (
                 step.kind is CleanupStepKind.REVERSAL
-                and step.argv[0] == "/usr/bin/psql"
+                and step.argv[:1] == ("/usr/bin/psql",)
                 and index < reload_at
             ):
                 return False
@@ -1120,6 +1223,13 @@ class CleanupPlan:
         different reason — they create and remove nothing at all.
         """
         for step in self.steps:
+            if step.is_effect:
+                # A descriptor-bound effect is re-runnable for the reason the
+                # reload is: every one of them refuses when its object is absent
+                # rather than acting. The flag clear refuses at the pre-check
+                # with `object-absent-at-the-pre-check`, and the restoration
+                # refuses when the independent store holds no usable basis.
+                continue
             if step.argv[0] not in NON_DESTRUCTIVE_WHEN_ABSENT:
                 return False
             if (
@@ -1260,6 +1370,10 @@ class CleanupOutcome:
     retained_recovery_inputs: tuple[str, ...] = ()
     #: The bounded operator procedure for the retained inputs above, or empty.
     recovery_procedure: tuple[str, ...] = ()
+    #: The operator procedure for residue left by failed removal, or empty.
+    #: Kept separate from configuration recovery because the two procedures
+    #: address different states and must not be merged.
+    residue_recovery_procedure: tuple[RecoveryStep, ...] = ()
 
     @property
     def cleanup_state(self) -> CleanupState:
@@ -1278,18 +1392,67 @@ class CleanupOutcome:
 RECOVERY_PROCEDURE = (
     "1. Do not re-run the harness. The next invocation refuses while this is "
     "unresolved, and that refusal is the point.",
-    "2. The byte-exact pre-change captures are retained under the disposable "
-    "root's `before/` directory and are named in `retained_recovery_inputs`. "
-    "Compare each with the live file it was taken from before doing anything "
-    "else.",
-    "3. Reinstall each retained capture over its live file as root, mode 0640, "
-    "owner and group `postgres` — the same `install` the failed cleanup step "
-    "declares — then reload with `SELECT pg_reload_conf()` as `postgres`.",
+    "2. The byte-exact pre-change captures are retained **outside the "
+    "disposable root**, under `/var/lib/freedom-blades/recovery/<run-id>/`, "
+    "root-owned 0400, with a record binding each copy's SHA-256 to its "
+    "destination and to the source identity it was taken from. The run "
+    "directory's entry in the recovery parent is durable, so listing that "
+    "parent finds it after a restart. Read the record, verify the copy against "
+    "it, and compare with the live file before doing anything else. Do not use "
+    "the copies under the disposable root's `before/` directory: their custody "
+    "depends on the root whose safety is in question. If the independent store "
+    "holds no usable basis for this run, keep the host blocked and obtain "
+    "operator direction rather than continuing automatically.",
+    "3. Write each verified copy over its live file as root, mode 0640, owner "
+    "and group `postgres`, through the reviewed verify-and-write path — one "
+    "held buffer to a temporary, synchronized, renamed, then the destination "
+    "directory's entry synchronized — and only then reload with `SELECT "
+    "pg_reload_conf()` as `postgres`. A rename whose directory barrier did not "
+    "return success is not a durable restoration and the reload does not "
+    "follow it.",
     "4. Confirm the temporary mapping is gone: an ordinary local connection as "
     "`postgres` must still succeed, and a connection as the temporary OS "
     "identity asking for the temporary role must be refused. Only then remove "
-    "the retained captures and the directories that hold them.",
+    "the run's directory under `/var/lib/freedom-blades/recovery/`, and only "
+    "after the reservation has released without quarantine. A quarantined "
+    "run's directory is never removed automatically.",
 )
+
+
+def _named_procedures(
+    residue_procedure: tuple[RecoveryStep, ...],
+    configuration_procedure: tuple[str, ...],
+) -> list[str]:
+    """Name the recovery each present cause calls for, in the operator's text.
+
+    §2.13.2b requires an S-B run to **report** the named operator recovery, and
+    the reader of that report is an operator looking at a non-zero exit rather
+    than at `CleanupOutcome`'s fields. Carrying the procedures in the structured
+    result and naming neither in the message would satisfy the field and not the
+    requirement — the same gap LAB-1 named, one surface further out.
+
+    Each procedure is named only when its own cause is present, and the two are
+    listed separately because they are different procedures for different
+    states. Runner contract r6 §8.1.
+    """
+    named: list[str] = []
+    if residue_procedure:
+        named.append(
+            "The named operator recovery for the residue is the "
+            f"{len(residue_procedure)}-step procedure in "
+            "`journal.RECOVERY_PROCEDURE`, carried on this result as "
+            "`residue_recovery_procedure`: "
+            + " ".join(f"({step.order}) {step.action}." for step in residue_procedure)
+        )
+    if configuration_procedure:
+        named.append(
+            "The named operator recovery for the configuration is the separate "
+            f"{len(configuration_procedure)}-step procedure in "
+            "`cleanup.RECOVERY_PROCEDURE`, carried on this result as "
+            "`recovery_procedure`. It is not a substitute for the residue "
+            "procedure and neither answers for the other."
+        )
+    return named
 
 
 def classify_cleanup(
@@ -1322,6 +1485,7 @@ def classify_cleanup(
     kept = tuple(sorted(set(preserved)))
     retained = tuple(sorted(set(retained_recovery_inputs)))
     procedure = RECOVERY_PROCEDURE if retained else ()
+    residue_procedure = RESIDUE_RECOVERY_PROCEDURE if residue else ()
     preserved_note = (
         " These objects were left in place deliberately: this run did not "
         "create them and does not remove them — " + ", ".join(kept) + "."
@@ -1354,10 +1518,11 @@ def classify_cleanup(
             preserved=kept,
             retained_recovery_inputs=retained,
             recovery_procedure=procedure,
+            residue_recovery_procedure=residue_procedure,
             message=(
                 "Cleanup did not complete. The host now requires operator recovery "
                 "before another generation can be created. "
-                + " ".join(parts)
+                + " ".join(parts + _named_procedures(residue_procedure, procedure))
                 + preserved_note
             ),
         )
@@ -1405,6 +1570,7 @@ __all__ = [
     "OWNERSHIP_WITHDRAWN",
     "RECOVERY_INPUT_RETAINED",
     "RECOVERY_PROCEDURE",
+    "RESIDUE_RECOVERY_PROCEDURE",
     "SkippedCleanupStep",
     "classify_cleanup",
 ]

@@ -723,6 +723,41 @@ PERMITTED_PHASE_5_0_EVIDENCE_HARNESS = frozenset({
     # rather than copied, and the proposed verified-first-use initialization
     # modelled over the filesystem above. **It provisions nothing.**
     "tools/phase_5_0_evidence/lifecycle_storage.py",
+    # --- C-P5.0-LAB-I, the bounded repository implementation of runner contract
+    # r6's reserved-laboratory mechanism, authorized 2026-09-13. Six files,
+    # declared here for the same reason as every row above: a new file under a
+    # watched prefix is a declaration, not a path that slips in.
+    #
+    # **They are mechanism, and they provision nothing.** Every path any of them
+    # opens is one a caller hands it, so the production constants under `/run`
+    # and `/var/lib` stay definitions and no object is created under either.
+    # `tests/phase_5_0_evidence/test_lab_implementation.py` asserts that against
+    # both the source and the filesystem.
+    #
+    # The r6 §1.3 descriptor custody chain: each directory held twice, the
+    # synchronizable descriptor bound by comparison rather than assumed, and an
+    # unregistered descriptor refused rather than dereferenced. Execution tier,
+    # because it opens files and issues durability barriers on them.
+    "tools/phase_5_0_evidence/execution/descriptors.py",
+    # The r6 §5.3 cooperative lock adapter over the **pre-existing** provisioned
+    # inode: open existing, `flock`, re-seal, read, parse, validate, survey,
+    # refuse. It creates no lock, unlinks none, and breaks none.
+    "tools/phase_5_0_evidence/execution/host_lock.py",
+    # The reservation record on disk, and the run ledger on disk. Both are thin:
+    # the rules they write under are `lifecycle_storage`'s, imported rather than
+    # restated, so the mechanism and the model are one reader rather than two
+    # that can drift.
+    "tools/phase_5_0_evidence/execution/lifecycle_record.py",
+    "tools/phase_5_0_evidence/execution/run_ledger.py",
+    # The r6 §2.2 independent recovery store: captures published outside the
+    # disposable root, across all five ordered barriers, with the recovery
+    # parent's own entry barrier that revision 2 omitted.
+    "tools/phase_5_0_evidence/execution/participants.py",
+    "tools/phase_5_0_evidence/execution/recovery_store.py",
+    # The r6 §7 provisioning **definitions**, planning tier and pure data. It
+    # creates no group, writes no file, installs no fragment, changes no mode and
+    # runs no command; all ten items remain unapproved and unapplied.
+    "tools/phase_5_0_evidence/provisioning.py",
 })
 
 

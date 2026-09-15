@@ -621,11 +621,11 @@ Codex's bounded focused security/accessibility/structural check found no new imp
 ## 7. Security and Accessibility Pass Summary
 
 ### Summary of Accepted Step 11 Accessibility Pass
-- Documented in [`docs/review/phase-3-p3-4-step-11-accessibility-handoff.md`](file:///opt/discord-bots/freedom-bot/docs/review/phase-3-p3-4-step-11-accessibility-handoff.md) and finalized in [`docs/review/phase-3-p3-4-step-11-3-final-verification-handoff.md`](file:///opt/discord-bots/freedom-bot/docs/review/phase-3-p3-4-step-11-3-final-verification-handoff.md).
+- Documented in [`docs/review/phase-3-p3-4-step-11-accessibility-handoff.md`](../../docs/review/phase-3-p3-4-step-11-accessibility-handoff.md) and finalized in [`docs/review/phase-3-p3-4-step-11-3-final-verification-handoff.md`](../../docs/review/phase-3-p3-4-step-11-3-final-verification-handoff.md).
 - Enforces strict semantic HTML landmarks (`<header>`, `<nav>`, `<main>`, `<footer>`, `<article>`), a skip-to-content link, explicit form label associations (`<label for="field_id">`), table accessibility (`<th>` scopes, data-label attributes for mobile cards), visible high-contrast focus rings (`:focus-visible`), and CSS motion minimization (`@media (prefers-reduced-motion)`).
 
 ### Summary of Accepted Step 12 Security Pass (R12-01 through R12-08)
-- Documented in [`docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`](file:///opt/discord-bots/freedom-bot/docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md).
+- Documented in [`docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md`](../../docs/review/phase-3-p3-4-step-12-security-and-progressive-enhancement-handoff.md).
 - **R12-01 & R12-05 (Hostile Rendering):** `assert_hostile_renders_inert` enforces exact container targeting, exact string equality, exact code-point sequence matching, exact bounds (`len(governed_text) == bound`), and template non-evaluation within governed containers.
 - **R12-02 (Presentation Boundaries):** Real database models and ASGI endpoints exercise character names (R-21, R-22, R-31), audit event reasons (R-49, 200-char bound), reconciliation candidate names (R-43, 120-char bound), and closed-vocabulary query refusals.
 - **R12-03 (Consolidated No-JS Validator):** Shared `validate_rendered_no_js_fallback` in `tests/web/no_js_helpers.py` verifies all 9 essential flows with `hx-*` stripped.

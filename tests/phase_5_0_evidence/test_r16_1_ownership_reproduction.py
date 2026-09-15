@@ -1,18 +1,28 @@
-"""**EH-R16-1, reproduced. These tests assert a defect, not a fix.**
+"""**EH-R16-1: what the mechanism now covers, and what it still does not.**
 
-Read the label before the assertions. Every case in §1 and §2 below asserts the
-behaviour of the **current, unfixed** tree: that unsafe operations *are* issued.
-They exist because the project-review prompt of 2026-09-09 permits synthetic
-reproduction work while the corrected C-8 mechanism awaits Codex's technical
-acceptance, and because a Blocking finding that no test demonstrates is a claim
-rather than a defect.
+Read the label before the assertions. Until C-P5.0-LAB-I-R1 every case in §1 and
+§2 below asserted the behaviour of the **unfixed** tree — that unsafe operations
+*are* issued — and the module said in as many words: *"they will have to be
+inverted when the mechanism lands."* r6 §6.4's retirement of `/usr/bin/install`
+and `/usr/bin/chattr` is the mechanism landing for the effects those two
+performed, so the cases that were about a **pathname re-resolved after an
+ownership check** are inverted here: there is no longer a vector that resolves
+one.
 
-**They will have to be inverted when the mechanism lands.** A green run of this
-module is evidence that EH-R16-1 is still open. It is not verification of
-anything, and nothing here models the proposed design: the proposed cases are
-listed in §8 of
-`docs/review/phase-5-0-evidence-harness-c8-ownership-design-r16-3.md` and are
-marked there as unwritable until the mechanism exists.
+**EH-R16-1 is not closed by that, and this module is where the residual is
+stated.** Three things are unchanged and each has its own case below:
+
+* the **removal's final component** is not bindable by any syscall available
+  here — r6 §1.4.5 — so `rm --force` and `rmdir` remain pathname-resolved and
+  the pre-check detects rather than prevents;
+* **in-place content mutation of a file whose inode is unchanged** is not
+  covered by a descriptor at all — r6 §1.4.4; and
+* the **inventory** in §3 is unchanged: two directories the plan creates are
+  group-writable by an identity the run itself creates, and two experimental
+  identities hold ambient `CAP_DAC_OVERRIDE`.
+
+A green run of this module is evidence about which half of the finding the
+mechanism reaches. It is not verification of anything on `oracle-test`.
 
 **PR-20260909-R2-1/2, evidence correction.** Four cases in §1 and §2 now inject
 an actual substitution through `FakeHost.injections`, applied in the interval
@@ -42,9 +52,14 @@ from __future__ import annotations
 import pytest
 
 from tools.phase_5_0_evidence import case_runtime
+from tools.phase_5_0_evidence.case_runtime import INTERPRETER_PATH
 from tools.phase_5_0_evidence.cleanup import CleanupStepKind
 from tools.phase_5_0_evidence.concrete_plan import build_concrete_plan
-from tools.phase_5_0_evidence.execution.boundary import CommandResult
+from tools.phase_5_0_evidence.plan import EffectKind
+from tools.phase_5_0_evidence.execution.boundary import (
+    LAUNCH_EFFECT_REFUSED,
+    CommandResult,
+)
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES
 
 from tests.phase_5_0_evidence.harness_fixtures import (
@@ -156,17 +171,19 @@ def _cleanup_step_ids(host: FakeHost, plan) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def test_a_replaced_root_still_has_its_configuration_captures_installed() -> None:
-    """**[reproduction of an open defect]** The two `install` steps run first.
+def test_a_replaced_root_no_longer_has_captures_reinstalled_from_under_it() -> None:
+    """**[inverted — the mechanism reaches this one.]**
 
-    R16: *"the executor first restores PostgreSQL configuration from that
-    replacement's `before/` files"*. The run completes, every cleanup step is
-    entitled to run, and the only ownership comparison is the one immediately
-    before the root `rmdir` — so both restores are issued against sources that
-    are, in this scenario, not the files this run wrote.
+    R16 read: *"the executor first restores PostgreSQL configuration from that
+    replacement's `before/` files"*. That was true of the two `install` vectors
+    the restore used to be. Both are gone — r6 §6.4 — and the restoration is a
+    descriptor-bound effect that verifies the bytes against the **independent**
+    store, whose custody is not the custody this scenario is about. So a
+    replaced root no longer supplies the bytes that become the disposable
+    instance's authentication configuration.
 
-    Asserted from the boundary's call log, as the review requires: the presence
-    of the commands, not the eventual state label.
+    Asserted from the call log and from what the effect consumed, not from a
+    state label.
     """
     plan = runnable_plan()
     host = FakeHost(plan)
@@ -174,42 +191,42 @@ def test_a_replaced_root_still_has_its_configuration_captures_installed() -> Non
 
     outcome = runner(plan, host).execute()
 
-    installs = [
+    # There is no `install` in the cleanup at all, and nothing read a source
+    # under the disposable root.
+    assert not [
         vector
         for vector in _cleanup_vectors(host, plan)
         if vector[0] == "/usr/bin/install"
     ]
-    assert len(installs) == 2
-    assert {vector[-2] for vector in installs} == set(CAPTURES)
-
-    # And they precede the only check there is.
-    guard_at = _index_of_guard(host, plan)
-    install_positions = [
-        index
-        for index, vector in enumerate(_cleanup_vectors(host, plan))
-        if vector[0] == "/usr/bin/install"
+    assert not [
+        record for record in host.consumed if record.action == "install-source"
     ]
-    assert max(install_positions) < guard_at
+    restored = [record for record in host.consumed if record.action == "restore-source"]
+    assert {record.path for record in restored} == {
+        "/etc/postgresql/16/main/pg_hba.conf",
+        "/etc/postgresql/16/main/pg_ident.conf",
+    }
 
-    # The run is S-B and the root survives, which is the part that already works
-    # — and which protects the root's inode and nothing else.
+    # The root guard is unchanged: it still protects exactly one inode, and the
+    # run is S-B.
     assert outcome.cleanup.state == "S-B"
     assert ROOT in outcome.cleanup.residue
     assert ("/usr/bin/rmdir", "--", ROOT) not in host.vectors
 
 
-def test_a_root_replaced_before_provisioning_receives_every_dependent_effect() -> None:
-    """**[reproduction of an open defect]** — PR-20260909-R2-1's own scenario.
+def test_a_root_replaced_before_provisioning_resolves_no_pathname_under_it() -> None:
+    """**[inverted — PR-20260909-R2-1's own scenario, after the mechanism.]**
 
-    The root is replaced in the interval between `B3-01`, which created it and
-    recorded its identity, and `B3-03`, the first `install -d` under it. Every
-    provisioning command, every flag change, the installed case program, the two
-    configuration captures and every experiment then act on the replacement.
+    The root is replaced in the interval between `B3-01`, which created it, and
+    `B3-03`, which used to be the first `install -d` under it. What that
+    scenario rested on was that every provisioning command **re-resolved a
+    pathname** under the root. None of them does any more: P1, P1b, P2, P4 and
+    L3's flag half are descriptor-bound effects with no argument vector at all,
+    so there is no pathname for the replacement to be found through.
 
-    A cleanup guard cannot undo any of that, and this is not the residual
-    interval that follows a guard: **no execution-time guard is proposed at that
-    point**, which the third assertion states structurally — not one `statroot`
-    is issued between the creation and cleanup.
+    The residual is stated in the last assertion and it is unchanged: the
+    removals and the experiments still resolve names, and EH-R16-1 stays Open
+    for them.
     """
     plan = runnable_plan()
     host = FakeHost(plan)
@@ -238,79 +255,101 @@ def test_a_root_replaced_before_provisioning_receives_every_dependent_effect() -
         if step_id not in ("R-B-ROOT", "B3-01", "B3-02")
     ]
 
-    # 1. The provisioning the substitution precedes is issued in full.
-    directories = [
-        vector
-        for step_id, vector in execution
-        if vector[0] == "/usr/bin/install" and "--directory" in vector
+    # 1. The provisioning the substitution precedes resolves **no pathname**:
+    #    every one of those steps is a descriptor-bound effect with no vector.
+    provisioning = [
+        step
+        for step in plan.steps
+        if step.mutation_ids
+        and any(
+            mutation_id.startswith(("directory:", "file:", "file_attribute:"))
+            for mutation_id in step.mutation_ids
+        )
+        and any(ROOT in mutation_id for mutation_id in step.mutation_ids)
     ]
-    assert {vector[-1] for vector in directories} >= {
-        f"{ROOT}/journal", f"{ROOT}/archive", f"{ROOT}/before", f"{ROOT}/bin"
-    }
+    assert provisioning
+    # Everything that is not an effect is one of the reviewed case program's own
+    # verbs, run through the approved interpreter. Those resolve names and are
+    # the residual §1.4.4 keeps: the mechanism binds the executor's effects, not
+    # the experiments', and EH-R16-1 stays Open for them.
+    for step in provisioning:
+        if step.is_effect:
+            continue
+        assert step.argv[0] == INTERPRETER_PATH, step.step_id
 
-    # 2. So are the flag changes and both configuration captures, all of which
-    #    resolve names under a root this run no longer owns.
-    assert any(vector[0] == "/usr/bin/chattr" for _, vector in execution)
-    captures = [
-        vector
-        for step_id, vector in execution
-        if step_id in ("B6-01", "B6-02")
-    ]
-    assert {vector[-1] for vector in captures} == set(CAPTURES)
-
-    # 3. And nothing looked. Between `B3-01` and cleanup the plan issues no
-    #    identity reading of any kind, so there is no guard for a replacement to
-    #    race — there is no guard.
-    assert issued_after
+    # 2. And there is no `install` or `chattr` vector left to find a
+    #    replacement through — the executable is not even permitted.
     assert not [
-        vector for _, vector in execution if "statroot" in vector
+        vector
+        for _, vector in execution
+        if vector[:1] in (("/usr/bin/install",), ("/usr/bin/chattr",))
     ]
 
-    # The single comparison finally disagrees, in cleanup, after every effect
-    # above has already landed.
+    # 3. The residual, stated rather than closed. No identity reading is issued
+    #    between the creation and cleanup, and the case program's own verbs
+    #    still resolve names under the root — which is the half of EH-R16-1 the
+    #    descriptor chain does not reach, and why it stays Open.
+    assert issued_after
+    assert not [vector for _, vector in execution if "statroot" in vector]
+    assert [
+        vector
+        for _, vector in execution
+        if any(argument.startswith(f"{ROOT}/") for argument in vector)
+    ]
+
+    # The single comparison finally disagrees, in cleanup.
     assert outcome.cleanup.state == "S-B"
     assert ROOT in outcome.cleanup.residue
 
 
-def test_a_root_replaced_before_a_later_experiment_receives_its_effects() -> None:
-    """**[reproduction of an open defect]** — the second injection R2-1 asks for.
+def test_a_root_replaced_before_a_later_flag_change_reaches_no_pathname() -> None:
+    """**[inverted — the second injection R2-1 asks for.]**
 
     The same substitution, injected much later: immediately before `B5-C6-08`,
-    a `chattr +i` on a file under the root, and well after the run has recorded
-    the identity it will eventually compare. The flag change and every step
-    after it are issued against the replacement.
+    which used to be a `chattr +i` on a file under the root. It is now a
+    descriptor-bound flag effect, issued on the inode a held descriptor refers
+    to after a pre-check against the identity the creating step recorded — so
+    the step never reaches the substituted pathname at all, and it is not in the
+    boundary's call log because it starts no process.
     """
     plan = runnable_plan()
     host = FakeHost(plan)
-    host.injections["B5-C6-08"] = lambda current: current.substitute_root()
+    host.injections["B4-19"] = lambda current: current.substitute_root()
 
     outcome = runner(plan, host).execute()
 
-    order = list(host.calls)
-    assert "B5-C6-08" in order
-    after = order[order.index("B5-C6-08"):]
-    by_id = dict(zip(host.calls, host.vectors))
+    reset = next(step for step in plan.steps if step.step_id == "B5-C6-08")
+    assert reset.is_effect and reset.argv == ()
+    assert "B5-C6-08" not in host.calls
 
-    # The guarded-in-name-only flag change is issued.
-    assert by_id["B5-C6-08"][0] == "/usr/bin/chattr"
-    # As are the two captures, which come later in the plan and read and write
-    # under the replacement.
-    assert {"B6-01", "B6-02"} <= set(after)
+    # The capture is one effect and it, too, starts no process.
+    capture = next(
+        step for step in plan.steps if step.is_effect and step.effect.components
+    )
+    assert capture.step_id not in host.calls
     assert not [
-        step_id for step_id in after if "statroot" in by_id[step_id]
-        and step_id not in {step.step_id for step in plan.cleanup_plan.steps}
+        vector
+        for vector in host.vectors
+        if vector[:1] in (("/usr/bin/install",), ("/usr/bin/chattr",))
     ]
 
     assert outcome.cleanup.state == "S-B"
 
 
 def test_a_replaced_root_has_its_descendants_removed_before_the_check() -> None:
-    """**[reproduction of an open defect]** Count the commands that precede it.
+    """**[residual — unchanged by the mechanism.]** Count what still precedes it.
 
     R16 counted *"30 cleanup commands referencing the root before that check"*.
-    The count is asserted as a floor rather than an equality, so a step added to
-    the plan does not turn a reproduction of the defect into a failure about
-    arithmetic.
+    Eight of those are gone: the six `chattr -ia` vectors and the two restoring
+    `install` vectors are descriptor-bound effects now and resolve no pathname.
+    **The removals are not**, because r6 §1.4.5 says plainly that
+    `unlinkat`'s final component is not bindable by any syscall available here —
+    so `rm --force` and `rmdir` still resolve names, still precede the only
+    comparison, and EH-R16-1 stays Open for exactly them.
+
+    The floor is lowered to the count that remains, and the two facts that
+    changed are asserted beside it so the reduction is visible rather than
+    silent.
     """
     plan = runnable_plan()
     host = FakeHost(plan)
@@ -326,14 +365,28 @@ def test_a_replaced_root_has_its_descendants_removed_before_the_check() -> None:
         for vector in before
         if any(argument.startswith(ROOT) for argument in vector)
     ]
-    assert len(touching_root) >= 30
+    assert len(touching_root) >= 20
 
     removals = [
         vector
         for vector in before
-        if vector[0] in ("/usr/bin/rm", "/usr/bin/rmdir", "/usr/bin/chattr")
+        if vector[0] in ("/usr/bin/rm", "/usr/bin/rmdir")
     ]
     assert removals, "descendant removals are issued before the only check"
+
+    # What is no longer among them: the flag clears and the restores. Neither
+    # resolves a pathname any more, and neither is an executable this plan may
+    # name.
+    assert not [
+        vector
+        for vector in before
+        if vector[:1] in (("/usr/bin/chattr",), ("/usr/bin/install",))
+    ]
+    assert [
+        step
+        for step in plan.cleanup_plan.steps
+        if step.is_effect and step.effect.kind is EffectKind.CLEAR_FLAG
+    ]
 
 
 def test_an_unreadable_root_identity_also_only_stops_the_final_removal() -> None:
@@ -353,11 +406,9 @@ def test_an_unreadable_root_identity_also_only_stops_the_final_removal() -> None
     assert outcome.cleanup.state == "S-B"
     assert ROOT in outcome.cleanup.residue
     assert ("/usr/bin/rmdir", "--", ROOT) not in host.vectors
-    assert [
-        vector
-        for vector in _cleanup_vectors(host, plan)
-        if vector[0] == "/usr/bin/install"
-    ]
+    # The restoration still ran — it does not depend on the root's identity any
+    # more, because it reads the independent store rather than `R/before`.
+    assert [record for record in host.consumed if record.action == "restore-source"]
 
 
 def test_independently_safe_recovery_already_proceeds() -> None:
@@ -405,12 +456,15 @@ def test_ordinary_cleanup_still_completes() -> None:
     assert outcome.cleanup.state == "S-C"
     assert outcome.cleanup.residue == ()
     assert not host.has(f"path:{ROOT}")
-    installs = [
-        vector
-        for vector in _cleanup_vectors(host, plan)
-        if vector[0] == "/usr/bin/install"
-    ]
-    assert {vector[-2] for vector in installs} == set(CAPTURES)
+    restored = {
+        record.path
+        for record in host.consumed
+        if record.action == "restore-source"
+    }
+    assert restored == {
+        "/etc/postgresql/16/main/pg_hba.conf",
+        "/etc/postgresql/16/main/pg_ident.conf",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -429,10 +483,15 @@ def test_a_replaced_descendant_is_removed_while_the_root_matches() -> None:
     `…/probe/stage2.target` is unlinked and a different object is created under
     the same name, in the interval before `B4-19`, by an identity the plan
     itself constructs — `freedomsheet`, a member of the group that owns the
-    `0770` directory the file is in. The root's identity never changes, so every
-    guard the current design has agrees, and cleanup's `rm --force` consumes the
-    **replacement**. The assertion names the identity of the object the removal
-    acted on, not the command that was issued.
+    `0770` directory the file is in. The root's identity never changes.
+
+    **Both halves of the finding are asserted, and they now differ.** The
+    substitution is *detected*: cleanup's flag clear is a descriptor-bound
+    effect whose pre-check compares the identity with the one the creating step
+    recorded, and it refuses — which is why the run is S-B rather than the S-C
+    it used to report. It is **not prevented**: `unlinkat`'s final component is
+    not bindable, so the `rm --force` that follows still consumes the
+    replacement, and that is the residual r6 §1.4.5 states rather than denies.
     """
     subject = f"{ROOT}/probe/stage2.target"
     plan = runnable_plan()
@@ -466,11 +525,27 @@ def test_a_replaced_descendant_is_removed_while_the_root_matches() -> None:
     assert removals[0].identity != created["identity"]
     assert removals[0].content == b"# not this run's object\n"
 
-    # And nothing objected: the root's identity is untouched, the single
-    # comparison agrees, and the run reports a clean cleanup.
-    assert outcome.cleanup.state == "S-C"
+    # **Detected.** The flag clear for this very object refused at its
+    # pre-check, so the run is S-B rather than the clean cleanup it used to
+    # report — and the refusal happened before the ioctl, not after it.
+    assert outcome.cleanup.state == "S-B"
+    refused = [
+        recorded
+        for recorded in outcome.cleanup_steps
+        if not recorded.satisfied and recorded.launch_failure == LAUNCH_EFFECT_REFUSED
+    ]
+    assert refused
+    cleared = {
+        step.step_id: step
+        for step in plan.cleanup_plan.steps
+        if step.is_effect and step.effect.path == subject
+    }
+    assert cleared
+    assert {recorded.step_id for recorded in refused} & set(cleared)
 
-    # The other six subjects are removed in the same unguarded way.
+    # **Not prevented.** The other six subjects are removed in the same
+    # pathname-resolved way, because the removal's final component is not
+    # bindable by any syscall available here.
     removed = {
         vector[-1]
         for vector in _cleanup_vectors(host, plan)
@@ -479,16 +554,16 @@ def test_a_replaced_descendant_is_removed_while_the_root_matches() -> None:
     assert set(GROUP_WRITABLE_SUBJECTS) <= removed
 
 
-def test_a_substituted_capture_is_installed_as_authentication_configuration() -> None:
-    """**[reproduction of an open defect]** — PR-20260909-R2-2's own scenario.
+def test_a_substituted_evidence_copy_is_no_longer_what_the_restore_reads() -> None:
+    """**[inverted — PR-20260909-R2-2's own scenario, after the mechanism.]**
 
-    The recovery input in `…/before/pg_hba.conf` is replaced with different
-    bytes in the interval before `CL-02`, the restore that installs it over the
-    disposable instance's live `pg_hba.conf`. Nothing in the current tree reads
-    the capture's content, so the substituted bytes are what reach the live
-    file. The root's identity is unchanged throughout, which is the point: no
-    identity claim in the design is violated, and the highest-consequence effect
-    in the finding still lands.
+    The copy in `…/before/pg_hba.conf` is replaced with different bytes in the
+    interval before the restore. It used to be the restore's source: `install`
+    read it at the moment it opened it, so the substituted bytes became the
+    disposable instance's authentication configuration. It is **retained
+    evidence** now and nothing else — r6 §2.5 — and the restore reads the
+    independent store, whose parent is `0700 root:root` and outside the
+    disposable root.
 
     Asserted on **bytes**, not on a command name and not on a state label.
     """
@@ -499,31 +574,39 @@ def test_a_substituted_capture_is_installed_as_authentication_configuration() ->
     plan = runnable_plan()
     host = FakeHost(plan)
     original = host.content_of(live)
-    host.injections["CL-02"] = lambda current: current.substitute(
-        capture, content=substituted
+    restore = next(
+        step.step_id
+        for step in plan.cleanup_plan.steps
+        if step.kind is CleanupStepKind.RESTORE
     )
+    replaced: dict[str, bytes | None] = {}
+
+    def replace(current: FakeHost) -> None:
+        current.substitute(capture, content=substituted)
+        replaced["content"] = current.content_of(capture)
+
+    host.injections[restore] = replace
 
     outcome = runner(plan, host).execute()
 
-    # The bytes the restore consumed came from the replacement, and the bytes
-    # now at the live pathname are those bytes rather than the ones captured.
+    # The evidence copy really was replaced at that instant — cleanup removes it
+    # later, which is why the observation is taken in the injection rather than
+    # from the end state — and the restore consumed the **store's** bytes.
+    assert replaced["content"] == substituted
+    assert not [
+        record for record in host.consumed if record.action == "install-source"
+    ]
     consumed = [
         record
         for record in host.consumed
-        if record.step_id == "CL-02" and record.action == "install-source"
+        if record.step_id == restore and record.action == "restore-source"
     ]
-    assert len(consumed) == 1
-    assert consumed[0].path == capture
-    assert consumed[0].content == substituted
-    assert host.content_of(live) == substituted
-    assert host.content_of(live) != original
+    assert consumed
+    assert all(record.content != substituted for record in consumed)
+    assert host.content_of(live) == original
 
-    # No guard fired, and the run reports the restoration as complete: no
-    # configuration risk, no retained recovery input, no operator procedure.
     assert outcome.cleanup.state == "S-C"
     assert outcome.cleanup.configuration_risk == ()
-    assert outcome.cleanup.retained_recovery_inputs == ()
-    assert outcome.cleanup.recovery_procedure == ()
 
 
 def test_no_cleanup_step_compares_a_descendant_identity() -> None:
@@ -554,12 +637,15 @@ def test_no_cleanup_step_compares_a_descendant_identity() -> None:
     assert ids.index(revalidations[0].step_id) + 1 == ids.index(guarded[0].step_id)
 
 
-def test_the_configuration_restores_are_not_guarded_at_all() -> None:
-    """**[reproduction of an open defect]** Structural, on the plan.
+def test_the_configuration_restores_no_longer_read_from_inside_the_root() -> None:
+    """**[inverted]** Structural, on the plan.
 
-    Neither `RESTORE` step names a revalidation, and both precede the only one
-    the plan generates. That is the shape of the finding stated against the plan
-    rather than against a run.
+    Neither `RESTORE` step names a revalidation and both still precede the only
+    one the plan generates — that is unchanged. What changed is why it no longer
+    matters: a restore's source is not inside the root at all, so it does not
+    depend on the root's identity and a root guard was never the right place for
+    it. The binding it does depend on is the record/copy/destination
+    correspondence the independent store establishes.
     """
     plan = build_concrete_plan()
     restores = [
@@ -580,10 +666,11 @@ def test_the_configuration_restores_are_not_guarded_at_all() -> None:
     )
     assert all(ids.index(step.step_id) < guard_at for step in restores)
 
-    # Each restore's source is inside the root, which is why it depends on the
-    # root's identity in the first place.
     for step in restores:
-        assert step.argv[-2].startswith(f"{ROOT}/before/")
+        assert step.argv == ()
+        assert step.is_effect
+        assert step.effect.kind is EffectKind.RESTORE_CONFIGURATION
+        assert not step.effect.path.startswith(f"{ROOT}/")
 
 
 # ---------------------------------------------------------------------------
@@ -591,12 +678,22 @@ def test_the_configuration_restores_are_not_guarded_at_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _install_vectors(plan) -> list[tuple[str, ...]]:
-    return [
-        tuple(step.argv)
+def _created_directories(plan) -> dict:
+    """`path` → `(mode, owner, group)` for every directory the plan creates.
+
+    Read off the reviewed **effects** rather than off an `install` vector: r6
+    §6.4 retired that executable, and the mode, owner and group are now fields a
+    reviewer approves rather than words in a command line.
+    """
+    return {
+        step.effect.path: (
+            f"{step.effect.mode:04o}",
+            step.effect.owner,
+            step.effect.group,
+        )
         for step in plan.steps
-        if step.argv and step.argv[0] == "/usr/bin/install"
-    ]
+        if step.is_effect and step.effect.kind is EffectKind.CREATE_DIRECTORY
+    }
 
 
 def test_two_directories_are_group_writable_by_a_created_identity() -> None:
@@ -608,13 +705,7 @@ def test_two_directories_are_group_writable_by_a_created_identity() -> None:
     so membership of `freedomsheet` is enough.
     """
     plan = build_concrete_plan()
-    directories = {
-        vector[-1]: (vector[vector.index("--mode") + 1],
-                     vector[vector.index("--owner") + 1],
-                     vector[vector.index("--group") + 1])
-        for vector in _install_vectors(plan)
-        if "--directory" in vector
-    }
+    directories = _created_directories(plan)
     assert directories[f"{ROOT}/probe"] == ("0770", "root", "freedomsheet")
     assert directories[f"{ROOT}/probe-ro"] == ("0770", "root", "freedomsheet")
     # The four that are not group-writable, for contrast — and because `before`

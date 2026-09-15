@@ -364,7 +364,9 @@ def classify_cleanup_failure_state(
     generation_present: bool,
     database_row_present: bool,
     next_run_refuses: bool,
-    recovery_procedure_named: bool,
+    residue_recovery_named: bool,
+    configuration_capture_retained: bool,
+    configuration_recovery_named: bool,
 ) -> EvidenceRecord:
     """`JNL-47`: the two §2.13.2b cleanup failures, kept apart — R16.
 
@@ -380,6 +382,15 @@ def classify_cleanup_failure_state(
     may exist, the next invocation refuses rather than cleaning, and the recovery
     procedure is reported. A record that satisfies six of the seven is a failed
     case.
+
+    **The recovery clause is compared per cause — runner contract r6 §8.1.** Two
+    named recoveries exist and they are for different things: the five-step
+    residue recovery and the four-step configuration recovery. The clause is
+    satisfied when the run names *the procedure that applies to the state it
+    reached*, so residue present requires the residue procedure and a retained
+    configuration capture requires the configuration procedure, independently.
+    One boolean over both would let a run that named the wrong procedure satisfy
+    the clause, which is the shape of LAB-1 one level up.
     """
     expectation = CLEANUP_FAILURE_VARIANTS.get(variant)
     if expectation is None:
@@ -388,15 +399,32 @@ def classify_cleanup_failure_state(
             f"{sorted(CLEANUP_FAILURE_VARIANTS)}."
         )
     expected_code, why = expectation
+    residue_present = residue_path_count > 0
+    #: Each cause that is present must name its own procedure. A cause that is
+    #: absent requires nothing, and never excuses one that is present.
+    residue_recovery_satisfied = residue_recovery_named if residue_present else True
+    configuration_recovery_satisfied = (
+        configuration_recovery_named if configuration_capture_retained else True
+    )
     holds = (
         exit_code == expected_code
         and state == "S-B"
-        and residue_path_count > 0
+        and residue_present
         and not generation_present
         and not database_row_present
         and next_run_refuses
-        and recovery_procedure_named
+        and residue_recovery_satisfied
+        and configuration_recovery_satisfied
     )
+    if residue_recovery_satisfied and configuration_recovery_satisfied:
+        recovery_phrase = "recovery named"
+    else:
+        unnamed = []
+        if not residue_recovery_satisfied:
+            unnamed.append("residue")
+        if not configuration_recovery_satisfied:
+            unnamed.append("configuration")
+        recovery_phrase = f"{' and '.join(unnamed)} recovery not named"
     return EvidenceRecord.for_case(
         case_id=f"JNL-47-{variant}",
         band=BAND,
@@ -419,8 +447,8 @@ def classify_cleanup_failure_state(
             else f"{state}, exit {exit_code}, {residue_path_count} residue "
             f"path(s), generation {'present' if generation_present else 'absent'}, "
             f"database row {'present' if database_row_present else 'absent'}, "
-            f"next run {'refuses' if next_run_refuses else 'proceeds'}, recovery "
-            f"{'named' if recovery_procedure_named else 'not named'}"
+            f"next run {'refuses' if next_run_refuses else 'proceeds'}, "
+            f"{recovery_phrase}"
         ),
         case_role=CaseRole.STANDALONE,
         cleanup_state=CleanupState.RESIDUE,

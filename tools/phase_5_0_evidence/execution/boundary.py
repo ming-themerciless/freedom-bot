@@ -140,14 +140,18 @@ from __future__ import annotations
 import grp
 import os
 import pwd
+import stat
 import subprocess  # noqa: S404 - the single, declared process boundary
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Mapping, Protocol, Sequence, TypeVar
+from typing import TYPE_CHECKING, Mapping, Protocol, Sequence, TypeVar
 
 from ..capture import CapturePolicy, CatalogQuestion, sanitize
 from ..errors import HarnessError
 from ..identity import CANONICAL_ACCOUNTS
+
+if TYPE_CHECKING:  # pragma: no cover - the import direction, stated once
+    from .descriptors import TransferEntry
 
 #: The environment every command runs in. Small, fixed, and containing no
 #: credential, no repository path and nothing inherited from the operator's
@@ -238,8 +242,31 @@ LAUNCH_VALIDATION_REFUSED = "validation-refused"
 #: Every value `CommandResult.launch_failure` may take. Fixed, safe, and short:
 #: a reviewer reads this set and knows the complete vocabulary a run can put in
 #: an artifact. Nothing derived from the host or from an exception is in it.
+#: **r6 §1.4, C-P5.0-LAB-I-R1.** A descriptor-bound effect was refused before it
+#: was issued, or no effect issuer was assembled at all. It is a member of this
+#: set because a step's outcome carries one classification whether the step was
+#: a command or an effect, and because the refusals an effect raises carry a
+#: path and an identity that must not reach an artifact.
+LAUNCH_EFFECT_REFUSED = "effect-refused"
+#: **r6 §§1.3.3 and 6.3.** The five descriptor-transfer refusals, each decided
+#: before any process exists.
+LAUNCH_DESCRIPTOR_UNDECLARED = "descriptor-not-in-the-declared-table"
+LAUNCH_DESCRIPTOR_SYNCHRONIZABLE = "synchronizable-descriptor-not-transferable"
+LAUNCH_DESCRIPTOR_CLOSED = "descriptor-closed"
+LAUNCH_DESCRIPTOR_NOT_A_DIRECTORY = "descriptor-not-a-directory"
+#: No armed effect issuer was assembled, so the step writes nothing. The
+#: fail-closed direction: an executor built without one refuses the effect
+#: rather than falling back to a pathname-based command.
+LAUNCH_EFFECT_UNAVAILABLE = "effect-issuer-unavailable"
+
 LAUNCH_FAILURES: frozenset[str] = frozenset(
     {
+        LAUNCH_DESCRIPTOR_CLOSED,
+        LAUNCH_DESCRIPTOR_NOT_A_DIRECTORY,
+        LAUNCH_DESCRIPTOR_SYNCHRONIZABLE,
+        LAUNCH_DESCRIPTOR_UNDECLARED,
+        LAUNCH_EFFECT_REFUSED,
+        LAUNCH_EFFECT_UNAVAILABLE,
         LAUNCH_BOUNDARY_NOT_ARMED,
         LAUNCH_BLANK_IDENTITY,
         LAUNCH_NO_TIMEOUT,
@@ -767,6 +794,16 @@ class ProcessBoundary(Protocol):
     reviewed grammar admits no string literal to filter it with, so the two names
     the reading compares travel beside it rather than inside it. It is `None` for
     every other policy.
+
+    `descriptors` is the **declared inherited table** of r6 §§1.3.3 and 6.3:
+    the descriptors this step may use, in the order they are remapped, starting
+    at descriptor 3. A step that was declared none receives none and opens no
+    path to obtain one; the case program's `DIRFD` argument kind is an index
+    into this table and into nothing else. **No synchronizable descriptor is
+    ever in it** — `DescriptorInventory.declare_transfer` enforces that where
+    the table is built, and `_transferable` enforces it again here, because a
+    step that could `fsync` could make a durability claim the executor did not
+    make.
     """
 
     def run(
@@ -778,6 +815,7 @@ class ProcessBoundary(Protocol):
         capture: CapturePolicy,
         timeout_seconds: float,
         catalog: CatalogQuestion | None = None,
+        descriptors: Sequence["TransferEntry"] = (),
     ) -> CommandResult: ...
 
 
@@ -811,6 +849,7 @@ class SubprocessBoundary:
         capture: CapturePolicy,
         timeout_seconds: float,
         catalog: CatalogQuestion | None = None,
+        descriptors: Sequence["TransferEntry"] = (),
     ) -> CommandResult:
         if not self.armed:
             return _refusal(LAUNCH_BOUNDARY_NOT_ARMED)
@@ -837,6 +876,14 @@ class SubprocessBoundary:
         except IdentityInconsistent:
             return _refusal(LAUNCH_IDENTITY_INCONSISTENT)
 
+        # **r6 §§1.3.3 and 6.3.** The declared inherited table, validated here
+        # and not merely passed on. Every failure refuses the launch with a
+        # fixed classification, before any process exists.
+        try:
+            inherited = _transferable(descriptors)
+        except _TransferRefused as refusal:
+            return _refusal(refusal.classification)
+
         try:
             completed = subprocess.run(  # noqa: S603 - argv only, shell=False
                 vector,
@@ -848,6 +895,16 @@ class SubprocessBoundary:
                 cwd="/",
                 stdin=subprocess.DEVNULL,
                 check=False,
+                # The descriptors the step inherits, and no others.
+                # `subprocess` closes every descriptor this does not name.
+                pass_fds=tuple(number for number, _index in inherited),
+                # The remap into the declared order, performed in the child
+                # between `fork` and `execve`. `dup2` with `inheritable=True`
+                # clears `FD_CLOEXEC` on the duplicate, and it is cleared for
+                # **exactly** these descriptors and no others, because every
+                # other descriptor `subprocess` inherits is closed by
+                # `pass_fds`.
+                preexec_fn=_remap(inherited) if inherited else None,
                 **credential.as_keywords(),
             )
         except subprocess.TimeoutExpired:
@@ -897,6 +954,74 @@ class SubprocessBoundary:
         return resolve_credential(required, self.lookup)
 
 
+class _TransferRefused(Exception):
+    """A declared descriptor this boundary will not transfer."""
+
+    def __init__(self, classification: str) -> None:
+        self.classification = classification
+        super().__init__(classification)
+
+
+def _transferable(
+    descriptors: Sequence["TransferEntry"],
+) -> tuple[tuple[int, int], ...]:
+    """Validate the declared table and return `(source fd, declared index)`.
+
+    Five refusing inputs, each before any process exists:
+
+    * an **undeclared** index — the table must start at
+      `FIRST_TRANSFERRED_DESCRIPTOR` and run consecutively, so an entry claiming
+      an arbitrary number is not an index into a table this run declared;
+    * a **synchronizable** descriptor, refused for the reason
+      `DescriptorInventory.declare_transfer` refuses it: a step that can `fsync`
+      can make a durability claim the executor did not make;
+    * a **closed** descriptor;
+    * a descriptor that is **not a directory**, which is what every entry in
+      this table is; and
+    * a **duplicated** index, which would make `DIRFD` ambiguous.
+    """
+    from .descriptors import FIRST_TRANSFERRED_DESCRIPTOR, DescriptorMode
+
+    resolved: list[tuple[int, int]] = []
+    seen: set[int] = set()
+    for offset, entry in enumerate(descriptors):
+        expected = FIRST_TRANSFERRED_DESCRIPTOR + offset
+        if entry.index != expected or entry.index in seen:
+            raise _TransferRefused(LAUNCH_DESCRIPTOR_UNDECLARED)
+        seen.add(entry.index)
+        if entry.mode is not DescriptorMode.O_PATH:
+            raise _TransferRefused(LAUNCH_DESCRIPTOR_SYNCHRONIZABLE)
+        number = entry.number
+        if number is None or number < 0:
+            raise _TransferRefused(LAUNCH_DESCRIPTOR_UNDECLARED)
+        try:
+            status = os.fstat(number)
+        except OSError:
+            raise _TransferRefused(LAUNCH_DESCRIPTOR_CLOSED) from None
+        if not stat.S_ISDIR(status.st_mode):
+            raise _TransferRefused(LAUNCH_DESCRIPTOR_NOT_A_DIRECTORY)
+        resolved.append((number, entry.index))
+    return tuple(resolved)
+
+
+def _remap(inherited: Sequence[tuple[int, int]]):
+    """The child-side remap into the declared order, as a callable.
+
+    It runs in the forked child before `execve`, which is the only place a
+    descriptor can be moved to a number the parent may be using itself. Nothing
+    else happens in it: no allocation that could deadlock, no logging, no
+    import.
+    """
+
+    pairs = tuple(inherited)
+
+    def remap() -> None:  # pragma: no cover - runs in the forked child
+        for number, index in pairs:
+            os.dup2(number, index, inheritable=True)
+
+    return remap
+
+
 def _refusal(classification: str) -> CommandResult:
     """A launch refusal, with the fixed classification and nothing else."""
     return CommandResult(
@@ -915,6 +1040,10 @@ class RecordingBoundary:
     """
 
     calls: list[tuple[str, tuple[str, ...]]] = field(default_factory=list)
+    #: The declared inherited table each call was handed. A dry run transfers
+    #: nothing, so every entry is empty — and it is recorded rather than
+    #: discarded so that a test can assert it.
+    descriptors: list[tuple] = field(default_factory=list)
     #: What every call reports. A dry run has no observations to report, so a
     #: step's satisfaction is not decided by it: `ExecutingRunner` never asks a
     #: recording boundary to decide anything, because `--execute` is what admits
@@ -930,8 +1059,10 @@ class RecordingBoundary:
         capture: CapturePolicy,
         timeout_seconds: float,
         catalog: CatalogQuestion | None = None,
+        descriptors: Sequence["TransferEntry"] = (),
     ) -> CommandResult:
         self.calls.append((run_as, tuple(argv)))
+        self.descriptors.append(tuple(descriptors))
         return CommandResult(exit_status=self.exit_status, timed_out=False)
 
 
@@ -947,6 +1078,12 @@ __all__ = [
     "LAUNCH_BLANK_IDENTITY",
     "LAUNCH_BOUNDARY_FAILURE",
     "LAUNCH_BOUNDARY_NOT_ARMED",
+    "LAUNCH_DESCRIPTOR_CLOSED",
+    "LAUNCH_DESCRIPTOR_NOT_A_DIRECTORY",
+    "LAUNCH_DESCRIPTOR_SYNCHRONIZABLE",
+    "LAUNCH_DESCRIPTOR_UNDECLARED",
+    "LAUNCH_EFFECT_REFUSED",
+    "LAUNCH_EFFECT_UNAVAILABLE",
     "LAUNCH_EXECUTABLE_ABSENT",
     "LAUNCH_FAILURES",
     "LAUNCH_IDENTITY_INCONSISTENT",

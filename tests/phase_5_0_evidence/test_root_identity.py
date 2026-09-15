@@ -103,6 +103,7 @@ from tools.phase_5_0_evidence.plan import ROOT_IDENTITY_NAME, CommandStep, StepR
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     DISPOSABLE_ACCOUNTS,
     DISPOSABLE_GROUPS,
     REVIEWED_E7_FACTS,
@@ -307,7 +308,7 @@ def test_the_generator_refuses_a_plan_whose_e7_observation_is_late() -> None:
         index
         for index, step in enumerate(steps)
         if step.run_as == "root"
-        and step.argv[0] == INTERPRETER_PATH
+        and step.argv[:1] == (INTERPRETER_PATH,)
         and index > observation
     )
     reordered = list(steps)
@@ -574,7 +575,17 @@ class Boundary:
     scripted: dict = field(default_factory=dict)
     calls: list = field(default_factory=list)
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append(step_id)
         if step_id in self.scripted:
             return self.scripted[step_id]
@@ -609,6 +620,7 @@ def runner(plan: ConcretePlan, boundary: Boundary) -> ExecutingRunner:
         source_bytes=dict(SOURCES),
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
 
 

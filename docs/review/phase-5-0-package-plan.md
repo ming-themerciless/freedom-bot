@@ -4,7 +4,21 @@ Readiness statement, design proposal, work breakdown and impact assessment.
 **Revision 12 — remediation R11. Independently security re-reviewed 2026-09-02;
 P5.0-SR1 and P5.0-SR2 Closed on design; package remains `not ready`.**
 
-**Current evidence direction, 2026-09-10 — C-P5.0-LAB-1.** Follow the
+**Current implementation authorization, 2026-09-13.** C-P5.0-LAB-I authorizes
+repository implementation and local tests for the accepted r6 laboratory
+mechanism and the bounded code required to address C-7 and EH-R16-1. It does not
+authorize target access, preflight, provisioning, database operations or
+execution. The implementation returns for independent Codex technical and
+security review; all package gates retain their current states.
+
+**Prior evidence status, 2026-09-13.** Codex's independent
+[LAB-1 R3 re-review](project-review-2026-09-13-lab1-rereview-r3.md) accepts the
+bounded local remediation with no residual finding. LAB-1 is closed locally,
+but no package gate moves: C-7 and EH-R16-1 remain unresolved, the twelve target
+facts remain unconfirmed, P5.0-R5 remains Blocking, OD-62 remains Open and
+`is_executable` remains `False`. No host action or execution is authorized.
+
+**Historical evidence direction, 2026-09-10 — C-P5.0-LAB-1.** Follow the
 [reserved-laboratory direction](phase-5-0-reserved-laboratory-direction.md) and
 [Claude prompt](phase-5-0-reserved-laboratory-claude-prompt.md). VM expansion is
 deferred. This changes the laboratory trust premise and next work assignment,

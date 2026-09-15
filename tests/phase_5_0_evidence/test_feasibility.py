@@ -22,6 +22,12 @@ import pytest
 
 from tools.phase_5_0_evidence import feasibility
 from tools.phase_5_0_evidence.cleanup import ConfigurationRestoration, classify_cleanup
+from dataclasses import replace
+
+from tools.phase_5_0_evidence import feasibility
+from tools.phase_5_0_evidence.cleanup import (
+    RECOVERY_PROCEDURE as CONFIGURATION_RECOVERY_PROCEDURE,
+)
 from tools.phase_5_0_evidence.errors import ObservationRefused
 from tools.phase_5_0_evidence.feasibility import (
     SEQUENCE,
@@ -40,8 +46,16 @@ from tools.phase_5_0_evidence.feasibility import (
     run_stage_failure_experiment,
     synthetic_payload,
 )
-from tools.phase_5_0_evidence.journal import CLEANUP_FAILURE_VARIANTS, FAILURE_STAGES
-from tools.phase_5_0_evidence.observations import SYNTHETIC_TARGET_IDENTITY
+from tools.phase_5_0_evidence.journal import (
+    CLEANUP_FAILURE_VARIANTS,
+    FAILURE_STAGES,
+    RECOVERY_PROCEDURE as RESIDUE_RECOVERY_PROCEDURE,
+)
+from tools.phase_5_0_evidence.approved_target import APPROVED_TARGET
+from tools.phase_5_0_evidence.observations import (
+    BAND_7_SCHEMA,
+    SYNTHETIC_TARGET_IDENTITY,
+)
 from tools.phase_5_0_evidence.records import Status
 from tools.phase_5_0_evidence.required_cases import REQUIRED_CASES
 
@@ -285,9 +299,10 @@ def test_an_injected_cleanup_failure_produces_s_b_for_both_variants(variant):
     assert run.residue == ("/…/probe",)
     assert run.next_run_refuses is True
     assert run.recovery_procedure == (), (
-        "no configuration capture was retained, so no configuration recovery "
-        "procedure is named; the state is still S-B on residue alone"
+        "no configuration capture was retained, so configuration recovery is "
+        "not named for this residue-only S-B state"
     )
+    assert run.residue_recovery_procedure == RESIDUE_RECOVERY_PROCEDURE
 
 
 @pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
@@ -355,7 +370,9 @@ def test_the_misordered_control_leaves_a_generation_behind_a_failed_cleanup():
         generation_present=bool(observed.artifacts),
         database_row_present=observed.registry_row_present,
         next_run_refuses=True,
-        recovery_procedure_named=True,
+        residue_recovery_named=True,
+        configuration_capture_retained=False,
+        configuration_recovery_named=False,
     )
     assert record.status is Status.FAILED
 
@@ -383,24 +400,80 @@ def test_the_two_cleanup_failures_are_distinguished():
 
 
 @pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
-def test_the_recovery_case_reproduces_lab_1(variant):
-    """**A labelled defect reproduction, not a passing case.**
+def test_cleanup_recovery_case_names_the_residue_procedure(variant):
+    """The residue-only S-B outcome carries the named, applicable recovery."""
+    record = classify_recovery_experiment(variant=variant)
 
-    §2.13.2b requires an S-B run to report the named operator recovery, and the
-    harness does not for a residue-only S-B: `CleanupOutcome.recovery_procedure`
-    carries the configuration recovery alone, and `journal.RECOVERY_PROCEDURE` —
-    the five-step residue recovery — is never attached. The experiment observes
-    that and the record fails, which is finding LAB-1.
+    assert record.status is Status.PASSED
+    assert record.detail["variant"] == variant
+    assert "the named operator recovery is reported" in str(record.observed.value)
 
-    This assertion is deliberately the failure. Adjusting the input until the
-    record passed would be exactly what the R2 prompt forbids: making an
-    unimplemented safety property appear to pass.
+
+@pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
+def test_the_recovery_record_is_derived_from_the_outcome_not_asserted(variant, monkeypatch):
+    """The negative control that constrains the repair itself.
+
+    `classify_recovery_experiment` must read whether a procedure was named off
+    the outcome the harness really produced. This replaces that outcome with one
+    that names neither procedure and requires the record to fail. A derivation
+    hardcoded to `True` — the way an unimplemented property is made to look
+    implemented — passes every other test in this file and fails this one.
     """
+    real = feasibility.run_recovery_experiment(variant=variant)
+    silent = replace(real, recovery_procedure=(), residue_recovery_procedure=())
+    monkeypatch.setattr(
+        feasibility, "run_recovery_experiment", lambda **kwargs: silent
+    )
+
     record = classify_recovery_experiment(variant=variant)
 
     assert record.status is Status.FAILED
-    assert record.detail["variant"] == variant
-    assert "recovery not named" in str(record.observed.value)
+    assert "residue recovery not named" in str(record.observed.value)
+
+
+@pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
+def test_naming_the_configuration_procedure_does_not_answer_residue(variant, monkeypatch):
+    """LAB-1's shape, one level up — runner contract r6 §8.1.
+
+    An S-B run that left residue and named only the *configuration* recovery has
+    not reported the procedure that applies to the state it reached. A single
+    boolean over both procedures accepted this, which is the same reporting gap
+    LAB-1 named in the outcome.
+    """
+    real = feasibility.run_recovery_experiment(variant=variant)
+    misreported = replace(
+        real,
+        residue_recovery_procedure=(),
+        recovery_procedure=CONFIGURATION_RECOVERY_PROCEDURE,
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    monkeypatch.setattr(
+        feasibility, "run_recovery_experiment", lambda **kwargs: misreported
+    )
+
+    record = classify_recovery_experiment(variant=variant)
+
+    assert record.status is Status.FAILED
+    assert "residue recovery not named" in str(record.observed.value)
+
+
+@pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
+def test_a_retained_capture_requires_its_own_procedure(variant, monkeypatch):
+    """The mirror clause: a present configuration cause must be answered too."""
+    real = feasibility.run_recovery_experiment(variant=variant)
+    misreported = replace(
+        real,
+        recovery_procedure=(),
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    monkeypatch.setattr(
+        feasibility, "run_recovery_experiment", lambda **kwargs: misreported
+    )
+
+    record = classify_recovery_experiment(variant=variant)
+
+    assert record.status is Status.FAILED
+    assert "configuration recovery not named" in str(record.observed.value)
 
 
 @pytest.mark.parametrize("variant", sorted(CLEANUP_FAILURE_VARIANTS))
@@ -416,7 +489,9 @@ def test_a_run_that_reports_s_c_after_a_failed_cleanup_is_failed(variant):
         generation_present=False,
         database_row_present=False,
         next_run_refuses=True,
-        recovery_procedure_named=True,
+        residue_recovery_named=True,
+        configuration_capture_retained=False,
+        configuration_recovery_named=False,
     )
 
     assert record.status is Status.FAILED
@@ -739,3 +814,193 @@ def test_the_producer_is_in_the_planning_tier():
     from tests.phase_5_0_evidence import test_no_execution
 
     assert "feasibility" in test_no_execution.PLANNING_TIER_NAMES
+
+
+# ---------------------------------------------------------------------------
+# C-P5.0-LAB-I — the producer-to-importer adapter, end to end
+# ---------------------------------------------------------------------------
+
+
+def _imported(arrangement=feasibility.Arrangement.CORRECT):
+    """Producer runs → records → payload → importer → classified result.
+
+    The whole path in one helper, so every assertion below is about the same
+    path rather than about a re-assembled approximation of it.
+    """
+    from tools.phase_5_0_evidence.concrete_plan import build_concrete_plan
+    from tools.phase_5_0_evidence.observations import (
+        classify_supplied_observations,
+        read_records,
+    )
+
+    digest = "a" * 64
+    plan = build_concrete_plan(APPROVED_TARGET)
+    payload = feasibility.producer_report(
+        run_id="feasibility-1",
+        review_manifest_digest=digest,
+        arrangement=arrangement,
+    ).payload
+    supplied = read_records(
+        payload,
+        target_identity=SYNTHETIC_TARGET_IDENTITY,
+        run_id="feasibility-1",
+        review_manifest_digest=digest,
+    )
+    return plan, supplied, classify_supplied_observations(supplied, plan=plan)
+
+
+def test_the_adapter_supplies_every_variant_of_every_c7_case():
+    """The positive case, for all three producers and all eight variants.
+
+    A case is not covered until every variant its schema declares is supplied,
+    so the adapter's job is to supply all of them from real producer runs — not
+    to supply one and let the rest be inferred.
+    """
+    _plan, supplied, _result = _imported()
+
+    keys = {observation.key for observation in supplied}
+    expected = {
+        f"{case_id}#{variant}"
+        for case_id, schema in BAND_7_SCHEMA.items()
+        for variant in schema.variants
+    }
+    assert keys == expected
+    assert all(
+        observation.target_identity == SYNTHETIC_TARGET_IDENTITY
+        for observation in supplied
+    )
+    assert all(
+        observation.custody is feasibility.Custody.SYNTHETIC_FIXTURE
+        for observation in supplied
+    )
+
+
+def test_a_complete_producer_payload_still_resolves_no_c7_case():
+    """**The sentence this whole module turns on.**
+
+    Every variant of every C-7 case is supplied and every record is well formed,
+    and all three cases are still reported `unresolved`, none is `covered`, and
+    the importer classifies **nothing at all** for them. A validated record does
+    not discharge a missing producer, and synthetic feasibility is not
+    operational evidence.
+
+    `records == ()` is the strongest form of that: the importer does not
+    classify a case the plan declares unresolved, so there is not even a passing
+    record for somebody to cite.
+    """
+    _plan, supplied, result = _imported()
+
+    assert len(supplied) == 8
+    assert set(result.unresolved_cases) == set(BAND_7_SCHEMA)
+    assert result.covered == ()
+    assert result.records == ()
+    assert not result.eligible_for_operational_acceptance
+    assert result.outside_scope, "the executed bands are outside this result"
+    # The three Band-7 rows are the ones this importer is about, and each is
+    # declared unresolved by a plan step. The capability rows beside them are
+    # produced by the plan itself and are `outside_scope` — listed, never
+    # counted, and on their own enough to withhold overall completeness.
+    band_7 = {row.case_id: row for row in result.producers if row.case_id in BAND_7_SCHEMA}
+    assert set(band_7) == set(BAND_7_SCHEMA)
+    for row in band_7.values():
+        assert row.declared_unresolved_by
+        assert not row.in_harness_producer
+
+
+def test_the_false_success_control_changes_the_observations_it_reports():
+    """The negative control, through the same adapter.
+
+    A deliberately defective arrangement must produce **different observations**
+    — ones the band's own classifier fails — rather than an absence. A producer
+    whose failure showed up as a missing record would be indistinguishable from
+    a producer that was never run, and a classifier that cannot fail proves
+    nothing.
+
+    The failure is asserted at the classifier, because the importer deliberately
+    classifies nothing while the plan declares the case unresolved: that is the
+    safeguard the test above pins, and it is not weakened here to make a control
+    convenient.
+    """
+    correct = {
+        (record["case_id"], record["variant"]): record["fields"]
+        for record in feasibility.producer_records(
+            run_id="feasibility-1", review_manifest_digest="a" * 64
+        )
+    }
+    unguarded = {
+        (record["case_id"], record["variant"]): record["fields"]
+        for record in feasibility.producer_records(
+            run_id="feasibility-1",
+            review_manifest_digest="a" * 64,
+            arrangement=feasibility.Arrangement.UNGUARDED,
+        )
+    }
+
+    assert set(correct) == set(unguarded), "every variant is still reported"
+    assert correct != unguarded, "and the observations are not the same"
+
+    failed = feasibility.classify_provenance_experiment(
+        omission=feasibility.Omission.PROVENANCE_RECORD,
+        arrangement=feasibility.Arrangement.UNGUARDED,
+    )
+    assert any(record.status is not Status.PASSED for record in failed)
+
+
+def test_the_adapters_records_are_refused_against_the_approved_target():
+    """The importer binding, stated as a refusal rather than as a convention.
+
+    A feasibility payload pointed at the approved target is refused for naming
+    the wrong target. That refusal — not a docstring — is what keeps a
+    facsimile's output out of a real result.
+    """
+    from tools.phase_5_0_evidence.observations import read_records
+
+    payload = feasibility.producer_report(
+        run_id="feasibility-1", review_manifest_digest="a" * 64
+    ).payload
+    with pytest.raises(ObservationRefused):
+        read_records(
+            payload,
+            target_identity=APPROVED_TARGET.identity,
+            run_id="feasibility-1",
+            review_manifest_digest="a" * 64,
+        )
+
+
+def test_the_recovery_adapter_keeps_the_two_causes_apart():
+    """r6 §8.1, one layer further out than LAB-1 was repaired.
+
+    The residue cause and the configuration cause are two fields in the record,
+    and neither answers for the other. A single boolean here would put LAB-1's
+    own shape back into the producer's output.
+    """
+    records = {
+        record["variant"]: record["fields"]
+        for record in feasibility.producer_records(
+            run_id="feasibility-1", review_manifest_digest="a" * 64
+        )
+        if record["case_id"] == "JNL-47-RECOVERY-STATE"
+    }
+    assert set(records) == set(feasibility.CLEANUP_FAILURE_VARIANTS)
+    for fields in records.values():
+        assert "residue_recovery_named" in fields
+        assert "configuration_recovery_named" in fields
+        assert "configuration_capture_retained" in fields
+        # A residue-bearing S-B run names the residue procedure, and that is a
+        # different statement from whether a configuration capture was retained.
+        if int(fields["residue_path_count"]) > 0:
+            assert fields["residue_recovery_named"] == "yes"
+
+
+def test_an_undeclared_field_is_never_defaulted_by_the_adapter():
+    """Every field the schema declares comes from something the run observed.
+
+    The rendering is mechanical and **total**: a field the producer does not
+    observe raises rather than being filled with something plausible, which is
+    the difference between an observation and a value somebody chose.
+    """
+    run = feasibility.run_recovery_experiment(
+        variant=sorted(feasibility.CLEANUP_FAILURE_VARIANTS)[0]
+    )
+    fields = run.as_fields()
+    assert set(fields) == BAND_7_SCHEMA["JNL-47-RECOVERY-STATE"].field_names()

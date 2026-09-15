@@ -203,6 +203,13 @@ FS_IOC_SETFLAGS = 0x40086602
 #: process's uid and gid and this program is exec'd by `E7`.
 ROOT_DIRECTORY_MODE = 0o755
 
+#: `S_IFMT` and `S_IFDIR` as literals. The `stat` module is not in this
+#: program's permitted import set — it runs under `-I -S` and the set is
+#: asserted against the source — and widening that set for two constants would
+#: be relaxing a guard rather than writing two constants.
+_S_IFMT = 0o170000
+_S_IFDIR = 0o040000
+
 #: The character class a path argument may contain. Narrow on purpose: every path
 #: this program is given was generated from the confirmed target's own root.
 _PATH_CHARACTERS = frozenset(
@@ -290,6 +297,31 @@ LINK_NAME = "link_name"
 #: *strictly inside* the root, and it admits exactly one string — so it is a
 #: constant the vector states rather than a path the caller chooses.
 ROOT_PATH = "root_path"
+#: **r6 §6.2.** An index into the descriptor table this step inherited, and into
+#: nothing else. It is never a number a vector author chooses freely: the
+#: executor clears `FD_CLOEXEC` on a declared set starting at descriptor 3 and
+#: passes the step a table naming each entry, and an index outside that range —
+#: or one that is not open, or one that is open on something that is not a
+#: directory — refuses. A step that needs a descriptor it was not given refuses;
+#: it does not open a path to obtain one.
+DIRFD = "dirfd"
+#: **r6 §6.2.** Exactly one path component. Not a path: no separator, no `.`,
+#: no `..`, no empty string. The prefix is bound by the descriptor the `DIRFD`
+#: argument names, exactly as `unlink(2)` describes the prefix being bound, and
+#: a component that could carry a separator would be a pathname that binding
+#: does not cover.
+COMPONENT = "component"
+
+#: The highest `DIRFD` index a vector may name. The declared table starts at
+#: descriptor 3 and r6 §1.3.3's inventory is ten directories at its widest, so
+#: the bound is generous and finite — and an input surface with no bound is an
+#: input surface whose worst case nobody reviewed.
+FIRST_DIRFD = 3
+MAX_DIRFD = 31
+
+#: The longest one path component may be, which is what `NAME_MAX` is on every
+#: filesystem this design contemplates.
+MAX_COMPONENT_BYTES = 255
 
 #: The closed verb table: verb → the kind of each argument, in order.
 VERBS = {
@@ -307,6 +339,15 @@ VERBS = {
     # `FS_IMMUTABLE_FL` in their own bodies. Neither takes a flag argument.
     "getimmutable": (PATH,),
     "clearimmutable": (PATH,),
+    # **r6 §6.2.** The four descriptor-relative verbs. Each resolves **one
+    # component** relative to a descriptor the step inherited, so no operation
+    # below resolves a pathname from the root. They are what replaces the
+    # withdrawn comparison of revision 1 §9.2(b): the prefix is bound by a held
+    # descriptor rather than checked after the fact.
+    "openat": (DIRFD, OPEN_MODE, COMPONENT),
+    "unlinkat": (DIRFD, COMPONENT),
+    "renameat": (DIRFD, COMPONENT, DIRFD, COMPONENT),
+    "fstatat": (DIRFD, COMPONENT),
     # **Conflict C-8.** The two bootstrap verbs.
     "mkroot": (ROOT_PATH,),
     "statroot": (ROOT_PATH,),
@@ -372,6 +413,46 @@ def validate_root(candidate: str) -> str:
     return candidate
 
 
+def validate_dirfd(candidate: str) -> str:
+    """An index into the inherited table, in the declared range.
+
+    The **semantic** check — that index 4 is the journal directory and not some
+    other one — is the executor's, because the table is the executor's. What
+    this program can establish is that the index is in the declared range and
+    that the descriptor is open on a directory, and `_require_directory_fd`
+    below does the second half immediately before the call. An index that is not
+    open fails with `EBADF`, which is the kernel refusing an unregistered
+    descriptor rather than this program permitting one.
+    """
+    if not isinstance(candidate, str) or not candidate.isdigit():
+        raise VectorRefused("a descriptor argument is a non-negative decimal index")
+    index = int(candidate)
+    if index < FIRST_DIRFD or index > MAX_DIRFD:
+        raise VectorRefused(
+            "a descriptor argument is an index into the table this step "
+            "inherited, which starts at descriptor 3 and is bounded"
+        )
+    return candidate
+
+
+def validate_component(candidate: str) -> str:
+    """Exactly one path component, drawn from the same narrow character class."""
+    if not isinstance(candidate, str) or not candidate:
+        raise VectorRefused("a component argument is non-empty text")
+    if not set(candidate) <= _PATH_CHARACTERS:
+        raise VectorRefused(
+            "a component argument is drawn from a narrow character class"
+        )
+    if len(candidate.encode("utf-8")) > MAX_COMPONENT_BYTES:
+        raise VectorRefused("a component argument is within NAME_MAX")
+    if "/" in candidate or candidate in (".", ".."):
+        raise VectorRefused(
+            "a component argument is exactly one path component, so it cannot "
+            "reach past the descriptor that binds its prefix"
+        )
+    return candidate
+
+
 def validate_arguments(verb: str, arguments: list[str]) -> tuple[str, ...]:
     """The verb's exact arity and each argument's declared kind."""
     kinds = VERBS.get(verb)
@@ -393,6 +474,10 @@ def validate_arguments(verb: str, arguments: list[str]) -> tuple[str, ...]:
             if argument not in WRITE_FLAGS:
                 raise VectorRefused("the write mode is not a reviewed one")
             checked.append(argument)
+        elif kind == DIRFD:
+            checked.append(validate_dirfd(argument))
+        elif kind == COMPONENT:
+            checked.append(validate_component(argument))
         else:
             if argument != GENERATION_LINK_NAME:
                 raise VectorRefused("the link target is not the reviewed generation name")
@@ -461,6 +546,97 @@ def _do_unlink(path: str) -> dict:
 def _do_symlink(link_path: str, target_name: str) -> dict:
     os.symlink(target_name, link_path)
     return {"link_target": target_name}
+
+
+def _require_directory_fd(index: str) -> int:
+    """The inherited descriptor, or a refusal. **This is the unregistered check.**
+
+    Two things are established immediately before every descriptor-relative
+    call, and neither can be established by reading the vector:
+
+    1. the descriptor is **open** in this process. One that is not raises
+       `EBADF`, which is the kernel refusing a descriptor the step was not
+       given; and
+    2. it refers to a **directory**. A descriptor open on a file is not one an
+       `*at()` call may traverse, and using it would be reaching an object the
+       executor's table did not name.
+
+    A step that fails either does not fall back to a path. There is no path to
+    fall back to: the whole point of the argument kind is that the prefix is the
+    descriptor.
+    """
+    descriptor = int(index)
+    try:
+        facts = os.fstat(descriptor)
+    except OSError as failure:
+        raise ObservationUnavailable(
+            errno.errorcode.get(failure.errno, "UNKNOWN")
+        ) from None
+    if facts.st_mode & _S_IFMT != _S_IFDIR:
+        raise VectorRefused(
+            "the descriptor this step inherited at that index is not a "
+            "directory, so it is not one an *at() call may traverse"
+        )
+    return descriptor
+
+
+def _do_openat(index: str, mode: str, component: str) -> dict:
+    """`openat(dirfd, component, <reviewed flags>|O_NOFOLLOW)`, then close.
+
+    `O_NOFOLLOW` is added to every reviewed combination here rather than left to
+    the combination's own definition, because the whole value of resolving one
+    component under a held descriptor is lost if that component may be a
+    symbolic link to somewhere else.
+    """
+    dirfd = _require_directory_fd(index)
+    descriptor = os.open(
+        component, OPEN_FLAGS[mode] | os.O_NOFOLLOW, 0o600, dir_fd=dirfd
+    )
+    try:
+        facts = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    return {"st_dev": facts.st_dev, "st_ino": facts.st_ino}
+
+
+def _do_unlinkat(index: str, component: str) -> dict:
+    """`unlinkat(dirfd, component, 0)`. **Not bindable, and this says so.**
+
+    `unlink(2)` interprets a relative pathname relative to the directory the
+    descriptor refers to: the *prefix* is bound, the final component is not. So
+    this removes whatever `component` resolves to **now**, and no flag available
+    here binds it to a previously observed inode. r6 §1.4.5 is the whole of what
+    stands in for that: quiescence is the prevention, the pre-check is the only
+    genuine detection, and the post-check is an absence check and nothing more.
+    """
+    dirfd = _require_directory_fd(index)
+    os.unlink(component, dir_fd=dirfd)
+    return {}
+
+
+def _do_renameat(
+    source_index: str, source: str, destination_index: str, destination: str
+) -> dict:
+    """`renameat(sdirfd, source, ddirfd, destination)`, both prefixes bound."""
+    source_fd = _require_directory_fd(source_index)
+    destination_fd = _require_directory_fd(destination_index)
+    os.rename(source, destination, src_dir_fd=source_fd, dst_dir_fd=destination_fd)
+    return {}
+
+
+def _do_fstatat(index: str, component: str) -> dict:
+    """`fstatat(dirfd, component, AT_SYMLINK_NOFOLLOW)`.
+
+    It reports what the name resolves to **now**, or that it resolves to
+    nothing. It cannot report which object a previous removal took, and nothing
+    here gives it a way to — PR-20260911-R2-3.
+    """
+    dirfd = _require_directory_fd(index)
+    try:
+        facts = os.stat(component, dir_fd=dirfd, follow_symlinks=False)
+    except FileNotFoundError:
+        return {"resolves": 0, "st_dev": 0, "st_ino": 0}
+    return {"resolves": 1, "st_dev": facts.st_dev, "st_ino": facts.st_ino}
 
 
 def _do_statvfs(path: str) -> dict:
@@ -834,6 +1010,16 @@ def _perform(verb: str, arguments: tuple[str, ...], program_path: str) -> dict:
         return _do_unlink(arguments[0])
     if verb == "symlink":
         return _do_symlink(arguments[0], arguments[1])
+    if verb == "openat":
+        return _do_openat(arguments[0], arguments[1], arguments[2])
+    if verb == "unlinkat":
+        return _do_unlinkat(arguments[0], arguments[1])
+    if verb == "renameat":
+        return _do_renameat(
+            arguments[0], arguments[1], arguments[2], arguments[3]
+        )
+    if verb == "fstatat":
+        return _do_fstatat(arguments[0], arguments[1])
     if verb == "statvfs":
         return _do_statvfs(arguments[0])
     if verb == "getflags":

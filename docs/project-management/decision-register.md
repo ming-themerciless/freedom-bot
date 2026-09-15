@@ -1,6 +1,178 @@
 # Decision register
 
-## Open decision submitted — criterion split for `JNL-47-RECOVERY-STATE`, 2026-09-11
+## V6 prerequisite-survey boundary approved — 2026-09-15
+
+Peter approves the V6 re-scope recommended by Codex: the authorized read-only
+preflight may observe filesystem/mount type, `fs.protected_hardlinks`, execution
+identity, ownership/mode assumptions and relevant capability state. This is a
+prerequisite survey, not proof that `linkat` succeeds, and it does not close I3.
+A controlled write verification requires separate authorization before
+execution.
+
+The preflight remains queued behind remediation and independent re-review of
+PR-20260915-LAB-D12-1. No provisioning, permission change, database operation,
+participant wiring, generated-vector execution, real execution or `--execute`
+is authorized.
+
+## Historical — D1/D2 and scoped trust model approved; read-only preflight authorized — 2026-09-15
+
+Peter accepts the scoped same-process trusted-operator model and approves both
+D1 and D2 for runner contract r6. D1 adopts the fail-closed
+`linkat`/`unlinkat` exclusive-publication substitute; D2 adds D20, the
+short-lived traversal-anchored listing descriptor. Peter also authorizes the
+documented read-only target preflight, which remains queued behind independent
+review of the contract edit.
+
+No provisioning, permission change, database operation, generated-vector
+execution, participant wiring, real execution or `--execute` is authorized.
+C-7, EH-R16-1, P5.0-R5, OD-62 and LAB-R6 retain their states.
+
+## Historical — reserved-laboratory one-shot authority re-review accepted — 2026-09-15
+
+Codex's independent
+[re-review](../review/project-review-2026-09-15-reserved-laboratory-one-shot-authority.md)
+closes PR-20260914-LABI-R2-1 within its stated trust boundary. **No product,
+architecture, operational or gate decision is taken.** A process boundary for
+adversarial same-interpreter code would be a new architecture decision and is
+not inferred from this acceptance.
+
+D1 and D2 remain proposed; r6 remains unedited; V6 and all target facts remain
+unconfirmed; LAB-R6, C-7, EH-R16-1, P5.0-R5 and OD-62 retain their states. The
+next action is maintainer direction.
+
+## Historical — reserved-laboratory one-shot authority remediation assigned — 2026-09-15
+
+Peter assigns **C-P5.0-LAB-I-R2** through the bounded
+[Claude prompt](../review/phase-5-0-reserved-laboratory-live-authority-r2-claude-prompt.md)
+to remediate PR-20260914-LABI-R2-1. **No product, architecture, operational or
+gate decision is taken.** This is a correction within the already authorized
+repository-local reservation mechanism: one durable start must authorize no
+more than one reviewed execution.
+
+D1 and D2 remain proposed and unapproved; r6 remains unedited; V6 and all other
+target facts remain unconfirmed; the six non-harness wrappers remain unwired
+under LAB-R6; and C-7, EH-R16-1, P5.0-R5 and OD-62 retain their states. The
+implementer returns a handback for independent review and approves nothing.
+
+## Historical — reserved-laboratory call-graph remediation returned — 2026-09-14
+
+The remediation of Codex re-review finding PR-20260914-LABI-R1-1 is
+[returned](../review/phase-5-0-reserved-laboratory-call-graph-remediation-handback.md)
+for independent Codex technical and security re-review. **No decision is taken
+by it.**
+
+1. **D1 and D2** remain open and unchanged. The re-review said the proposed
+   amendment can be read once the Blocking call-graph defect is remediated; it
+   is unedited, **r6 is unedited**, and **V6 remains unconfirmed**.
+2. **The six non-harness wrappers — LAB-R6.** The re-review agreed with the
+   previous handback that this must not be closed here and needs a separately
+   authorized, ordered provisioning-and-wiring rollout. It is unchanged, and it
+   is the first question in the new handback.
+3. **One new matter is put to the maintainer.** r6 §5.7's **T7** and **T8** —
+   the reservation record's own `admitted` and `running` entries — are published
+   by `ParticipantIntegration.run_harness` in this pass, because
+   `conclude_reservation` refuses a release of a reservation the stored history
+   never admitted, so without them §5.12 has **no reachable successful path**.
+   The r6 table names the executor as their actor, which is the reading taken.
+   If the intent is instead that an operator grants the reservation out of band
+   before the harness runs, that is a different owner for two durable writes and
+   is a maintainer's ruling, not an implementer's inference.
+4. **A related, smaller matter.** `--reservation-owner`, `--requested-at`,
+   `--deadline` and `--recovery-owner` are the minimum `ReservationRequest`
+   refuses to be constructed without, and they are command-line options in this
+   pass. Whether the reservation should instead be read from the durable record
+   or from a reservation file is a decision about where a reservation lives, and
+   it is raised rather than taken.
+
+**No authority, scope, privacy, architecture, data-ownership or gate decision
+changes.** C-7 remains unresolved; EH-R16-1 Open; the twelve target facts
+unconfirmed; `is_executable` False; Package 5.0 not ready; P5.0-R5 Blocking; and
+OD-62 Open.
+
+## Reserved-laboratory remediation returned — 2026-09-14
+
+The C-P5.0-LAB-I-R1 remediation is
+[returned](../review/phase-5-0-reserved-laboratory-implementation-remediation-handback.md)
+for independent Codex technical and security re-review. **No decision is taken
+by it.** The 2026-09-13 register put three matters to the reviewer; their state
+is now:
+
+1. **D1 — `linkat` + `unlinkat` for `renameat2(RENAME_NOREPLACE)`:** still
+   open, and now written as an exact
+   [proposed r6 amendment](../review/phase-5-0-reserved-laboratory-r6-d1-d2-proposed-amendment.md)
+   naming the two-syscall, two-name interruption state and the preserved
+   temporary. **r6 is unedited.** The proposal narrows V6's scope without
+   closing it; **V6 remains unconfirmed**.
+2. **D2 — the listing descriptor:** still open, and written as the same
+   document's proposed **D20** row and §1.3.2 addition. Reported as a gap in an
+   accepted contract, not treated as authorized.
+3. **The `install`/`chattr` scope boundary:** **taken inside this pass**, as the
+   prompt directed. `plan.PERMITTED_EXECUTABLES` is **20**, the generator emits
+   descriptor-bound effects for all 35 affected steps, and neither executable is
+   reachable from any string literal in the package. It is implementation, not a
+   decision to ratify; the reviewer is asked in the handback whether keeping
+   `rm` and `rmdir` as command steps is the reading r6 §6.4 intends.
+
+**One new matter is put to the reviewer:** whether wiring the six non-harness
+participants to their integration points should be a follow-up authorization, or
+should wait until the r6 §7 delta is provisioned — since an integration point
+refuses on an absent lock, and wiring it on an unprovisioned host would stop
+every suite. It is carried as RAID item **LAB-R6**.
+
+Target preflight, applied provisioning and execution each remain separate future
+decisions. C-7 and EH-R16-1 stay open; P5.0-R5 and OD-62 retain their states;
+`is_executable` remains `False`; the shared `ubuntu` identity choice is
+unchanged and its target fact **V10** remains unconfirmed.
+
+## Reserved-laboratory implementation returned — 2026-09-13
+
+The C-P5.0-LAB-I implementation is
+[returned](../review/phase-5-0-reserved-laboratory-implementation-handback.md)
+for independent Codex technical and security review. **No decision is taken by
+it.** Three matters are put to the reviewer rather than decided by the
+implementer:
+
+1. whether `linkat` + `unlinkat` is an acceptable substitute for
+   `renameat2(RENAME_NOREPLACE)`, which Python 3.12's `os` does not expose and
+   which the repository's one `ctypes` exception does not cover. If accepted,
+   preflight item **V6** ceases to be a prerequisite of the publication path;
+2. whether the short-lived `.`-relative listing descriptor is the right answer
+   to r6 §1.3.3 enumerating no descriptor for the `readdir` that §§2.5 and 5.11
+   require — a gap in an accepted contract, reported rather than resolved; and
+3. whether deferring the plan generator's migration off `/usr/bin/install` and
+   `/usr/bin/chattr` is the right scope boundary, leaving
+   `PERMITTED_EXECUTABLES` at 22 rather than r6 §6.4's 20.
+
+Target preflight, applied provisioning and execution each remain separate future
+decisions. C-7 and EH-R16-1 stay open; P5.0-R5 and OD-62 retain their states;
+`is_executable` remains `False`; the shared `ubuntu` identity choice is
+unchanged and its target fact **V10** remains unconfirmed.
+
+## Reserved-laboratory implementation authorization — 2026-09-13
+
+Peter authorizes **C-P5.0-LAB-I**: repository implementation and local tests for
+the accepted r6 mechanism and the bounded code required to address C-7 and
+EH-R16-1. This is not a new design choice: it implements the already selected
+shared `ubuntu` identity and ten-item design basis.
+
+No operational decision is made. Target preflight, applied provisioning and
+execution each remain separate future decisions. C-7 and EH-R16-1 stay open
+until independent review; P5.0-R5 and OD-62 retain their states.
+
+## LAB-1 disposition recorded — 2026-09-13
+
+Codex's independent [R3 re-review](../review/project-review-2026-09-13-lab1-rereview-r3.md)
+accepts the bounded raw-byte remediation with no residual finding. LAB-1's
+Important classification was confirmed earlier and its local remediation is now
+closed. The earlier D-LAB-1 criterion-split proposal was withdrawn after the
+corrected ordering established that the two absence clauses were observable; it
+is not an open decision and no criterion was changed.
+
+This resolves no operational decision. Peter's accepted ten-item design basis
+is not provisioned or authorized for execution; C-7, EH-R16-1, the twelve target
+facts, P5.0-R5 and OD-62 retain their recorded states.
+
+## Historical proposal — criterion split for `JNL-47-RECOVERY-STATE`, 2026-09-11
 
 **D-LAB-1. Open. Not decided, not assumed, and not pre-approved by the laboratory
 direction.** Claude's [handback](../review/phase-5-0-reserved-laboratory-handback.md) §3.4

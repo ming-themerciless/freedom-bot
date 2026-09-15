@@ -10,7 +10,7 @@
 ## 2. Comprehensive Dispositions for Findings R12-01 through R12-08
 
 ### R12-01 — Make hostile-rendering validation deterministic and value-bound
-- **Action:** Refactored `assert_hostile_renders_inert` in [`tests/web/test_p3_4_security_and_escaping.py`](file:///opt/discord-bots/freedom-bot/tests/web/test_p3_4_security_and_escaping.py) to require an explicit stable container selector (`container_selector`) and exact expected container cardinality (`expected_count` or `is_collection=True`).
+- **Action:** Refactored `assert_hostile_renders_inert` in [`tests/web/test_p3_4_security_and_escaping.py`](../../tests/web/test_p3_4_security_and_escaping.py) to require an explicit stable container selector (`container_selector`) and exact expected container cardinality (`expected_count` or `is_collection=True`).
 - **Determinism:** Removed all loose document-wide substring scans for arithmetic evaluation (`49`). `{{7*7}}` non-evaluation is evaluated strictly inside the governed container element text (`assert "{{7*7}}" in container_text` and `assert "49" not in container_text`), preventing false positive failures caused by incidental hex digits in randomly generated correlation UUIDs.
 - **Value-bound assertions:** Proves the accepted value is present as DOM text inside the container, that tag balance is preserved across table rows/cells, and that zero dangerous child elements (`<script>`, `<img>`, etc.) or event handlers (`on*`, `javascript:`) were injected.
 
@@ -28,8 +28,8 @@
   5. **Closed-vocabulary query parameters:** Tested `/v1/login?failure=<hostile>` and `/v1/auth/emergency?failure=<hostile>` under explicit refusal/closed-vocabulary mapping rules, proving raw hostile strings never reflect in HTML.
 
 ### R12-03 — Reuse the accepted fail-closed no-JavaScript validator
-- **Action:** Extracted `FlowContract`, `FormContract`, `strip_htmx_attributes`, `_matches_registered_route`, and `validate_rendered_no_js_fallback` into a neutral shared helper module [`tests/web/no_js_helpers.py`](file:///opt/discord-bots/freedom-bot/tests/web/no_js_helpers.py).
-- **Consolidation:** Both [`tests/web/test_p3_4_accessibility.py`](file:///opt/discord-bots/freedom-bot/tests/web/test_p3_4_accessibility.py) and [`tests/web/test_p3_4_security_and_escaping.py`](file:///opt/discord-bots/freedom-bot/tests/web/test_p3_4_security_and_escaping.py) import and execute the identical shared validator implementation.
+- **Action:** Extracted `FlowContract`, `FormContract`, `strip_htmx_attributes`, `_matches_registered_route`, and `validate_rendered_no_js_fallback` into a neutral shared helper module [`tests/web/no_js_helpers.py`](../../tests/web/no_js_helpers.py).
+- **Consolidation:** Both [`tests/web/test_p3_4_accessibility.py`](../../tests/web/test_p3_4_accessibility.py) and [`tests/web/test_p3_4_security_and_escaping.py`](../../tests/web/test_p3_4_security_and_escaping.py) import and execute the identical shared validator implementation.
 - **Inventory:** Formally inventoried all 9 essential flows across the application with exact form action, method, CSRF token, and hidden field constraints:
   - `Flow-01`: Login View (R-02) — OAuth start and emergency links, no form.
   - `Flow-02`: Emergency Access Recovery (R-06) — POST `/v1/auth/emergency/recovery`, sessionless, CSRF-exempt.
@@ -66,7 +66,7 @@
      - Wrong container selector fails (`Expected exactly 1 container ... found 0`).
 
 ### R12-06 — Enforce exactly one exact canonical correlation UUID
-- **Action:** Implemented the strict shared correlation UUID validator `validate_exact_canonical_correlation_uuid(response) -> UUID` in [`tests/web/no_js_helpers.py`](file:///opt/discord-bots/freedom-bot/tests/web/no_js_helpers.py), reused across [`tests/web/test_oauth_refusal_audit.py`](file:///opt/discord-bots/freedom-bot/tests/web/test_oauth_refusal_audit.py) and [`tests/web/test_p3_4_security_and_escaping.py`](file:///opt/discord-bots/freedom-bot/tests/web/test_p3_4_security_and_escaping.py):
+- **Action:** Implemented the strict shared correlation UUID validator `validate_exact_canonical_correlation_uuid(response) -> UUID` in [`tests/web/no_js_helpers.py`](../../tests/web/no_js_helpers.py), reused across [`tests/web/test_oauth_refusal_audit.py`](../../tests/web/test_oauth_refusal_audit.py) and [`tests/web/test_p3_4_security_and_escaping.py`](../../tests/web/test_p3_4_security_and_escaping.py):
   1. Requires exactly one `.reference-code` element in the entire response body.
   2. Requires exactly one child `NavigableString` inside `.reference-code`, prohibiting child markup (`<span>`), HTML comments (`<!-- -->`), and mixed content.
   3. Enforces exact canonical lowercase hyphenated UUID format (`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` via `raw_text == str(UUID(raw_text))`).

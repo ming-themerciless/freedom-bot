@@ -123,6 +123,10 @@ def test_the_reviewed_prefix_is_accepted_for_every_verb() -> None:
         "write_mode": "wronly",
         "link_name": GENERATION_LINK_NAME,
         "root_path": ROOT,
+        # **r6 §6.2.** An index into the table the step inherits, and one path
+        # component. Descriptor 3 is the first entry of a declared set.
+        "dirfd": "3",
+        "component": "stage1.target",
     }
     for name, spec in CASE_VERBS.items():
         bootstrap = name in BOOTSTRAP_VERBS
@@ -263,14 +267,16 @@ def test_a_systemd_run_payload_is_validated_by_the_same_grammar() -> None:
 
 
 def test_an_end_of_options_marker_is_not_treated_as_an_exec_delegation() -> None:
-    """`chattr +a -- PATH` and `rm --force -- PATH` are unaffected.
+    """`rm --force -- PATH` and `rmdir -- PATH` are unaffected.
 
     The rule reaches `capsh` and `systemd-run` by name. Applying it to every
-    `--` would refuse the attribute and removal vectors the plan has always
-    carried, which would be a guard that fires on the wrong thing.
+    `--` would refuse the removal vectors the plan has always carried, which
+    would be a guard that fires on the wrong thing. (`chattr +a -- PATH` was the
+    third example here until r6 §6.4 retired that executable; `lsattr` keeps the
+    same shape and is still permitted.)
     """
     for argv in (
-        ("/usr/bin/chattr", "+a", "--", f"{ROOT}/journal/000001.journal"),
+        ("/usr/bin/lsattr", "--", f"{ROOT}/journal/000001.journal"),
         ("/usr/bin/rm", "--force", "--", f"{ROOT}/journal/000001.journal"),
         ("/usr/bin/rmdir", "--", ROOT),
     ):
@@ -334,26 +340,29 @@ def test_the_reviewed_source_is_covered_by_the_review_manifest() -> None:
 
 
 def test_the_plan_installs_the_reviewed_source_byte_for_byte() -> None:
-    """`install` copies. There is no build step between source and installation.
+    """The installed bytes are the covered source's. No build step exists.
 
     The manifest's digest for the source is therefore also the installation
     digest, which is the property R10 §R10.0 showed a compiled program cannot
-    have — and which is why the vector's `install` names the covered file rather
-    than a generated one.
+    have. **r6 §6.4, C-P5.0-LAB-I-R1:** the `install` vector that used to carry
+    this is retired, and P2's effect names the covered source instead — so the
+    digest the executor compares against is the manifest's rather than a file's.
     """
     plan = build_concrete_plan()
     installs = [
         step
         for step in plan.steps
-        if step.argv[0] == "/usr/bin/install" and step.argv[-1] == PROGRAM
+        if step.is_effect and step.effect.kind.value == "install_payload"
     ]
     assert len(installs) == 1
     step = installs[0]
-    assert step.argv[-2] == CASE_PROGRAM_SOURCE_PATH
+    assert step.argv == ()
+    assert step.effect.path == PROGRAM
+    assert step.effect.payload_source == CASE_PROGRAM_SOURCE
     assert step.mutation_ids == (f"file:{PROGRAM}",)
-    assert "--mode" in step.argv and CASE_PROGRAM_MODE in step.argv
-    assert "--owner" in step.argv and CASE_PROGRAM_OWNER in step.argv
-    assert "--group" in step.argv and CASE_PROGRAM_GROUP in step.argv
+    assert step.effect.mode == int(CASE_PROGRAM_MODE, 8)
+    assert step.effect.owner == CASE_PROGRAM_OWNER
+    assert step.effect.group == CASE_PROGRAM_GROUP
 
 
 def test_no_generated_step_builds_downloads_or_compiles_the_program() -> None:
@@ -366,7 +375,8 @@ def test_no_generated_step_builds_downloads_or_compiles_the_program() -> None:
         for argument in step.argv:
             if argument.startswith("/"):
                 assert argument.rsplit("/", 1)[-1] not in forbidden, step.step_id
-        assert step.argv[0].rsplit("/", 1)[-1] not in forbidden, step.step_id
+        if step.argv:
+            assert step.argv[0].rsplit("/", 1)[-1] not in forbidden, step.step_id
 
 
 # ---------------------------------------------------------------------------

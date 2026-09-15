@@ -75,13 +75,19 @@ from .targets import (
 #: privilege transition inside an artifact whose whole purpose is to describe what
 #: runs *after* that transition. `CommandStep.run_as` records the identity
 #: instead.
+#: **r6 §6.4, applied in C-P5.0-LAB-I-R1.** `/usr/bin/install` and
+#: `/usr/bin/chattr` are **gone**, taking the set from 22 to 20. They were the
+#: two pathname-based programs whose effects §1.4 replaces with syscalls issued
+#: on a held descriptor: `install` succeeds whether or not something was already
+#: at the name and re-resolves that name for each of its own effects, and
+#: `chattr` sets a flag on whatever a fresh lookup finds. `EffectKind` below
+#: names what replaced them, `executor.DescriptorBoundEffects` issues it, and
+#: no step in this package may name either binary again.
 PERMITTED_EXECUTABLES = frozenset(
     {
-        "/usr/bin/chattr",
         "/usr/bin/lsattr",
         "/usr/bin/getent",
         "/usr/bin/id",
-        "/usr/bin/install",
         "/usr/bin/namei",
         "/usr/bin/stat",
         "/usr/bin/findmnt",
@@ -100,6 +106,13 @@ PERMITTED_EXECUTABLES = frozenset(
         "/usr/sbin/gpasswd",
         "/usr/sbin/visudo",
     }
+)
+
+#: The two executables r6 §6.4 retires, named once so a structural test can
+#: assert their absence from the allowlist, from every generated vector and from
+#: the executable call graph without respelling them in three places.
+RETIRED_EXECUTABLES: frozenset[str] = frozenset(
+    {"/usr/bin/install", "/usr/bin/chattr"}
 )
 
 _FORBIDDEN_IN_ARGUMENT = set(";|&$`<>\n\r\\\"'*?")
@@ -464,6 +477,173 @@ def _validate_delegated_vector(
     validate_case_vector(tail, target=target)
 
 
+class EffectKind(str, Enum):
+    """What a descriptor-bound step does, from the closed set r6 §1.4 names.
+
+    **These are the effects that used to be `install` and `chattr` vectors.**
+    An effect step carries no argument vector and no executable at all: the
+    executor issues the syscall itself, on a descriptor the inventory holds, so
+    there is no pathname re-resolved between the ownership check and the effect
+    and no program in between that could resolve one.
+    """
+
+    #: **P1 + P1b.** `mkdirat` one run directory exclusively, then the parent's
+    #: containing-entry barrier. Replaces `install --directory`.
+    CREATE_DIRECTORY = "create_directory"
+    #: Create one reviewed file exclusively from a held buffer, with the mode and
+    #: ownership set on the descriptor. Replaces `install <src> <dst>` for the
+    #: empty subjects.
+    CREATE_OBJECT = "create_object"
+    #: **P2.** Install the reviewed case program from the one held buffer.
+    #: Replaces `install -m 0555 <source> <destination>`.
+    INSTALL_PAYLOAD = "install_payload"
+    #: **P4.** `ioctl(FS_IOC_SETFLAGS)` on the inode a descriptor holds.
+    #: Replaces `chattr +a` / `chattr +i`.
+    SET_FLAG = "set_flag"
+    #: **L3's first half.** Clear the flag, on the descriptor. Replaces
+    #: `chattr -ia`.
+    CLEAR_FLAG = "clear_flag"
+    #: **§1.4.3 / §2.3.3.** Capture the reviewed configuration set into the
+    #: independent recovery store, crossing all five publication barriers.
+    #: Replaces the two `install <config> <root>/before/<config>` vectors.
+    CAPTURE_CONFIGURATION = "capture_configuration"
+    #: **§2.4 / L1.** Verify against the independent store, then write and
+    #: publish. Replaces the two `install <root>/before/<config> <config>`
+    #: cleanup vectors.
+    RESTORE_CONFIGURATION = "restore_configuration"
+
+
+#: The inventory role the disposable root `R` is registered under, and the role
+#: its parent is registered under. They are named in the planning tier because a
+#: reviewed effect step names one of them, and `executor` imports them rather
+#: than spelling a second copy.
+ROOT_ROLE = "root"
+EVIDENCE_ROLE = "evidence"
+#: The role `/etc/postgresql/16/main` is held under — r6 §1.3.3's D9/D10 pair.
+#: The two configuration effects resolve their components relative to that held
+#: traversal descriptor, so no pathname under it is re-resolved between the
+#: ownership check and the effect.
+CONFIGURATION_ROLE = "pgconf"
+
+#: The two inode flags r6 §1.4.2 P4 names, by the symbol the plan writes and the
+#: `chattr` letter it replaces. The numeric values live in `executor`, beside
+#: the `ioctl` request numbers, and neither is reachable from a vector.
+EFFECT_FLAGS: Mapping[str, str] = {
+    "append_only": "a",
+    "immutable": "i",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class DescriptorEffect:
+    """One descriptor-bound effect, reviewed exactly as an argument vector is.
+
+    Every field is a name or a number a reviewer approves, and none of them is a
+    pathname the executor resolves: `directory_role` selects a descriptor the
+    inventory already holds and `name` is one path component under it. The
+    absolute path the plan documents is derived from the two and is carried for
+    the reviewer and the mutation id, never used to reach the object.
+    """
+
+    kind: EffectKind
+    #: The inventory role whose **traversal** descriptor the effect is issued
+    #: relative to. Empty only for the two configuration effects, which name the
+    #: configuration role instead.
+    directory_role: str = ""
+    #: One path component under that role. Empty for the configuration effects.
+    name: str = ""
+    #: The absolute path this effect's object has, for the reviewer and for the
+    #: declared mutation. It is documentation: nothing resolves it.
+    path: str = ""
+    mode: int = 0
+    owner: str = ""
+    group: str = ""
+    #: One of `EFFECT_FLAGS` for `SET_FLAG`; for `CLEAR_FLAG` the flags cleared,
+    #: in the order `chattr -ia` named them.
+    flags: tuple[str, ...] = ()
+    #: The covered source whose reviewed bytes `INSTALL_PAYLOAD` installs.
+    payload_source: str = ""
+    #: The inventory role the two configuration effects resolve their components
+    #: under — the held `/etc/postgresql/16/main` traversal descriptor.
+    configuration_role: str = ""
+    #: The reviewed configuration components the capture and the restoration
+    #: bind, in the order the plan lists them.
+    components: tuple[str, ...] = ()
+    #: **r6 §2.5.** Where a capture's **evidence** copy is retained under the
+    #: disposable root. It is written from the independent store *after* the
+    #: basis is durably published, so it can neither precede the basis nor be
+    #: mistaken for it: "`R/before` may be retained for evidence, but it is not
+    #: a recovery basis". Empty for every effect but the capture.
+    evidence_role: str = ""
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, EffectKind):
+            raise PlanRefused("A descriptor effect names one of the closed kinds.")
+        if self.kind in _CONFIGURATION_EFFECTS:
+            if not self.configuration_role or not self.components:
+                raise PlanRefused(
+                    f"A {self.kind.value} effect names the configuration role "
+                    "it holds and the reviewed components it binds."
+                )
+            if self.directory_role or self.name:
+                raise PlanRefused(
+                    f"A {self.kind.value} effect binds a reviewed capture set, "
+                    "not one named object under a run directory."
+                )
+            return
+        if not self.directory_role.strip():
+            raise PlanRefused(
+                f"A {self.kind.value} effect names the directory role whose "
+                "held descriptor it is issued relative to."
+            )
+        if not self.name or "/" in self.name or self.name in (".", ".."):
+            raise PlanRefused(
+                f"A {self.kind.value} effect names one path component. A "
+                "separator, `.` or `..` would be a pathname, and a pathname is "
+                "what the descriptor chain exists to remove."
+            )
+        if self.kind in (EffectKind.SET_FLAG, EffectKind.CLEAR_FLAG):
+            if not self.flags or any(
+                flag not in EFFECT_FLAGS for flag in self.flags
+            ):
+                raise PlanRefused(
+                    f"A {self.kind.value} effect names one or more of "
+                    f"{sorted(EFFECT_FLAGS)}."
+                )
+            if self.kind is EffectKind.SET_FLAG and len(self.flags) != 1:
+                raise PlanRefused(
+                    "A set_flag effect sets exactly one flag, as `chattr +a` "
+                    "and `chattr +i` each did."
+                )
+        elif self.flags:
+            raise PlanRefused(
+                f"A {self.kind.value} effect sets no inode flag and names none."
+            )
+        if self.kind is EffectKind.INSTALL_PAYLOAD and not self.payload_source:
+            raise PlanRefused(
+                "An install_payload effect names the covered source whose "
+                "reviewed bytes it installs, so the digest it is checked "
+                "against is the manifest's rather than the file's."
+            )
+
+    @property
+    def summary(self) -> str:
+        """One reviewed line, for the rendered plan and the dry-run listing."""
+        if self.kind in _CONFIGURATION_EFFECTS:
+            return f"{self.kind.value}({', '.join(self.components)})"
+        detail = f"{self.directory_role}/{self.name}"
+        if self.flags:
+            detail = f"{detail} {''.join(EFFECT_FLAGS[f] for f in self.flags)}"
+        elif self.mode:
+            detail = f"{detail} {self.mode:04o}"
+        return f"{self.kind.value}({detail})"
+
+
+_CONFIGURATION_EFFECTS = frozenset(
+    {EffectKind.CAPTURE_CONFIGURATION, EffectKind.RESTORE_CONFIGURATION}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class CommandStep:
     """One command, with everything needed to review it before it is run."""
@@ -596,6 +776,20 @@ class CommandStep:
     #: to name a path strictly inside a directory this same step creates
     #: exclusively; a mutation that is not is refused rather than swept in.
     establishes_ownership_of_contained: tuple[str, ...] = ()
+    #: **r6 §1.4, C-P5.0-LAB-I-R1.** The descriptor-bound effect this step is,
+    #: instead of a command. A step with one carries **no argument vector and no
+    #: executable**: the executor issues the syscall itself through
+    #: `executor.DescriptorBoundEffects`, on a descriptor the inventory holds.
+    #:
+    #: This is what replaced `/usr/bin/install` and `/usr/bin/chattr`. The two
+    #: are no longer in `PERMITTED_EXECUTABLES`, so a step that tried to name
+    #: one is refused by `validate_argv` rather than merely discouraged.
+    effect: DescriptorEffect | None = None
+
+    @property
+    def is_effect(self) -> bool:
+        """True for a descriptor-bound effect step. It has no argument vector."""
+        return self.effect is not None
 
     def __post_init__(self) -> None:
         for name in ("step_id", "band", "run_as", "purpose"):
@@ -608,6 +802,43 @@ class CommandStep:
             )
         if not isinstance(self.argv, tuple):
             raise PlanRefused("A step's argv is a tuple, so the plan is immutable.")
+        if self.effect is not None:
+            if not isinstance(self.effect, DescriptorEffect):
+                raise PlanRefused(
+                    f"Step {self.step_id!r} names an effect that is not one of "
+                    "the reviewed descriptor-bound effects."
+                )
+            if self.argv:
+                raise PlanRefused(
+                    f"Step {self.step_id!r} is a descriptor-bound effect and "
+                    "carries an argument vector. An effect names no executable "
+                    "at all — that is the whole of what replacing `install` and "
+                    "`chattr` means."
+                )
+            if self.run_as != "root":
+                raise PlanRefused(
+                    f"Step {self.step_id!r} issues a descriptor-bound effect as "
+                    f"{self.run_as!r}. The executor holds the descriptors and "
+                    "issues every effect itself, as root; there is no process "
+                    "for another identity to be assumed in."
+                )
+            if self.bindings:
+                raise PlanRefused(
+                    f"Step {self.step_id!r} is a descriptor-bound effect and "
+                    "declares late-binding sites. There is no vector to "
+                    "substitute a name into."
+                )
+            if self.capture is not CapturePolicy.EXIT_STATUS_ONLY:
+                raise PlanRefused(
+                    f"Step {self.step_id!r} is a descriptor-bound effect and "
+                    "would record more than its outcome. An effect's purpose is "
+                    "a side effect; it has no observation to make."
+                )
+        elif not self.argv:
+            raise PlanRefused(
+                f"Step {self.step_id!r} has neither an argument vector nor a "
+                "descriptor-bound effect, so there is nothing for it to do."
+            )
         if self.bindings:
             validate_sites(self.argv, self.bindings)
         if not isinstance(self.role, StepRole):
@@ -1187,7 +1418,8 @@ class ExecutionPlan:
                 raise PlanRefused(f"Step id {step.step_id!r} is used twice.")
             seen_steps.add(step.step_id)
             step_order[step.step_id] = len(step_order)
-            validate_argv(step.argv, target=self.target)
+            if not step.is_effect:
+                validate_argv(step.argv, target=self.target)
             if not step.is_mutation_bearing:
                 continue
             self.target.require_mutable()
@@ -1279,6 +1511,13 @@ def read_only_plan(steps: Sequence[CommandStep]) -> ExecutionPlan:
 
 __all__ = [
     "CommandStep",
+    "DescriptorEffect",
+    "EFFECT_FLAGS",
+    "CONFIGURATION_ROLE",
+    "EVIDENCE_ROLE",
+    "EffectKind",
+    "ROOT_ROLE",
+    "RETIRED_EXECUTABLES",
     "StepRole",
     "DryRunRunner",
     "ExecutionPlan",

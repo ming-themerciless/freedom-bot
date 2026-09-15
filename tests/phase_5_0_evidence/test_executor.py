@@ -60,6 +60,8 @@ from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewMani
 from tools.phase_5_0_evidence.targets import DisposableTarget
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
+    refusing_effects,
     cleanup_observations_for,
     bound_argv,
     observations_for,
@@ -121,6 +123,11 @@ class FakeIdentityLookup:
             "freedomcoord": (5001, 5001),
             "freedomsheet": (5002, 5002),
             "fbprobe": (5003, 5003),
+            # `postgres` is **pre-existing**, not disposable. The reviewed
+            # restoration `fchown`s the configuration back to it — r6 §2.4 —
+            # so the injected NSS boundary has to answer for it. The numbers
+            # are this file's, like every other one here.
+            "postgres": (900, 900),
         }
     )
     groups: dict = field(
@@ -128,6 +135,7 @@ class FakeIdentityLookup:
             "freedomcoord": 5001,
             "freedomsheet": 5002,
             "fbprobe": 5003,
+            "postgres": 900,
             "freedomjournal": 5004,
         }
     )
@@ -177,7 +185,17 @@ class FakeBoundary:
         default_factory=list
     )
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         vector = tuple(argv)
         self.calls.append((step_id, run_as, vector, capture, timeout_seconds))
         if step_id in self.scripted:
@@ -246,6 +264,7 @@ def runner(plan: ConcretePlan, fake: FakeBoundary, **overrides) -> ExecutingRunn
         source_bytes=dict(SOURCES),
         materializer=FakeMaterializer(),
         identity_lookup=FakeIdentityLookup(),
+        effects=RecordingEffects(),
     )
     keywords.update(overrides)
     return ExecutingRunner(**keywords)
@@ -615,7 +634,14 @@ def test_an_identity_transition_is_not_composed_into_the_argument_vector() -> No
     """
     plan = runnable_plan()
     for step in list(plan.steps) + list(plan.cleanup_plan.steps):
-        assert step.argv[0] not in ("/usr/bin/setpriv", "/usr/bin/sudo", "/usr/bin/su")
+        # A descriptor-bound effect names no executable at all, which is the
+        # same property one step further: there is no vector for a privilege
+        # helper to be composed into.
+        assert step.argv[:1] not in (
+            ("/usr/bin/setpriv",),
+            ("/usr/bin/sudo",),
+            ("/usr/bin/su",),
+        )
 
 
 def test_the_environment_is_minimal_and_fixed() -> None:
@@ -631,8 +657,19 @@ def test_psql_gets_the_explicit_postgresql_16_path() -> None:
 
 
 def test_every_step_has_a_bounded_non_zero_timeout() -> None:
+    """Every step that starts a process. An effect starts none.
+
+    A descriptor-bound effect is a syscall the executor issues in its own
+    process, so there is no child to kill and no timeout to bound. What bounds
+    it instead is that it refuses before issuing: an unarmed issuer, an
+    unrecorded identity, an absent object, an unequal identity and an
+    unestablished quiescence each refuse, and none of them blocks.
+    """
     plan = runnable_plan()
     for step in list(plan.steps) + list(plan.cleanup_plan.steps):
+        if step.is_effect:
+            assert step.argv == ()
+            continue
         seconds = timeout_for(step.argv[0])
         assert 0 < seconds <= 120.0, step.step_id
     assert timeout_for("/usr/bin/id") == DEFAULT_TIMEOUT_SECONDS
@@ -751,11 +788,18 @@ def test_interruption_after_each_mutation_prefix_still_runs_the_whole_derived_cl
     """
     plan = runnable_plan()
     for index in _mutation_prefixes(plan):
+        step = plan.steps[index]
         fake = satisfying(plan)
-        fake.scripted[plan.steps[index].step_id] = CommandResult(
-            exit_status=99, timed_out=False
-        )
-        outcome = runner(plan, fake).execute()
+        overrides = {}
+        if step.is_effect:
+            # An effect starts no process, so it is failed by refusing it at the
+            # issuer rather than by scripting an exit status at the boundary.
+            overrides["effects"] = refusing_effects(step)
+        else:
+            fake.scripted[step.step_id] = CommandResult(
+                exit_status=99, timed_out=False
+            )
+        outcome = runner(plan, fake, **overrides).execute()
 
         assert outcome.stopped_at == plan.steps[index].step_id
         # **R13, EH-R13-1.** The *applicable* cleanup, not the whole declared
@@ -841,7 +885,8 @@ def test_cleanup_restores_before_reloading_and_reloads_before_verifying() -> Non
     psql_reversals = [
         index
         for index, executed in enumerate(outcome.cleanup_steps)
-        if executed.argv[0] == "/usr/bin/psql" and kinds[index] is CleanupStepKind.REVERSAL
+        if executed.argv[:1] == ("/usr/bin/psql",)
+        and kinds[index] is CleanupStepKind.REVERSAL
     ]
     assert psql_reversals and min(psql_reversals) > last_verify
 
@@ -850,9 +895,9 @@ def test_an_unrestored_configuration_file_is_s_b_and_names_the_risk() -> None:
     plan = runnable_plan()
     fake = satisfying(plan)
     restore = plan.cleanup_plan.restore_steps[0]
-    fake.scripted[restore.step_id] = CommandResult(exit_status=1, timed_out=False)
-
-    outcome = runner(plan, fake).execute()
+    # **r6 §2.4.** The restore is a descriptor-bound effect since r6 §6.4
+    # retired `install`, so it is failed at the issuer rather than scripted.
+    outcome = runner(plan, fake, effects=refusing_effects(restore)).execute()
 
     assert outcome.cleanup.state == "S-B"
     assert outcome.exit_code == 3
@@ -886,7 +931,9 @@ def test_failed_cleanup_blocks_a_rerun_rather_than_retrying_it() -> None:
     reversal = next(
         step
         for step in plan.cleanup_plan.steps
-        if step.kind is CleanupStepKind.REVERSAL and step.removes.startswith("/")
+        if step.kind is CleanupStepKind.REVERSAL
+        and not step.is_effect
+        and step.removes.startswith("/")
     )
     fake.scripted[reversal.step_id] = CommandResult(exit_status=1, timed_out=False)
 
@@ -1017,6 +1064,7 @@ def test_an_executor_assembled_without_a_materializer_refuses_to_write() -> None
         confirmation_token=CONFIRMATION_TOKEN,
         source_bytes=dict(SOURCES),
         identity_lookup=FakeIdentityLookup(),
+        effects=RecordingEffects(),
     )
     outcome = live.execute()
     assert outcome.stopped_at == plan.materializations[0].step_id
@@ -1042,8 +1090,15 @@ def test_a_materialization_refuses_when_its_capture_step_was_not_satisfied() -> 
     assert item.capture_step_id in refusal
     assert "nothing to reinstall" in refusal
 
+    # **r6 §§2.3.3 and 1.4.4 M1, C-P5.0-LAB-I-R1.** A satisfied capture step is
+    # necessary and **not sufficient**: M1's own precondition is that the
+    # independent publication reported every barrier crossed, and that is
+    # re-checked here rather than inferred from the step's satisfaction.
     satisfied = executor_module._RunState()
     satisfied.satisfied_steps.add(item.capture_step_id)
+    assert "recovery basis" in live._revalidate_materialization(item, satisfied)
+
+    live._publication = _published_basis()
     assert live._revalidate_materialization(item, satisfied) == ""
 
 
@@ -1073,7 +1128,28 @@ def test_a_materialization_whose_destination_drifted_is_refused_twice_over() -> 
     state = executor_module_state(item.capture_step_id)
     refusal = live._revalidate_materialization(elsewhere, state)
     assert "configuration path" in refusal
+    live._publication = _published_basis()
     assert live._revalidate_materialization(item, state) == ""
+
+
+def _published_basis():
+    """A publication reporting every §2.3.3 barrier crossed.
+
+    Built here rather than taken from a store, because these two tests are about
+    the materialization's revalidation and not about the store — and because a
+    test in this suite may not hold a real recovery store.
+    """
+    from tools.phase_5_0_evidence.execution.recovery_store import (
+        BARRIER_ORDER,
+        StorePublication,
+    )
+
+    return StorePublication(
+        published=True,
+        mutation_permitted=True,
+        barriers_crossed=BARRIER_ORDER,
+        run_directory_name="RUN-TEST",
+    )
 
 
 def executor_module_state(capture_step_id: str):

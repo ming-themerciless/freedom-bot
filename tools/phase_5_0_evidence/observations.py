@@ -115,7 +115,17 @@ OBSERVATION_SCHEMA = "freedom-blades/phase-5.0/supplied-observation"
 #: *"the program did not refuse"* — a result the version-1 schema could not
 #: express, which is why the classifier inferred one. A version-1 payload is
 #: refused rather than read under the new meaning.
-OBSERVATION_SCHEMA_VERSION = 2
+#:
+#: **3** is the LAB-1 repair's disposition — runner contract r6 §8.1.
+#: `JNL-47-RECOVERY-STATE` replaces the single `recovery_procedure_named` with
+#: the two causes and the two procedures kept apart: `residue_recovery_named`,
+#: `configuration_capture_retained` and `configuration_recovery_named`. Two
+#: different named recoveries exist and a version-2 record could not say *which*
+#: was reported, so a run that named the configuration procedure while leaving
+#: residue satisfied the clause. That is LAB-1 itself, in the evidence record
+#: rather than in the outcome. A version-2 payload is refused rather than read
+#: under the new meaning.
+OBSERVATION_SCHEMA_VERSION = 3
 
 #: The marker a synthetic fixture's target identity carries, so a synthetic
 #: record can never be read as an observation of the approved target. It is
@@ -293,8 +303,12 @@ BAND_7_SCHEMA: Mapping[str, CaseSchema] = {
                 "record the exit code and the §2.13.2b state the run reported; "
                 "count the residue paths it named; record whether any generation "
                 "artifact and any database row exist; attempt a second run and "
-                "record whether it refused; and record whether the named operator "
-                "recovery procedure was reported. One record per variant"
+                "record whether it refused; record whether the run named the "
+                "five-step residue recovery; and record whether a configuration "
+                "capture was retained and, if so, whether the run named the "
+                "four-step configuration recovery. Each procedure is recorded "
+                "separately because each answers a different cause. One record "
+                "per variant"
             ),
             in_harness_producer=False,
             variants=_RECOVERY_VARIANTS,
@@ -305,7 +319,9 @@ BAND_7_SCHEMA: Mapping[str, CaseSchema] = {
                 _f("generation_present", "yes_no"),
                 _f("database_row_present", "yes_no"),
                 _f("next_run_refuses", "yes_no"),
-                _f("recovery_procedure_named", "yes_no"),
+                _f("residue_recovery_named", "yes_no"),
+                _f("configuration_capture_retained", "yes_no"),
+                _f("configuration_recovery_named", "yes_no"),
             ),
         ),
     )
@@ -1064,7 +1080,13 @@ def _classify_one(observation: SuppliedObservation) -> tuple[EvidenceRecord, ...
             generation_present=observation.yes("generation_present"),
             database_row_present=observation.yes("database_row_present"),
             next_run_refuses=observation.yes("next_run_refuses"),
-            recovery_procedure_named=observation.yes("recovery_procedure_named"),
+            residue_recovery_named=observation.yes("residue_recovery_named"),
+            configuration_capture_retained=observation.yes(
+                "configuration_capture_retained"
+            ),
+            configuration_recovery_named=observation.yes(
+                "configuration_recovery_named"
+            ),
         ),
     )
 

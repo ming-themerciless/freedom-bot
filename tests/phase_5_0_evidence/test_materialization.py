@@ -271,9 +271,14 @@ def test_each_materialization_runs_after_its_own_byte_exact_capture() -> None:
         capture = next(
             step for step in PLAN.steps if step.step_id == item.capture_step_id
         )
-        assert capture.argv[0] == "/usr/bin/install"
-        assert capture.argv[-2] == item.destination
-        assert capture.argv[-1].startswith(APPROVED_TARGET.root_path + "/before/")
+        # **r6 §§1.4.3 and 2.3.3, C-P5.0-LAB-I-R1.** The capture is no longer
+        # two `install` vectors copying into `R/before`. It is one effect that
+        # publishes both reviewed components into the **independent** store and
+        # reports every publication barrier crossed; `R/before` is retained as
+        # evidence and is not a recovery basis.
+        assert capture.is_effect
+        assert capture.effect.kind.value == "capture_configuration"
+        assert item.destination.rsplit("/", 1)[-1] in capture.effect.components
         assert order[item.capture_step_id] <= order[item.after_step_id]
 
 

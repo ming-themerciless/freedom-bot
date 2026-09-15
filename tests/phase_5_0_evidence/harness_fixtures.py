@@ -43,7 +43,19 @@ from tools.phase_5_0_evidence.case_runtime import (
     case_program_path,
 )
 from tools.phase_5_0_evidence.concrete_plan import ConcretePlan, build_concrete_plan
-from tools.phase_5_0_evidence.execution.executor import CREATED_IDENTITY_KEYS
+from tools.phase_5_0_evidence.execution.executor import (
+    CREATED_IDENTITY_KEYS,
+    EFFECT_IDENTITY_NOT_RECORDED,
+    EffectRefused,
+)
+from tools.phase_5_0_evidence.execution.materializer import (
+    RESTORATION_BARRIERS,
+    RestorationOutcome,
+)
+from tools.phase_5_0_evidence.execution.recovery_store import (
+    BARRIER_ORDER,
+    StorePublication,
+)
 from tools.phase_5_0_evidence.expectations import contract_for
 
 #: The four disposable identities, resolved from a table rather than a host.
@@ -54,11 +66,16 @@ DISPOSABLE_ACCOUNTS = {
     "freedomcoord": (5001, 5001),
     "freedomsheet": (5002, 5002),
     "fbprobe": (5003, 5003),
+    # `postgres` is **pre-existing**, not disposable. The reviewed restoration
+    # `fchown`s the configuration back to it — r6 §2.4 — so the injected NSS
+    # boundary has to answer for it. The numbers are this file's.
+    "postgres": (900, 900),
 }
 DISPOSABLE_GROUPS = {
     "freedomcoord": 5001,
     "freedomsheet": 5002,
     "fbprobe": 5003,
+    "postgres": 900,
     "freedomjournal": 5004,
 }
 
@@ -101,6 +118,171 @@ def supply_reviewed_e7_facts(monkeypatch) -> None:
     review manifest and the renderer all read it.
     """
     monkeypatch.setattr(capability, "E7_TARGET_FACTS", REVIEWED_E7_FACTS)
+
+
+class RecordingEffects:
+    """A descriptor-bound effect issuer that **records and writes nothing**.
+
+    The injected seam for r6 §1.4's effects, and the reason it exists is the
+    reason `Boundary` exists: the object that can really `mkdirat`, `ioctl` and
+    `unlinkat` is `executor.DescriptorBoundEffects` over a real inventory, and
+    no test in this suite may hold one — `test_no_execution.py` asserts that
+    this directory constructs no armed real writer.
+
+    It is **not** a default. `ExecutingRunner.effects` defaults to `None`, and
+    an executor assembled without an issuer refuses every effect step rather
+    than falling back to a pathname-based command. A test that wants a run to
+    get past `B3-03` says so by passing one of these.
+
+    `refuse` names the effects this issuer refuses, keyed by the step's
+    `(kind, name)`, so a test can make exactly one effect fail.
+    """
+
+    def __init__(self, *, refuse: Sequence[str] = (), publication=None) -> None:
+        self.issued: list[tuple[str, str, str]] = []
+        #: The reviewed step id each effect came from, in order. `ProcessBoundary`
+        #: takes `step_id` for the same reason: two steps legitimately issue the
+        #: same effect — the capability band resets a flag Band 3 set — and a
+        #: double that could not tell them apart could not report which one ran.
+        self.steps: list[str] = []
+        self.refuse = set(refuse)
+        self.transfer: tuple = ()
+        self._publication = publication
+        self._recorded: set[tuple[str, str]] = set()
+
+    # -- what the executor calls ---------------------------------------------
+
+    def declared_transfer(self) -> tuple:
+        return self.transfer
+
+    def create_directory_object(
+        self, *, parent_role, name, role="", mode=0o700, step_id=""
+    ):
+        return self._record("create_directory", parent_role, name, step_id)
+
+    def create_object(
+        self,
+        *,
+        directory_role,
+        name,
+        content=b"",
+        uid=None,
+        gid=None,
+        mode=0o640,
+        step_id="",
+    ):
+        return self._record("create_object", directory_role, name, step_id)
+
+    def install_case_program(
+        self,
+        *,
+        content,
+        sha256,
+        directory_role="bin",
+        name="case-program",
+        temporary=".case-program.tmp",
+        uid=None,
+        gid=None,
+        mode=0o555,
+        step_id="",
+    ):
+        if hashlib.sha256(content).hexdigest() != sha256:
+            raise AssertionError("the fake issuer still checks the digest")
+        return self._record("install_payload", directory_role, name, step_id)
+
+    def set_inode_flags(self, *, directory_role, name, add, step_id=""):
+        self._require_recorded(directory_role, name)
+        self._record("set_flag", directory_role, name, step_id)
+
+    def clear_inode_flags(self, *, directory_role, name, remove, step_id=""):
+        self._require_recorded(directory_role, name)
+        self._record("clear_flag", directory_role, name, step_id)
+
+    def remove_object(
+        self, *, directory_role, name, is_directory=False, step_id=""
+    ):
+        self._require_recorded(directory_role, name)
+        return self._record("remove_object", directory_role, name, step_id)
+
+    def publish_recovery_basis(
+        self,
+        *,
+        run_id,
+        reservation_id,
+        captured_by,
+        capture_set,
+        configuration_role,
+        evidence_role="",
+        step_id="",
+    ):
+        self._record("capture_configuration", configuration_role, run_id, step_id)
+        if self._publication is not None:
+            return self._publication
+        return StorePublication(
+            published=True,
+            mutation_permitted=True,
+            barriers_crossed=BARRIER_ORDER,
+            run_directory_name=run_id,
+        )
+
+    def restore_configuration(
+        self,
+        *,
+        run_id,
+        configuration_role,
+        destination_directory,
+        owner_uid,
+        owner_gid,
+        mode=0o640,
+        step_id="",
+    ):
+        self._record("restore_configuration", configuration_role, run_id, step_id)
+        return RestorationOutcome(
+            renamed=(run_id,), durable=True, barriers_crossed=RESTORATION_BARRIERS
+        )
+
+    # -- internals ------------------------------------------------------------
+
+    def _record(self, kind: str, role: str, name: str, step_id: str = "") -> str:
+        keys = {
+            kind,
+            name,
+            step_id,
+            f"{role}/{name}",
+            f"{kind}:{name}",
+            f"{kind}:{role}/{name}",
+        }
+        keys.discard("")
+        if keys & self.refuse:
+            raise EffectRefused(f"the fake issuer was asked to refuse {kind}.")
+        self.issued.append((kind, role, name))
+        self.steps.append(step_id)
+        if kind in ("create_directory", "create_object", "install_payload"):
+            self._recorded.add((role, name))
+        return f"{role}/{name}"
+
+    def _require_recorded(self, role: str, name: str) -> None:
+        """**PR-20260913-LABI-2, mirrored in the double.**
+
+        The fake refuses an unrecorded object for the same reason the real
+        issuer does, so a plan that ordered a flag or a removal before the
+        creation that records it fails here rather than passing on a double that
+        was more permissive than the thing it stands for.
+        """
+        if (role, name) not in self._recorded:
+            raise EffectRefused(
+                "no creating-step identity was recorded for this entry.",
+                classification=EFFECT_IDENTITY_NOT_RECORDED,
+            )
+
+
+def refusing_effects(step, **keywords) -> RecordingEffects:
+    """A `RecordingEffects` that refuses exactly one reviewed effect step.
+
+    The counterpart of scripting a `CommandResult` for a command step: an effect
+    starts no process, so a test that wants one to fail says so here.
+    """
+    return RecordingEffects(refuse=(step.step_id,), **keywords)
 
 
 def runnable_plan() -> ConcretePlan:

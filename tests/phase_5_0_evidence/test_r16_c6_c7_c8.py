@@ -82,9 +82,11 @@ from tools.phase_5_0_evidence.observations import (
 )
 from tools.phase_5_0_evidence.plan import CommandStep, StepRole, validate_argv
 from tools.phase_5_0_evidence.records import Status, deserialize_records
+from tools.phase_5_0_evidence.plan import EffectKind
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     bound_argv,
     cleanup_observations_for,
     observations_for,
@@ -143,7 +145,20 @@ def test_the_two_new_verbs_name_one_flag_each_and_take_no_flag_argument() -> Non
     no argument kind through which a caller could name a flag, a mask or a
     request number.
     """
-    assert set(CASE_VERBS) - {"getimmutable", "clearimmutable", "mkroot", "statroot"} == {
+    # **C-P5.0-LAB-I.** r6 §6.2 adds the four descriptor-relative verbs, so they
+    # are subtracted here alongside C-6's two. That is not a weakening of this
+    # assertion: none of the four takes a flag argument either, and the
+    # laboratory suite asserts that separately, in both directions.
+    assert set(CASE_VERBS) - {
+        "getimmutable",
+        "clearimmutable",
+        "mkroot",
+        "statroot",
+        "openat",
+        "unlinkat",
+        "renameat",
+        "fstatat",
+    } == {
         "open", "pwrite", "append", "ftruncate", "rename", "unlink", "symlink",
         "statvfs", "getflags", "clearflags", "identity", "runtime",
     }
@@ -158,6 +173,11 @@ def test_the_two_new_verbs_name_one_flag_each_and_take_no_flag_argument() -> Non
         ArgumentKind.WRITE_MODE,
         ArgumentKind.LINK_NAME,
         ArgumentKind.ROOT_PATH,
+        # r6 §6.2's two, and neither is a flag either: `DIRFD` admits a bounded
+        # index into a table the executor declared, and `COMPONENT` admits one
+        # path component.
+        ArgumentKind.DIRFD,
+        ArgumentKind.COMPONENT,
     }
     # And the program's two flag constants are separate values used by separate
     # verbs, rather than one value a caller selects.
@@ -387,14 +407,18 @@ def test_the_band_resets_the_flags_it_cleared_and_reads_them_back(plan) -> None:
     resets = [
         step
         for step in plan.steps
-        if step.step_id.startswith("B5-C6-") and step.argv[0] == "/usr/bin/chattr"
+        if step.step_id.startswith("B5-C6-")
+        and step.is_effect
+        and step.effect.kind is EffectKind.SET_FLAG
     ]
-    assert [step.argv for step in resets] == [
-        ("/usr/bin/chattr", "+i", "--", ARCHIVE_JOURNAL),
-        ("/usr/bin/chattr", "+i", "--", ARCHIVE_SEAL),
-    ]
+    # **r6 §6.4.** `chattr +i` is retired. The reset sets the flag on the inode a
+    # held descriptor refers to, after a pre-check against the identity the
+    # creating step recorded — so a replacement of the *name* cannot receive it.
+    assert [step.effect.path for step in resets] == [ARCHIVE_JOURNAL, ARCHIVE_SEAL]
     for step in resets:
-        assert step.mutation_ids == (f"file_attribute:{step.argv[-1]}",)
+        assert step.argv == ()
+        assert step.effect.flags == ("immutable",)
+        assert step.mutation_ids == (f"file_attribute:{step.effect.path}",)
     for step_id, path in (("B5-C6-10", ARCHIVE_JOURNAL), ("B5-C6-11", ARCHIVE_SEAL)):
         step = step_named(plan, step_id)
         assert step.argv[4] == "getimmutable" and step.argv[5] == path
@@ -707,7 +731,9 @@ def complete_records(digest: str, **overrides) -> list[dict]:
                     "generation_present": "no",
                     "database_row_present": "no",
                     "next_run_refuses": "yes",
-                    "recovery_procedure_named": "yes",
+                    "residue_recovery_named": "yes",
+                    "configuration_capture_retained": "no",
+                    "configuration_recovery_named": "no",
                 },
                 **overrides,
             )
@@ -1238,7 +1264,17 @@ class _FakeBoundary:
         self.scripted = scripted
         self.calls: list[str] = []
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append(step_id)
         if step_id in self.scripted:
             return self.scripted[step_id]
@@ -1252,8 +1288,9 @@ class _FakeMaterializer:
 
 class _FakeIdentityLookup:
     ACCOUNTS = {"freedomcoord": (5001, 5001), "freedomsheet": (5002, 5002),
-                "fbprobe": (5003, 5003)}
+                "fbprobe": (5003, 5003), "postgres": (900, 900)}
     GROUPS = {"freedomcoord": 5001, "freedomsheet": 5002, "fbprobe": 5003,
+              "postgres": 900,
               "freedomjournal": 5004}
 
     def account(self, name: str) -> tuple[int, int]:
@@ -1297,4 +1334,5 @@ def runner(plan: ConcretePlan, fake: _FakeBoundary) -> ExecutingRunner:
         source_bytes=dict(SOURCES),
         materializer=_FakeMaterializer(),
         identity_lookup=_FakeIdentityLookup(),
+        effects=RecordingEffects(),
     )

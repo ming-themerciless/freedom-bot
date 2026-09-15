@@ -2531,34 +2531,368 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current action, 2026-09-11 — R5 binding remediation returned.** Claude answered
-[PR-20260911-R5-1](review/project-review-2026-09-11-r5.md) in one bounded local
-pass ([handback](review/project-review-remediation-2026-09-11-r5-handback.md),
-submitted [runner contract r6](review/phase-5-0-reserved-laboratory-runner-contract-r6.md),
-which supersedes r5). **Repaired in pure code:** the harness's
-`participant_started` entry now durably names the reservation its run owns, in one
-bounded shape required in both directions, and terminal publication requires exact
-equality among the stored start, the reservation request, the release publication,
-the completion evidence and the reservation the terminal result reports. The record
-schema version rises to 2, so an r5 participant-start record refuses by name rather
-than being reinterpreted. The same validator runs before an append and on read, the
-ledger writer reads the stored start before deriving any lifecycle-owned fact, and
-`conclude_reservation()` checks the binding before the release decision — so a
-release of one reservation publishes **nothing** when offered another reservation's
-harness run, and the wrongly named run keeps blocking every successor until an
-attributed operator recovery. No reservation identity is inferred from a run name.
-The permission and provisioning delta is **unchanged at ten items** and all remain
-**unapproved**. **Next action: Codex technical re-review**, then Peter on r6 §7's
-delta, on V10's identity question and on LAB-1's classification. R4-1 carries a
-positive technical recommendation and is not closed on the implementer's authority;
-R4-2, R4-3 and R5-1 remain open. The three C-7 cases remain unresolved,
-`is_executable` remains `False`, the twelve target facts remain unconfirmed and the
-real-execution refusal is retained while EH-R16-1 is open. The review-input digest
-is now `2fa1d13b7b112f7fda837abcdd70f86ff6d85701602818d810af5fc2141ce5ca` because
-covered source changed; it is review input only and must not be passed to
-`--execute`. Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
-This is an action-pointer update, not an effective roadmap amendment, and it
-approves no provisioning, permission change, host action, execution digest or
+**Current action, 2026-09-15 — D1/D2 admission remediation required; V6
+decided.** Codex's independent
+[re-review](review/project-review-2026-09-15-reserved-laboratory-d1-d2-corrections.md)
+raises Blocking PR-20260915-LAB-D12-1: an interrupted lifecycle-record
+publication must refuse all seven participants. Peter approves V6 as a
+read-only prerequisite survey; it does not prove `linkat` viability or close
+I3, and controlled write verification requires separate authorization before
+execution. The authorized read-only preflight remains queued behind remediation
+and independent re-review. No provisioning, wiring, database operation,
+generated-vector execution or `--execute` is authorized.
+
+**Current action, 2026-09-15 — D1/D2 applied; independent document review
+required.** Peter accepts the scoped same-process trusted-operator model,
+approves D1 and D2, and authorizes the documented read-only target preflight.
+The approved delta is applied to runner contract r6. Because Codex made the
+contract edit, a different Independent Reviewer must review it before the
+preflight begins. Provisioning, permission changes, database operations,
+generated-vector execution, participant wiring, real execution and `--execute`
+remain unauthorized. Package 5.0 remains not ready and P5.0-R5, C-7,
+EH-R16-1, OD-62 and LAB-R6 retain their states.
+
+**Current action, 2026-09-15 — one-shot authority re-review accepted; maintainer
+direction required.** Codex's independent
+[re-review](review/project-review-2026-09-15-reserved-laboratory-one-shot-authority.md)
+accepts C-P5.0-LAB-I-R2 with no new finding and closes
+PR-20260914-LABI-R2-1 within its stated ordinary-object-graph boundary. It does
+not create an adversarial same-interpreter security boundary; that would require
+a separately approved process-isolation decision. No digest, gate, preflight,
+provisioning, wiring or execution is approved. C-7 remains unresolved,
+EH-R16-1 Open, all twelve target facts unconfirmed, `is_executable` False,
+Package 5.0 not ready, P5.0-R5 Blocking, OD-62 Open, LAB-R6 Open, and D1/D2
+proposed. **Next action: maintainer direction.**
+
+**Current action, 2026-09-15 — one-shot authority remediation assigned.** Peter
+assigns **C-P5.0-LAB-I-R2** through the bounded
+[Claude prompt](review/phase-5-0-reserved-laboratory-live-authority-r2-claude-prompt.md)
+to remediate Codex's Blocking finding PR-20260914-LABI-R2-1. Issuance must
+become a single invocation transition, and the final consuming transition must
+depend on invocation-owned state that the callback cannot replace through the
+reviewed object graph. The pass retains the two public reproductions, adds
+focused issuance and registration-integrity reversals, preserves the accepted
+live session/lock/durable-state checks and T2--T17 order, and returns for
+independent Codex re-review. Repository changes and local tests with
+`TEST_DATABASE_URL` unset only; no SSH, synchronization, host inspection,
+preflight, provisioning, database operation, generated-vector execution, real
+execution or `--execute` is authorized. C-7 remains unresolved, EH-R16-1 Open,
+all twelve target facts unconfirmed, `is_executable` False, Package 5.0 not
+ready, P5.0-R5 Blocking, OD-62 Open and LAB-R6 Open. This is an action-pointer
+update, not a roadmap amendment or execution approval.
+
+**Current action, 2026-09-14 — reserved-laboratory live-authority re-review
+returned with changes requested.** Codex's independent
+[review](review/project-review-2026-09-14-reserved-laboratory-live-authority.md)
+finds the current-session, held-lock and durable T6--T8 checks real, but the
+one-shot claim still Blocking. During the same synchronous callback, the
+genuine permit can be consumed and `_issue_authority()` called again, or the
+mutable `_authority` registration can be replaced with a fully bound permit;
+under the same durable start a second armed executor reaches its plan. Two
+public synthetic regressions fail with `DID NOT RAISE ExecutorRefused`.
+**Next action:** one bounded local remediation of issuance and registration,
+then independent Codex re-review. No SSH, synchronization, host inspection,
+preflight, provisioning, database operation, generated-vector execution, real
+execution or `--execute` is authorized. C-7 remains unresolved, EH-R16-1 Open,
+all twelve target facts unconfirmed, `is_executable` False, Package 5.0 not
+ready, P5.0-R5 Blocking, OD-62 Open and LAB-R6 Open. This is an action-pointer
+update, not a roadmap amendment or execution approval.
+
+**Prior action, 2026-09-14 — reserved-laboratory remediation returned for
+independent Codex re-review.** Claude completed **C-P5.0-LAB-I-R1** in one
+bounded local pass and returned the
+[remediation handback](review/phase-5-0-reserved-laboratory-implementation-remediation-handback.md).
+PR-20260913-LABI-1 is repaired by binding the reviewed configuration capture set
+at the integration boundary and validating the whole requested set before the
+recovery run directory exists; PR-20260913-LABI-2 by making a non-empty
+creating-step identity a mandatory prerequisite of every flag and removal effect,
+with equality the only admitting branch; and PR-20260913-LABI-3 by wiring the
+protocol through `execution/participants.py` for all seven
+`PARTICIPATING_ENTRY_POINTS`, the CLI's `--execute` branch, the boundary's
+declared descriptor table, and 35 reviewed steps that used to be `/usr/bin/install`
+and `/usr/bin/chattr` vectors — `plan.PERMITTED_EXECUTABLES` is now **20**, as
+r6 §6.4 requires. Evidence suite **2 165 passed, zero skips**; both reviewer
+reproductions failed against the submitted tree and pass now; **13 single-point
+reversals each caught**. New review-input digest
+`eeafb24c18894835fb92ffbd4ae9e347a315260b4ba4c89e24faf3c76cb58fee`, **review
+input only**. D1 and D2 are raised as a
+[separately reviewable proposed r6 amendment](review/phase-5-0-reserved-laboratory-r6-d1-d2-proposed-amendment.md);
+r6 is unedited and V6 remains unconfirmed. **One assignment item is explicitly
+incomplete**: the six non-harness integration points exist and are exercised
+locally, and nothing outside the repository calls them, because this
+authorization forbids invoking a real participant. **Next action: independent
+Codex technical and security re-review.** No SSH, synchronization, host
+inspection, preflight, provisioning, database operation, generated-vector
+execution, real execution or `--execute` was performed or is authorized. C-7
+remains unresolved, EH-R16-1 Open, all twelve target facts unconfirmed,
+`is_executable` False, Package 5.0 not ready, P5.0-R5 Blocking and OD-62 Open.
+This is an action-pointer update, not a roadmap amendment or execution approval.
+
+**Prior action, 2026-09-14 — reserved-laboratory implementation remediation
+assigned.** Peter assigns **C-P5.0-LAB-I-R1** through the bounded
+[Claude remediation prompt](review/phase-5-0-reserved-laboratory-implementation-remediation-claude-prompt.md).
+The pass must repair Codex's two Blocking binding defects and Important
+integration defect, add public failing-before regressions and negative controls,
+wire all seven participant paths while retaining the standing real-execution
+refusal, retire the old `install`/`chattr` vectors, and return for independent
+Codex re-review. D1 and D2 remain proposed contract amendments rather than
+silently approved deviations. No SSH, synchronization, host inspection,
+preflight, provisioning, database operation, generated-vector execution, real
+execution or `--execute` is authorized. C-7 remains unresolved, EH-R16-1 Open,
+all twelve target facts unconfirmed, `is_executable` False, Package 5.0 not
+ready, P5.0-R5 Blocking and OD-62 Open. This is an action-pointer update, not a
+roadmap amendment or execution approval.
+
+**Prior action, 2026-09-13 — reserved-laboratory implementation review
+returned with changes requested.** Codex's independent technical and security
+[review](review/project-review-2026-09-13-reserved-laboratory-implementation.md)
+found two Blocking fail-open defects and one Important integration defect: a
+recovery record for a destination restoration must refuse can nevertheless set
+`mutation_permitted=True`; missing creating-step identity is treated as an
+optional comparison before flag and removal effects; and the new protocol
+objects are not connected to the executor, CLI or seven participating entry
+points required by C-P5.0-LAB-I. **Next action:** one bounded local remediation
+that repairs both bindings, integrates the actual paths, replaces the old
+`install`/`chattr` vectors and returns with public regressions and negative
+controls for Codex re-review. No SSH, synchronization, host inspection,
+preflight, provisioning, database operation, real execution or `--execute` is
+authorized. C-7 remains unresolved, EH-R16-1 Open, all twelve target facts
+unconfirmed, `is_executable` False, Package 5.0 not ready, P5.0-R5 Blocking and
+OD-62 Open. This is an action-pointer update, not a roadmap amendment or
+execution approval.
+
+**Prior action, 2026-09-13 — reserved-laboratory mechanism implemented and
+returned for independent review.** Claude completed C-P5.0-LAB-I in one bounded
+local pass and returned the
+[implementation handback](review/phase-5-0-reserved-laboratory-implementation-handback.md).
+Runner contract r6 §6.1's mechanism exists in code — the descriptor custody
+chain, the four descriptor-relative verbs, the executor's effects behind the
+quiescence gate, the independent recovery store with all five ordered barriers,
+verify-and-write restoration, the cooperative lock adapter and the two durable
+lifecycle objects — together with r6 §7 definitions for V1–V5, V7 and V9, **none
+of which is applied**. The mechanism adds no rule: it reuses
+`lifecycle_storage`'s validators over a real filesystem rather than restating
+them. Evidence suite **2 074 passed, zero skips**; nine single-point reversals
+each caught; artifacts regenerated four times through the non-executing CLI with
+all 42 covered hashes independently recomputed. New review-input digest
+`aabba2d718f5c0231c2b92b177e733fca7e6ce3c5c85283dda4730b14c3c91d4`, review input
+only. Three items are raised for a ruling: the `linkat`/`unlinkat` substitute
+for an unreachable `RENAME_NOREPLACE`; the listing descriptor §1.3.3 does not
+enumerate; and `PERMITTED_EXECUTABLES` staying at 22 rather than §6.4's 20.
+**Next action: independent Codex technical and security review.** No SSH,
+synchronization, inspection, preflight, provisioning, permission change,
+database operation, real boundary/materializer use, generated-vector execution
+or `--execute` was performed or is authorized. C-7 remains unresolved, EH-R16-1
+Open, the twelve target facts unconfirmed, `is_executable` False, Package 5.0
+not ready, P5.0-R5 Blocking and OD-62 Open. This is an action-pointer update,
+not a roadmap amendment or execution approval.
+
+**Prior action, 2026-09-13 — bounded reserved-laboratory repository
+implementation authorized.** Peter authorizes C-P5.0-LAB-I: implement the
+accepted r6 mechanism and the bounded code required to address C-7 and
+EH-R16-1, with repository changes and local tests only. The active assignment is
+the [Claude implementation prompt](review/phase-5-0-reserved-laboratory-implementation-claude-prompt.md).
+No SSH, synchronization, disposable-server inspection, preflight, provisioning,
+permission change, database operation, real boundary/materializer use,
+generated-vector execution or `--execute` is authorized. Claude returns a
+handback and stops for independent Codex technical and security review. C-7 and
+EH-R16-1 remain unresolved meanwhile; the twelve target facts remain
+unconfirmed, `is_executable` remains False, Package 5.0 remains not ready,
+P5.0-R5 remains Blocking and OD-62 remains Open. This is an action-pointer and
+bounded implementation authorization, not a roadmap amendment or execution
+approval.
+
+**Prior action, 2026-09-13 — LAB-1 local remediation accepted; existing
+operational blockers remain.** Codex's independent R3 re-review found no
+residual defect and accepts PR-20260912-LAB1-2 in the reviewed local scope
+([review](review/project-review-2026-09-13-lab1-rereview-r3.md)). LAB-1's local
+remediation is closed. This changes no operational gate: C-7 remains unresolved,
+EH-R16-1 remains Open, `is_executable` remains False, the twelve target facts
+remain unconfirmed, Package 5.0 remains not ready, package-level P5.0-R5 remains
+Blocking, and OD-62 remains Open. The next action is maintainer direction on
+those existing blockers; no execution is authorized. This is an action-pointer
+update, not an effective roadmap amendment.
+
+**Prior action, 2026-09-13 — LAB-1 raw read-back byte binding correction
+returned for Codex re-review.**
+
+Claude answered PR-20260912-LAB1-2 in one bounded local pass
+([handback](review/project-review-remediation-2026-09-13-lab1-r2-handback.md)).
+**Repaired in pure code, four lines of behavior in one module:**
+`write_run_record` consumed the destination's bytes in the same expression that
+parsed them, so the comparison that followed saw only the parsed mapping and a
+fresh canonical re-serialization of it — both statements about what a reader made
+of the file, neither about the file. Added whitespace and a duplicate
+`schema_version` key resolving to the same value were therefore accepted through
+the public writer. The bytes `destination.read_bytes()` returns are now
+**retained** and compared directly with `serialized`, as the first and
+short-circuiting conjunct of the one named comparison, whose inputs now include
+the raw bytes. The completed path establishes three distinct claims — the bytes
+read back are the bytes written, they parse as the expected document, and the
+document satisfies the exact per-cause canonical recovery contract — and no path
+returns a written artifact without all three. Refusals stay fixed and bounded.
+**No schema moves:** this is a writer implementation fix, a valid schema-3
+document means what it meant before, so the run-record schema stays at **3**, the
+supplied-observation schema at **3** and the review manifest at **10**; only
+`artifact.py`'s pinned hash moved. The regressions were added first and run
+against the submitted tree: **12 failed**, every one `DID NOT RAISE`, including
+both reviewer reproductions. After the correction the run-record module is
+**121 passed** (+28 nodes) with whitespace, re-indentation, duplicate top-level
+and duplicate nested-key rows, the four accepted cleanup-cause combinations, and
+a control that removes **only** the raw conjunct and accepts all ten collapsing
+tampers again. Focused LAB-1 files **260 passed**; structural no-execution suite
+**217 passed**; complete synthetic harness **1,936 passed, zero skips**;
+reversing the repair in a scratch copy fails **24**, of which 12 are behavioral.
+The review-input digest is now
+`6ef61afbaa96dcbd5eda408eed5042aff3a227ce32cb56b149111e531f7a2408`, replacing
+`3b50e8f7adb309549aa1e69a61e9ddce1ce5bf11429eecc002f427b773df98a3`; it is review
+input only and must not be passed to `--execute`. **Next action: Codex
+independent technical re-review** — LAB-1 is not closed by the session that
+repaired it. No SSH, synchronization, host inspection, preflight, permission
+change, provisioning, database operation or real execution was performed or
+authorized. C-7 remains unresolved, EH-R16-1 remains Open, `is_executable`
+remains `False`, twelve target facts remain unconfirmed, Package 5.0 remains not
+ready, package-level P5.0-R5 remains Blocking and OD-62 remains Open. This is an
+action-pointer update, not an effective roadmap amendment.
+
+**Prior action, 2026-09-12 — LAB-1 remediation R2 re-review returned with
+changes requested.** Codex found one Important residual read-back defect,
+PR-20260912-LAB1-2: the writer parses the bytes read back and compares the
+mapping and a fresh canonical re-serialization, but never compares the raw bytes
+read with the bytes written. Added whitespace and a duplicate key resolving to
+the same value were both accepted through the public writer. The exact per-cause
+canonical procedure checks and schema-version-3 transition are sound in the
+reviewed scope. Next: one bounded local raw-byte equality correction and public-
+writer regressions, then Codex re-review. See the
+[R2 re-review](review/project-review-2026-09-12-lab1-rereview-r2.md). No SSH,
+synchronization, host inspection, preflight, permission change, provisioning,
+database operation or real execution is authorized. LAB-1 remains open; C-7
+remains unresolved; EH-R16-1 remains Open; `is_executable` remains `False`;
+Package 5.0 remains not ready; package-level P5.0-R5 remains Blocking; and OD-62
+remains Open. This is an action-pointer update, not an effective roadmap
+amendment.
+
+Claude's bounded assignment for that next action was the
+[2026-09-13 raw read-back byte binding prompt](review/project-review-remediation-2026-09-13-lab1-r2-claude-prompt.md).
+It added no permission and changed no gate. *Answered 2026-09-13 by the handback
+named in the current action above.*
+
+**Prior action, 2026-09-12 — LAB-1 run-record binding correction returned for
+Codex re-review.**
+
+Claude answered PR-20260912-LAB1-1 in one bounded local pass
+([handback](review/project-review-remediation-2026-09-12-lab1-handback.md)).
+**Repaired in pure code:** the schema-2 run record checked the residue-recovery
+procedure's shape and order and compared its content with nothing, so an
+arbitrary ordered replacement was accepted on read-back. The reader now requires
+the exact canonical procedure for each **present** cause — residue requires
+`journal.RECOVERY_PROCEDURE`, retained recovery inputs require
+`cleanup.RECOVERY_PROCEDURE`, an absent cause requires an empty procedure, and
+neither answers for the other — refuses missing, additional and unknown keys, and
+compares the whole document read back with the document written, mapping and
+bytes. The **run-record schema is version 3**, because an arbitrary procedure was
+a valid version-2 record and is not a valid version-3 one; a version-2 record
+refuses by name. The **supplied-observation schema stays at version 3** and the
+**review manifest at version 10**: the manifest does not declare the run-record
+document contract. The reviewer's reproduction failed against the submitted tree
+and passes after the correction; the focused module is **93 passed** with a
+37-node substitution, cause/presence and read-back matrix and two negative
+controls, and reversing the repair on a scratch copy fails 26 of the complete
+harness. Focused LAB-1 files **232 passed**; complete synthetic harness
+**1,908 passed, zero skips**. The review-input digest is now
+`3b50e8f7adb309549aa1e69a61e9ddce1ce5bf11429eecc002f427b773df98a3`, replacing
+`af3181ed276f61a89a51b25afcbfb91f7a4c938b21a5bf83c1ff53f8b3764821`; it is review
+input only and must not be passed to `--execute`. **Next action: Codex
+independent technical re-review** — LAB-1 is not closed by the session that
+repaired it. No SSH, synchronization, host inspection, preflight, permission
+change, provisioning, database operation or real execution was performed or
+authorized; the separately completed pytest installation on `oracle-test`
+broadens none of them. C-7 remains unresolved, EH-R16-1 remains Open,
+`is_executable` remains `False`, twelve target facts remain unconfirmed, Package
+5.0 remains not ready, package-level P5.0-R5 remains Blocking and OD-62 remains
+Open. This is an action-pointer update, not an effective roadmap amendment.
+
+**Prior action, 2026-09-12 — LAB-1 re-review returned with changes
+requested.** Codex found one Important run-record integrity defect: schema 2
+checks the residue-recovery procedure's shape and order but not its exact
+content or correspondence to residue, so an arbitrary ordered replacement is
+accepted on read-back. Claude next corrects that binding and adds substitution
+and cause/presence regressions, then returns the bounded local repair for Codex
+re-review. See
+[`project-review-2026-09-12-lab1-rereview.md`](review/project-review-2026-09-12-lab1-rereview.md)
+and the bounded
+[`Claude remediation prompt`](review/project-review-remediation-2026-09-12-lab1-claude-prompt.md).
+The maintainer separately authorized installing the declared pytest packages on
+the disposable server; pytest 8.4.2 is now present in the canonical virtualenv.
+That completed operation authorizes no synchronization, host test execution,
+preflight or provisioning.
+All local-only restrictions and open gates remain unchanged.
+
+**Prior action, 2026-09-12 — maintainer decisions recorded; LAB-1 repair
+reviewed, corrected, and awaiting Codex re-review.** Peter chose one shared
+`ubuntu` identity for all seven participants, accepted the exact r6 §7 ten-item
+delta as the lab design, and accepted the bounded LAB-1 correction. The repair is
+local only: S-B recovery procedures are reported separately by cause and encoded
+in the run record.
+
+A review of that implementation found three defects and repaired them. The
+accepted §8.1 clause — *the procedure that applies to the state it reached* — was
+**not** what the first pass implemented: one boolean over both procedures let a
+residue-bearing run satisfy the clause by naming the configuration recovery,
+which is LAB-1's own shape moved into the evidence record. The clause is now
+compared per cause, which raises the supplied-observation schema to **version 3**
+and the review manifest to **version 10**. The submitted negative control
+bypassed the derivation it was meant to constrain, and both the hardcoded
+derivation and a gutted run-record encoder left the harness green; five controls
+and round-trip tests now fail on each. The S-B message named no procedure at
+all, so the operator reading a non-zero exit never saw the recovery the record
+carried; it now names the procedure each present cause calls for. The
+review-input artifacts were stale and have been regenerated. Focused tests
+**195 passed**; the complete synthetic evidence harness **1,871 passed, zero
+skips**. See the [decision and remediation
+note](review/project-review-2026-09-12-lab1-disposition.md).
+
+The review-input digest is now
+`af3181ed276f61a89a51b25afcbfb91f7a4c938b21a5bf83c1ff53f8b3764821` because
+covered source changed; it replaces
+`2fa1d13b7b112f7fda837abcdd70f86ff6d85701602818d810af5fc2141ce5ca`, is review
+input only, and must not be passed to `--execute`.
+
+The identity choice is not the V10 preflight observation: whether all seven
+entry points actually run as `ubuntu` remains unconfirmed. V6 and V8 are likewise
+unperformed. The ten-item delta is accepted as design, **not applied**. The
+active local-only restriction bars SSH, synchronization, host inspection,
+preflight, permission changes, provisioning, database work and real execution.
+C-7 remains unresolved; EH-R16-1 remains Open; `is_executable` remains `False`;
+Package 5.0 remains not ready, package-level P5.0-R5 remains Blocking, and OD-62
+remains Open. Phase 5 product work and operational gates do not advance on these
+design decisions. **Next action: Codex technical re-review** of the LAB-1 repair
+and of the schema and manifest version changes it entails. Codex implemented the
+first LAB-1 pass, which inverted the normal division of work; Claude reviewed and
+remediated it and Codex re-reviews, restoring it. No session closes a finding on
+work it produced.
+
+**Completed action, 2026-09-12 — R5 remediation re-review.** The independent
+[Codex review](review/project-review-2026-09-12-r5-closure.md) found the r6
+reservation-to-harness binding technically sound in the reviewed scope. Per the
+maintainer's disposition, PR-20260911-R5-1 and its dependent findings
+PR-20260911-R4-2 and PR-20260911-R4-3 are **closed**. R4-1 retains its prior
+positive technical recommendation and is not closed here. Focused R3/R4/R5
+regressions: **192 passed**; structural no-execution suite: **217 passed**;
+complete synthetic harness: **1859 passed, zero skips**. No host, database,
+provisioning, preflight, privileged, or real execution check ran.
+
+**At re-review completion, the pending action was maintainer disposition** of
+runner contract r6 §7's ten-item
+permission/provisioning delta, V10's participant-identity question, and LAB-1's
+classification. At that point the ten delta items had no disposition; the actual
+V10 fact was unconfirmed and LAB-1 was unrepaired. The three C-7 cases remained
+unresolved,
+`is_executable` remains `False`, twelve target facts remain unconfirmed, and
+EH-R16-1 remains Open with the real-execution refusal in force. Package 5.0
+remains not ready, package-level P5.0-R5 remains Blocking, and OD-62 remains Open.
+This action-pointer update changes no roadmap requirement or package gate and
+approves no provisioning, permission change, host action, execution digest, or
 product implementation.
 
 **Prior action, 2026-09-11 — R5 binding remediation assigned.** Claude follows
@@ -2624,7 +2958,7 @@ operational integration, provisioning, preflight or execution is approved.
 Package 5.0 remains not ready, P5.0-R5 Blocking, OD-62 Open, EH-R16-1 Open.
 This pointer changes no roadmap requirement or package gate; history follows.
 
-**Current action, 2026-09-11 — R4 review returned, changes requested.** The
+**Prior action, 2026-09-11 — R4 review returned, changes requested.** The
 [independent review](review/project-review-2026-09-11-r4.md) records two Blocking
 findings in reservation transitions and participant-history binding, and one
 Important finding in completion/release ordering. The target/attribution repair
@@ -2634,7 +2968,7 @@ implementation or permission decisions. Package 5.0 remains not ready, P5.0-R5
 Blocking, OD-62 Open, EH-R16-1 Open. No host action, provisioning, preflight,
 execution or roadmap amendment is approved; prior submissions remain below.
 
-**Current action, 2026-09-11 — R3 complete lifecycle remediation returned.**
+**Prior action, 2026-09-11 — R3 complete lifecycle remediation returned.**
 Claude answered all three findings of the
 [R3 re-review](review/project-review-2026-09-11-r3.md) in one connected pass
 ([handback](review/project-review-remediation-2026-09-11-r3-handback.md),
@@ -2677,7 +3011,7 @@ preflight or execution is approved. Package 5.0 remains not ready, P5.0-R5
 Blocking, OD-62 Open, EH-R16-1 Open. This pointer changes no roadmap requirement
 or package gate. Prior submissions remain below.
 
-**Current action, 2026-09-11 — R2 remediation returned to Codex.** Claude
+**Prior action, 2026-09-11 — R2 remediation returned to Codex.** Claude
 answered all four findings of the
 [September 11 re-review](review/project-review-2026-09-11-r2.md) in one bounded
 local pass ([handback](review/project-review-remediation-2026-09-11-r2-handback.md),

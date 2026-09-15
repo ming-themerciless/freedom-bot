@@ -171,7 +171,9 @@ def _all_records(digest: str, **provenance) -> list[dict]:
                     "generation_present": "no",
                     "database_row_present": "no",
                     "next_run_refuses": "yes",
-                    "recovery_procedure_named": "yes",
+                    "residue_recovery_named": "yes",
+                    "configuration_capture_retained": "no",
+                    "configuration_recovery_named": "no",
                 },
             )
         )
@@ -439,8 +441,8 @@ def test_the_classifier_cannot_be_called_without_the_observation() -> None:
 
 
 def test_a_payload_written_under_the_previous_schema_is_refused(plan) -> None:
-    """Version 1 meant something else, so it is refused rather than reread."""
-    assert OBSERVATION_SCHEMA_VERSION == 2
+    """An earlier version meant something else, so it is refused, not reread."""
+    assert OBSERVATION_SCHEMA_VERSION == 3
     fixture = _importable(plan)
     with pytest.raises(ObservationRefused):
         import_observations(
@@ -770,8 +772,12 @@ def test_the_manifest_pins_whether_a_contract_resolves_anything(plan) -> None:
     for contract in contracts:
         assert contract["producer_artifact_reviewed"] is False
         assert contract["resolves_coverage"] is False
-    assert body["manifest_version"] == MANIFEST_VERSION == 9
-    assert body["supplied_observations"]["schema_version"] == 2
+    # **C-P5.0-LAB-I, 2026-09-13.** The manifest version moves to 11 because the
+    # covered source set and the reviewed verb table both change; what this test
+    # is about does not. The supplied-observation schema stays at 3, the three
+    # contracts still resolve nothing, and `is_executable` stays False.
+    assert body["manifest_version"] == MANIFEST_VERSION == 12
+    assert body["supplied_observations"]["schema_version"] == 3
     assert "Band 7 supplied observations only" in (
         body["supplied_observations"]["importer_scope"]
     )

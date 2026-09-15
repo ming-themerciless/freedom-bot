@@ -26,12 +26,18 @@ from tools.phase_5_0_evidence.cleanup import (
     FORBIDDEN_CLEANUP_TOKENS,
     NON_DESTRUCTIVE_WHEN_ABSENT,
     classify_cleanup,
+    RECOVERY_PROCEDURE,
+)
+from tools.phase_5_0_evidence.journal import (
+    RECOVERY_PROCEDURE as RESIDUE_RECOVERY_PROCEDURE,
 )
 from tools.phase_5_0_evidence.cleanup import _REVERSALS
 from tools.phase_5_0_evidence.errors import PlanRefused, TargetRefused
 from tools.phase_5_0_evidence.plan import (
+    CONFIGURATION_ROLE,
     CommandStep,
     DryRunRunner,
+    EffectKind,
     ExecutionPlan,
     Mutation,
     MutationKind,
@@ -299,7 +305,16 @@ def test_no_cleanup_step_is_destructive_when_its_object_is_absent() -> None:
         (GROUP, ACCOUNT, MEMBERSHIP, JOURNAL_DIR, PROBE_FILE, ROLE, config_line()),
     )
     assert plan.is_safe_to_rerun()
-    assert all(step.argv[0] in NON_DESTRUCTIVE_WHEN_ABSENT for step in plan.steps)
+    assert all(
+        step.argv[0] in NON_DESTRUCTIVE_WHEN_ABSENT
+        for step in plan.steps
+        if not step.is_effect
+    )
+    # The two descriptor-bound cleanup effects are non-destructive when their
+    # object is absent for a stronger reason than an executable's exit code:
+    # both refuse. The flag clear refuses at the pre-check, and the restoration
+    # refuses when the independent store holds no usable basis.
+    assert [step.effect.kind for step in plan.steps if step.is_effect]
 
 
 def test_no_generated_cleanup_step_can_express_a_recursive_removal() -> None:
@@ -308,6 +323,9 @@ def test_no_generated_cleanup_step_can_express_a_recursive_removal() -> None:
     )
     for step in plan.steps:
         assert not set(step.argv) & FORBIDDEN_CLEANUP_TOKENS
+        if step.is_effect:
+            assert "/" not in step.effect.name
+            continue
         # A directory is removed with `rmdir`, which cannot recurse; a file with
         # `rm --force`, which is one named path and no pattern.
         if step.argv[0] == "/usr/bin/rm":
@@ -367,13 +385,23 @@ def test_cleanup_of_a_path_outside_the_target_is_refused() -> None:
         CleanupPlan.for_mutations(target(), (outside,))
 
 
-def test_the_configuration_restore_reinstalls_the_pre_change_capture() -> None:
+def test_the_configuration_restore_verifies_the_independent_basis() -> None:
+    """**r6 §2.4, C-P5.0-LAB-I-R1.** The restore is an effect, not an `install`.
+
+    The retired vector copied from `R/before`, whose custody is the custody in
+    question — PR-20260911-2. The effect names the reviewed component and the
+    held configuration role, and the bytes come from the independent store after
+    they verify against the record that binds them to **this** destination.
+    """
     plan = CleanupPlan.for_mutations(target(), (config_line(),))
-    argv = plan.steps[0].argv
-    assert plan.steps[0].kind is CleanupStepKind.RESTORE
-    assert argv[0] == "/usr/bin/install"
-    assert argv[-2] == "/var/lib/fb-evidence-r1/before/pg_hba.conf"
-    assert argv[-1] == "/etc/postgresql/17/fbevidence/pg_hba.conf"
+    step = plan.steps[0]
+    assert step.kind is CleanupStepKind.RESTORE
+    assert step.argv == ()
+    assert step.is_effect
+    assert step.effect.kind is EffectKind.RESTORE_CONFIGURATION
+    assert step.effect.components == ("pg_hba.conf",)
+    assert step.effect.configuration_role == CONFIGURATION_ROLE
+    assert step.effect.path == "/etc/postgresql/17/fbevidence/pg_hba.conf"
 
 
 # ---------------------------------------------------------------------------
@@ -663,3 +691,126 @@ def test_residue_is_reported_by_absolute_path_and_never_cleaned() -> None:
     )
     assert "refuses while these paths exist rather than cleaning them" in outcome.message
     assert outcome.cleanup_state is CleanupState.RESIDUE
+    assert outcome.recovery_procedure == ()
+    assert outcome.residue_recovery_procedure == RESIDUE_RECOVERY_PROCEDURE
+
+
+def test_configuration_and_residue_recovery_are_named_independently() -> None:
+    """Each S-B cause carries only its own procedure; both survive together."""
+    plan = CleanupPlan.for_mutations(target(), (config_line(),))
+    declared = ConfigurationRestoration.declared_by(plan)
+
+    config_only = classify_cleanup(
+        probe_passed=True,
+        unremoved=(),
+        configuration=declared,
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    assert config_only.state == "S-B"
+    assert config_only.recovery_procedure == RECOVERY_PROCEDURE
+    assert config_only.residue_recovery_procedure == ()
+
+    both = classify_cleanup(
+        probe_passed=True,
+        unremoved=("/var/lib/fb-evidence-r1/probe",),
+        configuration=declared,
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    assert both.state == "S-B"
+    assert both.recovery_procedure == RECOVERY_PROCEDURE
+    assert both.residue_recovery_procedure == RESIDUE_RECOVERY_PROCEDURE
+
+
+def test_the_operator_message_names_each_procedure_its_state_calls_for() -> None:
+    """§2.13.2b asks the run to *report* the recovery, not only to carry it.
+
+    The operator reads the message on a non-zero exit, not `CleanupOutcome`'s
+    fields. A result that carried both procedures and named neither in the
+    message would satisfy the field and not the requirement, which is LAB-1's
+    gap one surface further out.
+    """
+    plan = CleanupPlan.for_mutations(target(), (config_line(),))
+    declared = ConfigurationRestoration.declared_by(plan)
+    nothing_declared = ConfigurationRestoration.declared_by(
+        CleanupPlan.for_mutations(target(), ())
+    )
+
+    residue_only = classify_cleanup(
+        probe_passed=True,
+        unremoved=("/var/lib/fb-evidence-r1/probe",),
+        configuration=nothing_declared,
+    )
+    assert residue_only.state == "S-B"
+    assert "recovery for the residue" in residue_only.message
+    assert "recovery for the configuration" not in residue_only.message
+    # The steps themselves are named, not merely pointed at.
+    for step in RESIDUE_RECOVERY_PROCEDURE:
+        assert step.action in residue_only.message
+
+    configuration_only = classify_cleanup(
+        probe_passed=True,
+        unremoved=(),
+        configuration=declared,
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    assert configuration_only.state == "S-B"
+    assert "recovery for the configuration" in configuration_only.message
+    assert "recovery for the residue" not in configuration_only.message
+
+    both = classify_cleanup(
+        probe_passed=True,
+        unremoved=("/var/lib/fb-evidence-r1/probe",),
+        configuration=declared,
+        retained_recovery_inputs=("/var/lib/fb-evidence-r1/before/pg_hba.conf",),
+    )
+    assert "recovery for the residue" in both.message
+    assert "recovery for the configuration" in both.message
+    assert "neither answers for the other" in both.message
+
+
+def test_a_clean_run_names_no_recovery_procedure() -> None:
+    """The control: naming a procedure unconditionally would prove nothing."""
+    settled = classify_cleanup(
+        probe_passed=True,
+        unremoved=(),
+        configuration=ConfigurationRestoration.declared_by(
+            CleanupPlan.for_mutations(target(), ())
+        ),
+    )
+    assert settled.state == "S-C"
+    assert "operator recovery" not in settled.message
+    assert settled.recovery_procedure == ()
+    assert settled.residue_recovery_procedure == ()
+
+
+def test_the_configuration_recovery_names_the_independent_store() -> None:
+    """r6 §8.2, now that the store exists — and §8.3's row 7.
+
+    §2.1 showed `R/before` is not an independent basis: its custody is exactly
+    the custody in question. While the external store was only proposed, step 2
+    could do no more than tell the operator not to trust those copies. The store
+    is implemented in `execution/recovery_store.py`, so step 2 now names it, and
+    the assertion is in **both directions**: the independent location is named
+    and the disposable root's `before/` directory is named only as the thing not
+    to use.
+
+    Implementation is not provisioning. `/var/lib/freedom-blades/recovery` is
+    r6 §7 item V5 and is unapproved and uncreated, which is why step 2 still
+    ends by telling the operator to keep the host blocked when the store holds
+    no usable basis.
+    """
+    step_two = next(step for step in RECOVERY_PROCEDURE if step.startswith("2."))
+    step_four = next(step for step in RECOVERY_PROCEDURE if step.startswith("4."))
+
+    assert "/var/lib/freedom-blades/recovery/<run-id>/" in step_two
+    assert "outside the disposable root" in step_two
+    assert "binding each copy's SHA-256 to its destination" in step_two
+    assert "durable" in step_two
+    # The only mention of the disposable root's captures is the refusal to use
+    # them. A step that presented them as an alternative would be §2.1 again.
+    assert "Do not use the copies under the disposable root" in step_two
+    assert "keep the host blocked and obtain operator direction" in step_two
+    # Disposal is gated on the release, and a quarantined run is never cleaned.
+    assert "/var/lib/freedom-blades/recovery/" in step_four
+    assert "after the reservation has released without quarantine" in step_four
+    assert "never removed automatically" in step_four

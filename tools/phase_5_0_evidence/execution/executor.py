@@ -128,7 +128,11 @@ prove its cleanup complete.
 """
 from __future__ import annotations
 
+import array
+import fcntl
+import hashlib
 import hmac
+import os
 from dataclasses import dataclass, field
 from typing import Sequence
 
@@ -153,8 +157,13 @@ from ..errors import PlanRefused, TargetRefused
 from ..expectations import EXPECTATION_NOT_CONSTRUCTED, contract_for
 from ..materialization import MAX_MATERIALIZED_BYTES
 from ..plan import (
+    EFFECT_FLAGS,
+    EVIDENCE_ROLE,
     PERMITTED_EXECUTABLES,
+    ROOT_ROLE,
     CommandStep,
+    DescriptorEffect,
+    EffectKind,
     MaterializeStep,
     StepRole,
     validate_argv,
@@ -163,6 +172,8 @@ from ..review_manifest import ReviewManifest, digests_match
 from .boundary import (
     IDENTITY_CONTRACT,
     LAUNCH_BOUNDARY_FAILURE,
+    LAUNCH_EFFECT_REFUSED,
+    LAUNCH_EFFECT_UNAVAILABLE,
     LAUNCH_VALIDATION_REFUSED,
     CommandResult,
     IdentityLookup,
@@ -171,12 +182,37 @@ from .boundary import (
     SystemIdentityLookup,
     timeout_for,
 )
+from ..durability_model import DescriptorMode, Quiescence
+from .descriptors import (
+    DESCRIPTOR_OBJECT_ABSENT,
+    DescriptorInventory,
+    DescriptorRefused,
+    ObjectIdentity,
+    PosixFilesystem,
+)
 from .materializer import (
     MATERIALIZATION_CAPTURE_INCOMPLETE,
+    MATERIALIZATION_RECOVERY_BASIS_MISSING,
     MATERIALIZATION_VALIDATION_REFUSED,
     FileMaterializer,
     MaterializationResult,
     RecordingMaterializer,
+    RestorationOutcome,
+    publication_permits_mutation,
+    restore_configuration,
+)
+from ..lifecycle_storage import Participant
+from .participants import (
+    EffectPermit,
+    HarnessObservations,
+    ParticipantIntegration,
+    ParticipantRefused,
+)
+from ..reservation import ResidueObservation
+from .recovery_store import (
+    ConfigurationCaptureSet,
+    RecoveryStore,
+    StorePublication,
 )
 
 #: Every identity a step may run as, taken from the process boundary's own
@@ -414,6 +450,35 @@ class ExecutingRunner:
     #: self-contradicting record, and one object a test replaces to exercise every
     #: branch without touching a real account. Constructing it reads nothing.
     identity_lookup: IdentityLookup = field(default_factory=SystemIdentityLookup)
+    #: **r6 §1.4, C-P5.0-LAB-I-R1.** How P1, P1b, P2, P4 and L3 are issued.
+    #: `None` means no effect issuer was assembled, and then every effect step
+    #: refuses: an executor without one does not fall back to a pathname-based
+    #: command, because the pathname-based commands are what r6 §6.4 retired.
+    effects: "DescriptorBoundEffects | None" = None
+    #: **r6 §5.** The participant integration point this run is accounted for
+    #: by — the object that holds the cooperative lock, publishes the ledger
+    #: entries and concludes the reservation. `None`, or anything that is not a
+    #: `ParticipantIntegration`, means the executor was assembled outside the
+    #: reservation protocol, which `execute()` refuses before the first step.
+    session: ParticipantIntegration | None = None
+    #: **PR-20260914-LABI-R1-1 and -R1-2.** The permit the integration point
+    #: issued after its durable `participant_started` publication, bound to this
+    #: run and this reservation. It is not a flag, not a sentinel and **not a
+    #: bearer token**: an equivalent object can be constructed from readable
+    #: module attributes, and the previous version of this comment was wrong to
+    #: say otherwise. What it is is a reference to a live work invocation, and
+    #: `_require_accounted_run` spends it through `EffectPermit.consume` — once,
+    #: and only while that invocation is the one running.
+    permit: EffectPermit | None = None
+    #: The run identifier this executor's recovery publication and ledger entry
+    #: are filed under. Bounded before it becomes a filename or a role label.
+    run_id: str = ""
+    #: The reservation this run belongs to, written into its `participant_started`
+    #: entry before the first effect and never derived from a caller afterwards.
+    reservation_id: str = ""
+    #: The publication the pre-M1 capture produced, kept so `_materialize_after`
+    #: can re-check its barrier set immediately before the first mutation.
+    _publication: object | None = field(default=None, init=False)
     #: Set once the run has produced residue, or once cleanup could not be proved
     #: complete. A second `execute()` on the same object refuses, because
     #: §2.13.2b's next invocation refuses while residue exists rather than
@@ -544,6 +609,77 @@ class ExecutingRunner:
         return self._manifest_digest
 
     @property
+    def cleanup_uncertain(self) -> bool:
+        """Whether cleanup could not prove what it left behind.
+
+        Read by `run_observations` below, because an uncertain cleanup did not
+        complete its residue search — and a search that did not complete
+        establishes nothing about the paths it did not reach.
+        """
+        return self._cleanup_uncertain
+
+    def run_observations(
+        self, outcome: RunOutcome, *, observed_by: str, searched_at: str
+    ) -> HarnessObservations:
+        """What **this** run established, for the reservation's release decision.
+
+        **PR-20260914-LABI-R1-1.** The release used to be handed an evidence
+        object a caller built. These two facts are now derived from the run that
+        actually happened: the residue search is the cleanup's own result, and
+        the configuration restoration is its own configuration risk. Neither is
+        supplied, neither defaults to a passing value, and `release()` refuses on
+        each of the three unsatisfactory shapes — not observed, observed
+        incomplete, and observed with something in it.
+
+        The other two members of `HarnessObservations` stay `None` here. Whether
+        every process the run started has exited and every server-side
+        transaction has settled are r6 §1.6's external observations: this process
+        cannot make them, a parent's exit status is explicitly not one of them,
+        and an unmade observation quarantines. They reach the evidence only
+        through `HarnessObservations.with_quiescence`, from an observation a
+        named observer made.
+        """
+        if not isinstance(observed_by, str) or not observed_by.strip():
+            raise ExecutorRefused(
+                "An observation names who made it. A residue search with no "
+                "observer is an assertion with no author, and "
+                "`ResidueObservation` refuses one."
+            )
+        cleanup = outcome.cleanup
+        uncertain = self._cleanup_uncertain
+        paths = tuple(cleanup.residue)
+        if uncertain:
+            # The search did not finish, so what it did not reach is unknown.
+            # `complete=False` is the shape `release()` refuses with the reason
+            # *"the residue search did not complete"*, which is the true one.
+            # The restoration is `None` rather than `False` for the same reason:
+            # an uncertain cleanup did not observe it false, it observed nothing.
+            residue = ResidueObservation.found(
+                paths,
+                observed_by=observed_by,
+                searched_at=searched_at,
+                complete=False,
+            )
+            restored: bool | None = None
+        elif paths:
+            residue = ResidueObservation.found(
+                paths, observed_by=observed_by, searched_at=searched_at
+            )
+            restored = not (
+                cleanup.configuration_risk or cleanup.retained_recovery_inputs
+            )
+        else:
+            residue = ResidueObservation.empty(
+                observed_by=observed_by, searched_at=searched_at
+            )
+            restored = not (
+                cleanup.configuration_risk or cleanup.retained_recovery_inputs
+            )
+        return HarnessObservations(
+            residue=residue, configuration_restored=restored
+        )
+
+    @property
     def last_outcome(self) -> RunOutcome | None:
         """The outcome of the run that has finished concluding.
 
@@ -586,6 +722,27 @@ class ExecutingRunner:
 
     def _revalidate(self, step: CommandStep) -> str:
         """Every guard again, immediately before this step is executed."""
+        if step.is_effect:
+            # A descriptor-bound effect names no executable, so there is no
+            # vector to revalidate. What replaces the vector check is stricter:
+            # the effect's own reviewed shape was checked at construction, the
+            # issuer refuses an unarmed instance, and every effect refuses
+            # unless the object it reaches is the one the creating step recorded.
+            if step.run_as != "root":
+                return (
+                    "a descriptor-bound effect is issued by the executor itself "
+                    "and by no other identity"
+                )
+            if self.effects is None:
+                return (
+                    "this executor was assembled with no descriptor-bound effect "
+                    "issuer, so the step writes nothing. An executor without one "
+                    "refuses the effect rather than falling back to a "
+                    "pathname-based command"
+                )
+            if not isinstance(step.capture, CapturePolicy):
+                return "the step does not declare a reviewed capture policy"
+            return ""
         refusal = self._revalidate_vector(tuple(step.argv), step.run_as)
         if refusal:
             return refusal
@@ -724,7 +881,39 @@ class ExecutingRunner:
                 f"{step.capture_step_id!r} was not satisfied, so cleanup would "
                 "have nothing to reinstall over this destination"
             )
+        # **r6 §§2.3.3 and 1.4.4 M1, C-P5.0-LAB-I-R1.** M1's own precondition is
+        # that the independent publication reported **every** barrier crossed.
+        # The capture step being satisfied is not that fact: it is this run's
+        # account of a step, and the publication's barrier set is the account
+        # the contract names. It is re-checked here, immediately before the
+        # first configuration mutation, rather than trusted from earlier.
+        if not publication_permits_mutation(self._publication):
+            return (
+                "the independent recovery basis does not report every §2.3.3 "
+                "barrier crossed, so the first configuration mutation may not "
+                "occur. A mutation with no durably published basis is the state "
+                "PR-20260911-2 found revision 1 in"
+            )
         return ""
+
+    def _issue_cleanup_effect(self, step: CleanupStep) -> CommandResult:
+        """One cleanup effect, with the same fixed classification a step gets."""
+        issuer = self.effects
+        if issuer is None or step.effect is None:
+            return CommandResult(
+                exit_status=-1,
+                timed_out=False,
+                launch_failure=LAUNCH_EFFECT_UNAVAILABLE,
+            )
+        try:
+            self._apply_effect(issuer, step.effect, step.step_id)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            return CommandResult(
+                exit_status=-1, timed_out=False, launch_failure=LAUNCH_EFFECT_REFUSED
+            )
+        return CommandResult(exit_status=0, timed_out=False)
 
     def _revalidate_cleanup(self, step: CleanupStep) -> str:
         """The same guards for a cleanup step.
@@ -734,6 +923,18 @@ class ExecutingRunner:
         object that reaches this loop is not obliged to be the object that was
         reviewed.
         """
+        if step.is_effect:
+            if step.run_as != "root":
+                return (
+                    "a descriptor-bound effect is issued by the executor itself "
+                    "and by no other identity"
+                )
+            if self.effects is None:
+                return (
+                    "this executor was assembled with no descriptor-bound effect "
+                    "issuer, so the cleanup step writes nothing"
+                )
+            return ""
         return self._revalidate_vector(tuple(step.argv), step.run_as)
 
     # -- the run -------------------------------------------------------------
@@ -745,6 +946,7 @@ class ExecutingRunner:
         this method — return, exception or interruption — that does not pass
         through `_conclude`, and `_conclude` is what invokes cleanup.
         """
+        self._require_accounted_run()
         self._refuse_when_blocked()
 
         state = _RunState()
@@ -759,6 +961,150 @@ class ExecutingRunner:
         except Exception:
             state.stop(state.current_step_id, UNEXPECTED_EXECUTION_FAILURE)
         return self._conclude(state)
+
+    def accept_permit(self, permit: EffectPermit) -> None:
+        """Take the permit the integration point issued for **this** run.
+
+        **PR-20260914-LABI-R1-1.** This is the hand-off the re-review found
+        missing: the CLI constructed a `ParticipantIntegration` and drove the
+        executor beside it, so nothing connected the durable start to the run
+        that then issued effects. `ParticipantIntegration.run_harness` calls
+        this with the permit it issued, and the permit is checked against this
+        executor's own run and reservation before it is kept.
+
+        A second hand-off is refused. A permit is evidence about one durable
+        start; an executor handed two would be a run accounted for twice, and
+        the ledger accounts for one. The refusal is on the **second call**, not
+        on the second value: two permits for the same run compare equal, so a
+        check on the value alone would be a branch nothing could take.
+        """
+        if self.permit is not None:
+            raise ExecutorRefused(
+                "This executor has already been handed its permit. One run has "
+                "one durable start and one hand-off, and a second is either a "
+                "second start or somebody else's."
+            )
+        self.permit = self._validate_permit(permit)
+
+    def _validate_permit(self, permit: object) -> EffectPermit:
+        """The permit this run may proceed on, or a refusal naming why."""
+        if not isinstance(permit, EffectPermit):
+            raise ExecutorRefused(
+                "An armed run proceeds on an `EffectPermit` issued by the "
+                "participant integration point, not on the presence of an "
+                "object. The presence check is exactly what PR-20260914-LABI-R1-1 "
+                "found: `session=object()` satisfied it."
+            )
+        if not permit.issued:
+            raise ExecutorRefused(
+                "The permit was not issued by a durable `participant_started` "
+                "publication. r6 §5.11 requires the non-reusable state to reach "
+                "durable storage **before** the first relevant effect, and a "
+                "permit constructed without one asserts a publication that did "
+                "not happen."
+            )
+        if not permit.binds(
+            participant=Participant.HARNESS_CLI,
+            run_id=self.run_id,
+            reservation_id=self.reservation_id,
+        ):
+            raise ExecutorRefused(
+                "The permit does not bind this run. It must name the harness "
+                f"participant, run {self.run_id!r} and reservation "
+                f"{self.reservation_id!r} — equality on all three, which is r6 "
+                "§5.11.1's binding rule applied to the object that carries the "
+                "start's authority. A permit for another run is another run's "
+                "accounting."
+            )
+        return permit
+
+    def _require_accounted_run(self) -> None:
+        """**r6 §5.11, LABI-3, LABI-R1-1 and PR-20260914-LABI-R1-2.** An armed
+        run is an accounted run, *accounted* is proved rather than asserted, and
+        it is proved about **now**.
+
+        An effect issuer that can really `mkdirat`, `ioctl` and `unlinkat` may
+        only be driven by a run the participant ledger accounts for. Without the
+        integration point there is no `participant_started` entry, so an
+        interrupted run would leave effects nothing could attribute — which is
+        R3-2 in one sentence, and the reason the reset's exemption was refused.
+
+        The check has three value conjuncts and then the one that matters. The
+        `session` must be a real `ParticipantIntegration`; the permit must bind
+        this exact participant, run id and reservation; and the integration point
+        must hold this executor's reservation. **None of those is sufficient**,
+        and PR-20260914-LABI-R1-2 is why it is said out loud: every one of them
+        is satisfied by a permit reconstructed from readable module attributes,
+        and every one of them is satisfied by a genuine permit a work callback
+        retained and replayed after the lock was released.
+
+        So the last step is `EffectPermit.consume`, which asks the protocol
+        rather than the object: that this integration point is inside the work
+        invocation the authority was issued for, that it owns an open session,
+        that the session still holds the cooperative lock, that the stored run is
+        this participant's, bound to this reservation and still in progress, that
+        the reservation is in r6 §5.7's T8 `running` state, and that the
+        authority has not already been spent. **PR-20260914-LABI-R2-1:** the
+        spend is the running invocation's own `ISSUED → SPENT` transition, kept
+        in a record no attribute reachable from here refers to, so it is good for
+        exactly one first effect per invocation. `participants.py` states the
+        limit of that claim: it holds against ordinary attribute access and
+        method calls, not against code in this interpreter that rebinds this
+        method or reaches into frames.
+
+        It is checked here rather than at construction because an unarmed issuer
+        is exactly what every test injects: a double that writes nothing needs no
+        ledger entry, and requiring one would make the guard a statement about
+        the suite rather than about the host. It is checked **here** rather than
+        at `accept_permit` because r6 §5.7 places T9 after T8 and inside the
+        hold: the only moment worth checking is the moment before the effect.
+        Every type is checked rather than an attribute looked up by name — a
+        duck-typed object that merely has the right attribute must not be able to
+        satisfy or to trip it.
+        """
+        issuer = self.effects
+        if not isinstance(issuer, DescriptorBoundEffects) or not issuer.armed:
+            return
+        if not isinstance(self.session, ParticipantIntegration) or not self.run_id:
+            raise ExecutorRefused(
+                "This executor holds an armed descriptor-bound effect issuer and "
+                "no participant integration accounts for the run. r6 §5.11 "
+                "requires every one of the seven entry points to publish its "
+                "non-reusable state before its first relevant effect, and an "
+                "unaccounted run is one whose effects nothing can attribute. "
+                "The effects are not issued."
+            )
+        permit = self._validate_permit(self.permit)
+        if permit.participant is not self.session.participant:
+            raise ExecutorRefused(
+                "The permit and the integration point name different "
+                "participants, so whatever published the start is not what is "
+                "accounting for this run."
+            )
+        if self.session.reservation_id != self.reservation_id:
+            raise ExecutorRefused(
+                "The integration point holds a different reservation than this "
+                "executor was assembled for. A run's effects belong to the "
+                "reservation its start names, and nothing else."
+            )
+        try:
+            permit.consume(integration=self.session)
+        except ParticipantRefused as refusal:
+            # `from None`, and the message is built from the protocol's own
+            # closed vocabulary: an operator is told which rule refused, and a
+            # hostile caller is told nothing about paths, stored bytes or the
+            # operating system. The refusal happens before `_refuse_when_blocked`
+            # and before the first step, so the process boundary, the
+            # materializer and the descriptor-bound issuer are never reached.
+            raise ExecutorRefused(
+                "This run holds no live authority for its first effect. r6 "
+                "§§5.6–5.7 place T9 inside the cooperative lock and after the "
+                "current T6, T7 and T8 state, so an armed executor must be "
+                "running inside the work invocation its authority was issued "
+                "for — not merely hold an object that was valid at some earlier "
+                f"time. Refused as {refusal.classification}: {refusal.detail}. "
+                "The effects are not issued."
+            ) from None
 
     def _refuse_when_blocked(self) -> None:
         if self._cleanup_uncertain:
@@ -895,18 +1241,30 @@ class ExecutingRunner:
                 state.mutations_reached.extend(step.mutation_ids)
 
             try:
-                result: CommandResult = self.boundary.run(
-                    step_id=step.step_id,
-                    argv=argv,
-                    run_as=step.run_as,
-                    capture=step.capture,
-                    timeout_seconds=timeout_for(argv[0]),
-                    # **R14, EH-R14-1.** The reviewed names a catalog reading
-                    # answers about, taken from the plan and never from the run.
-                    # `None` for every other policy, and `capture.sanitize`
-                    # refuses one supplied to a policy that answers no question.
-                    catalog=step.catalog_question,
-                )
+                if step.is_effect:
+                    # **r6 §1.4, C-P5.0-LAB-I-R1.** No process is started at
+                    # all: the executor issues the syscall itself, on a
+                    # descriptor its own inventory holds. This is where
+                    # `/usr/bin/install` and `/usr/bin/chattr` used to be.
+                    result: CommandResult = self._issue_effect(step)
+                else:
+                    result = self.boundary.run(
+                        step_id=step.step_id,
+                        argv=argv,
+                        run_as=step.run_as,
+                        capture=step.capture,
+                        timeout_seconds=timeout_for(argv[0]),
+                        # **R14, EH-R14-1.** The reviewed names a catalog
+                        # reading answers about, taken from the plan and never
+                        # from the run. `None` for every other policy, and
+                        # `capture.sanitize` refuses one supplied to a policy
+                        # that answers no question.
+                        catalog=step.catalog_question,
+                        # **r6 §§1.3.3 and 6.3.** The declared inherited table,
+                        # or the empty one. No synchronizable descriptor is ever
+                        # in it, and `DIRFD` is an index into it and nothing else.
+                        descriptors=self._transfer_for(step),
+                    )
             except (KeyboardInterrupt, SystemExit):
                 raise
             except Exception:
@@ -1015,6 +1373,214 @@ class ExecutingRunner:
             if not self._materialize_after(step.step_id, state):
                 return
 
+    # -- r6 §1.4: the descriptor-bound effects, issued here ------------------
+
+    def _transfer_for(self, step: CommandStep) -> tuple:
+        """The declared inherited descriptor table for one step, or the empty one.
+
+        **r6 §§1.3.3 and 6.3.** Descriptors move by inheritance and by nothing
+        else. The table is declared by the inventory — which refuses to put a
+        synchronizable descriptor in one — and a step that was declared none
+        receives none, so `DIRFD` resolves against a table this run stated
+        rather than against whatever happened to be open.
+        """
+        if self.effects is None:
+            return ()
+        return tuple(self.effects.declared_transfer())
+
+    def _issue_effect(self, step: CommandStep) -> CommandResult:
+        """One reviewed descriptor-bound effect, and a fixed classification.
+
+        Every refusal comes back as `LAUNCH_EFFECT_REFUSED`. The exception the
+        issuer raises names the role, the recorded identity and the one found,
+        which is what an operator needs and is **not** what an evidence artifact
+        may carry, so it stops here exactly as `boundary`'s identity refusals do.
+        """
+        issuer = self.effects
+        effect = step.effect
+        if issuer is None or effect is None:  # pragma: no cover - refused above
+            return CommandResult(
+                exit_status=-1,
+                timed_out=False,
+                launch_failure=LAUNCH_EFFECT_UNAVAILABLE,
+            )
+        try:
+            self._apply_effect(issuer, effect, step.step_id)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception:
+            return CommandResult(
+                exit_status=-1, timed_out=False, launch_failure=LAUNCH_EFFECT_REFUSED
+            )
+        return CommandResult(exit_status=0, timed_out=False)
+
+    def _apply_effect(
+        self,
+        issuer: "DescriptorBoundEffects",
+        effect: DescriptorEffect,
+        step_id: str = "",
+    ) -> None:
+        """Dispatch one effect kind. The closed set, and no default branch."""
+        if effect.kind is EffectKind.CREATE_DIRECTORY:
+            issuer.create_directory_object(
+                parent_role=effect.directory_role,
+                name=effect.name,
+                mode=effect.mode,
+                step_id=step_id,
+            )
+            return
+        if effect.kind is EffectKind.CREATE_OBJECT:
+            uid, gid = self._resolved_ownership(effect)
+            issuer.create_object(
+                directory_role=effect.directory_role,
+                name=effect.name,
+                uid=uid,
+                gid=gid,
+                mode=effect.mode,
+                step_id=step_id,
+            )
+            return
+        if effect.kind is EffectKind.INSTALL_PAYLOAD:
+            content = self.source_bytes.get(effect.payload_source)
+            if content is None:
+                raise EffectRefused(
+                    "the reviewed payload's bytes are not among the covered "
+                    "sources this run was handed, so what would be installed is "
+                    "not what the manifest digested."
+                )
+            uid, gid = self._resolved_ownership(effect)
+            issuer.install_case_program(
+                content=content,
+                sha256=hashlib.sha256(content).hexdigest(),
+                directory_role=effect.directory_role,
+                name=effect.name,
+                uid=uid,
+                gid=gid,
+                mode=effect.mode,
+                step_id=step_id,
+            )
+            return
+        if effect.kind is EffectKind.SET_FLAG:
+            issuer.set_inode_flags(
+                directory_role=effect.directory_role,
+                name=effect.name,
+                add=_flag_mask(effect.flags),
+                step_id=step_id,
+            )
+            return
+        if effect.kind is EffectKind.CLEAR_FLAG:
+            issuer.clear_inode_flags(
+                directory_role=effect.directory_role,
+                name=effect.name,
+                remove=_flag_mask(effect.flags),
+                step_id=step_id,
+            )
+            return
+        if effect.kind is EffectKind.CAPTURE_CONFIGURATION:
+            self._publish_recovery_basis(issuer, effect, step_id)
+            return
+        if effect.kind is EffectKind.RESTORE_CONFIGURATION:
+            self._restore_configuration(issuer, effect, step_id)
+            return
+        raise EffectRefused(  # pragma: no cover - the vocabulary is closed
+            "the effect names a kind this executor does not issue."
+        )
+
+    def _resolved_ownership(
+        self, effect: DescriptorEffect
+    ) -> tuple[int | None, int | None]:
+        """The numeric owner and group, through the **injected** NSS boundary.
+
+        The same seam every argument vector's late binding reads, so there is
+        one reader of `pwd`/`grp` in this package and a test exercises every
+        branch without touching a real account.
+        """
+        if not effect.owner or not effect.group:
+            return (None, None)
+        try:
+            # `root` is 0, by definition rather than by lookup. The boundary
+            # takes the same position for a root step: it requires the launcher
+            # to be effective UID and GID 0 rather than resolving the name, so a
+            # database that answered something else could not change what root
+            # means here either. Every other name is one of the four disposable
+            # identities and is resolved through the **injected** NSS boundary,
+            # immediately before the effect — conflict C-5's rule, applied to an
+            # effect exactly as it is applied to an argument vector.
+            uid = (
+                0
+                if effect.owner == "root"
+                else self.identity_lookup.account(effect.owner)[0]
+            )
+            gid = (
+                0
+                if effect.group == "root"
+                else self.identity_lookup.group_id(effect.group)
+            )
+        except IdentityRefusal as refusal:
+            raise EffectRefused(
+                "the owner or group the reviewed effect names does not resolve "
+                "on this host, so the object would be created under an identity "
+                "nobody reviewed."
+            ) from refusal
+        return (uid, gid)
+
+    def _publish_recovery_basis(
+        self,
+        issuer: "DescriptorBoundEffects",
+        effect: DescriptorEffect,
+        step_id: str = "",
+    ) -> None:
+        """**§§1.4.3 and 2.3.3.** Capture and publish, before any mutation.
+
+        The publication's own result is retained, because `_materialize_after`
+        re-checks its barrier set immediately before M1 rather than trusting
+        that this step reported satisfied.
+        """
+        publication = issuer.publish_recovery_basis(
+            run_id=self.run_id,
+            reservation_id=self.reservation_id,
+            captured_by=EFFECT_ISSUER,
+            capture_set=ConfigurationCaptureSet(
+                directory=self.plan.target.postgres_config_directory,
+                components=tuple(effect.components),
+            ),
+            configuration_role=effect.configuration_role,
+            evidence_role=effect.evidence_role,
+            step_id=step_id,
+        )
+        self._publication = publication
+        if not publication_permits_mutation(publication):
+            raise EffectRefused(
+                "the independent recovery basis was not durably published, so "
+                "no configuration mutation may occur. A refusal here leaves "
+                "nothing to recover from, which is why it is a refusal rather "
+                "than a warning."
+            )
+
+    def _restore_configuration(
+        self,
+        issuer: "DescriptorBoundEffects",
+        effect: DescriptorEffect,
+        step_id: str = "",
+    ) -> None:
+        """**§2.4 / L1.** Verify against the store, then write and publish."""
+        uid, gid = self._resolved_ownership(effect)
+        outcome = issuer.restore_configuration(
+            run_id=self.run_id,
+            configuration_role=effect.configuration_role,
+            destination_directory=self.plan.target.postgres_config_directory,
+            owner_uid=uid if uid is not None else 0,
+            owner_gid=gid if gid is not None else 0,
+            mode=effect.mode or 0o640,
+            step_id=step_id,
+        )
+        if not outcome.durable:
+            raise EffectRefused(
+                "the restoration is not durable. A rename whose containing-entry "
+                "barrier did not return success is visible and not durable, and "
+                "the post-reload verification does not run on it."
+            )
+
     def _materialize_after(self, step_id: str, state: _RunState) -> bool:
         """Write the reviewed bytes anchored to `step_id`. False stops the run.
 
@@ -1035,7 +1601,9 @@ class ExecutingRunner:
                         materialization,
                         applied=False,
                         failure=(
-                            MATERIALIZATION_CAPTURE_INCOMPLETE
+                            MATERIALIZATION_RECOVERY_BASIS_MISSING
+                            if "recovery basis" in refusal
+                            else MATERIALIZATION_CAPTURE_INCOMPLETE
                             if "pre-change capture" in refusal
                             else MATERIALIZATION_VALIDATION_REFUSED
                         ),
@@ -1344,6 +1912,11 @@ class ExecutingRunner:
                     timed_out=False,
                     launch_failure=LAUNCH_VALIDATION_REFUSED,
                 )
+            elif step.is_effect:
+                # **r6 §§1.4.5 and 2.4.** L3's flag clear and L1's
+                # verify-and-write restoration. No process starts here either:
+                # this is what `chattr -ia` and the restoring `install` became.
+                result = self._issue_cleanup_effect(step)
             else:
                 try:
                     result = self.boundary.run(
@@ -1552,11 +2125,689 @@ class ExecutingRunner:
                 unremoved.append(step.removes)
 
 
+
+# ---------------------------------------------------------------------------
+# r6 §§1.4 and 1.6 — descriptor issuance, the quiescence gate, pre/post checks
+# ---------------------------------------------------------------------------
+
+
+#: The five directories P1 creates under the disposable root, in the order it
+#: creates them. Each becomes a role in the descriptor inventory, held twice for
+#: the run: an `O_PATH` traversal descriptor and, where a barrier is needed, a
+#: bound `O_RDONLY` synchronizable one.
+RUN_DIRECTORIES = ("bin", "before", "journal", "probe", "probe-ro")
+
+#: The roles the disposable root and its parent are registered under. They are
+#: `plan.ROOT_ROLE` and `plan.EVIDENCE_ROLE`, imported rather than respelled: a
+#: reviewed effect step names the same role this module resolves.
+
+#: What a quiescence-dependent effect costs, stated where its gate is.
+QUIESCENCE_COST = (
+    "B3 serializes the run: no effect that depends on it may overlap a case "
+    "process. Cases that require concurrency keep it inside the case, and the "
+    "executor's B3-dependent effects sit between cases and never during one.",
+    "Quiescence is a **prerequisite of name-based removal**, not a detector of "
+    "its failure. It does not make `unlinkat` inode-bound, because nothing "
+    "does.",
+)
+
+#: r6 §1.4.5(4), stated where the post-check is issued. It is the sentence the
+#: re-review required rather than a claim the code makes for itself.
+POST_CHECK_ESTABLISHES = (
+    "The post-check observes whether a name exists. It cannot establish which "
+    "object the removal took, and it cannot report a replacement's identity, "
+    "because the object is gone and the name is all that is left to look at.",
+    "A post-check that finds the name still resolving is informative: something "
+    "is there that should not be, and the run reaches S-B.",
+    "A post-check returning absence is **not** evidence that the intended "
+    "object was removed. It is byte-for-byte the observation a substituted "
+    "removal produces.",
+)
+
+
+#: **PR-20260913-LABI-2.** The three refusals the mandatory ownership binding
+#: adds, each raised **before** an `ioctl`, an `unlinkat` or an `rmdir`.
+EFFECT_IDENTITY_NOT_RECORDED = "creating-step-identity-not-recorded"
+EFFECT_OBJECT_ABSENT = "object-absent-at-the-pre-check"
+EFFECT_IDENTITY_MISMATCH = "object-is-not-the-recorded-object"
+#: The effect issuer's closed refusal vocabulary. A classification outside it is
+#: refused at construction, for the reason `DescriptorRefused`'s is: an
+#: operator-facing refusal must not acquire a new meaning by being raised.
+EFFECT_REFUSALS: frozenset[str] = frozenset(
+    {
+        EFFECT_IDENTITY_NOT_RECORDED,
+        EFFECT_OBJECT_ABSENT,
+        EFFECT_IDENTITY_MISMATCH,
+    }
+)
+
+#: **PR-20260913-LABI-2, stated where the effects are.** The reviewer found the
+#: contract's prerequisite — *"the file is the object the creating step
+#: recorded"* — encoded as an optional comparison, so an object this run neither
+#: created nor recorded could be flagged or removed.
+OWNERSHIP_BINDING_RULE = (
+    "A non-empty creating-step identity for the exact `(directory_role, name)` "
+    "is a **mandatory** prerequisite of setting a flag, clearing a flag and "
+    "removing an object. It is not a comparison that is skipped when absent.",
+    "Three inputs refuse, and all three refuse before `ioctl`, `unlinkat` or "
+    "`rmdir`: no recorded identity, no object at the pre-check, and an identity "
+    "that is not equal to the recorded one.",
+    "Equality with the mandatory record is the **only** admitting branch. There "
+    "is no default empty value, no optional truthiness and no comparison that "
+    "is skipped for absence.",
+    "Every production creation path records the identity at the point r6 "
+    "specifies — inside the effect that creates the object — so no caller has "
+    "to remember a separate optional call later.",
+    "The accepted distinction is preserved: the pre-check detects substitution "
+    "before removal; quiescence is the only prevention for the final-component "
+    "interval; and the post-check establishes absence and never which inode was "
+    "removed.",
+)
+
+
+class EffectRefused(PlanRefused):
+    """A descriptor-bound effect was refused before it was issued.
+
+    Before, never during: every refusal below happens ahead of the syscall that
+    would have changed something, so a refused effect leaves the host exactly as
+    it was and the dependent effects refuse with it.
+
+    `classification` is one of `EFFECT_REFUSALS` for the three ownership-binding
+    refusals and empty for the rest, which carry their rule in the message. A
+    value outside the closed vocabulary is refused here rather than reaching an
+    operator.
+    """
+
+    def __init__(self, message: str, *, classification: str = "") -> None:
+        if classification and classification not in EFFECT_REFUSALS:
+            raise PlanRefused(
+                f"{classification!r} is not one of the effect refusals. The "
+                "vocabulary is closed."
+            )
+        self.classification = classification
+        super().__init__(message)
+
+
+@dataclass(frozen=True, slots=True)
+class RemovalRecord:
+    """One removal's pre-check, its issue and its post-check, kept apart.
+
+    Three separate facts, because collapsing any two of them is how r2 came to
+    claim the post-check established something. `detected_substitution` is true
+    only where the **pre**-check caught it.
+    """
+
+    name: str
+    recorded_identity: str
+    pre_check_identity: str | None
+    removal_issued: bool
+    post_check_identity: str | None
+    detected_substitution: bool
+    establishes: tuple[str, ...] = POST_CHECK_ESTABLISHES
+
+    @property
+    def post_check_absent(self) -> bool:
+        return self.post_check_identity is None
+
+
+@dataclass(slots=True)
+class DescriptorBoundEffects:
+    """The executor's half of r6 §1: P1, P1b, P2, P4 and L3, through the chain.
+
+    Every effect here is issued on a **descriptor** or refuses. The four the
+    contract enumerates:
+
+    * **P1/P1b** — `mkdirat` each of the five run directories exclusively, then
+      `fsync` the root's containing entry. Exclusive creation is B1: `EEXIST` is
+      the refusal and success *is* the ownership proof;
+    * **P2** — install the reviewed case program from a **held buffer**:
+      `O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW`, write, `fchown`, `fchmod`, `fsync`
+      the bytes, publish exclusively, `fsync` the containing entry. The bytes
+      written are the bytes digested, from one buffer, so there is no second
+      read of any pathname between the check and the write;
+    * **P4** — set a flag on the inode a descriptor holds, never on a name. The
+      residual interval is the lookup itself, and it is covered by the
+      quiescence gate or the effect refuses; and
+    * **L3** — clear the flag on the descriptor, then remove by name, with the
+      pre-check that detects and the post-check that does not.
+
+    **Nothing here is armed by default.** `armed` is False, and an unarmed
+    instance refuses every effect, so an executor assembled with one by mistake
+    still changes nothing.
+    """
+
+    inventory: DescriptorInventory
+    filesystem: PosixFilesystem
+    #: The three §1.6 observations. The default is `not_observed`, which refuses
+    #: every B3-dependent effect — the fail-closed direction.
+    quiescence: Quiescence = field(default_factory=Quiescence.not_observed)
+    armed: bool = False
+    #: **r6 §§2.2–2.5.** The independent recovery store the pre-M1 capture
+    #: publishes into and the restoration verifies against. `None` refuses both
+    #: configuration effects: a capture with nowhere durable to publish to is a
+    #: mutation with no recoverable basis.
+    recovery: "RecoveryStore | None" = None
+    #: `(st_dev, st_ino)` as recorded when each object was created, keyed by the
+    #: `(role, name)` it was created under. It is what a pre-check compares
+    #: against, and it is never re-derived from the descriptor that produced it.
+    _recorded: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
+
+    # -- the gate -------------------------------------------------------------
+
+    def require_quiescence(self, effect: str) -> None:
+        """**B3.** Refuse the effect and every dependent one, or proceed.
+
+        Unobserved, observed false and incomplete are three different inputs and
+        all three refuse. None of them defaults to true, which is what makes
+        *"not checked"* and *"checked and false"* stay apart.
+        """
+        missing = self.quiescence.missing()
+        if missing:
+            raise EffectRefused(
+                f"{effect} depends on experimental quiescence and it is not "
+                f"established: {list(missing)}. The effect and every dependent "
+                "effect refuse, the objects are reported as residue by absolute "
+                "path, the §2.13.2b state is S-B, and independent recovery is "
+                "preserved because the store is outside the disposable root and "
+                "was published before the first mutation."
+            )
+
+    def _require_armed(self, effect: str) -> None:
+        if not self.armed:
+            raise EffectRefused(
+                f"{effect} was requested of an unarmed effect issuer, which "
+                "writes nothing. Arming is a single explicit act in the CLI's "
+                "`--execute` branch, so an executor assembled without one still "
+                "cannot change a file."
+            )
+
+    # -- P1 and P1b -----------------------------------------------------------
+
+    def create_run_directories(
+        self, *, root_role: str = ROOT_ROLE, mode: int = 0o700
+    ) -> tuple[str, ...]:
+        """**P1 + P1b.** Five exclusive `mkdirat`s, then the root's barrier.
+
+        It replaces `install -d <path>` with the syscall that carries the
+        ownership proof: `install` succeeds whether or not the directory was
+        already there, and exclusive creation does not.
+        """
+        self._require_armed("creating the run directories")
+        created: list[str] = []
+        for name in RUN_DIRECTORIES:
+            handle = self.inventory.create_directory(
+                parent_role=root_role, name=name, role=name, mode=mode
+            )
+            self._recorded[(root_role, name)] = handle.identity.object_id
+            created.append(name)
+        # P1b — the barrier r2 had no equivalent of at all. A failure here
+        # refuses P2 and everything after it.
+        self.inventory.bind_synchronizable(root_role)
+        self.inventory.fsync_entry(root_role)
+        return tuple(created)
+
+    def create_directory_object(
+        self,
+        *,
+        parent_role: str,
+        name: str,
+        role: str = "",
+        mode: int = 0o700,
+        step_id: str = "",
+    ) -> str:
+        """**P1 + P1b for one directory.** `mkdirat`, record, then the barrier.
+
+        It is `create_run_directories` for a plan that creates its directories
+        one reviewed step at a time. Exclusive creation is the ownership proof
+        and `EEXIST` is the refusal, exactly as the batch form; the parent's
+        containing-entry barrier follows each creation rather than the set, so a
+        failure refuses the step that needed it rather than a later one.
+
+        **The identity is recorded here**, inside the creation, so no caller has
+        to remember a separate optional call later — PR-20260913-LABI-2.
+        """
+        self._require_armed("creating a run directory")
+        handle = self.inventory.create_directory(
+            parent_role=parent_role, name=name, role=role or name, mode=mode
+        )
+        self._recorded[(parent_role, name)] = handle.identity.object_id
+        self.inventory.bind_synchronizable(parent_role)
+        self.inventory.fsync_entry(parent_role)
+        return handle.identity.object_id
+
+    def create_object(
+        self,
+        *,
+        directory_role: str,
+        name: str,
+        content: bytes = b"",
+        uid: int | None = None,
+        gid: int | None = None,
+        mode: int = 0o640,
+        step_id: str = "",
+    ) -> str:
+        """Create one reviewed file exclusively, from a held buffer.
+
+        The replacement for `install -m … /dev/null <path>`: `install` succeeds
+        whether or not something was already at the name and re-resolves that
+        name for every one of its own effects. Here `O_CREAT|O_EXCL|O_NOFOLLOW`
+        proves the name was free, the ownership and the mode land on the
+        **descriptor**, the bytes are synchronized before the containing entry,
+        and the created object's identity is recorded by the creating step.
+        """
+        self._require_armed("creating an object")
+        traversal = self.inventory.traversal(directory_role)
+        descriptor = self.filesystem.create_file(traversal, name)
+        try:
+            if content:
+                self.filesystem.write(descriptor.number, content)
+            if uid is not None and gid is not None:
+                os.fchown(descriptor.number, uid, gid)
+            os.fchmod(descriptor.number, mode)
+            self.filesystem.fsync(descriptor.number, barrier="object-data")
+            identity = ObjectIdentity.of(descriptor.number)
+        finally:
+            self.filesystem.close(descriptor.number)
+        self.inventory.bind_synchronizable(directory_role)
+        self.inventory.fsync_entry(directory_role)
+        self._recorded[(directory_role, name)] = identity.object_id
+        return identity.object_id
+
+    # -- P2 -------------------------------------------------------------------
+
+    def install_case_program(
+        self,
+        *,
+        content: bytes,
+        sha256: str,
+        directory_role: str = "bin",
+        name: str = "case-program",
+        temporary: str = ".case-program.tmp",
+        uid: int | None = None,
+        gid: int | None = None,
+        mode: int = 0o555,
+        step_id: str = "",
+    ) -> ObjectIdentity:
+        """**P2.** Install the reviewed bytes from one held buffer.
+
+        The digest is compared against the buffer this call was handed, at the
+        last possible moment, and against `materialization.REVIEWED_DIGESTS`
+        where the content is one the planning tier pinned. Content that changed
+        between the manifest and the write is refused rather than installed.
+        """
+        self._require_armed("installing the case program")
+        digest = hashlib.sha256(content).hexdigest()
+        if digest != (sha256 or "").strip().lower():
+            raise EffectRefused(
+                "the bytes handed to the installation do not hash to the digest "
+                "that travelled with them, so what would be installed is not "
+                "what was reviewed."
+            )
+        traversal = self.inventory.traversal(directory_role)
+        descriptor = self.filesystem.create_file(traversal, temporary)
+        try:
+            self.filesystem.write(descriptor.number, content)
+            if uid is not None and gid is not None:
+                os.fchown(descriptor.number, uid, gid)
+            os.fchmod(descriptor.number, mode)
+            self.filesystem.fsync(descriptor.number, barrier="payload-data")
+            identity = ObjectIdentity.of(descriptor.number)
+        finally:
+            self.filesystem.close(descriptor.number)
+        self.filesystem.renameat(
+            traversal, temporary, traversal, name, noreplace=True
+        )
+        self.inventory.bind_synchronizable(directory_role)
+        self.inventory.fsync_entry(directory_role)
+        self._recorded[(directory_role, name)] = identity.object_id
+        return identity
+
+    # -- P4 -------------------------------------------------------------------
+
+    def set_inode_flags(
+        self, *, directory_role: str, name: str, add: int, step_id: str = ""
+    ) -> None:
+        """**P4.** `ioctl(FS_IOC_SETFLAGS)` on the inode a descriptor holds.
+
+        The pre-check is the genuine detection: the entry is opened relative to
+        the held parent and its `fstat` is compared with the identity the
+        creating step recorded. A mismatch refuses **before** the flag change,
+        so a replacement of the *name* after the check cannot receive the flag.
+
+        The residual interval is the lookup between `openat` and `fstat`, and it
+        is covered by the quiescence gate — or the effect refuses.
+        """
+        self._require_armed("setting an inode flag")
+        self.require_quiescence("setting an inode flag")
+        descriptor = self._open_and_verify(directory_role, name)
+        try:
+            current = _read_inode_flags(descriptor)
+            _write_inode_flags(descriptor, current | add)
+        finally:
+            self.filesystem.close(descriptor)
+
+    def clear_inode_flags(
+        self, *, directory_role: str, name: str, remove: int, step_id: str = ""
+    ) -> None:
+        """**L3's first half.** Clear the flag, on the descriptor. Still B2."""
+        self._require_armed("clearing an inode flag")
+        self.require_quiescence("clearing an inode flag")
+        descriptor = self._open_and_verify(directory_role, name)
+        try:
+            current = _read_inode_flags(descriptor)
+            _write_inode_flags(descriptor, current & ~remove)
+        finally:
+            self.filesystem.close(descriptor)
+
+    # -- L3 -------------------------------------------------------------------
+
+    def remove_object(
+        self,
+        *,
+        directory_role: str,
+        name: str,
+        is_directory: bool = False,
+        step_id: str = "",
+    ) -> RemovalRecord:
+        """**L3.** Pre-check, remove by name, post-check — and say what each is.
+
+        There is no `funlink`. `unlinkat` resolves its final component at the
+        time of the call and no flag binds that component to a previously
+        observed inode, so removal cannot be made inode-bound by any syscall
+        available here and this does not claim otherwise.
+
+        1. **Prevention** — the quiescence gate, and it is the only prevention;
+        2. **Pre-check** — `openat` + `fstat` against the recorded pair. A
+           mismatch refuses **before** the removal and names both identities;
+        3. **Removal** — whatever the name resolves to at the moment of the
+           call; and
+        4. **Post-check** — an absence check, and nothing more.
+        """
+        self._require_armed("removing an object")
+        self.require_quiescence("removing an object")
+        # **PR-20260913-LABI-2.** Three refusing inputs, all before `unlinkat`:
+        # no recorded identity, no object at the pre-check, and an identity that
+        # is not equal to the record. Equality is the only admitting branch.
+        recorded = self._require_recorded(directory_role, name, "the removal")
+        traversal = self.inventory.traversal(directory_role)
+        found = self.filesystem.fstatat(traversal, name)
+        if found is None:
+            raise EffectRefused(
+                "the object this run recorded is not at that name, so the "
+                "removal has nothing to take and no basis for taking it. It is "
+                "refused before it is issued.",
+                classification=EFFECT_OBJECT_ABSENT,
+            )
+        if found != recorded:
+            raise EffectRefused(
+                "the object at that name is not the object this run recorded "
+                f"when it created it: recorded {recorded!r}, found {found!r}. "
+                "The removal is refused before it is issued and the run reports "
+                "a detected substitution.",
+                classification=EFFECT_IDENTITY_MISMATCH,
+            )
+        self.filesystem.unlinkat(traversal, name, directory=is_directory)
+        after = self.filesystem.fstatat(traversal, name)
+        return RemovalRecord(
+            name=name,
+            recorded_identity=recorded,
+            pre_check_identity=found,
+            removal_issued=True,
+            post_check_identity=after,
+            detected_substitution=False,
+        )
+
+    # -- the two configuration effects ---------------------------------------
+
+    def declared_transfer(self) -> tuple:
+        """The inherited descriptor table this run declared — r6 §§1.3.3, 6.3."""
+        return self.inventory.transfer
+
+    def publish_recovery_basis(
+        self,
+        *,
+        run_id: str,
+        reservation_id: str,
+        captured_by: str,
+        capture_set: ConfigurationCaptureSet,
+        configuration_role: str,
+        evidence_role: str = "",
+        step_id: str = "",
+    ) -> "StorePublication":
+        """**§§1.4.3 and 2.3.3.** Capture and publish, before any mutation.
+
+        The reviewed set is bound here, at the integration boundary, and the
+        request is derived from it — so there is no parameter through which a
+        caller substitutes a destination of its own. That is
+        PR-20260913-LABI-1's binding, applied at the one place the executor
+        captures anything.
+        """
+        self._require_armed("publishing the recovery basis")
+        store = self.recovery
+        if store is None:
+            raise EffectRefused(
+                "no independent recovery store was assembled, so a capture "
+                "would have nowhere durable to publish to and the first "
+                "configuration mutation has no recoverable basis."
+            )
+        store.bind_capture_set(capture_set)
+        publication = store.publish(
+            run_id=run_id,
+            reservation_id=reservation_id,
+            captured_by=captured_by,
+            sources=dict(capture_set.destinations()),
+            configuration_role=configuration_role,
+        )
+        if evidence_role and publication.mutation_permitted:
+            # **r6 §2.5.** The retained evidence copy, written from the store
+            # **after** the basis is durable — so it cannot precede the basis and
+            # cannot be mistaken for it. `R/before` is evidence; the basis is
+            # `/var/lib/freedom-blades/recovery/<run-id>/`, whose custody is not
+            # the custody this run is about.
+            for capture in publication.captures:
+                self.create_object(
+                    directory_role=evidence_role,
+                    name=capture.name,
+                    content=store.read_copy(run_id, capture.name),
+                    mode=0o600,
+                    step_id=step_id,
+                )
+        return publication
+
+    def restore_configuration(
+        self,
+        *,
+        run_id: str,
+        configuration_role: str,
+        destination_directory: str,
+        owner_uid: int,
+        owner_gid: int,
+        mode: int = 0o640,
+        step_id: str = "",
+    ) -> "RestorationOutcome":
+        """**§2.4 / L1.** Verify against the independent store, then write."""
+        self._require_armed("restoring the configuration")
+        store = self.recovery
+        if store is None:
+            raise EffectRefused(
+                "no independent recovery store was assembled, so there is "
+                "nothing to restore the pre-change configuration from."
+            )
+        return restore_configuration(
+            inventory=self.inventory,
+            filesystem=self.filesystem,
+            store=store,
+            run_id=run_id,
+            configuration_role=configuration_role,
+            destination_directory=destination_directory,
+            owner_uid=owner_uid,
+            owner_gid=owner_gid,
+            mode=mode,
+        )
+
+    # -- internals ------------------------------------------------------------
+
+    def recorded_identity(self, directory_role: str, name: str) -> str:
+        """What the creating step recorded for this entry, or `""`.
+
+        Exposed so a reviewer and a negative control can both see that the
+        production path never consults it without requiring it.
+        """
+        return self._recorded.get((directory_role, name), "")
+
+    def _require_recorded(self, directory_role: str, name: str, effect: str) -> str:
+        """**PR-20260913-LABI-2.** The mandatory prerequisite, before anything.
+
+        An absent or empty record refuses here, ahead of every lookup and every
+        syscall that could change something. The contract's prerequisite is that
+        the object *is the one the creating step recorded*; with nothing
+        recorded there is no such object, and an effect issued anyway is an
+        effect on something this run does not own.
+        """
+        recorded = self._recorded.get((directory_role, name), "")
+        if not recorded:
+            raise EffectRefused(
+                f"{effect} requires the identity the creating step recorded for "
+                f"this entry under role {directory_role!r}, and this run "
+                "recorded none. A missing record is not an absent comparison: "
+                "it is an object this run neither created nor owns, and the "
+                "effect is refused before it is issued.",
+                classification=EFFECT_IDENTITY_NOT_RECORDED,
+            )
+        return recorded
+
+    def _open_and_verify(self, directory_role: str, name: str) -> int:
+        """The pre-check for a flag effect: mandatory record, object, equality.
+
+        One lookup, so there is no second interval between two of this run's own
+        calls: `openat` resolves the entry and `fstat` of the descriptor it
+        returned reports the object the effect will reach. The recorded identity
+        is required **before** the lookup, an absent object refuses **before**
+        any `ioctl`, and equality is the only admitting branch.
+        """
+        recorded = self._require_recorded(
+            directory_role, name, "the descriptor-bound effect"
+        )
+        traversal = self.inventory.traversal(directory_role)
+        try:
+            descriptor = self.filesystem.openat(
+                traversal, name, DescriptorMode.O_RDONLY
+            )
+        except DescriptorRefused as refusal:
+            if refusal.classification == DESCRIPTOR_OBJECT_ABSENT:
+                raise EffectRefused(
+                    "the entry this run recorded does not resolve, so there is "
+                    "no object to compare with the record and none to issue the "
+                    "effect on. The effect is refused before any ioctl.",
+                    classification=EFFECT_OBJECT_ABSENT,
+                ) from None
+            raise
+        found = ObjectIdentity.of(descriptor.number).object_id
+        if found != recorded:
+            self.filesystem.close(descriptor.number)
+            raise EffectRefused(
+                "the entry resolved to a different object from the one this run "
+                f"recorded: recorded {recorded!r}, found {found!r}. The effect "
+                "is refused before it is issued.",
+                classification=EFFECT_IDENTITY_MISMATCH,
+            )
+        return descriptor.number
+
+    def record_identity(self, *, directory_role: str, name: str) -> str:
+        """Record what a name resolves to now, so a later pre-check can compare.
+
+        It records the result of a **lookup**, which is the only thing a later
+        comparison can be against. Re-`fstat`ing the descriptor that produced it
+        would compare a value with itself — r6 §1.1(1), withdrawn.
+        """
+        traversal = self.inventory.traversal(directory_role)
+        found = self.filesystem.fstatat(traversal, name)
+        if found is None:
+            raise EffectRefused(
+                "the name does not resolve, so there is no identity to record "
+                "and nothing a later pre-check could compare against."
+            )
+        self._recorded[(directory_role, name)] = found
+        return found
+
+
+def _read_inode_flags(descriptor: int) -> int:
+    """`ioctl(FS_IOC_GETFLAGS)` on a held descriptor.
+
+    It is issued through `fcntl.ioctl` on the descriptor, so the request lands
+    on the object the descriptor refers to. There is no argument kind through
+    which a caller could name a different request number: both are constants in
+    this module's own body.
+    """
+    buffer = array.array("i", [0])
+    fcntl.ioctl(descriptor, FS_IOC_GETFLAGS, buffer, True)
+    return int(buffer[0])
+
+
+def _write_inode_flags(descriptor: int, value: int) -> None:
+    buffer = array.array("i", [value])
+    fcntl.ioctl(descriptor, FS_IOC_SETFLAGS, buffer, False)
+
+
+#: The two `ioctl` request numbers, as constants in this module's body. They are
+#: the same two the reviewed case program uses, and neither is reachable from a
+#: vector.
+FS_IOC_GETFLAGS = 0x80086601
+FS_IOC_SETFLAGS = 0x40086602
+#: The two flags the contract names: the append-only flag the journal carries
+#: and the immutable flag the seal carries.
+FS_APPEND_FL = 0x00000020
+FS_IMMUTABLE_FL = 0x00000010
+
+#: The numeric value of each reviewed flag name. `plan.EFFECT_FLAGS` carries the
+#: names a step may write and the `chattr` letter each replaced; the numbers
+#: live here, beside the `ioctl` request numbers, and neither is reachable from
+#: an argument vector.
+FLAG_VALUES: dict[str, int] = {
+    "append_only": FS_APPEND_FL,
+    "immutable": FS_IMMUTABLE_FL,
+}
+
+
+def _flag_mask(flags: Sequence[str]) -> int:
+    """The mask a reviewed flag tuple denotes. An unknown name is a refusal."""
+    mask = 0
+    for flag in flags:
+        if flag not in FLAG_VALUES or flag not in EFFECT_FLAGS:
+            raise EffectRefused(
+                "the effect names an inode flag outside the reviewed pair."
+            )
+        mask |= FLAG_VALUES[flag]
+    return mask
+
+
+#: Who a recovery publication records as its capturing identity. Fixed, so a
+#: caller cannot write an attribution of its own into a stored record.
+EFFECT_ISSUER = "the harness executor, as root"
+
+
 __all__ = [
     "BEFORE_FIRST_STEP",
+    "EFFECT_IDENTITY_MISMATCH",
+    "EFFECT_IDENTITY_NOT_RECORDED",
+    "EFFECT_OBJECT_ABSENT",
+    "EFFECT_REFUSALS",
+    "OWNERSHIP_BINDING_RULE",
     "CLEANUP_BOUNDARY_FAILURE",
+    "EVIDENCE_ROLE",
+    "FS_APPEND_FL",
+    "FS_IMMUTABLE_FL",
+    "FS_IOC_GETFLAGS",
+    "FS_IOC_SETFLAGS",
+    "POST_CHECK_ESTABLISHES",
+    "QUIESCENCE_COST",
+    "ROOT_ROLE",
+    "RUN_DIRECTORIES",
+    "DescriptorBoundEffects",
+    "EffectRefused",
     "ExecutingRunner",
     "ExecutorRefused",
+    "RemovalRecord",
     "MATERIALIZATION_NOT_APPLIED",
     "OPERATOR_INTERRUPTION",
     "PERMITTED_RUN_AS",

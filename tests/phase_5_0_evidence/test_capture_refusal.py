@@ -76,6 +76,7 @@ from tools.phase_5_0_evidence.expectations import (
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
 from tests.phase_5_0_evidence.harness_fixtures import (
+    RecordingEffects,
     cleanup_observations_for,
     DISPOSABLE_ACCOUNTS,
     DISPOSABLE_GROUPS,
@@ -383,7 +384,17 @@ class Boundary:
     scripted: dict = field(default_factory=dict)
     calls: list = field(default_factory=list)
 
-    def run(self, *, step_id, argv, run_as, capture, timeout_seconds, catalog=None):
+    def run(
+        self,
+        *,
+        step_id,
+        argv,
+        run_as,
+        capture,
+        timeout_seconds,
+        catalog=None,
+        descriptors=(),
+    ):
         self.calls.append(step_id)
         if step_id in self.raw:
             return CommandResult(
@@ -424,6 +435,7 @@ def runner(plan: ConcretePlan, boundary: Boundary) -> ExecutingRunner:
         source_bytes=dict(SOURCES),
         materializer=Materializer(),
         identity_lookup=Lookup(),
+        effects=RecordingEffects(),
     )
 
 

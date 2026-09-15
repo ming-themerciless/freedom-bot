@@ -102,15 +102,19 @@ from .materialization import reviewed_configuration
 from .observations import BAND_7_SCHEMA
 from .required_cases import check_case_coverage
 from .plan import (
+    CONFIGURATION_ROLE,
     ROOT_IDENTITY_NAME,
+    ROOT_ROLE,
     CommandStep,
+    DescriptorEffect,
+    EffectKind,
     ExecutionPlan,
     MaterializeStep,
     Mutation,
     MutationKind,
     StepRole,
 )
-from .targets import DisposableTarget
+from .targets import POSTGRES_CONFIG_FILES, DisposableTarget
 
 # ---------------------------------------------------------------------------
 # The names the run creates. Every one is checked by
@@ -159,13 +163,11 @@ MAPPED_POSTGRES_ROLE = COORDINATOR_ROLE
 #: and the unit §2.13.2a names.
 TRANSIENT_UNIT = "fb-evidence-s4.service"
 
-#: `install` needs a source to create a file. `/dev/null` is the source for every
-#: empty artefact the run creates: it is a character device the kernel provides,
-#: it is read-only in effect, it is not production configuration and it is not
-#: player data. It is the **only** path outside the disposable root that any
-#: mutation-bearing vector names as a source, and it is named as a source and
-#: never as a destination.
-EMPTY_SOURCE = "/dev/null"
+#: The reviewed configuration capture set, in the order the plan lists it. It is
+#: `targets.POSTGRES_CONFIG_FILES`, named here so the capture effect, the
+#: restoration effect and the recovery store's bound set are one list rather
+#: than three.
+CAPTURED_CONFIGURATION: tuple[str, ...] = tuple(sorted(POSTGRES_CONFIG_FILES))
 
 #: Which memberships a group's absence establishes ownership of. A group that
 #: does not exist has no members, so the `getent` that proves `freedomjournal`
@@ -1683,53 +1685,140 @@ def _band_2(steps: _Steps, mutations_by_id) -> None:
         )
 
 
-def _install_directory(
+def _component(path: str) -> tuple[str, str]:
+    """The `(directory_role, name)` pair a reviewed absolute path denotes.
+
+    The role is the parent directory's own name, which is the role the
+    descriptor inventory registers it under, and the name is one component. The
+    absolute path stays in the plan for the reviewer and for the mutation id; it
+    is never resolved, because resolving it is exactly what `install` and
+    `chattr` did.
+    """
+    parent, _, name = path.rpartition("/")
+    return parent.rpartition("/")[2], name
+
+
+def _create_directory(
     step_id: str, band: str, path: str, mode: str, owner: str, group: str, why: str
 ) -> CommandStep:
+    """**P1 + P1b**, replacing `install --directory`.
+
+    `install --directory` succeeds whether or not the directory was already
+    there, so it establishes no ownership. `mkdirat(parent_traversal, name,
+    mode)` with exclusive creation refuses with `EEXIST` instead, and the
+    successful creation *is* the ownership proof.
+    """
+    _parent_role, name = _component(path)
     return CommandStep(
         step_id=step_id,
         band=band,
         run_as="root",
-        argv=(
-            "/usr/bin/install",
-            "--directory",
-            "--mode",
-            mode,
-            "--owner",
-            owner,
-            "--group",
-            group,
-            path,
+        argv=(),
+        effect=DescriptorEffect(
+            kind=EffectKind.CREATE_DIRECTORY,
+            directory_role=ROOT_ROLE,
+            name=name,
+            path=path,
+            mode=int(mode, 8),
+            owner=owner,
+            group=group,
         ),
         purpose=why,
         mutation_ids=(f"directory:{path}",),
-        expected_result=f"exit 0; {path} exists as {owner}:{group} {mode}.",
-        expected_refusal="",
+        expected_result=(
+            f"the exclusive `mkdirat` created {path} as {owner}:{group} {mode} "
+            "and the root's containing-entry barrier returned success."
+        ),
+        expected_refusal=(
+            "`EEXIST` refuses: an entry already at that name is an object this "
+            "run did not create and may not own."
+        ),
     )
 
 
-def _install_empty_file(
-    step_id: str, band: str, path: str, mode: str, owner: str, group: str, why: str
+def _set_flag(
+    step_id: str,
+    band: str,
+    path: str,
+    flag: str,
+    *,
+    why: str = "",
+    refusal: str = "",
 ) -> CommandStep:
+    """**P4**, replacing `chattr +a` and `chattr +i`.
+
+    `chattr` resolves the pathname itself, inside a tool this design does not
+    own, so the flag landed on whatever the name meant at that instant. Here the
+    entry is opened relative to the held parent descriptor, its identity is
+    compared with the one the creating step recorded, and
+    `ioctl(FS_IOC_SETFLAGS)` is issued **on that descriptor** — so a replacement
+    of the name after the check cannot receive the flag.
+    """
+    directory_role, name = _component(path)
+    letter = "a" if flag == "append_only" else "i"
     return CommandStep(
         step_id=step_id,
         band=band,
         run_as="root",
-        argv=(
-            "/usr/bin/install",
-            "--mode",
-            mode,
-            "--owner",
-            owner,
-            "--group",
-            group,
-            EMPTY_SOURCE,
-            path,
+        argv=(),
+        effect=DescriptorEffect(
+            kind=EffectKind.SET_FLAG,
+            directory_role=directory_role,
+            name=name,
+            path=path,
+            flags=(flag,),
+        ),
+        purpose=why or f"Set the {flag} inode flag on {path}, as §2.13.3 specifies.",
+        mutation_ids=(f"file_attribute:{path}",),
+        expected_result=(
+            f"the flag is set on the inode the descriptor holds; `lsattr` "
+            f"reports `{letter}` on {path}."
+        ),
+        expected_refusal=refusal
+        or (
+            "a missing creating-step record, an absent object or an identity "
+            "that is not the recorded one refuses before the ioctl, and an "
+            "unestablished quiescence refuses the effect and every dependent "
+            "one."
+        ),
+    )
+
+
+def _create_empty_file(
+    step_id: str, band: str, path: str, mode: str, owner: str, group: str, why: str
+) -> CommandStep:
+    """One reviewed empty subject, created exclusively on a held descriptor.
+
+    Replaces `install --mode … /dev/null <path>`: `O_CREAT|O_EXCL|O_NOFOLLOW`
+    proves the name was free, `fchown`/`fchmod` land on the descriptor rather
+    than on a name resolved again, and the creating step records the identity a
+    later flag or removal pre-check compares against.
+    """
+    directory_role, name = _component(path)
+    return CommandStep(
+        step_id=step_id,
+        band=band,
+        run_as="root",
+        argv=(),
+        effect=DescriptorEffect(
+            kind=EffectKind.CREATE_OBJECT,
+            directory_role=directory_role,
+            name=name,
+            path=path,
+            mode=int(mode, 8),
+            owner=owner,
+            group=group,
         ),
         purpose=why,
         mutation_ids=(f"file:{path}",),
-        expected_result=f"exit 0; {path} exists, empty, as {owner}:{group} {mode}.",
-        expected_refusal="",
+        expected_result=(
+            f"{path} exists, empty, as {owner}:{group} {mode}, created "
+            "exclusively and synchronized with its containing entry."
+        ),
+        expected_refusal=(
+            "`EEXIST` refuses: something is already at that name and this run "
+            "did not put it there."
+        ),
     )
 
 
@@ -1954,7 +2043,7 @@ def _band_3(
         (paths.before, "0700", "root", "root", "Where the pre-change captures live."),
         (paths.bin, "0755", "root", "root", "Where the Band-5 case binary would live."),
     ):
-        steps.add(_install_directory(next_id(), "identity", path, mode, owner, group, why))
+        steps.add(_create_directory(next_id(), "identity", path, mode, owner, group, why))
 
     # ---- conflict C-2: the reviewed case program, installed and asserted -----
     #
@@ -1969,34 +2058,38 @@ def _band_3(
             step_id=next_id(),
             band="identity",
             run_as="root",
-            argv=(
-                "/usr/bin/install",
-                "--mode",
-                CASE_PROGRAM_MODE,
-                "--owner",
-                CASE_PROGRAM_OWNER,
-                "--group",
-                CASE_PROGRAM_GROUP,
-                CASE_PROGRAM_SOURCE_PATH,
-                paths.case_binary,
+            argv=(),
+            effect=DescriptorEffect(
+                kind=EffectKind.INSTALL_PAYLOAD,
+                directory_role="bin",
+                name="case",
+                path=paths.case_binary,
+                mode=int(CASE_PROGRAM_MODE, 8),
+                owner=CASE_PROGRAM_OWNER,
+                group=CASE_PROGRAM_GROUP,
+                payload_source=CASE_PROGRAM_SOURCE,
             ),
             purpose=(
-                "Install the reviewed case program. The source is "
-                f"{CASE_PROGRAM_SOURCE}, whose exact bytes the review manifest "
-                "covers; `install` copies them, so the installed bytes are the "
-                "reviewed bytes and the manifest's source digest is also the "
-                "installation digest."
+                "**P2.** Install the reviewed case program from one held "
+                f"buffer. The bytes are {CASE_PROGRAM_SOURCE}'s, which the "
+                "review manifest covers, and they are digested against the "
+                "manifest's value at the last possible moment — so the "
+                "installed bytes are the reviewed bytes, and no second read of "
+                "any pathname happens between the check and the write. "
+                "`install` was removed here: it re-resolved the destination for "
+                "each of its own effects and succeeded whether or not something "
+                "was already at the name."
             ),
             mutation_ids=(f"file:{paths.case_binary}",),
             expected_result=(
-                f"exit 0; {paths.case_binary} exists as "
+                f"{paths.case_binary} exists as "
                 f"{CASE_PROGRAM_OWNER}:{CASE_PROGRAM_GROUP} {CASE_PROGRAM_MODE}, "
-                "byte-identical to the reviewed source."
+                "byte-identical to the reviewed source, published exclusively "
+                "and synchronized with its containing entry."
             ),
             expected_refusal=(
-                "a missing source stops the band: the disposable host's "
-                "repository tree is the one the manifest was computed over, and "
-                "an absent file means it is not."
+                "content whose digest is not the manifest's is refused rather "
+                "than installed, and an occupied final name is `EEXIST`."
             ),
         )
     )
@@ -2009,7 +2102,7 @@ def _band_3(
         (paths.archive_seal, "0440", "root", COORD, "The disposable archived seal."),
         (paths.archive_close, "0440", "root", COORD, "The disposable .close manifest."),
     ):
-        steps.add(_install_empty_file(next_id(), "identity", path, mode, owner, group, why))
+        steps.add(_create_empty_file(next_id(), "identity", path, mode, owner, group, why))
 
     # ---- conflict C-3: §2.13.3's current-generation link --------------------
     steps.add(
@@ -2041,24 +2134,13 @@ def _band_3(
     )
 
     for path, flag, case in (
-        (paths.journal_file, "+a", "JNL-52-APPEND"),
-        (paths.journal_seal, "+i", "JNL-52-IMMUTABLE"),
-        (paths.archive_journal, "+i", "JNL-52-ARCHIVE-IMMUTABLE"),
-        (paths.archive_seal, "+i", "JNL-52-ARCHIVE-IMMUTABLE"),
-        (paths.archive_close, "+i", "JNL-52-ARCHIVE-IMMUTABLE"),
+        (paths.journal_file, "append_only", "JNL-52-APPEND"),
+        (paths.journal_seal, "immutable", "JNL-52-IMMUTABLE"),
+        (paths.archive_journal, "immutable", "JNL-52-ARCHIVE-IMMUTABLE"),
+        (paths.archive_seal, "immutable", "JNL-52-ARCHIVE-IMMUTABLE"),
+        (paths.archive_close, "immutable", "JNL-52-ARCHIVE-IMMUTABLE"),
     ):
-        steps.add(
-            CommandStep(
-                step_id=next_id(),
-                band="identity",
-                run_as="root",
-                argv=("/usr/bin/chattr", flag, "--", path),
-                purpose=f"Set {flag} on {path}, as §2.13.3 specifies.",
-                mutation_ids=(f"file_attribute:{path}",),
-                expected_result=f"exit 0; lsattr reports the {flag} flag.",
-                expected_refusal="",
-            )
-        )
+        steps.add(_set_flag(next_id(), "identity", path, flag))
 
     steps.add(
         CommandStep(
@@ -2553,7 +2635,7 @@ def _band_4(steps: _Steps, target: DisposableTarget, paths: _Paths) -> None:
         (paths.probe, "§2.13.2a's probe arena."),
         (paths.probe_ro, "Stage 4's negative target, outside the substituted ReadWritePaths=."),
     ):
-        steps.add(_install_directory(next_id(), "filesystem", path, "0770", "root", WRITER, why))
+        steps.add(_create_directory(next_id(), "filesystem", path, "0770", "root", WRITER, why))
 
     for path, why in (
         (paths.stage1, "The Stage-1 probe file, deliberately carrying no append attribute."),
@@ -2562,18 +2644,16 @@ def _band_4(steps: _Steps, target: DisposableTarget, paths: _Paths) -> None:
         (paths.s4_unlink, "Stage 4's outside-the-unit control target."),
         (paths.s4_target, "Stage 4's inside-the-unit denial target."),
     ):
-        steps.add(_install_empty_file(next_id(), "filesystem", path, "0660", WRITER, WRITER, why))
+        steps.add(_create_empty_file(next_id(), "filesystem", path, "0660", WRITER, WRITER, why))
 
     steps.add(
-        CommandStep(
-            step_id=next_id(),
-            band="filesystem",
-            run_as="root",
-            argv=("/usr/bin/chattr", "+a", "--", paths.stage2),
-            purpose="Set FS_APPEND_FL on the Stage-2 target — the flag Stage 2 is about.",
-            mutation_ids=(f"file_attribute:{paths.stage2}",),
-            expected_result="exit 0.",
-            expected_refusal=(
+        _set_flag(
+            next_id(),
+            "filesystem",
+            paths.stage2,
+            "append_only",
+            why="Set FS_APPEND_FL on the Stage-2 target — the flag Stage 2 is about.",
+            refusal=(
                 "EOPNOTSUPP means the filesystem has no flag interface and A-5.0-5 "
                 "is unconfirmable on it; the probe is failed, not inconclusive."
             ),
@@ -3677,26 +3757,24 @@ def _band_5_immutable_experiments(
         start=8,
     ):
         steps.add(
-            CommandStep(
-                step_id=f"B5-C6-{index:02d}",
-                band="capability",
-                run_as="root",
-                argv=("/usr/bin/chattr", "+i", "--", path),
-                purpose=(
+            _set_flag(
+                f"B5-C6-{index:02d}",
+                "capability",
+                path,
+                "immutable",
+                why=(
                     f"Reset: set FS_IMMUTABLE_FL back on {path}, which this "
                     "band's successful clear removed. It restores the state "
                     "§2.13.3 describes and the rest of the plan documents, and "
                     "it declares the same file_attribute mutation Band 3 "
                     "declared — one mutation, one reversal, performed twice."
                 ),
-                mutation_ids=(f"file_attribute:{path}",),
-                expected_result=f"exit 0; the immutable flag is set again on {path}.",
-                expected_refusal=(
+                refusal=(
                     "a failure stops the run. Cleanup clears both flags before "
                     "removing either file, so a flag this step could not set is "
-                    "a flag cleanup does not need — but a chattr that fails "
-                    "here is evidence the harness's own authority is not what "
-                    "the rest of the band assumed."
+                    "a flag cleanup does not need — but a flag effect that "
+                    "fails here is evidence the harness's own authority is not "
+                    "what the rest of the band assumed."
                 ),
             )
         )
@@ -3725,39 +3803,57 @@ def _band_6(steps: _Steps, target: DisposableTarget, paths: _Paths) -> None:
         order += 1
         return f"B6-{order:02d}"
 
+    # ---- §1.4.3 and §2.3.3: the capture, into the **independent** store -----
+    #
+    # This was two `install` vectors copying the live configuration into
+    # `R/before`. Both are gone, and PR-20260911-2 is why: the captures under
+    # the disposable root are in the custody the run is about, so they are not a
+    # recovery basis. One effect now publishes the reviewed capture set into
+    # `/var/lib/freedom-blades/recovery/<run-id>/`, crossing all five §2.3.3
+    # barriers in order, and **M1 may not run until it reports every one
+    # crossed**. `R/before` is retained as evidence and is not a basis.
     captured_by: dict[str, str] = {}
-    for filename in ("pg_hba.conf", "pg_ident.conf"):
-        live = target.config_path(filename)
-        capture = paths.capture(filename)
-        captured_by[filename] = f"B6-{order + 1:02d}"
-        steps.add(
-            CommandStep(
-                step_id=next_id(),
-                band="postgresql",
-                run_as="root",
-                argv=(
-                    "/usr/bin/install",
-                    "--mode",
-                    "0600",
-                    "--owner",
-                    "postgres",
-                    "--group",
-                    "postgres",
-                    live,
-                    capture,
-                ),
-                purpose=(
-                    f"Capture {filename} byte-exactly before it is changed. Cleanup "
-                    "reinstalls this capture rather than deleting a line by pattern."
-                ),
-                mutation_ids=(f"file:{capture}",),
-                expected_result="exit 0; the capture exists and is byte-identical.",
-                expected_refusal=(
-                    "a failure here stops the band: without the capture there is "
-                    "nothing to restore, so the configuration mutation must not run."
-                ),
-            )
+    capture_step = next_id()
+    for filename in CAPTURED_CONFIGURATION:
+        captured_by[filename] = capture_step
+    steps.add(
+        CommandStep(
+            step_id=capture_step,
+            band="postgresql",
+            run_as="root",
+            argv=(),
+            effect=DescriptorEffect(
+                kind=EffectKind.CAPTURE_CONFIGURATION,
+                configuration_role=CONFIGURATION_ROLE,
+                components=CAPTURED_CONFIGURATION,
+                path=target.postgres_config_directory,
+                evidence_role="before",
+            ),
+            purpose=(
+                "Capture both reviewed configuration files byte-exactly, into "
+                "the independent recovery store outside the disposable root, "
+                "and publish them durably. The digest is computed over the one "
+                "held buffer the read produced, never over a re-read of a "
+                "pathname, and each record binds its bytes to exactly the "
+                "destination the restoration will write."
+            ),
+            mutation_ids=tuple(
+                f"file:{paths.capture(filename)}"
+                for filename in CAPTURED_CONFIGURATION
+            ),
+            expected_result=(
+                "every §2.3.3 barrier returned success, the stored copies and "
+                "records verify against the reviewed capture set, and the "
+                "publication reports `mutation_permitted`."
+            ),
+            expected_refusal=(
+                "a failure at any barrier, a source that changed across the "
+                "read, or a requested set that is not the reviewed one refuses "
+                "**before** the first configuration mutation — so there is "
+                "nothing to recover from."
+            ),
         )
+    )
 
     steps.add(
         CommandStep(
@@ -4392,7 +4488,8 @@ __all__ = [
     "CREATED_GROUPS",
     "CREATED_MEMBERSHIPS",
     "ConcretePlan",
-    "EMPTY_SOURCE",
+    "CAPTURED_CONFIGURATION",
+    "CONFIGURATION_ROLE",
     "ExternalCase",
     "MAPPED_OS_USER",
     "MAPPED_POSTGRES_ROLE",
