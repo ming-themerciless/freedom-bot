@@ -601,6 +601,22 @@ for environment specifications, safe synchronization procedures, and test execut
 
 ## Contributor and agent workflow
 
+### Current-state documents and archives
+
+`docs/project-management/status.md` and `docs/review/Handover information` are
+concise current-state entry points. Their verbatim historical snapshots live in
+the same directories as the canonical files so their original relative links
+continue to resolve; `docs/project-management/status-archive/` and
+`docs/review/handover-archive/` index them.
+
+Read the canonical current files first. Consult an archive only when a current
+record links to it or the task requires historical evidence. Archived text must
+not be silently rewritten, and a superseded assignment or authorization in an
+archive does not become active because it is read or cited. Corrections use a
+new current record or a dated erratum that identifies the affected snapshot.
+Moving text to an archive never changes a decision, finding, gate, authority or
+disposition.
+
 Before editing:
 
 1. read this file, `docs/implementation-plan.md`, relevant modules,

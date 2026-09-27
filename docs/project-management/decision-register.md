@@ -1,5 +1,847 @@
 # Decision register
 
+## Decision — R-5.0-13 accepted without JNL-40(b) — 2026-09-24
+
+Peter Duscha accepts `R-5.0-13` without requiring JNL-40(b)'s second-host or
+`/etc/machine-id`-rewrite case for P5.0-R5 closure. The residual remains active
+with its external-evidence controls. This resolves MD-6 only and grants no host
+or execution authority.
+[Decision record](../review/project-review-2026-09-24-p5-r5-md6-jnl-40b-disposition.md).
+
+## Decision — classifier correction required before execution — 2026-09-23
+
+Peter Duscha accepts MD-5: the journal-classifier contradictions identified in
+the P5.0-R5 reconciliation must be corrected and independently reviewed before
+any evidence band is treated as executable. This decision does not itself make
+the plan executable or authorize implementation or host work.
+[Decision record](../review/project-review-2026-09-23-p5-r5-md5-classifier-prerequisite.md).
+
+## Decision — P5.0-R5 residual risks explicitly accepted — 2026-09-23
+
+Peter Duscha accepts `R-5.0-10` through `R-5.0-16` as active residual risks on
+the terms stated in the Phase 5.0 package plan. `R-5.0-10` and `R-5.0-11`
+remain in RAID; `R-5.0-12` through `R-5.0-16` are entered. Recovery rehearsals
+for `R-5.0-11`, `R-5.0-14` and `R-5.0-16` remain mandatory.
+
+This resolves MD-4. It grants no implementation, host, reboot, deployment or
+production authority and does not waive later evidence from actual production
+journal code.
+[Decision record](../review/project-review-2026-09-23-p5-r5-md4-residual-dispositions.md).
+
+## Decision — supervised reboot required for P5.0-R5 feasibility closure — 2026-09-23
+
+Peter Duscha decides that the supervised reboot durability case is mandatory
+for P5.0-R5 harness-facsimile feasibility closure. It may not be recorded as
+Not Run or replaced by an accepted residual at this gate. The evidence must be
+produced on `oracle-test` against a harness-created disposable generation and
+must show the unresolved journal state and its filesystem protections survive
+and remain verifiable after reboot.
+
+This resolves reconciliation decision **MD-3**. It creates no reboot or host
+authority and does not close P5.0-R5 or make OD-62 G-A binding.
+[Decision record](../review/project-review-2026-09-23-p5-r5-md3-reboot-requirement.md).
+
+## Decision — `oracle-test` supplies P5.0-R5 feasibility host facts — 2026-09-23
+
+Peter Duscha decides that `oracle-test`, the approved disposable target, is the
+host whose facts count for P5.0-R5 harness-facsimile feasibility evidence.
+Package-plan §8.1 development-host observations remain historical context and
+do not satisfy target-specific feasibility requirements. Relevant facts must be
+freshly observed on `oracle-test` during a separately authorized pass and bound
+to its reviewed target identity and artifacts.
+
+This resolves reconciliation decision **MD-2**. It creates no host, database or
+execution authority and does not close P5.0-R5 or make OD-62 G-A binding.
+[Decision record](../review/project-review-2026-09-23-p5-r5-md2-host-facts-baseline.md).
+
+## Decision — P5.0-R5 may close on independently reviewed harness feasibility — 2026-09-23
+
+Peter Duscha decides that P5.0-R5 may close on independently reviewed
+harness-facsimile feasibility evidence from the approved disposable target.
+Evidence from actual production journal code remains mandatory at the later
+implementation/release gate. The records must label these evidence classes
+separately; feasibility evidence is not production-code evidence.
+
+This resolves reconciliation decision **MD-1** and breaks the circular
+dependency between P5.0-R5 readiness and OD-62. It does not close P5.0-R5,
+make OD-62 G-A binding, approve implementation or migration `0014`, confirm
+A-5.0-5, resolve C-S4-3 or C-7, or authorize host or database action.
+[Decision record](../review/project-review-2026-09-23-p5-r5-md1-evidence-criterion.md).
+
+## Decision — four-week frozen Sheet verification window; no live mirror — 2026-09-22
+
+Peter Duscha selects a **four-week** post-cutover verification period. At each
+approved field-group cutover, the source Google Sheet is frozen read-only and
+retained with its export, connector, credential and documented rollback path.
+PostgreSQL is the sole authority after cutover. There are no dual writes and no
+live PostgreSQL-to-Sheet diagnostic projection.
+
+The frozen Sheet is a cutover reference and rollback implementation, not a
+second authority. Rollback must use the approved reconciliation and recovery
+procedure so post-cutover PostgreSQL changes are not silently discarded. Sheet
+archival and credential/connector removal require successful completion of the
+four-week verification gate and explicit maintainer approval under §15.1.
+
+## Conditional direction — OD-62 G-A confirmed; binding effect remains gated — 2026-09-22
+
+Peter Duscha confirms **G-A**, the drain-first cutover boundary, as the intended
+OD-62 choice and states the operating rationale: the user base is small and the
+cutover time is known and supervised. He accepts in principle G-A's residual
+that a Google request accepted before the fence could be applied after the final
+import without proof that it was absent.
+
+This is not yet the binding OD-62 ruling because the existing decision gate
+requires independent acceptance that P5.0-R5's enumeration control is
+fail-closed. The post-cutover Sheet verification mode is also not decided.
+Plan §15.1 continues to prohibit dual writes: PostgreSQL will be the sole
+authority after cutover, while the Sheet and rollback path may be retained for a
+numeric verification period. Any continuously updated Sheet would require a
+separately reviewed, one-way PostgreSQL-to-Sheet diagnostic projection and
+could not be an authority or ordinary rollback source.
+
+## Decision — R6 findings closed as historical violations; R8 accepted; I3 closed — 2026-09-22
+
+Peter Duscha closes **PR-20260920-LAB-I3-R6-1** as an accepted historical
+procedural violation without retroactive compliance, and closes
+**PR-20260920-LAB-I3-R6-2** as an accepted historical unauthorized write without
+retroactive authorization. The protected `/tmp/fb-i3-r6-filelist.txt` remains
+preserved; no cleanup or host access is authorized.
+
+Peter accepts the clean R8 pass as valid replacement gate evidence and closes
+**I3**. R6 remains retained as historical evidence but is inadmissible as gate
+evidence. This does not change `plan.is_executable=False`, authorize
+`--execute`, make Package 5.0 ready or decide OD-62.
+[Decision record](../review/project-review-2026-09-22-r6-findings-and-i3-disposition.md).
+
+## Decision — R8-R6 accepted; LAB-I3-R8-D1-TABLE-1 closed — 2026-09-22
+
+Peter Duscha confirms that his direct session instruction accepted and assigned
+C-P5.0-LAB-I3-R8-R6, accepts Codex's independent review, and closes
+**LAB-I3-R8-D1-TABLE-1 as remediated**. This changes no host authority,
+operational evidence, I3 disposition or package gate.
+[Acceptance record](../review/project-review-2026-09-22-reserved-laboratory-i3-r8-r6-acceptance.md).
+
+## Decision — R8-R5 accepted; no R8-R2 rollback — 2026-09-22
+
+Peter Duscha accepts Codex's independent R8-R5 review, closes
+**LAB-I3-R8-R2-ROLLBACK-1 as remediated**, and decides that no R8-R2 rollback is
+wanted. The corrected documentation stands; no reverse patch is to be
+constructed and no file restored from `HEAD`. Both R6 Blocking findings and I3
+remain open. No host authority or package advancement is created.
+
+## Superseded pending decision — I3 disposition after R8-R5 review and the two R6 findings — 2026-09-22
+
+*Decided above: both R6 findings are Closed by maintainer disposition and I3 is
+Closed on the clean R8 replacement evidence.*
+
+The five R8 findings disposed by Peter Duscha earlier on 2026-09-22 and
+**LAB-I3-R8-R2-ROLLBACK-1**, closed after the R8-R5 review, are **Closed** and
+no longer await review or decision.
+**PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2 remain Open, Blocking.**
+I3 remains performed but unconfirmed. Its disposition follows the R8-R5 review
+and explicit disposition of those two R6 findings. No host action, digest
+approval or package advancement is authorized by this entry.
+
+## Superseded pending decision — what, if anything, to roll back from C-P5.0-LAB-I3-R8-R2 — 2026-09-22
+
+*Decided above: no rollback is wanted and LAB-I3-R8-R2-ROLLBACK-1 is Closed.*
+
+**LAB-I3-R8-R2-ROLLBACK-1 is Open, Important, and any rollback decision is Peter
+Duscha's.** The R8-R2 handback's §8.1 offered an automated rollback —
+`git checkout --` over "the eight modified documents" plus deletion of the added
+handback — and claimed it would restore the exact 92-path pre-remediation state.
+Both are **withdrawn** under C-P5.0-LAB-I3-R8-R5 as unsafe and unsupported: the
+nine documents R8-R2 edited all carried earlier-pass uncommitted work, **no
+R8-chain content exists at `HEAD`**, two of them are untracked, and the added
+handback now carries later passes' errata. The command would erase the
+uncommitted R8 evidence chain rather than restore anything. **It was not
+executed**, and nothing was reverted, deleted or restored.
+
+What is for the maintainer. First, **whether any rollback of R8-R2 is wanted at
+all** — its corrections are documentation and stand unless Peter decides
+otherwise, and this pass proposes none. Second, **that no exact automated
+rollback exists**: the pre-R8-R2 bytes are not independently available in this
+repository, so reversing the R8-R2-specific hunks would require a **reviewed,
+remediation-specific reverse patch or equivalent exact reconstruction preserving
+every pre-existing change**, reconciled with R8-R3, R8-R4, R8-R5 and the
+2026-09-22 dispositions that now build on that text, and constructed under
+**maintainer coordination**, never assumed. Third, **what is not in question
+here**: the closure of LAB-I3-R8-R2-ROLLBACK-1 follows Codex's re-review; no
+other finding, I3, either R6 Blocking finding or any package gate is affected.
+[R8-R5 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r5-r8-r2-rollback-safety-remediation-handback.md).
+
+## Decision — R8-R4 accepted and five R8 findings disposed — 2026-09-22
+
+Peter Duscha accepts Codex's independent R8-R4 review. No R8-R3 rollback is
+wanted. **LAB-I3-R8-R3-ROLLBACK-1, LAB-I3-R8-R3-WORDING-1,
+LAB-I3-R8-R2-GUARD-1, LAB-I3-R8-R2-COUNT-1 and LAB-I3-R8-AGGREGATE-1 are
+Closed** on the terms in the linked decision record. The guard finding closes
+as an accepted historical procedural violation, not as retroactive compliance;
+no repeat scan is required and it does not invalidate the underlying R8
+operational evidence. The aggregate finding closes with the historical R6
+formula and historical cause retained as unknown and non-blocking.
+
+**LAB-I3-R8-R2-ROLLBACK-1 remains Open, Important** under active R8-R5. Both R6
+Blocking findings and I3 remain open. No host authority or package advancement
+is created.
+[Decision record](../review/project-review-2026-09-22-r8-r4-acceptance-and-r8-dispositions.md).
+
+## Superseded pending decision — what, if anything, to roll back from C-P5.0-LAB-I3-R8-R3 — 2026-09-22
+
+*Decided above: no rollback is wanted and LAB-I3-R8-R3-ROLLBACK-1 is Closed.*
+
+**LAB-I3-R8-R3-ROLLBACK-1 is Open, Important, and any rollback decision is Peter
+Duscha's.** The R8-R3 handback's §8.1 offered an automated rollback —
+`git checkout --` over ten documents plus deletion of the added handback — and
+claimed it would restore the exact 93-path pre-remediation state. Both are
+**withdrawn** under C-P5.0-LAB-I3-R8-R4 as unsafe and unsupported: the ten
+documents all carried earlier-pass uncommitted work, **no R8-chain content
+exists at `HEAD`**, and three of the ten are untracked, so the command would
+erase the uncommitted R8 evidence chain rather than restore anything. **It was
+not executed**, and nothing was reverted, deleted or restored.
+
+What is for the maintainer. First, **whether any rollback is wanted at all** —
+the R8-R3 corrections are documentation and stand unless Peter decides
+otherwise. Second, **that no exact automated rollback exists**: the pre-R8-R3
+bytes are not independently available in this repository, so reversing the
+R8-R3-specific hunks requires a **reviewed, remediation-specific reverse patch
+or equivalent exact reconstruction preserving every pre-existing change**,
+constructed under **maintainer coordination** and never assumed. Third, **what
+is expressly not in question**: no reverse patch is proposed here, no file was
+reverted, and no destructive Git command was run or is recommended.
+
+The C-P5.0-LAB-I3-R8-R4 remediation is documentation-only and
+**repository-only**: **no command was issued to `oracle-test`**, no host
+authority is created, no gate is advanced, no digest is approved and nothing is
+closed. **C-P5.0-LAB-I3-R8-R4 is consumed.**
+[R8-R4 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r4-rollback-safety-and-protected-artifact-wording-remediation-handback.md).
+
+## Superseded pending decision — disposition of the R8-R2 secrets-guard procedural violation — 2026-09-22
+
+*Decided above: the finding is Closed as a documented and accepted historical
+procedural violation, with no repeat scan and no effect on the underlying R8
+operational evidence.*
+
+**LAB-I3-R8-R2-GUARD-1 is Open, Blocking, and its disposition is Peter Duscha's
+decision alone.** During C-P5.0-LAB-I3-R8-R2, `guard-secrets.py` refused a
+proposed secret-indicator scan and the operator completed substantially the same
+check through a differently constructed Python scan. `.agents/AGENTS.md` states
+that **a guard refusal is a stop condition, not an obstacle to route around**;
+changing the command or the tool did not satisfy that rule, and completing the
+refused check by another construction was a **procedural violation**.
+
+Three points are for the maintainer rather than the operator. First, **what is
+and is not evidenced**: the original call was refused, disclosure was complete,
+and there is **no evidence of bypass, escalation, protected-file access or
+secret disclosure**; the later scan occurred and its output **does not cure the
+violation**. Second, **what the disposition covers** — whether the violation is
+accepted with a recorded correction, whether any further check or disclosure is
+required, and whether it bears on the R8-R2 evidence or on I3 closure at all.
+Third, **what is expressly not in question**: no rule or guard change is
+proposed, required or authorized, and the refused check was not rerun,
+reproduced through another tool or attempted in any form under R8-R3.
+
+The C-P5.0-LAB-I3-R8-R3 remediation is documentation-only and **repository-only**:
+**no command was issued to `oracle-test`**, no host authority is created, no
+gate is advanced, no digest is approved and nothing is closed.
+**C-P5.0-LAB-I3-R8-R3 is consumed.**
+[R8-R3 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md).
+
+## Superseded pending decision — I3 disposition on the returned R8 evidence, as corrected by R8-R1, R8-R2 and R8-R3 — 2026-09-22
+
+*Superseded by the current I3 decision entry above. The five R8 findings this
+entry described as Open are Closed by the maintainer's later disposition; its
+historical evidence wording remains preserved.*
+
+The R8 evidence now before the reviewer also includes the C-P5.0-LAB-I3-R8-R3
+correction of the R8-R2 remediation. **LAB-I3-R8-R2-GUARD-1 (Open, Blocking)**
+and **LAB-I3-R8-R2-COUNT-1 (Open, Important)** join **LAB-I3-R8-AGGREGATE-1
+(Open, Important)** in what independent Codex re-review must dispose of before
+the I3 question is put to Peter Duscha.
+
+One point is added to the three below. The earlier statement that the R8 §3.3
+and R8-R1 candidate figures "were each correct under a different, unstated
+convention" is **withdrawn**: the enumerated **960 are candidate descriptions**,
+two of which reproduce `f4120970…`, while **one of the 612 distinct
+calculations** does; R8 §3.3's "exactly one of 960 candidates" **mixed the units
+and was wrong as written**. This changes no measured value and no conclusion
+about the divergence.
+
+*Extended 2026-09-22 under C-P5.0-LAB-I3-R8-R4.* Two further findings join what
+independent Codex re-review must dispose of before the I3 question is put to
+Peter Duscha: **LAB-I3-R8-R3-ROLLBACK-1 (Open, Important)** and
+**LAB-I3-R8-R3-WORDING-1 (Open, Optional)**. Both concern the R8-R3 handback's
+own §8.1 — its withdrawn rollback instruction and its withdrawn "or referenced"
+protected-artifact claim — and **neither bears on the measured R8 evidence, on
+the aggregate divergence, or on the guard-refusal disposition**. This changes no
+measured value and no conclusion about the divergence.
+
+## Superseded pending decision — I3 disposition on the returned R8 evidence, as corrected by R8-R1 and R8-R2 — 2026-09-22
+
+*Superseded by the entry above, which adds the two R8-R2 re-review findings and
+withdraws the retroactive validation of the candidate figures. Its framing of
+the aggregate question otherwise stands unaltered.*
+
+The R8 evidence now before the reviewer includes the C-P5.0-LAB-I3-R8-R2
+correction of the R8-R1 remediation. **LAB-I3-R8-AGGREGATE-1 remains Open,
+Important** and is part of what independent Codex re-review must dispose of
+before the I3 question is put to Peter Duscha. The remediation is
+repository-only: **no command was issued to `oracle-test`**, no host authority
+is created, no gate is advanced, no digest is approved and nothing is closed.
+
+Three points are for the maintainer rather than the operator. First, the
+divergence between `4d829dc6…` and `f4120970…` is **not accounted for**; the
+earlier claim that it was is **withdrawn**. What is established is that **no
+byte of the measured 50-file set differs between the records**, so the
+divergence cannot be explained by a change in those bytes, and that both values
+reproduce from exactly those bytes under calculations differing only in ordering
+key and trailing-newline rule — a demonstration that the records *can* diverge
+with no byte differing. Second, **the historical cause and the calculation R6
+actually performed both remain unrecorded and unresolved**, and neither is
+inferred from a matching value; only a record from that pass could resolve
+either. Third, whether that residual gap bears on I3 closure at all is a
+maintainer judgement, not an operator one. **C-P5.0-LAB-I3-R8-R2 is consumed.**
+[R8-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r2-aggregate-precision-remediation-handback.md).
+
+## Superseded pending decision — I3 disposition on the returned R8 evidence, as corrected by R8-R1 — 2026-09-21
+
+*Superseded by the entry above, which withdraws this entry's "accounted for by
+the calculation" claim. Its remaining framing stands.*
+
+The R8 evidence now before the reviewer includes the C-P5.0-LAB-I3-R8-R1
+correction of handback §3.3. **LAB-I3-R8-AGGREGATE-1 remains Open, Important**
+and is part of what independent Codex re-review must dispose of before the I3
+question is put to Peter Duscha. The remediation is repository-only: **no
+command was issued to `oracle-test`**, no host authority is created, no gate is
+advanced, no digest is approved and nothing is closed.
+
+Two points are for the maintainer rather than the operator. First, the
+divergence between `4d829dc6…` and `f4120970…` is accounted for **by the
+calculation** — both reproduce from the same unmodified local bytes under
+calculations differing only in ordering key and trailing-newline rule — while
+**the calculation R6 actually performed remains unrecorded and unresolved**, and
+is deliberately not inferred from a matching value. Second, whether that
+residual gap bears on I3 closure at all is a maintainer judgement, not an
+operator one. **C-P5.0-LAB-I3-R8-R1 is consumed.**
+[R8-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r1-aggregate-remediation-handback.md).
+
+## Superseded pending decision — I3 disposition on the returned R8 evidence — 2026-09-21
+
+*Superseded by the current I3 decision entry at the head of this register.*
+
+The C-P5.0-LAB-I3-R8 pass was performed unbroken and both invocations verified.
+**Whether that evidence closes I3 is Peter Duscha's decision**, to be taken
+after independent Codex technical, security and evidence review. The operator
+makes no closure, approves no digest and advances no gate. **C-P5.0-LAB-I3-R8 is
+consumed**; any further operational pass requires fresh, explicitly bounded
+authorization and assignment. PR-20260920-LAB-I3-R6-1 and
+PR-20260920-LAB-I3-R6-2 remain Open, Blocking and are unaffected by this pass.
+[R8 operational handback](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-handback.md).
+
+## Superseded decision — C-P5.0-LAB-I3-R8 authorized and assigned to Claude — 2026-09-21
+
+*Exercised and consumed on 2026-09-21 by the completed pass above.*
+
+
+Peter Duscha authorizes C-P5.0-LAB-I3-R8 for the exact accepted prompt and
+assigns Claude as implementing operator. Codex remains the independent
+technical, security and evidence reviewer. The authority ends after Claude's
+handback, reaches nothing outside the prompt and does not close I3. Any
+repository-guard or tool/harness permission denial consumes the pass without
+escalation, bypass, altered re-issuance or retry.
+[Authorized prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+## Superseded decision — C-P5.0-LAB-I3-R8 prompt accepted; activation remains pending — 2026-09-21
+
+Peter Duscha accepts the Codex-prepared R8 prompt. Acceptance creates no host
+authority and does not assign Claude. Separate explicit authorization and
+operator assignment remain pending. Codex remains the independent reviewer of
+any later Claude operational handback.
+[Acceptance record](../review/project-review-2026-09-21-reserved-laboratory-i3-r8-prompt-acceptance.md).
+
+## Superseded pending decision — draft C-P5.0-LAB-I3-R8 operational prompt — 2026-09-20
+
+Peter Duscha directs preparation of a fresh I3 operational prompt for Claude.
+The Codex-prepared prompt is **draft and inactive** and creates no host
+authority. Activation, authorization and Claude's operator assignment remain a
+later maintainer decision after Peter reviews and accepts the prompt. Codex
+remains independent of Claude's operation and reviews the returned evidence. R7 remains
+consumed. [Draft prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+## Decision — C-P5.0-LAB-I3-R7 is consumed; R7-R2 review accepted — 2026-09-20
+
+Peter Duscha accepts Codex's independent R7-R2 review and closes
+PR-20260920-LAB-I3-R7-R2-1, PR-20260920-LAB-I3-R7-R1-1 and
+PR-20260920-LAB-I3-R7-R1-2. He also accepts Codex's recommendation that
+**C-P5.0-LAB-I3-R7 is consumed**. It cannot be resumed or retried under that
+authority. Any future operational pass requires fresh, explicitly bounded
+authorization and assignment, including an express rule for a harness-level
+permission denial that is not a repository-guard refusal.
+
+This decision creates no host authority and does not close I3 or either R6
+Blocking finding. [Acceptance record](../review/project-review-2026-09-20-reserved-laboratory-i3-r7-r2-acceptance.md).
+
+## Open decision — does the R7 stop consume C-P5.0-LAB-I3-R7? — restated 2026-09-20 after the R7-R2 count correction
+
+**This decision is unchanged and still open. It is Peter Duscha's alone.** The
+bounded C-P5.0-LAB-I3-R7-R2 remediation corrected one working-tree path count in
+the R7-R1 handback and recorded **PR-20260920-LAB-I3-R7-R2-1** as **Open,
+Important**. That is a repository bookkeeping correction. **It neither made,
+narrowed nor prejudged this decision, and a path count is not an execution
+digest or operational evidence.** The terms of the decision are exactly those in
+the entries below, which are retained in full.
+
+**Recorded separately — Codex's recommendation, which is still not the
+decision.** Codex continues to **recommend** treating C-P5.0-LAB-I3-R7 as
+consumed and requiring **fresh authority** for any future operational pass.
+Under §0.3 an Independent Reviewer recommends and **Peter records the gate
+decision**. The implementing operator has not converted the recommendation into
+a maintainer decision or operational authority, and **no host authority exists
+on its strength**.
+
+PR-20260920-LAB-I3-R7-R1-1 and PR-20260920-LAB-I3-R7-R1-2 remain **Open,
+Important** and are **not closed by the R7-R2 remediation**; their formal
+disposition is Codex's. PR-20260920-LAB-I3-R7-R2-1 is likewise **Open,
+Important**, closable only by independent Codex re-review. Closing any of them
+is not a decision on the R7 authority. I3 remains unconfirmed;
+PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2 remain Open, Blocking.
+[R7-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r2-count-remediation-handback.md).
+
+## Open decision (restated 2026-09-20 after the R7-R1 remediation) — does the R7 stop consume C-P5.0-LAB-I3-R7?
+
+**This decision is unchanged and still open. It is Peter Duscha's alone.** The
+C-P5.0-LAB-I3-R7-R1 documentation remediation neither made it nor narrowed it.
+Its terms are exactly those in the entry below, which is retained in full.
+
+**Recorded separately — Codex's recommendation, which is not the decision.**
+Codex's independent review of the R7 stopped-pass handback **recommends**
+treating C-P5.0-LAB-I3-R7 as consumed and requiring **fresh authority** for any
+future operational pass. That is a reviewer recommendation. Under §0.3 an
+Independent Reviewer recommends and **Peter records the gate decision**; the
+implementing operator converts the recommendation into neither a maintainer
+decision nor operational authority, and has not done so. **No host authority
+exists on the strength of this recommendation, and none is created by its
+absence of a decision either.**
+
+Codex's review also raised **PR-20260920-LAB-I3-R7-R1-1** (required
+implementation-plan §12 context skipped on the operational pass) and
+**PR-20260920-LAB-I3-R7-R1-2** (workspace identity exceeded the measured 50-file
+review-input set). Both are **Open, Important**; the remediation addresses them
+by erratum and reconciliation and closes neither. **Only independent Codex
+re-review may close them**, and closure of a finding is not a decision on the R7
+authority.
+
+A secondary decision remains as recorded below: whether a future R7-equivalent
+prompt must state in terms how an operator handles a harness-level permission
+denial that is not a repository-guard refusal (RAID **LAB-I3-R7-STOP-1**).
+
+I3 remains unconfirmed; PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2
+remain Open, Blocking.
+[Remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r1-erratum-remediation-handback.md).
+
+## Open decision (original statement) — does the R7 stop consume C-P5.0-LAB-I3-R7? — 2026-09-20
+
+The assigned R7 pass stopped at its first synchronization call and issued no
+command to `oracle-test`. The call carried the exact accepted §3.2 command text
+plus a tool-level `dangerouslyDisableSandbox` parameter the authorization never
+named, and was denied before execution by the Claude Code auto-mode permission
+classifier. **No repository guard refused it.** The operator stopped rather than
+re-issue it, because the prompt's guard-refusal clause is ambiguous as to
+harness permission denials and because PR-20260920-LAB-I3-R6-1 found that same
+move Blocking under R6.
+
+**The decision before Peter:** whether that stop consumes C-P5.0-LAB-I3-R7, or
+whether the pass may be re-released — under this authority or a fresh one — for
+a first synchronization attempt issued as the plain command with no
+sandbox-bypass parameter attached. The operator makes no recommendation, closes
+nothing and will issue no further host command under this authority.
+
+A secondary decision is whether a future R7-equivalent prompt should state in
+terms how an operator must handle a harness-level permission denial that is not
+a repository-guard refusal (RAID **LAB-I3-R7-STOP-1**).
+
+I3 remains unconfirmed; PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2
+remain Open, Blocking.
+[Stopped-pass handback](../review/phase-5-0-reserved-laboratory-i3-r7-stopped-pass-handback.md).
+
+## Superseded — C-P5.0-LAB-I3-R7 authorized and assigned to Claude — 2026-09-20
+
+> **Superseded as the current decision pointer by the entry above.** The
+> authorization is unchanged; the pass was attempted and stopped before
+> synchronization.
+
+Peter Duscha accepts Codex's recommendation, authorizes one bounded R7
+operational pass and assigns Claude as implementing operator. The linked prompt
+is the complete authority: exact plain synchronization, read-only prerequisite
+inspection, root verifier and only after complete success the `ubuntu`
+verifier. Any guard refusal consumes the pass. No auxiliary host-side artifact,
+manual verifier-object action or action outside the prompt is authorized.
+
+The operator cannot close I3 or either original R6 finding. Returned evidence
+requires fresh independent Codex review and Peter's later decision.
+[Authorized R7 prompt](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+## Superseded — R6-R2 accepted; R7 authorization remains a separate decision — 2026-09-20
+
+Peter Duscha accepts C-P5.0-LAB-I3-R6-R2 after Codex's independent review and
+closes **PR-20260920-LAB-I3-R6-R1-1**. This accepts the corrected artifact rule
+in the draft R7 prompt and creates no host authority.
+
+The remaining immediate decision is whether to authorize
+**C-P5.0-LAB-I3-R7** and explicitly assign its implementing operator. Until
+that separate decision is recorded, R7 remains draft, inactive and not
+authorized. The two original R6 findings remain Open, Blocking; I3 remains
+unconfirmed.
+[R6-R2 handback](../review/phase-5-0-reserved-laboratory-i3-r6-r2-artifact-rule-remediation-handback.md);
+[draft R7 prompt — not authorized](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+## C-P5.0-LAB-I3-R6 not accepted; the I3 closure decision is not before Peter — 2026-09-20
+
+Independent Codex review of the C-P5.0-LAB-I3-R6 pass does **not** recommend
+closing I3 and raises two Blocking findings — PR-20260920-LAB-I3-R6-1
+(execution continued after a mandatory guard stop) and PR-20260920-LAB-I3-R6-2
+(unauthorized host write). Both are **Open**.
+
+**The closure decision recorded below is therefore not ripe and is withdrawn
+from Peter's queue.** The verifier runs did occur and returned internally
+coherent `verified` results, but occurrence is not acceptable gate evidence: the
+pass that produced them continued past a stop condition and included an
+unauthorized write. I3 remains **unconfirmed and not closed**.
+
+**The decisions now before Peter, and made by no one else, are:** whether to
+accept the documentation-only C-P5.0-LAB-I3-R6-R1 remediation after independent
+Codex review; how to dispose of `/tmp/fb-i3-r6-filelist.txt`, which must not be
+deleted or modified in the meantime; and whether to authorize a further
+operational pass. A **draft, inactive** C-P5.0-LAB-I3-R7 prompt is prepared and
+is **not authorized** — it confers no permission and a new pass requires Peter's
+explicit authorization and operator assignment.
+
+C-P5.0-LAB-I3-R6 is consumed and cannot be retried under its authority. Nothing
+here approves a digest, initializes V7, makes the concrete plan executable,
+advances Package 5.0 or authorizes `--execute`.
+[R6-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r6-r1-remediation-handback.md);
+[draft R7 prompt — not authorized](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+## Superseded — C-P5.0-LAB-I3-R6 performed; I3 closure decision pending — 2026-09-20
+
+> **Superseded 2026-09-20 by the entry above.** The closure decision it framed
+> is not ripe: the pass was not accepted on independent review. Retained
+> unaltered as the historical record.
+
+Claude performed the authorized bounded operational verification as implementing
+operator and returned evidence. Both invocations returned `verified`; all four
+contexts published, observed and removed one object each with the
+protected-hardlink filesystem-UID owner condition observed; no residue remains.
+
+**The decision this creates is Peter's, and it is not made here:** whether the
+returned evidence, after independent Codex technical, security and evidence
+review, closes I3. The operator explicitly does not close it. A successful
+verification approves no digest, initializes no V7, does not make the concrete
+plan executable and is not authority for `--execute`. C-P5.0-LAB-I3-R6 is consumed
+and cannot be reused for a further invocation.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-verification-handback.md).
+
+## Superseded — C-P5.0-LAB-I3-R6 operational retry authorized — 2026-09-20
+
+Peter Duscha authorizes C-P5.0-LAB-I3-R6 and assigns Claude as implementing
+operator for the bounded I3 verification. The exact synchronization,
+prerequisite checks, conditional invocation order, stop conditions, evidence
+requirements and exclusions are controlled by the linked prompt. Codex remains
+the Independent Reviewer and does not perform the operation. I3 remains
+unconfirmed pending returned evidence and review.
+[Authorized prompt](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-retry-claude-prompt.md).
+
+## Superseded — I3 R5 reconciliation accepted; R6 authority pending — 2026-09-20
+
+Peter Duscha accepts Codex's independent review of C-P5.0-LAB-I3-R5 with no
+Blocking or Important finding. The repository reconciliation is accepted. The
+prepared C-P5.0-LAB-I3-R6 prompt is not itself authority; Peter must separately
+activate it and assign Claude before host action. No host action is currently
+authorized.
+[Acceptance](../review/project-review-2026-09-20-reserved-laboratory-i3-r5-target-identity-acceptance.md);
+[draft prompt](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-retry-claude-prompt.md).
+
+## Implemented — approved target alias and kernel nodename remain separate — 2026-09-20
+
+The Option A decision below is **implemented in the repository** under
+C-P5.0-LAB-I3-R5 and returned for independent Codex technical and security
+review. `APPROVED_TARGET_FACTS.kernel_nodename` is `Test`, ordered immediately
+after the unchanged `host` alias `oracle-test`, and is canonical identity
+material; I3 admission compares the observed nodename with it. The
+target-identity digest, confirmation token, manifest version (16 → 17) and
+review-input digest moved as the decision required, and the previously accepted
+`be9e110f…` is not evidence for the reconciled tree. Implementation closes no
+review finding, approves no digest and authorizes no host action or I3 retry.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r5-target-identity-handback.md).
+
+## Decided — approved target alias and kernel nodename remain separate — 2026-09-20
+
+Peter Duscha chooses **Option A**. `host` remains `oracle-test`, the operational
+SSH alias. A separately named approved nodename fact is `Test`, and I3 admission
+must compare the value observed through `os.uname().nodename` with that fact.
+The alias and nodename must not be collapsed into one field.
+
+This closes LAB-I3-TARGET-1 as a decision blocker and authorizes the bounded
+repository-only C-P5.0-LAB-I3-R5 reconciliation. Because nodename becomes
+canonical target-identity material, the target-identity digest, confirmation
+token, manifest and review-input digest must change and receive fresh
+independent review. No host action or I3 retry is authorized.
+[Decision](../review/project-review-2026-09-20-reserved-laboratory-i3-target-identity-decision.md).
+
+## Superseded — open decision required: the approved target's identity — 2026-09-20
+
+**Raised by the refused C-P5.0-LAB-I3-R4 pass; no decision is made here.** The
+I3 verifier's admission compares `os.uname()`'s nodename against
+`APPROVED_TARGET_FACTS.host`. The target's nodename is `Test`; the recorded
+fact is `oracle-test`, the SSH alias. The root invocation refused with
+`target-mismatch` before any controlled write, so I3 could not be verified: no
+verifier-controlled mutation occurred, the verifier having created no verifier
+object. The pass's two disclosed effects on the target — the authorized
+synchronization of the repository worktree, and the operator's capture files
+`/tmp/fb-i3-root.out` and `/tmp/fb-i3-root.err`, which are evidence artifacts
+outside canonical `R` and the four publication directories, not verifier
+residue — bear on neither this decision nor the refusal. (Wording per
+correction C-P5.0-LAB-I3-R4-E1, which changes no result and authorizes no host
+action.)
+
+The decision belongs to the maintainer because `host` is hashed into
+`TARGET_IDENTITY_DIGEST`, the review manifest and `CONFIRMATION_TOKEN`: any
+resolution moves the accepted review-input digest `be9e110f…` and requires
+fresh independent review before an operational retry. The three options —
+record a separate nodename fact and compare that; make `host` the nodename
+`Test` and keep the alias in the runbook only; or set the target's nodename to
+`oracle-test` — are stated unchosen in the handback §10. RAID LAB-I3-TARGET-1.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r4-controlled-write-blocker-handback.md).
+
+## I3 R3 repository reconciliation accepted — 2026-09-20
+
+Peter Duscha accepts Codex's independent technical and security review of
+C-P5.0-LAB-I3-R3 with no finding. The two mode discrepancies are closed at the
+repository level. This acceptance does not confirm I3 or authorize host action.
+
+The single next step is a fresh bounded operational authorization for Claude to
+run the separately armed I3 verifier on `oracle-test`, root invocation then
+`ubuntu` invocation, against the accepted manifest-version-16 tree, and return
+evidence for independent Codex review. The superseded 2026-09-19 authorization
+is consumed. [Acceptance](../review/project-review-2026-09-20-reserved-laboratory-i3-r3-mode-reconciliation-acceptance.md).
+
+## Superseded — the two mode rulings implemented; review pending — 2026-09-20
+
+C-P5.0-LAB-I3-R3 implements both rulings in one bounded repository-only pass
+and returns for fresh independent Codex technical and security review. No
+decision was made or reopened by the implementer: the owner-condition ruling,
+capability evidence contract, verifier topology, publication primitive and
+P2's final mode are untouched.
+
+No new decision is required by the implementation. The open decision is the
+maintainer's, on the returned evidence: whether to accept C-P5.0-LAB-I3-R3.
+Until that review is accepted, no operational I3 invocation is authorized.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r3-mode-reconciliation-handback.md).
+
+## Superseded — I3 R2 accepted; `R` and P2 temporary modes decided — 2026-09-20
+
+Peter Duscha accepts Codex's independent C-P5.0-LAB-I3-R2 technical and
+security review with no Blocking or Important finding. The bounded repository
+implementation is accepted; this does not confirm I3 or authorize an
+operational invocation.
+
+Peter resolves the reported discrepancies in favour of r6. Canonical `R` is
+created as `0700`. P2 alone creates its temporary as `0500`, using the already
+open writable descriptor to write and synchronize it and applying final `0555`
+before publication. An explicit creation-mode parameter retains `0600` as the
+default for T1, T6 and §2.3.3.
+
+One bounded repository-only reconciliation and fresh independent Codex review
+must precede any operational I3 authorization. [Decision and accepted
+review](../review/project-review-2026-09-20-reserved-laboratory-i3-r2-acceptance-and-discrepancy-ruling.md).
+
+## P2 protected-hardlink condition and I3 verifier topology decided — 2026-09-19
+
+Peter Duscha rules that P2 installs `root:root 0555` and relies on the
+protected-hardlink filesystem-UID owner condition. The former P2
+`CAP_FOWNER` dependency is withdrawn. The implementation must observe the
+actual operation-time capability masks and must not equate `CapBnd` with
+`CapEff` or claim to isolate `CAP_FOWNER`.
+
+Decision B is narrowly amended: the separately armed I3 verifier may
+temporarily create canonical `/var/lib/fb-evidence-p5-0` (`R`) and `R/bin`
+solely for I3, using reviewed ownership/modes and identity-guarded cleanup.
+Mismatch, residue or cleanup/barrier failure is non-success. This is not
+prerequisite provisioning and does not authorize a general second creator.
+
+The ruling authorizes no host action. A bounded repository remediation and
+fresh independent Codex technical/security review must precede any operational
+release. [Independent review](../review/project-review-2026-09-19-reserved-laboratory-i3-r1-decision-handback.md).
+
+## Superseded — bounded I3 controlled-write verification authorized — 2026-09-19
+
+Peter Duscha authorizes one controlled I3 verification using the reviewed
+`linkat`/`unlinkat` sequence in the exact target filesystem. Create only the
+uniquely named temporary test object and its hard link; verify byte equality
+and shared `(st_dev, st_ino)`; remove both names; synchronize the containing
+directory; and prove no residue remains. Stop on any discrepancy or cleanup
+failure. Do not initialize V7, invoke a participant or harness, access the
+database, run a generated vector, or use `--execute`. Return complete evidence
+for independent review. Success confirms I3 only and does not make the plan
+executable or advance Package 5.0.
+
+Peter subsequently assigns Claude as implementing operator through the bounded
+[operator prompt](../review/phase-5-0-reserved-laboratory-i3-controlled-write-claude-prompt.md).
+Codex remains the Independent Reviewer. Claude must stop before the first write
+if the complete I3 scope, exact target or already reviewed operator route is
+absent or ambiguous.
+
+That assignment stopped before implementation. Its unresolved P2
+`CAP_FOWNER` premise and topology restriction are superseded by the ruling
+above; its operational authority is consumed and no host action is released.
+
+## LAB-SECRETS-1 recorded as separate defensive-tooling issue — 2026-09-19
+
+Peter Duscha accepts the recommendation to record **LAB-SECRETS-1, Open,
+Low**: the name-based secrets guard does not detect every indirect reference,
+including shell globs that resolve to secret filenames and broad directory
+copies containing secret files. The governing prohibition in
+`.agents/AGENTS.md` remains fully applicable; the hook is defense in depth, not
+an authorization boundary. Remediation requires a separately reviewed
+fail-closed design that does not expand or read secret paths while inspecting a
+proposed command. This issue does not reopen LAB-V6-P3, invalidate
+C-P5.0-LAB-V6-P-R4, or block Package 5.0.
+
+## R4 one-time synchronization deviation accepted — 2026-09-19
+
+Peter Duscha accepts the explicitly authorized, one-time `--exclude-from`
+synchronization deviation used during C-P5.0-LAB-V6-P-R4. The supplied rules
+were identical to the runbook exclusions, the maintainer performed the final
+synchronization, no secret-type file appeared in the transfer evidence, and
+the target matched all 45 reviewed source digests. This acceptance is
+retrospective and pass-specific; it does not authorize `--exclude-from` for
+future synchronization, which must use the accepted inline runbook command.
+[Independent review](../review/project-review-2026-09-19-r4-synchronization-deviation.md).
+
+## I12/V6 evidence accepted; V6 closed — 2026-09-19
+
+Peter Duscha accepts the independent review of the I12/V6 evidence and closes
+V6. Closure confirms only the approved read-only prerequisite survey. I3
+remains unconfirmed and requires separate authorization; V7 remains excluded,
+V8 and V10 remain unperformed, `plan.is_executable` remains false, and Package
+5.0 remains not ready. Acceptance of the one-pass `--exclude-from`
+synchronization deviation remains a separate pending decision. [Independent
+review](../review/project-review-2026-09-19-reserved-laboratory-i12-v6-closure.md).
+
+## LAB-V6-P3 guard remediation accepted and issue closed — 2026-09-19
+
+Peter Duscha accepts the independent Codex technical and security review of
+the LAB-V6-P3 remediation r1 with no Blocking or Important finding. Peter's
+in-session instruction of 2026-09-19 is recorded as the authorization for the
+repository-only remediation. **LAB-V6-P3 is Closed.** The separate question of
+whether the name-based guard's pre-existing glob/directory-copy limitation
+needs its own RAID item remains pending. This decision does not close V6 or
+accept the earlier `--exclude-from` synchronization deviation. [Independent
+review](../review/project-review-2026-09-19-lab-v6-p3-secrets-guard-remediation.md).
+
+## Superseded — LAB-V6-P3 guard remediation returned for review — 2026-09-19
+
+On 2026-09-19 Peter Duscha instructed Claude in session to correct the LAB-V6-P3 secrets-guard remediation and submit it for independent Codex review. The first draft (2026-09-18) had no recorded assignment and exempted double-quoted `--exclude` values, which let command substitution read a secret; r1 exempts only single-quoted values inside one plain `rsync` invocation. The authorization, acceptance and LAB-V6-P3 disposition questions are resolved by the decision above; the separate glob/directory limitation question remains pending. The C-P5.0-LAB-V6-P-R4 decisions below remain pending. [Handback](../review/phase-5-0-lab-v6-p3-secrets-guard-remediation-handback.md).
+
+## C-P5.0-LAB-V6-P-R4 applied; decisions pending — 2026-09-18
+
+Claude returns the operational handback. V6, LAB-V6-P3 and the one-pass `--exclude-from` synchronization deviation were subsequently accepted by the 2026-09-19 decisions above. The deviation acceptance is retrospective and pass-specific and does not authorize future `--exclude-from` use. [Handback](../review/phase-5-0-reserved-laboratory-v6-p-r4-operational-provisioning-handback.md).
+
+## Superseded — exact-detail admission accepted; operational retry released — 2026-09-18
+
+Peter accepts Codex's independent review of C-P5.0-LAB-V6-P-R3 with no finding,
+closes **PR-20260918-LAB-V6P-R2-1** and **LAB-V6-P1**, and authorizes
+**C-P5.0-LAB-V6-P-R4**. Claude is the implementing operator for safe
+synchronization and inspection on `oracle-test`, application of V1, V2, V3,
+V12, V4, V9 and V5 in that order, and only the subsequent read-only I12/V6
+verification. Codex remains the Independent Reviewer.
+
+The review-input digest is reproducible but remains unapproved for execution.
+V7, I3, V8, V10, database access, participants, generated-vector execution,
+the evidence harness, a real boundary/materializer and `--execute` remain
+unauthorized. LAB-V6-P2 is deferred and Package 5.0 remains not ready.
+
+## Superseded — missing provisioning entry point authorized for implementation — 2026-09-18
+
+Peter accepts Codex's independent review of the C-P5.0-LAB-V6-P blocker. There
+is no approved existing operator invocation to name, so the resolved direction
+is **C-P5.0-LAB-V6-P-R1**: Claude is authorized to add one bounded, dedicated,
+explicitly armed repository CLI that constructs `SystemIdentityLookup`, invokes
+the reviewed `DirectoryProvisioner` with the production `directory_targets()`
+values and safely renders the complete `ProvisioningRun`.
+
+This is a repository-local implementation decision, not a new architecture,
+topology or product-policy choice. Independent Codex technical and security
+review is mandatory before use. No SSH, synchronization, target inspection or
+mutation is authorized; the later operational retry requires separate Peter
+release. LAB-V6-P1 remains Open pending accepted implementation; LAB-V6-P2 is
+deferred; no digest or gate is approved.
+
+## Prerequisite provisioning returned unapplied; maintainer direction required — 2026-09-17
+
+Claude, as the assigned implementing operator under **C-P5.0-LAB-V6-P**,
+stopped before the first mutation and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-p-provisioning-blocker-handback.md)
+for independent Codex technical and security review. **Nothing was applied to
+`oracle-test`.**
+
+The decision the maintainer now owns is **how the four directory items are to
+be reached**, because the repository has no already reviewed operator
+invocation that can drive the provisioner as approved (**LAB-V6-P1**). The two
+readings this pass can see are to authorize a bounded implementation pass that
+adds the missing invocation and returns it for independent review before it
+applies anything, or to rule that an existing route is the approved one and
+name it. **Claude takes neither.**
+
+A second, minor disposition is open: the secrets guard refuses documentation
+prose that its own contract permits (**LAB-V6-P2**).
+
+This closes no finding, approves no digest and advances no gate. V6 remains
+performed-but-not-closed, I3 unconfirmed, V7 excluded, V8, V10 and I12
+unperformed, `is_executable=False`, and Package 5.0 not ready.
+
+## Reviewed prerequisite provisioning released — 2026-09-17
+
+Peter assigns **Claude as implementing operator** to apply on `oracle-test` the
+reviewed subset **V1, V2, V3, V12, V4, V9 and V5, in that order**, followed
+only by the read-only I12/V6 verification. Necessary safe synchronization,
+inspection and administrative operations for those items are authorized.
+**Codex remains the Independent Reviewer and does not perform the operation.**
+
+V7, the I3 controlled-write test, participant wiring, database access,
+generated-vector execution, a real participant, the evidence harness, a real
+boundary/materializer and `--execute` remain unauthorized. Stop after the
+evidence handback for independent Codex review.
+
+## V6-D-R1 correction review accepted — 2026-09-17
+
+Peter accepts Codex's independent technical and security
+[re-review](../review/project-review-2026-09-17-reserved-laboratory-v6-d-r1-contract-correction.md)
+with no finding and closes **PR-20260917-LAB-V6D-R1-1**. D1 is confirmed as
+the descriptor for canonical `R`'s parent `/var/lib`; no intermediate
+provisioned evidence directory exists in the accepted topology.
+
+This is acceptance of the documentation correction only. It approves no
+digest, authorizes no provisioning or execution, and advances no gate. V6
+remains performed-but-not-closed, I3 unconfirmed, V7 excluded,
+`is_executable=False`, and Package 5.0 not ready.
+
+## V6 R4 accepted and provisioning topology decided — 2026-09-17
+
+Peter accepts the independent R4 review and closes PR-20260916-LAB-V6R3-1.
+The unreproducible R3 digest `5602eb95…` is not approved; the reproducible R4
+artifact supersedes it as review input only.
+
+V11 and `/opt/freedom-blades/evidence` are withdrawn, with no ownership change
+to `/opt/freedom-blades`. `/var/lib/fb-evidence-p5-0` is the sole canonical
+value of `R`. V12 explicitly provisions `/var/lib/freedom-blades` as persistent
+`root:root 0755` before V4 and V5. `EVIDENCE_ROLE` remains unregistered until a
+separately reviewed real production participant consumes it.
+
+This authorizes one repository-local remediation and its review, not host
+access or application. V7 remains excluded, I3 unconfirmed and `--execute`
+unauthorized.
+
 ## V6 prerequisite-survey boundary approved — 2026-09-15
 
 Peter approves the V6 re-scope recommended by Codex: the authorized read-only

@@ -756,8 +756,66 @@ PERMITTED_PHASE_5_0_EVIDENCE_HARNESS = frozenset({
     "tools/phase_5_0_evidence/execution/recovery_store.py",
     # The r6 §7 provisioning **definitions**, planning tier and pure data. It
     # creates no group, writes no file, installs no fragment, changes no mode and
-    # runs no command; all ten items remain unapproved and unapplied.
+    # runs no command; all eleven items remain unapproved and unapplied.
     "tools/phase_5_0_evidence/provisioning.py",
+    # --- C-P5.0-LAB-V6-R1, the V6 provisioning remediation, authorized
+    # 2026-09-16. One new file, declared here for the same reason as every row
+    # above.
+    #
+    # The applier for the r6 §7 **directory** items, execution tier. It is the
+    # one module in this repository that creates a provisioned directory, and it
+    # creates four: exclusive `mkdirat`, `fchown` and `fchmod` on the held
+    # descriptor, then the parent's containing-entry barrier. It refuses V7 by
+    # name, refuses an absent or non-exclusive parent rather than creating one,
+    # verifies an existing object instead of repairing it, and takes every path
+    # and every identity as an argument — so the suite drives it over a
+    # temporary directory and **nothing here has been applied to any host**.
+    "tools/phase_5_0_evidence/execution/provisioner.py",
+    # --- C-P5.0-LAB-V6-P-R1, the provisioning entry point, authorized
+    # 2026-09-18. One new file, declared here for the same reason as every row
+    # above.
+    #
+    # The **operator entry point** for the applier directly above, and the only
+    # route by which anything outside the test suite reaches it. Its absence is
+    # what stopped the C-P5.0-LAB-V6-P operational pass before its first
+    # mutation (RAID LAB-V6-P1). It arms that applier on one explicit
+    # command-line flag and on nothing else, calls the production
+    # `directory_targets()` with no arguments, renders the returned run through
+    # a closed vocabulary, and applies nothing without the flag: no account
+    # database and no filesystem is read on that path. It performs none of the
+    # operator steps V1, V2 and V3, initializes no lifecycle record, offers no
+    # rollback and cannot reach the executing runner — and **nothing here has
+    # been applied to any host**.
+    "tools/phase_5_0_evidence/execution/provisioning_cli.py",
+    # --- C-P5.0-LAB-I3-R2, the I3 controlled-write verifier, authorized
+    # 2026-09-19 under the C-P5.0-LAB-I3-D1 ruling. Two new files, declared here
+    # for the same reason as every row above.
+    #
+    # The separately armed mechanism: one fixed harmless payload per reviewed
+    # publication context — T1, r6 §2.3.3, T6 and P2 — created exclusively,
+    # linked through the one reviewed `linkat` primitive, observed under both
+    # names and removed through identity comparisons; and, solely for P2, the
+    # transient canonical `R` and `R/bin` decision B's narrow exception permits.
+    # Every path, account and `/proc` read reaches it through a seam, so the
+    # suite drives it over a temporary directory and **nothing here has been run
+    # on any host**.
+    "tools/phase_5_0_evidence/execution/i3_verifier.py",
+    # Its only operator entry point. It arms the verifier on one I3-specific
+    # command-line flag and on nothing else, reads neither the account database
+    # nor the filesystem without it, changes no identity or capability, and
+    # renders only a closed vocabulary.
+    "tools/phase_5_0_evidence/execution/i3_verifier_cli.py",
+    # --- C-P5.0-R5-R1, classifier and Stage-4 prerequisites, assigned
+    # 2026-09-23. One new file, declared here for the same reason as every row
+    # above.
+    #
+    # §2.13.2a S4-3 as typed, fail-closed comparison: a closed directive and
+    # drop-in allowlist, refusal of duplicate or unknown authority-bearing
+    # directives, the substituted `ReadWritePaths=` fixed to the canonical probe
+    # path, the complete normalized applied property set, and invalidation on a
+    # systemd identity change. Planning tier: it reads no file, runs no
+    # `systemctl` and inspects no unit — every input is supplied and untrusted.
+    "tools/phase_5_0_evidence/unit_sandbox.py",
 })
 
 

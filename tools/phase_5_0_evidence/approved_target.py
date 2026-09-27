@@ -20,11 +20,15 @@ target is not field-for-field this one.
 
 `APPROVED_TARGET` is the `DisposableTarget` the planner and cleanup generator
 consume: the five fields those two need, and no more. `APPROVED_TARGET_FACTS`
-carries the rest of the confirmed environment — the address, the distribution,
-the booted kernel, the filesystem and its device, the PostgreSQL major/instance
-and port. Those are review facts rather than planning inputs: no argument vector
-is derived from them, and a `DisposableTarget` that carried them would invite one
-to be.
+carries the rest of the confirmed environment — the kernel nodename, the address,
+the distribution, the booted kernel, the filesystem and its device, the
+PostgreSQL major/instance and port. Those are review facts rather than planning
+inputs: no argument vector is derived from them, and a `DisposableTarget` that
+carried them would invite one to be.
+
+`host` is the operational SSH alias and `kernel_nodename` is what the target's
+kernel calls itself. They are deliberately two fields: I3 admission compares its
+`os.uname()` observation with the nodename, never with the alias.
 
 `CONFIRMATION_TOKEN` is derived from the target's own identity, so it cannot
 drift from it and cannot be memorised as a constant that outlives a target
@@ -84,14 +88,32 @@ class ApprovedTargetFacts:
     """The confirmed environment around the target, for review rather than for
     planning.
 
-    Every field is a fact Peter named or Codex verified on 2026-09-05. No
-    argument vector is derived from any of them: they exist so that a reviewer
-    reading the manifest can tell *which host, in which state* the vectors were
-    approved against, and so that a later run on a rebuilt host produces a
-    different manifest digest instead of a silently different meaning.
+    Every field is a fact Peter named or Codex verified on 2026-09-05, except
+    `kernel_nodename`, which Peter approved on 2026-09-20. No argument vector is
+    derived from any of them: they exist so that a reviewer reading the manifest
+    can tell *which host, in which state* the vectors were approved against, and
+    so that a later run on a rebuilt host produces a different manifest digest
+    instead of a silently different meaning.
+
+    `host` and `kernel_nodename` are two facts about two different layers and
+    are never substituted for one another.
     """
 
+    #: The operational SSH alias from runbook §2 — the stable name the runbook,
+    #: the planner and every operator-facing record use. It is **not** a kernel
+    #: nodename and is never compared with one; see `kernel_nodename`.
     host: str
+    #: What the target's kernel reports as `os.uname().nodename`, which is the
+    #: value I3 admission compares its observation against.
+    #:
+    #: Separate from `host` on Peter Duscha's Option A decision of **2026-09-20**
+    #: (LAB-I3-TARGET-1), after the C-P5.0-LAB-I3-R4 operational pass refused
+    #: admission with `target-mismatch`: the verifier had compared the kernel's
+    #: nodename with the SSH alias, and the two identify different layers. The
+    #: two names are kept as two facts rather than collapsed into one overloaded
+    #: field, so the alias keeps its operational meaning and the local admission
+    #: observation is explicit and auditable.
+    kernel_nodename: str
     ipv4: str
     operating_system: str
     architecture: str
@@ -116,6 +138,7 @@ class ApprovedTargetFacts:
         """
         return (
             ("host", self.host),
+            ("kernel_nodename", self.kernel_nodename),
             ("ipv4", self.ipv4),
             ("operating_system", self.operating_system),
             ("architecture", self.architecture),
@@ -135,6 +158,7 @@ class ApprovedTargetFacts:
 
 APPROVED_TARGET_FACTS = ApprovedTargetFacts(
     host="oracle-test",
+    kernel_nodename="Test",
     ipv4="138.2.182.39",
     operating_system="Ubuntu 26.04.1 LTS",
     architecture="x86_64",

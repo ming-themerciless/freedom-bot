@@ -12,6 +12,8 @@ import pytest
 from tools.phase_5_0_evidence.approved_target import (
     APPROVED_TARGET,
     APPROVED_TARGET_FACTS,
+    CONFIRMATION_TOKEN,
+    TARGET_IDENTITY_DIGEST,
 )
 from tools.phase_5_0_evidence.capture import (
     MAX_VALUE_LENGTH,
@@ -691,16 +693,25 @@ def test_the_plan_declares_the_evidence_it_cannot_produce(plan) -> None:
     `is_executable` is `False`. What is asserted here is that C-6 and C-8 are
     implemented **and** that the one remaining conflict is exactly C-7 and
     exactly those three cases — not that the plan is runnable.
+
+    **C-P5.0-R5-R2, PLAN-1.** A second conflict, **C-S4-3**, now declares S4-3's
+    producer dependency: the Stage-4 capture cannot pass condition 4.
+    `test_r5_r2_s4_3_dependency.py` is its suite; here C-7 is asserted
+    unchanged beside it.
     """
-    assert plan.conflicts() == ("C-7",)
-    assert {item.band for item in plan.unresolved} == {"provenance", "journal"}
+    assert plan.conflicts() == ("C-7", "C-S4-3")
+    band_7 = [item for item in plan.unresolved if item.conflict_id == "C-7"]
+    assert {item.band for item in band_7} == {"provenance", "journal"}
     assert {
-        case_id for item in plan.unresolved for case_id in item.evidence_case_ids
+        case_id for item in band_7 for case_id in item.evidence_case_ids
     } == {
         "JNL-51-PROVENANCE-OMITTED",
         "JNL-47-NO-GENERATION-ON-FAILURE",
         "JNL-47-RECOVERY-STATE",
     }
+    assert [
+        item.evidence_case_ids for item in plan.unresolved if item.conflict_id != "C-7"
+    ] == [("S4-3",)]
     assert plan.is_executable is False
 
     # C-6: three experiments, run under the three identities §2.13.5c names.
@@ -1041,6 +1052,13 @@ def test_the_manifest_carries_every_vector_mutation_and_cleanup_step(plan) -> No
     }
     facts = {row["name"]: row["value"] for row in body["target_facts"]}
     assert facts["active_kernel"] == APPROVED_TARGET_FACTS.active_kernel
+    # **C-P5.0-LAB-I3-R5.** The kernel nodename is pinned as approved identity
+    # in its own right, beside — never instead of — the operational SSH alias,
+    # so a reviewer approves both names and a change to either moves the digest.
+    assert facts["kernel_nodename"] == APPROVED_TARGET_FACTS.kernel_nodename == "Test"
+    assert facts["host"] == APPROVED_TARGET_FACTS.host == "oracle-test"
+    assert body["target_identity_digest"] == TARGET_IDENTITY_DIGEST
+    assert body["confirmation_token"] == CONFIRMATION_TOKEN
 
 
 def test_a_changed_source_file_changes_the_digest(plan) -> None:

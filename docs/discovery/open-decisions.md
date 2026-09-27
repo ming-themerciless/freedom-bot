@@ -1,5 +1,12 @@
 # Unresolved Decisions
 
+**Current MD-4 disposition, 2026-09-23.** Peter Duscha explicitly accepted
+`R-5.0-10` through `R-5.0-16` as active residual risks on their stated terms.
+`R-5.0-12` through `R-5.0-16` now enter the current RAID register. Recovery
+rehearsals for `R-5.0-11`, `R-5.0-14` and `R-5.0-16` remain mandatory
+evidence. Historical text below that calls these risks pending or unaccepted is
+superseded by this explicit decision.
+
 **Current governance disposition, 2026-09-02.** Peter Duscha approved **OD-64
 Option A**, **OD-65 Option B** and **OD-66 Option A / J-1** in all accountable
 roles. **OD-62 remains Open** with G-A recorded only as a provisional direction
@@ -2260,7 +2267,23 @@ exists. OD-63 carries no Security Reviewer dependency and may be ruled
 independently. OD-62 is the risk acceptance the other four price and should be
 ruled last.
 
-### OD-62 — The Package 5.0 cutover boundary for the Google Sheet · **OPEN — REFRAMED A THIRD TIME 2026-08-29**
+### OD-62 — The Package 5.0 cutover boundary for the Google Sheet · **OPEN — G-A CONFIRMED IN PRINCIPLE 2026-09-22; BINDING RULING GATED ON P5.0-R5**
+
+**Current direction, 2026-09-22.** Peter Duscha selects G-A in principle and
+accepts its late-Google-apply residual in principle because the user base is
+small and the cutover time is known and supervised. The choice is not yet
+binding: the existing prerequisite remains independent acceptance that
+P5.0-R5's enumeration control is fail-closed. Post-cutover Sheet retention is
+separate. Plan §15.1 permits retaining the Sheet and rollback path during a
+numeric verification window but prohibits dual writes; any updated copy would
+have to be a separately reviewed one-way PostgreSQL-to-Sheet diagnostic
+projection with no authority.
+
+**Post-cutover retention decision, 2026-09-22.** The source Sheet will be
+frozen read-only and retained for four weeks with its export, connector,
+credential and documented rollback path. PostgreSQL is the sole authority;
+there will be no dual writes and no live diagnostic projection. Retirement
+requires the completed four-week verification gate and explicit approval.
 
 **Provisional direction recorded 2026-09-02 — not a ruling.** Peter Duscha
 selected G-A as the intended option, but expressly deferred the binding risk

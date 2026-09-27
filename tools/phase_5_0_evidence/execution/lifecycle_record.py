@@ -41,7 +41,11 @@ It creates no directory, provisions nothing, and refuses on an absent record
 rather than initializing one implicitly: initialization is a separate, named
 operation with an operator's attestation in it, and `initialize()` is the only
 way out of absent. It starts no process, takes no lock — the caller must already
-hold one — and never removes a temporary another publication left.
+hold one — and **no participant path here removes a temporary another
+publication left**. The one exception is named and attributed:
+`remove_publication_temporary` is r6 §6.2's operator recovery for T1, it takes
+the `(st_dev, st_ino)` comparison as a required argument, and it removes exactly
+the temporary and never the record — *added 2026-09-15, D1 remediation*.
 """
 from __future__ import annotations
 
@@ -59,7 +63,9 @@ from ..lifecycle_storage import (
     InitializationOutcome,
     ParsedHistory,
     PublicationOutcome,
+    PublicationTemporary,
     RecordEntry,
+    TemporaryRemoval,
     initialize_first_use_record,
     parse_history,
 )
@@ -120,11 +126,22 @@ class ReservationRecord:
     def temporary_present(self) -> bool:
         """Whether an interrupted publication left a temporary behind.
 
-        It is reported and never removed. §2.13.2b's precedent is that an
-        artifact whose provenance nobody has established is named by absolute
-        path for an operator rather than cleaned by the next run.
+        It is reported and never removed **by a participant**. §2.13.2b's
+        precedent is that an artifact whose provenance nobody has established is
+        named by absolute path for an operator rather than cleaned by the next
+        run, and `observe_publication_temporary` is what an operator compares
+        before touching either name.
         """
         return self.store.temporary_present()
+
+    def observe_publication_temporary(self) -> PublicationTemporary:
+        """r6 §6.2's `(st_dev, st_ino)` comparison over this record's two names.
+
+        Read-only, and it is the same call `read_and_admit` makes: the record's
+        admission and the operator's recovery compare the same two names through
+        the same function rather than through two that can disagree.
+        """
+        return self.store.observe_publication_temporary()
 
     def reseal(self) -> None:
         """§5.6's obligation: `fsync` the containing entry before reading it.
@@ -182,6 +199,27 @@ class ReservationRecord:
             attested_at=attested_at,
             host_previously_used=host_previously_used,
             fail_at=fail_at,
+        )
+
+    # -- the one operator recovery -------------------------------------------
+
+    def remove_publication_temporary(
+        self,
+        *,
+        comparison: PublicationTemporary | None,
+        author: str,
+        reference: str,
+    ) -> TemporaryRemoval:
+        """T1's operator recovery — **the only removal this module performs**.
+
+        It is not a participant's path and no admission reaches it: the module's
+        standing rule is that it *never removes a temporary another publication
+        left*, and this is the one attributed exception r6 §6.2's table names,
+        performed by the operator who established what the two names are. The
+        comparison is the argument, so an unobserved one cannot reach `unlinkat`.
+        """
+        return self.store.remove_publication_temporary(
+            comparison=comparison, author=author, reference=reference
         )
 
     def append(
@@ -315,5 +353,7 @@ __all__ = [
     "PUBLICATION_UNCERTAINTY",
     "RESEAL_CONTRACT",
     "RESERVATION_ENTRY_KINDS",
+    "PublicationTemporary",
     "ReservationRecord",
+    "TemporaryRemoval",
 ]

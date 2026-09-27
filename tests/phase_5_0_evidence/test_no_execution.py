@@ -125,6 +125,13 @@ PLANNING_TIER_NAMES = {
     "binding",
     "capability",
     "capture",
+    # **C-P5.0-R5-RP11-I1.** RP-11's fixed contract: the name grammar and its
+    # byte-safe representation, the canonical record and index-state encodings,
+    # the accounted set and the handback binding block. It is in this tier
+    # because it is data and pure functions over supplied bytes: it opens no
+    # file, starts no process and imports nothing from `execution/`, which the
+    # scans below assert.
+    "capture_contract",
     "case_runtime",
     "cleanup",
     "concrete_plan",
@@ -181,6 +188,10 @@ PLANNING_TIER_NAMES = {
     "review_manifest",
     "sudoers",
     "targets",
+    # **C-P5.0-R5-R1.** §2.13.2a S4-3's typed comparison of a supplied deployed
+    # unit, a supplied applied property set and a supplied systemd identity. It
+    # reads no file, runs no `systemctl` and inspects no unit.
+    "unit_sandbox",
 }
 
 #: The execution tier, enumerated for the same reason and with more force: these
@@ -204,6 +215,17 @@ EXECUTION_TIER_NAMES = {
     # writes anything other than the two reviewed configuration destinations.
     "artifact",
     "boundary",
+    # **C-P5.0-R5-RP11-I1.** RP-11's capture session: the P-1 … P-8 act
+    # sequence, X-2, the one stop transition and the single X-3 attempt. It is
+    # in this tier because it drives a process launcher and a storage seam; it
+    # imports no `subprocess` (the launcher is `boundary.StreamCaptureLauncher`),
+    # and nothing outside `tests/` constructs it.
+    "capture_mechanism",
+    # **C-P5.0-R5-RP11-I1.** RP-11's durable storage: exclusive creation of the
+    # capture root, its subdirectories and stream files, their barriers, and the
+    # unnamed-file publication of records and index states. It starts no
+    # process, and every root it creates is a path a caller hands it.
+    "capture_store",
     "case_program",
     "cli",
     # **C-P5.0-LAB-I.** The r6 §1.3 descriptor custody chain. It is in this tier
@@ -233,6 +255,39 @@ EXECUTION_TIER_NAMES = {
     # two durable ledger entries; it starts no process, synchronizes no tree and
     # resets no environment, and every participant's own work is injected.
     "participants",
+    # **C-P5.0-LAB-V6-R1.** The r6 §7 directory items, applied. It is in this
+    # tier because it is the one module in the repository that creates a
+    # provisioned directory: exclusive `mkdirat`, `fchown` and `fchmod` on the
+    # held descriptor, and the parent's containing-entry barrier. It starts no
+    # process, creates no account, writes nothing under `/etc` and refuses V7 by
+    # name; every path and every identity reaches it as an argument, so the
+    # suite drives it over a temporary directory.
+    "provisioner",
+    # **C-P5.0-LAB-V6-P-R1.** The operator entry point for the applier above,
+    # and the only route by which anything outside the suite reaches it. It is
+    # in this tier because it arms that applier — on one explicit command-line
+    # flag and on nothing else — and for no other reason: it starts no process,
+    # constructs no boundary, executor or materializer, reads no environment
+    # value, performs none of the operator steps V1, V2 and V3, initializes no
+    # lifecycle record and offers no rollback. Without its flag it reads neither
+    # the account database nor the filesystem.
+    "provisioning_cli",
+    # **C-P5.0-LAB-I3-R2.** The separately armed I3 controlled-write verifier.
+    # It is in this tier because it writes: one fixed harmless payload per
+    # reviewed publication context, linked exclusively, observed under both
+    # names and removed through identity comparisons — and, solely for P2, the
+    # transient canonical `R` and `R/bin` decision B's narrow exception permits.
+    # It starts no process, changes no identity or capability, reads no
+    # environment value, initializes no lifecycle record and reaches no
+    # participant, harness or executor; every path, account and `/proc` read
+    # reaches it through a seam, so the suite drives it over a temporary
+    # directory.
+    "i3_verifier",
+    # **C-P5.0-LAB-I3-R2.** The operator entry point for the verifier above, and
+    # its only route. It arms that verifier on one I3-specific command-line flag
+    # and on nothing else, and without the flag it reads neither the account
+    # database nor the filesystem.
+    "i3_verifier_cli",
     # **C-P5.0-LAB-I.** The independent recovery store of r6 §2.2. It is in this
     # tier because it copies configuration bytes to a durable location outside
     # the disposable root and synchronizes them there.
@@ -240,6 +295,12 @@ EXECUTION_TIER_NAMES = {
     # **C-P5.0-LAB-I.** The seven-participant run ledger, on disk. Same tier and
     # same reason as `lifecycle_record`, and the same imported rules.
     "run_ledger",
+    # **C-P5.0-R5-RP11-I1.** X-4 and B0-RA, read-only. It is in this tier
+    # because it opens directories and files — read-only, no-follow and
+    # descriptor-relative — and for no other reason. It writes, creates,
+    # renames, links, truncates, removes and changes nothing, and
+    # `test_rp11_capture.py` asserts that against its syntax tree.
+    "retention_check",
 }
 
 #: The exact standard-library modules the case program may import. It runs under

@@ -300,8 +300,21 @@ class SyntheticFilesystem:
         self._entries[(parent.object_id, name)] = created
         return created
 
-    def create_file(self, dirfd: int, name: str, data: bytes = b"") -> Descriptor:
-        """`openat(dirfd, name, O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW)`."""
+    def create_file(
+        self,
+        dirfd: int,
+        name: str,
+        data: bytes = b"",
+        *,
+        mode: int = 0o600,
+    ) -> Descriptor:
+        """`openat(dirfd, name, O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, mode)`.
+
+        The model keeps `PosixFilesystem.create_file`'s signature so the two
+        remain substitutable. It models exclusivity, custody and ordering, not
+        permission bits, so the creation mode is accepted and not enforced —
+        the same as every other mode this model is given.
+        """
         parent = self._directory_descriptor(dirfd)
         if (parent.object_id, name) in self._entries:
             raise ModelRefused(

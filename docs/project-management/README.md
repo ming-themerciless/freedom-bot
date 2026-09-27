@@ -10,10 +10,18 @@ This directory contains the management controls for the Freedom Blades
 Platform. The technical scope remains governed by
 [`docs/implementation-plan.md`](../implementation-plan.md).
 
-Current evidence-harness authority and exclusions are recorded in
-[`phase-5-0-evidence-harness-authorization-draft.md`](../review/phase-5-0-evidence-harness-authorization-draft.md);
-Claude's pre-execution implementation handoff is
-[`phase-5-0-evidence-harness-implementation-prompt.md`](../review/phase-5-0-evidence-harness-implementation-prompt.md).
+Current delivery state is recorded in [`status.md`](status.md), and the current
+assignment and task-specific restrictions are recorded in
+[`Handover information`](../review/Handover%20information). Historical status
+and handover snapshots are indexed under [`status-archive/`](status-archive/)
+and [`handover-archive/`](../review/handover-archive/) respectively. Archived
+text is retained evidence and never grants current authority.
+
+The present P5.0-R5 action is repository-only drafting of a bounded
+operational-evidence authorization prompt. P5.0-R5 remains Blocking,
+`plan.is_executable=False`, and Package 5.0 remains not ready. The current
+handover, rather than an older evidence-harness prompt, controls what may be
+done now.
 
 ## Solo-maintainer operating model
 
@@ -123,7 +131,20 @@ review availability are known.
 
 During active work, update [`status.md`](status.md) at least weekly and whenever
 a gate decision, critical risk, material scope change or critical-path blocker
-occurs. Status uses accepted deliverables, not subjective percentages.
+occurs. Status uses accepted deliverables, not subjective percentages. Keep the
+file limited to controlling current state, the immediate gate sequence and
+archive links. Move superseded or historical blocks verbatim into a dated file
+beside `status.md` so its original relative links remain valid, index it under
+[`status-archive/`](status-archive/), record its archival hash there, and do not
+rewrite the archived evidence.
+
+Keep [`Handover information`](../review/Handover%20information) limited to the
+active assignment, controlling restrictions, immediate handoff and archive
+links. Move consumed or superseded blocks verbatim into a dated file under
+`docs/review/` so its original relative links remain valid, and index it under
+[`handover-archive/`](../review/handover-archive/). Dedicated prompts, handbacks,
+reviews, decisions and registers remain the durable records; archive movement
+changes none of their dispositions or authorities.
 
 ## Communication and escalation
 

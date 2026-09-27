@@ -1405,7 +1405,9 @@ def test_an_unexpected_group_member_is_refused() -> None:
         ("B3-19", "-----a-------------- /var/lib/x"),
         ("B4-10", "ext4 /dev/sda1 rw,relatime"),
         ("P-03", ""),
-        ("P-04", "0 0 755 regular file"),
+        # C-P5.0-LAB-I3-D1: P2 installs `root:root 0555`, so a compliant `P-04`
+        # observation is `555`; `755` is now the non-compliant one.
+        ("P-04", "0 0 555 regular file"),
     ],
 )
 def test_a_compliant_observation_from_real_output_satisfies_its_contract(
@@ -1533,7 +1535,9 @@ def test_a_plan_carrying_an_unresolved_conflict_cannot_be_executed_at_all() -> N
     from dataclasses import replace as _replace
 
     real = build_concrete_plan()
-    assert real.conflicts() == ("C-7",) and real.is_executable is False
+    # **C-P5.0-R5-R2, PLAN-1.** C-S4-3 joins C-7; the gate is exercised below
+    # with a synthetic conflict either way.
+    assert real.conflicts() == ("C-7", "C-S4-3") and real.is_executable is False
     blocked = ConcretePlan(
         execution_plan=real.execution_plan,
         cleanup_plan=real.cleanup_plan,

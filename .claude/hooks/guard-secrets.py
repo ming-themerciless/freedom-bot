@@ -65,6 +65,26 @@ EXEMPT = re.compile(r"\.env\.example\b", re.IGNORECASE)
 #: the verb is still found outside the quotes.
 QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 
+#: A single-quoted rsync exclusion names content that rsync must not read, so
+#: its value is removed before looking for a secret path. The exemption is
+#: deliberately narrow, because a value that only *looks* like an exclusion can
+#: still make the shell read a secret:
+#:
+#: * only single quotes qualify - inside double quotes the shell still runs
+#:   `$(...)` and backticks, and an unquoted glob may be expanded before rsync
+#:   receives it;
+#: * the whole command must be one plain `rsync` invocation. Any character that
+#:   could start another command, a substitution, a redirection, a heredoc, a
+#:   comment, ANSI-C quoting or an escape that shifts quote boundaries disables
+#:   the exemption, so the quote scan below matches what the shell would parse;
+#: * the option must start a word outside any quotes and its single-quoted value
+#:   must end that word.
+#:
+#: Backslash-newline continuations are removed first, as the shell does.
+RSYNC_UNSAFE = re.compile(r"[$`;&|<>()#\\\n\r]")
+RSYNC_CONTINUATION = re.compile(r"\\\r?\n")
+RSYNC_EXCLUDE = re.compile(r"--exclude(?:=|[ \t]+)'")
+
 SECRETS = [re.compile(p, re.IGNORECASE) for p in SECRET_PATTERNS]
 VERBS = [re.compile(p, re.IGNORECASE) for p in ACCESS_VERBS]
 
@@ -79,6 +99,43 @@ def _first_secret(text: str) -> str | None:
         if match:
             return match.group(0)
     return None
+
+
+def _without_rsync_exclusions(command: str) -> str:
+    """Remove single-quoted ``rsync --exclude`` values, which deny rather than access.
+
+    Returns ``command`` unchanged whenever the command is not exactly one plain
+    rsync invocation, so every other shape keeps the full secret search.
+    """
+    joined = RSYNC_CONTINUATION.sub("", command)
+    if RSYNC_UNSAFE.search(joined) or joined.split()[:1] != ["rsync"]:
+        return command
+
+    kept: list[str] = []
+    i = 0
+    while i < len(joined):
+        char = joined[i]
+        at_word_start = i == 0 or joined[i - 1] in " \t"
+        option = RSYNC_EXCLUDE.match(joined, i) if at_word_start else None
+        if option:
+            close = joined.find("'", option.end())
+            if close == -1:
+                return command
+            end = close + 1
+            if end == len(joined) or joined[end] in " \t":
+                kept.append(" ")
+                i = end
+                continue
+        if char in "'\"":
+            close = joined.find(char, i + 1)
+            if close == -1:
+                return command
+            kept.append(joined[i : close + 1])
+            i = close + 1
+            continue
+        kept.append(char)
+        i += 1
+    return "".join(kept)
 
 
 def _refuse(named: str, why: str) -> int:
@@ -115,7 +172,7 @@ def main() -> int:
 
     command = str(tool_input.get("command") or "")
     if command:
-        named = _first_secret(command)
+        named = _first_secret(_without_rsync_exclusions(command))
         unquoted = QUOTED.sub(" ", command)
         if named and any(verb.search(unquoted) for verb in VERBS):
             return _refuse(named, "would read or publish")

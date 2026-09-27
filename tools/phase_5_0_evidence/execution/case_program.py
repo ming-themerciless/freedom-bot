@@ -198,10 +198,17 @@ FS_IOC_SETFLAGS = 0x40086602
 
 #: The mode `mkroot` creates the disposable root with, applied again with
 #: `fchmod(2)` on the descriptor of the directory it just created so the process
-#: umask cannot decide it. §2.13.3's facsimile root is `root:root 0755`; the
-#: owner and group are the harness's own, because `mkdir(2)` gives the creating
-#: process's uid and gid and this program is exec'd by `E7`.
-ROOT_DIRECTORY_MODE = 0o755
+#: umask cannot decide it. The owner and group are the harness's own, because
+#: `mkdir(2)` gives the creating process's uid and gid and this program is
+#: exec'd by `E7`.
+#:
+#: **`0700` — C-P5.0-LAB-I3-R3, 2026-09-20.** Peter ruled canonical `R` created
+#: `root:root 0700`, matching runner contract r6 §1.4.1's C1 row and §7.2's
+#: derivation; the `0755` this constant carried until C-P5.0-LAB-I3-R2
+#: disagreed with the contract. `R` holds security-sensitive execution evidence
+#: and has no requirement for non-root traversal: every object under it is
+#: reached by an inherited descriptor, so no group or other bit has a consumer.
+ROOT_DIRECTORY_MODE = 0o700
 
 #: `S_IFMT` and `S_IFDIR` as literals. The `stat` module is not in this
 #: program's permitted import set — it runs under `-I -S` and the set is

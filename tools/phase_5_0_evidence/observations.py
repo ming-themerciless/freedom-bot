@@ -69,10 +69,11 @@ fixture, an uncovered variant, a case the plan still declares unresolved, a
 classified record that did not pass. It is a report, not an approval.
 
 **`eligible_for_operational_acceptance` is `False` unconditionally — R16,
-EH-R16-3.** This importer holds Band 7 and nothing else; the capability cases and
-their controls are produced by the executed plan and are not in this result, so
-the question cannot be answered from these inputs and is withheld rather than
-answered from the half that is here. `EvidenceResult.outside_scope` lists what is
+EH-R16-3.** This importer holds Band 7 and nothing else. The capability cases and
+their controls are produced by the executed plan and are not in this result, and
+S4-3 has no producer at all (C-S4-3, C-P5.0-R5-R4). So the question cannot be
+answered from these inputs, and it is withheld rather than answered from the half
+that is here. `EvidenceResult.outside_scope` lists what is
 missing from the question, and `EvidenceResult.withheld` states the position.
 
 **Synthetic fixtures stay visibly synthetic.** A synthetic record's custody is in
@@ -382,6 +383,13 @@ class ProducerMapping:
     This is the table the handback carries and the reviewer reads. A case whose
     producer is missing is reported **unresolved** — never covered — however many
     correctly shaped records arrive for it.
+
+    **C-P5.0-R5-R4.** `in_harness_producer` is true only when steps of this plan
+    produce the case, so it always agrees with `produced_by_plan_steps`. A row can
+    have three shapes: produced by plan steps; a Band-7 external-input contract,
+    whose producer is described and whose `declared_unresolved_by` says whether
+    it exists yet; or no producer at all, where `producer` and
+    `collection_procedure` begin with *none*.
     """
 
     case_id: str
@@ -407,14 +415,25 @@ IMPORTER_SCOPE = (
 #: **R16, EH-R16-3.** Why overall completeness and operational eligibility are
 #: withheld rather than computed. Fixed strings, reported in the artifact, so the
 #: withholding is a stated position and not a missing field.
+#:
+#: **C-P5.0-R5-R4, finding P5.0-R5-R3-EVIDENCE-1.** The first string used to say
+#: every required case outside this scope is produced by the executed plan.
+#: Since C-P5.0-R5-R3, S4-3 is outside this scope precisely because nothing
+#: produces it, so the string now names both kinds. A test ties it to the plan:
+#: every outside-scope case with no producing step must be named here with its
+#: blocking conflict.
 COMPLETENESS_WITHHELD = (
     "Overall required-case completeness is withheld. The required cases outside "
-    "this importer's scope are produced by the executed plan, and no validated "
+    "this importer's scope are of two kinds, and neither is in this result. The "
+    "capability cases are produced by the executed plan's steps, and no validated "
     "execution observation has been joined to this result under the same target, "
-    "run and review-manifest digest.",
+    "run and review-manifest digest. S4-3 has no producer at all: no step "
+    "produces it, no reviewed external producer supplies it, the plan declares "
+    "it unresolved under C-S4-3, and no execution or supplied observation can "
+    "cover it.",
     "Operational eligibility is withheld for the same reason. A Band-7 result "
-    "cannot be the basis for accepting evidence whose capability cases and their "
-    "controls are not in it.",
+    "cannot be the basis for accepting evidence whose other required cases, "
+    "produced or still without a producer, are not in it.",
 )
 
 
@@ -454,9 +473,11 @@ class EvidenceResult:
     covered: tuple[str, ...]
     missing: tuple[str, ...]
     unresolved_cases: tuple[str, ...]
-    #: **R16, EH-R16-3.** Required cases with no entry in `BAND_7_SCHEMA`: the
-    #: ones the executed plan produces. They are outside what an importer can
-    #: observe, and they are reported rather than skipped.
+    #: **R16, EH-R16-3.** Required cases with no entry in `BAND_7_SCHEMA`. They
+    #: are outside what an importer can observe, and they are reported rather
+    #: than skipped. **C-P5.0-R5-R4:** most are produced by the executed plan's
+    #: steps, but S4-3 has no producer and is declared unresolved under C-S4-3;
+    #: `producers` says which is which.
     outside_scope: tuple[str, ...]
     producers: tuple[ProducerMapping, ...]
     custody_levels: tuple[str, ...]
@@ -821,12 +842,36 @@ def _refuse_contradictions(observation: SuppliedObservation) -> None:
             )
 
 
+def _absent_producer(blocked: tuple[str, ...]) -> tuple[str, str]:
+    """The producer and procedure text of a case nothing produces.
+
+    **C-P5.0-R5-R4, finding P5.0-R5-R3-EVIDENCE-1.** Both say *none* first, so
+    neither can be read as an actor or a runnable procedure. They name the
+    blocking conflicts because those are what the plan says about the case, and
+    they name nothing that could stand in for a producer.
+    """
+    blockers = ", ".join(blocked) or "no conflict"
+    return (
+        "none — no producer exists: no step of this plan produces this case, no "
+        "reviewed external producer supplies it, and the plan declares it "
+        f"unresolved under {blockers}",
+        "none — there is no collection procedure to run while no producer "
+        "exists, and a supplied observation cannot stand in for one",
+    )
+
+
 def producer_mapping(plan) -> tuple[ProducerMapping, ...]:
     """Every required case, its producer, and where the plan stands on it.
 
     The mapping is built from `required_cases.REQUIRED_CASES` and from the plan,
     so a required case with no schema entry and no producing step is visible as
     exactly that rather than absent.
+
+    **C-P5.0-R5-R4, finding P5.0-R5-R3-EVIDENCE-1.** A case without a Band-7
+    schema has an in-harness producer only if a step of this plan carries it.
+    Absence from `BAND_7_SCHEMA` is not evidence of a producer: S4-3 has neither
+    a schema nor a producing step, and its row says *none* rather than naming
+    this harness's steps.
     """
     rows: list[ProducerMapping] = []
     for case in REQUIRED_CASES:
@@ -845,21 +890,20 @@ def producer_mapping(plan) -> tuple[ProducerMapping, ...]:
                 if case.case_id in item.evidence_case_ids
             )
         )
+        if schema is not None:
+            producer, procedure = schema.producer, schema.collection_procedure
+        elif produced:
+            producer = "this harness's own generated steps"
+            procedure = "the executor records the step's observation directly"
+        else:
+            producer, procedure = _absent_producer(blocked)
         rows.append(
             ProducerMapping(
                 case_id=case.case_id,
                 band=case.band,
-                producer=(
-                    schema.producer
-                    if schema is not None
-                    else "this harness's own generated steps"
-                ),
-                collection_procedure=(
-                    schema.collection_procedure
-                    if schema is not None
-                    else "the executor records the step's observation directly"
-                ),
-                in_harness_producer=schema is None,
+                producer=producer,
+                collection_procedure=procedure,
+                in_harness_producer=schema is None and bool(produced),
                 produced_by_plan_steps=produced,
                 declared_unresolved_by=blocked,
             )
@@ -896,8 +940,16 @@ def classify_supplied_observations(
     produce.
     """
     producers = producer_mapping(plan)
+    # **C-P5.0-R5-R3.** In-scope only, as `EvidenceResult.unresolved_cases` is
+    # documented. S4-3 is now a required case the plan declares unresolved, but
+    # it has no Band-7 schema: it is reported in `outside_scope`, and must not
+    # make a statement about Band 7 false for a reason outside Band 7.
     unresolved = tuple(
-        sorted(row.case_id for row in producers if row.declared_unresolved_by)
+        sorted(
+            row.case_id
+            for row in producers
+            if row.declared_unresolved_by and row.case_id in BAND_7_SCHEMA
+        )
     )
     by_key = {observation.key: observation for observation in observations}
     required_keys: list[str] = []

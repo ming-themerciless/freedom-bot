@@ -105,16 +105,23 @@ from tools.phase_5_0_evidence.execution.recovery_store import (
     STORED_OBJECT_MODE,
     TEMPORARY_SUFFIX,
 )
+from tools.phase_5_0_evidence.execution.participants import (
+    PARTICIPANT_NOT_ADMITTED,
+    HarnessObservations,
+    ParticipantIntegration,
+)
 from tools.phase_5_0_evidence.execution.run_ledger import TerminalSequence
 from tools.phase_5_0_evidence.lifecycle_storage import (
     PARTICIPANT_PROFILES,
     PARTICIPANTS,
+    DurableRecordStore,
     EntryKind,
     FirstUseEvidence,
     FirstUseRefusal,
     Participant,
     PublicationRefusal,
     RecordRefusal,
+    TemporaryRemovalRefusal,
     serialize_history,
 )
 from tools.phase_5_0_evidence.reservation import (
@@ -1657,6 +1664,58 @@ def test_the_reviewed_payload_is_installed_from_one_held_buffer(tmp_path) -> Non
         inventory.close()
 
 
+def test_p2_creates_its_temporary_0500_and_publishes_0555(tmp_path) -> None:
+    """**C-P5.0-LAB-I3-R3, 2026-09-20 — ruling 2, on P2's real install path.**
+
+    `install_case_program` is P2. Its exclusive `openat` is given the ruled
+    `0500` creation mode, and that mode is **not** the published one: the
+    descriptor `openat` returned is what the payload is written to and what
+    `fchmod` applies `CASE_PROGRAM_MODE` to, so the published name is `0555`.
+    The default of the creation-mode input it passes remains `0600`, which is
+    what T1, T6 and §2.3.3 continue to take.
+    """
+    import hashlib
+    import inspect
+
+    from tools.phase_5_0_evidence.case_runtime import CASE_PROGRAM_TEMPORARY_MODE
+    from tools.phase_5_0_evidence.execution.descriptors import (
+        EXCLUSIVE_CREATION_MODE,
+        PosixFilesystem,
+    )
+
+    assert CASE_PROGRAM_TEMPORARY_MODE == "0500"
+    assert EXCLUSIVE_CREATION_MODE == 0o600
+    signature = inspect.signature(PosixFilesystem.create_file)
+    assert signature.parameters["mode"].default == EXCLUSIVE_CREATION_MODE
+
+    inventory, _fs, effects, run = _effects(tmp_path)
+    modes: list[int] = []
+    real_open = os.open
+
+    def opener(path, flags, mode=0o777, **kwargs):
+        if flags & os.O_CREAT and flags & os.O_EXCL and not flags & os.O_DIRECTORY:
+            modes.append(mode)
+        return real_open(path, flags, mode, **kwargs)
+
+    try:
+        effects.create_run_directories()
+        content = b"the reviewed payload\n"
+        digest = hashlib.sha256(content).hexdigest()
+        os.open = opener
+        try:
+            effects.install_case_program(content=content, sha256=digest)
+        finally:
+            os.open = real_open
+        # P2 made exactly one exclusive file creation, and it was 0500.
+        assert modes == [0o500]
+        installed = run / "bin" / "case-program"
+        assert installed.stat().st_mode & 0o777 == 0o555
+        assert installed.read_bytes() == content
+        assert not (run / "bin" / ".case-program.tmp").exists()
+    finally:
+        inventory.close()
+
+
 def test_a_payload_whose_digest_moved_is_refused_rather_than_installed(
     tmp_path,
 ) -> None:
@@ -1886,6 +1945,481 @@ def test_d1_a_payload_stopped_between_link_and_unlink_is_neither_recorded_nor_re
 
 
 # ---------------------------------------------------------------------------
+# PR-20260915-LAB-D12-1 — the record's temporary refuses all seven at T4
+# ---------------------------------------------------------------------------
+
+
+OPERATOR = "peter duscha, operations owner"
+RECOVERY_REFERENCE = "INC-2026-09-15-D1"
+D12_RESERVATION = "RES-D12"
+
+
+def _interrupted_record(lab, monkeypatch):
+    """Reach D1's second interruption state on the **reservation record**.
+
+    The real writer publishes the first-use record and its one `unlinkat`
+    fails, so the final name carries the synchronized bytes and the temporary
+    beside it is a second name for the same inode. This is row 70's state, and
+    every test below reads it rather than arranging one of its own.
+    """
+    bound = bind(lab)
+    temporary = lab.record_path.with_name(f"{lab.layout.record_name}.tmp")
+    try:
+        fired = _stop_between_link_and_unlink(monkeypatch, temporary.name)
+        outcome = _initialize(bound)
+        assert fired, "the injected stop was reached"
+        assert not outcome.initialized
+        monkeypatch.undo()
+        _assert_two_names_for_one_inode(lab.record_path, temporary)
+    finally:
+        bound.close()
+    return temporary
+
+
+def _bytes_of(directory: Path) -> dict:
+    """Every name under `directory` and its bytes — the unchanged-state check."""
+    return {
+        entry.name: entry.read_bytes()
+        for entry in sorted(directory.iterdir())
+        if entry.is_file()
+    }
+
+
+def _refuse_participant(lab, participant, *, run_id: str):
+    """Drive one participant's real integration point and record whether its
+    work was ever reached.
+
+    The six go through `run()` and the harness through `run_harness()`, because
+    r6 §5.12 derives the harness's two completion conditions rather than taking
+    them injected. Both return before the work when admission refuses, and the
+    recorder is what proves it.
+    """
+    called: list = []
+    integration = ParticipantIntegration(
+        participant=participant,
+        host=HOST,
+        target_identity=TARGET_IDENTITY,
+        author=PARTICIPANT_PROFILES[participant].identity,
+        at=AT,
+        layout=lab.layout,
+        # The harness holds the reservation it concludes and refuses rather than
+        # waiting behind a held lock; the six carry the field empty and wait.
+        reservation_id=D12_RESERVATION if participant.writes_the_record else "",
+        wait_for_lock=not participant.writes_the_record,
+    )
+    if participant.writes_the_record:
+
+        def harness_work(permit):
+            called.append(permit)
+            return HarnessObservations(
+                residue=ResidueObservation.empty(observed_by=OPERATOR),
+                configuration_restored=True,
+                child_processes_ended=True,
+                database_transactions_settled=True,
+            )
+
+        outcome = integration.run_harness(
+            run_id=run_id,
+            work=harness_work,
+            request=ReservationRequest(
+                reservation_id=D12_RESERVATION,
+                owner=OPERATOR,
+                host=HOST,
+                target_identity=TARGET_IDENTITY,
+                requested_at=AT,
+                deadline="2026-09-15T20:00:00Z",
+                recovery_owner=OPERATOR,
+                real_execution=False,
+            ),
+            observed_by=OPERATOR,
+        ).run
+    else:
+
+        def work(permit):
+            called.append(permit)
+            return {
+                condition: True
+                for condition in PARTICIPANT_PROFILES[participant].external_conditions()
+            }
+
+        outcome = integration.run(
+            run_id=run_id, work=work, observed_by=OPERATOR
+        )
+    return outcome, called
+
+
+def test_d1_a_record_publication_temporary_refuses_all_seven_before_their_work(
+    tmp_path, monkeypatch
+) -> None:
+    """**PR-20260915-LAB-D12-1**, and it is the finding's own reproduction.
+
+    r6 §9.2 row 74. After T1's `linkat` succeeded and its `unlinkat` failed, the
+    final lifecycle record is valid, complete and readable. Codex found that
+    `read_and_admit` re-sealed and parsed exactly that record without ever
+    asking whether its publication had finished, so the six ordinary
+    participants admitted and only the harness refused later, at T7, when it
+    tried to publish `admitted` over the leftover temporary.
+
+    Every one of the seven must now refuse at **T4**, through the one
+    authoritative admission path, before its work is called — and both names,
+    the record's bytes and the ledger must be exactly as they were afterwards.
+    """
+    lab = build_laboratory(tmp_path)
+    temporary = _interrupted_record(lab, monkeypatch)
+    before = _bytes_of(lab.laboratory_directory)
+    ledger_before = _bytes_of(lab.runs_directory)
+    identities_before = {
+        path: path.stat(follow_symlinks=False)[:]
+        for path in (lab.record_path, temporary)
+    }
+
+    for participant in PARTICIPANTS:
+        outcome, called = _refuse_participant(
+            lab, participant, run_id=f"RUN-{participant.name}"
+        )
+        assert not outcome.admitted, participant
+        assert not outcome.started, participant
+        assert not outcome.effects_permitted, participant
+        assert not outcome.completed, participant
+        assert outcome.refusal == PARTICIPANT_NOT_ADMITTED, participant
+        assert called == [], f"{participant} reached its work"
+
+        # The refusal is the admission path's, not a second check bolted beside
+        # it: it arrives on the `SuccessorAdmission` this pass produced, and it
+        # carries the one `(st_dev, st_ino)` comparison that produced it.
+        admission = outcome.admission
+        assert admission is not None and not admission.may_proceed, participant
+        assert admission.participant is participant
+        assert admission.resealed, "the re-seal still precedes the read"
+        assert admission.interruption is not None
+        assert admission.interruption.present and admission.interruption.same_inode
+        assert admission.refusals[0] in outcome.reasons
+        joined = " ".join(admission.refusals)
+        assert temporary.name in joined
+        assert "PR-20260915-LAB-D12-1" in joined
+        assert "§6.2" in joined and "D1" in joined
+
+    _assert_two_names_for_one_inode(lab.record_path, temporary)
+    assert _bytes_of(lab.laboratory_directory) == before
+    assert _bytes_of(lab.runs_directory) == ledger_before
+    assert {
+        path: path.stat(follow_symlinks=False)[:]
+        for path in (lab.record_path, temporary)
+    } == identities_before
+
+
+def test_d1_a_temporary_whose_resolution_is_unknown_is_not_an_absent_one(
+    tmp_path, monkeypatch
+) -> None:
+    """A refusing `fstatat` refuses the participant — the lock's rule, here too.
+
+    r6 §5.9 says an unreadable lock is not an unheld lock. The same holds of the
+    publication temporary: if the name's resolution cannot be established, then
+    nothing has established that the publication finished, and reading *absent*
+    from a call that refused would be the fail-open the whole check exists to
+    close.
+    """
+    lab = build_laboratory(tmp_path)
+    bound = bind(lab)
+    try:
+        assert _initialize(bound).initialized
+    finally:
+        bound.close()
+
+    real_stat = os.stat
+    temporary_name = f"{lab.layout.record_name}.tmp"
+
+    def refusing_stat(path, *args, **kwargs):
+        if (
+            isinstance(path, str)
+            and path == temporary_name
+            and kwargs.get("dir_fd") is not None
+        ):
+            raise OSError(errno.EACCES, "injected: the name cannot be resolved")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", refusing_stat)
+    with lab.session(Participant.BOT_SUITE) as session:
+        admission = session.admit()
+    assert not admission.may_proceed
+    assert admission.interruption is not None
+    assert admission.interruption.observation_failed
+    assert not admission.interruption.present
+    joined = " ".join(admission.refusals)
+    assert "could not be observed" in joined
+    assert "is not an absent name" in joined
+
+
+def test_d1_a_clean_record_with_no_temporary_still_admits_all_seven_control(
+    tmp_path,
+) -> None:
+    """The successful control for the row above. **It must keep passing.**
+
+    A check that refuses everything refuses correctly by accident. The same
+    seven passes, over a record published without interruption, reach their work
+    and settle — so the new refusal is the temporary's and not the check's.
+    """
+    lab = build_laboratory(tmp_path)
+    bound = bind(lab)
+    try:
+        assert _initialize(bound).initialized
+    finally:
+        bound.close()
+    assert not lab.record_path.with_name(f"{lab.layout.record_name}.tmp").exists()
+
+    for participant in PARTICIPANTS:
+        outcome, called = _refuse_participant(
+            lab, participant, run_id=f"RUN-{participant.name}"
+        )
+        assert outcome.admitted, participant
+        assert outcome.effects_permitted, participant
+        assert outcome.completed, participant
+        assert len(called) == 1, participant
+        assert outcome.admission is not None
+        assert outcome.admission.interruption is not None
+        assert not outcome.admission.interruption.present
+
+
+def test_d1_a_temporary_that_is_not_the_record_refuses_and_is_never_removed(
+    tmp_path,
+) -> None:
+    """A leftover temporary whose inode differs from the record — and it stays.
+
+    This is the third of r6 §6.2's dispositions: neither *"nothing was
+    published"* nor *"published between the two calls"*, so no recovery in the
+    contract applies to it. Every participant refuses, the refusal says the two
+    names are different objects, and **nothing removes it**: the automatic
+    cleanup of an object nobody has identified is the behaviour §2.13.2b's
+    precedent exists to forbid.
+    """
+    lab = build_laboratory(tmp_path)
+    bound = bind(lab)
+    try:
+        assert _initialize(bound).initialized
+    finally:
+        bound.close()
+    temporary = lab.record_path.with_name(f"{lab.layout.record_name}.tmp")
+    temporary.write_bytes(b"an object of unestablished provenance\n")
+    record_before = lab.record_path.read_bytes()
+    temporary_before = temporary.read_bytes()
+    assert (
+        temporary.stat(follow_symlinks=False).st_ino
+        != lab.record_path.stat(follow_symlinks=False).st_ino
+    )
+
+    for participant in PARTICIPANTS:
+        outcome, called = _refuse_participant(
+            lab, participant, run_id=f"RUN-{participant.name}"
+        )
+        assert not outcome.admitted and called == [], participant
+        joined = " ".join(outcome.admission.refusals)
+        assert "different objects" in joined
+        assert not outcome.admission.interruption.same_inode
+
+    assert temporary.exists() and temporary.read_bytes() == temporary_before
+    assert lab.record_path.read_bytes() == record_before
+
+
+# ---------------------------------------------------------------------------
+# r6 §6.2 — T1's and T6's operator recovery, with the comparison made mandatory
+# ---------------------------------------------------------------------------
+
+
+def test_d1_the_t1_recovery_removes_the_temporary_only_on_an_identity_match(
+    tmp_path, monkeypatch
+) -> None:
+    """The **identity-match** case: the comparison holds, so one name goes.
+
+    r6 §6.2's T1 recovery is *remove only the temporary; do not repeat the
+    initialization*. The record survives byte for byte, the publication is not
+    repeated, and the seven admit again afterwards — which is what makes this a
+    bounded recovery rather than a dead end.
+    """
+    lab = build_laboratory(tmp_path)
+    temporary = _interrupted_record(lab, monkeypatch)
+    record_before = lab.record_path.read_bytes()
+    bound = bind(lab)
+    try:
+        comparison = bound.record.observe_publication_temporary()
+        assert comparison.present and comparison.same_inode
+        removal = bound.record.remove_publication_temporary(
+            comparison=comparison, author=OPERATOR, reference=RECOVERY_REFERENCE
+        )
+    finally:
+        bound.close()
+
+    assert removal.removed and removal.refusal is None
+    assert removal.presented is comparison
+    assert removal.confirmed is not None and removal.confirmed.same_inode
+    assert removal.after is not None and not removal.after.present
+    assert OPERATOR in " ".join(removal.reasons)
+    assert RECOVERY_REFERENCE in " ".join(removal.reasons)
+
+    assert not temporary.exists()
+    assert lab.record_path.read_bytes() == record_before
+    assert lab.record_path.stat(follow_symlinks=False).st_nlink == 1
+    for participant in PARTICIPANTS:
+        with lab.session(participant) as session:
+            assert session.admit().may_proceed, participant
+
+
+def test_d1_the_t1_recovery_refuses_a_mismatch_and_removes_nothing(
+    tmp_path,
+) -> None:
+    """The **mismatch** case: two names, two inodes, and neither is touched."""
+    lab = build_laboratory(tmp_path)
+    bound = bind(lab)
+    try:
+        assert _initialize(bound).initialized
+        temporary = lab.record_path.with_name(f"{lab.layout.record_name}.tmp")
+        temporary.write_bytes(b"an object of unestablished provenance\n")
+        comparison = bound.record.observe_publication_temporary()
+        assert comparison.present and not comparison.same_inode
+        removal = bound.record.remove_publication_temporary(
+            comparison=comparison, author=OPERATOR, reference=RECOVERY_REFERENCE
+        )
+    finally:
+        bound.close()
+
+    assert not removal.removed
+    assert removal.refusal is TemporaryRemovalRefusal.IDENTITY_MISMATCH
+    assert removal.after is None
+    assert temporary.exists()
+    assert lab.record_path.exists()
+
+
+def test_d1_the_t1_recovery_refuses_an_unobserved_comparison(
+    tmp_path, monkeypatch
+) -> None:
+    """The **unobserved** case, and it is the one the prose could not enforce.
+
+    `comparison=None` is a removal taken without ever comparing the two names.
+    It refuses before `unlinkat`, so a caller that skipped r6 §6.2's comparison
+    does not remove anything — the requirement is mechanical rather than a step
+    an operator is asked to remember.
+    """
+    lab = build_laboratory(tmp_path)
+    temporary = _interrupted_record(lab, monkeypatch)
+    bound = bind(lab)
+    try:
+        removal = bound.record.remove_publication_temporary(
+            comparison=None, author=OPERATOR, reference=RECOVERY_REFERENCE
+        )
+        assert not removal.removed
+        assert removal.refusal is TemporaryRemovalRefusal.NO_OBSERVED_COMPARISON
+        assert removal.presented is None and removal.after is None
+
+        # A comparison of some **other** record's two names is not a comparison
+        # of these, however true it is of its own.
+        other = DurableRecordStore(
+            bound.filesystem,
+            directory=bound.record.directory_object_id,
+            name="another-record.json",
+            label="another-record.json",
+        )
+        foreign = bound.record.remove_publication_temporary(
+            comparison=other.observe_publication_temporary(),
+            author=OPERATOR,
+            reference=RECOVERY_REFERENCE,
+        )
+        assert not foreign.removed
+        assert foreign.refusal is TemporaryRemovalRefusal.FOREIGN_COMPARISON
+
+        # And an attributed recovery names who performed it.
+        unattributed = bound.record.remove_publication_temporary(
+            comparison=bound.record.observe_publication_temporary(),
+            author="",
+            reference=RECOVERY_REFERENCE,
+        )
+        assert not unattributed.removed
+        assert unattributed.refusal is TemporaryRemovalRefusal.UNATTRIBUTED
+    finally:
+        bound.close()
+    _assert_two_names_for_one_inode(lab.record_path, temporary)
+
+
+def test_d1_the_t1_recovery_refuses_a_comparison_that_no_longer_holds(
+    tmp_path, monkeypatch
+) -> None:
+    """*Immediately preceding* is a claim about the moment of the call.
+
+    The comparison is taken, the state changes underneath it — here another
+    operator completed the same recovery — and the stale comparison is refused
+    rather than removing whatever now answers to the name.
+    """
+    lab = build_laboratory(tmp_path)
+    temporary = _interrupted_record(lab, monkeypatch)
+    bound = bind(lab)
+    try:
+        comparison = bound.record.observe_publication_temporary()
+        assert comparison.same_inode
+        temporary.unlink()
+        replacement = b"a different object at the same name\n"
+        temporary.write_bytes(replacement)
+        removal = bound.record.remove_publication_temporary(
+            comparison=comparison, author=OPERATOR, reference=RECOVERY_REFERENCE
+        )
+    finally:
+        bound.close()
+
+    assert not removal.removed
+    assert removal.refusal is TemporaryRemovalRefusal.STALE_COMPARISON
+    assert removal.confirmed is not None and not removal.confirmed.same_inode
+    assert temporary.exists() and temporary.read_bytes() == replacement
+
+
+def test_d1_the_t6_recovery_uses_the_same_guard_and_settles_nothing(
+    tmp_path, monkeypatch
+) -> None:
+    """T6's run file, on **one** implementation of the guard — and it settles nothing.
+
+    Removing the temporary makes the run visible as started and unsettled. It
+    still blocks every successor, because only T16's attributed
+    `participant_recovered` settles a run, and the removal of a temporary is not
+    that entry.
+    """
+    lab = build_laboratory(tmp_path)
+    bound = bind(lab)
+    final = lab.runs_directory / "sync-1"
+    temporary = lab.runs_directory / "sync-1.tmp"
+    try:
+        _initialize(bound)
+        fired = _stop_between_link_and_unlink(monkeypatch, temporary.name)
+        bound.ledger.begin(
+            run_id="sync-1",
+            participant=Participant.SYNCHRONIZATION,
+            author="ubuntu",
+            at=AT,
+        )
+        assert fired, "the injected stop was reached"
+        monkeypatch.undo()
+        _assert_two_names_for_one_inode(final, temporary)
+
+        assert not bound.ledger.remove_publication_temporary(
+            "sync-1", comparison=None, author=OPERATOR, reference=RECOVERY_REFERENCE
+        ).removed
+        _assert_two_names_for_one_inode(final, temporary)
+
+        removal = bound.ledger.remove_publication_temporary(
+            "sync-1",
+            comparison=bound.ledger.observe_publication_temporary("sync-1"),
+            author=OPERATOR,
+            reference=RECOVERY_REFERENCE,
+        )
+        assert removal.removed
+        assert not temporary.exists() and final.exists()
+
+        survey = bound.ledger.survey()
+        assert survey.unreadable == ()
+        assert "sync-1" in survey.unsettled
+    finally:
+        bound.close()
+    for participant in PARTICIPANTS:
+        with lab.session(participant) as session:
+            assert not session.admit().may_proceed, participant
+
+
+# ---------------------------------------------------------------------------
 # Structural guards — what this suite may not reach
 # ---------------------------------------------------------------------------
 
@@ -2048,6 +2582,36 @@ def test_the_module_under_test_names_its_two_amendments() -> None:
     listing = " ".join(descriptors_module.LISTING_DESCRIPTOR)
     assert "readdir" in listing and "D20" in listing
     assert descriptors_module.CONTRACT_GAPS == ()
+
+
+def test_the_unimplemented_execveat_route_has_an_owner_and_a_stop_condition() -> None:
+    """r6 §6.4's open item, stated with the three things an open item needs.
+
+    Codex's disposition of 2026-09-15 is that the unresolved `execveat` route
+    *"needs an explicit owner and execution stop condition before execution
+    readiness"*. **No route is chosen here**: C-P5.0-LAB-D12-R1 forbids choosing
+    or implementing one, so what this asserts is that the item is owned, that
+    what would close it is written down, and that execution is stopped while it
+    is open — not that anything was decided.
+    """
+    route = descriptors_module.UNIMPLEMENTED_EXECUTION_ROUTE
+    joined = " ".join(route)
+    assert "execveat" in joined and "X1" in joined
+    assert "unimplemented and no route is chosen" in joined
+    assert any(statement.startswith("Owner:") for statement in route)
+    assert "Technical Lead" in joined
+    assert any(statement.startswith("Required evidence") for statement in route)
+    assert "I7" in joined and "ctypes" in joined
+    assert "Execution stop condition:" in joined
+    assert "`plan.is_executable` stays False" in joined
+    assert "reservation.REAL_EXECUTION_REFUSAL" in joined
+    # And the stop condition names two states that actually hold right now.
+    from tools.phase_5_0_evidence.reservation import REAL_EXECUTION_REFUSAL
+
+    from tools.phase_5_0_evidence.concrete_plan import build_concrete_plan
+
+    assert REAL_EXECUTION_REFUSAL
+    assert not build_concrete_plan().is_executable
 
 
 def test_serialized_history_is_what_reaches_the_disk(tmp_path) -> None:

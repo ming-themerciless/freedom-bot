@@ -1,8 +1,941 @@
 # Disposable Linux Test Server
 
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-RP11-I1 is repository-only.**
+Claude may implement and locally test RP-11's client-side capture and B0-RA
+retention mechanisms within the repository. **No SSH, rsync, synchronization,
+network or host inspection, `sudo`, database access, provisioning, controlled
+write, reboot, verifier, evidence band, harness `--execute`, real participant
+invocation or protected-artifact access is authorized.** No real capture root
+may be created, inspected or reused. The assignment does not mark RP-11
+satisfied or authorize either operational pass; every host prohibition below
+remains in force.
+[Claude prompt](../review/phase-5-0-p5-r5-rp11-capture-mechanism-implementation-claude-prompt.md).
+
+**Restriction unchanged, 2026-09-27 — R5 requirements remediation accepted;
+no host authority.** Codex reviewed the exact R5-amended draft with no findings,
+and Peter Duscha accepted C-P5.0-R5-OP1-R5 and closed OP1-R4-1 as remediated.
+The acceptance is requirements-only. RP-11 remains absent and unmet, neither
+pass is executable or authorized, and no RP-11 implementation has been
+assigned. **No SSH, synchronization, inspection, provisioning, verifier,
+suite, database access, controlled write, reboot, `--execute` or
+protected-artifact access is authorized.** Every prohibition below remains in
+force.
+[Codex R5 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5.md);
+[maintainer acceptance](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5-acceptance.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R5 was repository-only
+and issued no host command.** Claude returned the R5-amended operational-evidence
+draft and its handback for Codex review. The correction requires B0-RA, on the
+**repository host**, to compare one complete recursive enumeration of Pass A's
+retained capture root with the names Pass A's final state accounts for, in
+both directions and with object types. Any absent, unexpected, mistyped,
+duplicate, aliased or escaping name, or an incomplete comparison, stops Pass B
+before it creates its own root or issues any host command. For unadmitted files
+it verifies presence, name and type only, not content. It implements nothing,
+tests nothing and inspects no capture root. **No SSH, synchronization,
+inspection, provisioning, verifier, suite, database access, controlled write,
+reboot or protected-artifact access occurred.** No secrets scan was run and no
+guard refused a call. Neither pass is executable or authorized, and **no new
+host authority is created**. Every prohibition below remains in force.
+[R5-amended draft](../review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md);
+[R5 handback](../review/phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-handback.md);
+[Codex R4 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r4.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R5 is repository-only
+unadmitted-retention remediation.** Claude may amend documentation only so
+B0-RA checks retained names bidirectionally and fails closed when a name
+recorded by Pass A's final state—including an unadmitted name—is absent or has
+the wrong object type. Claude must not implement the check, SSH, synchronize,
+inspect a host capture root, provision, invoke a verifier or suite, access a
+database, perform a controlled write, reboot or access a protected historical
+`/tmp` artifact. Neither pass is executable or authorized, and this assignment
+creates no host authority.
+[R5 assignment](../review/phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-claude-prompt.md);
+[Codex R4 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r4.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R4 was repository-only
+and issued no host command.** Claude returned the R4-amended operational-evidence
+draft and its handback for Codex review. The correction adds a Pass B
+admission step, B0-RA, on the **repository host**. Before Pass B creates its
+own capture root or issues any host command, B0-RA verifies read-only that
+Pass A's retained capture root and final index state still match the Pass A
+handback. Any failure stops Pass B fail-closed. It implements nothing, tests
+nothing and inspects no capture root. **No SSH, synchronization, inspection,
+provisioning, verifier, suite, database access, controlled write, reboot or
+protected-artifact access occurred.** No secrets scan was run and no guard
+refused a call. Neither pass is executable or authorized, and **no new host
+authority is created**. Every prohibition below remains in force.
+[R4-amended draft](../review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md);
+[R4 handback](../review/phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-handback.md);
+[Codex R3 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r3.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R4 is repository-only
+retention-verification remediation.** Claude may amend documentation only so
+Pass B admission verifies, without mutation, that Pass A's retained capture
+root and durable final index still match the Pass A handback. Claude must not
+implement the check, SSH, synchronize, inspect a host capture root, provision,
+invoke a verifier or suite, access a database, perform a controlled write,
+reboot or access a protected historical `/tmp` artifact. Neither pass is
+executable or authorized, and this assignment creates no host authority.
+[R4 assignment](../review/phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-claude-prompt.md);
+[Codex R3 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r3.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R3 was repository-only
+and issued no host command.** Claude returned the R3-amended operational-evidence
+draft and its handback for Codex review. The correction gives Pass A and Pass B
+distinct, retained capture roots on the repository host and defines one ordered
+stop transition, in which one local X-3 finalization attempt is the only write
+before the capture root becomes read-only. It implements nothing, tests nothing
+and creates no capture root or record. **No SSH, synchronization, inspection,
+provisioning, verifier, suite, database access, controlled write, reboot or
+protected-artifact access occurred.** No secrets scan was run and no guard
+refused a call. Neither pass is executable or authorized, and **no new host
+authority is created**. Every prohibition below remains in force.
+[R3-amended draft](../review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md);
+[R3 handback](../review/phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-handback.md);
+[Codex R2 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R3 is repository-only
+contract-consistency remediation.** Claude may amend documentation only to
+give the two passes distinct retained capture roots and reconcile stop with
+X-3 finalization and the read-only transition. Claude must not implement the
+capture mechanism, SSH, synchronize, inspect, provision, invoke a verifier or
+suite, access a database, perform a controlled write, reboot or access a
+protected historical `/tmp` artifact. This assignment creates no host
+authority.
+[R3 assignment](../review/phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-claude-prompt.md);
+[Codex R2 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md).
+
+**Restriction unchanged, 2026-09-27 — Codex R2 review requests two
+repository-only contract corrections.** The review confirms the original
+capture-durability omission is resolved in substance but finds that the two
+passes need distinct retained capture roots and that stop/finalization ordering
+must be made internally consistent. Neither pass is executable or authorized.
+**No SSH, synchronization, inspection, provisioning, verifier, suite, database
+access, controlled write, reboot or protected-artifact access is authorized.**
+No new host authority is created.
+[R2 review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R2 was repository-only
+and issued no host command.** Claude returned the R2-amended operational-evidence
+draft and its handback for Codex review. The correction states RP-11's
+crash-consistent capture requirements only. It implements nothing, tests
+nothing and creates no capture record. **No SSH, synchronization, inspection,
+provisioning, verifier, suite, database access, controlled write, reboot or
+protected-artifact access occurred.** No secrets scan was run and no guard
+refused a call. Neither pass is executable or authorized, and **no new host
+authority is created**. Every prohibition below remains in force.
+[R2-amended draft](../review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md);
+[R2 handback](../review/phase-5-0-p5-r5-operational-evidence-prompt-r2-durability-remediation-handback.md);
+[Codex R1 re-review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r1.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R2 is repository-only
+capture-durability prompt remediation.** Codex found one remaining Blocking
+requirements defect in RP-11. Claude may amend documentation only and must not
+implement the capture mechanism, SSH, synchronize, inspect, provision, invoke
+a verifier or suite, access a database, perform a controlled write, reboot or
+access a protected historical `/tmp` artifact. This assignment creates no host
+authority.
+[Codex R1 re-review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt-r1.md);
+[R2 remediation assignment](../review/phase-5-0-p5-r5-operational-evidence-prompt-r2-durability-remediation-claude-prompt.md).
+
+**Restriction unchanged, 2026-09-27 — C-P5.0-R5-OP1-R1 is repository-only
+prompt remediation.** Codex requested changes to both passes of the returned
+operational-evidence draft. Neither pass is authorized. Claude may amend
+documentation only and must not SSH, synchronize, inspect, provision, invoke a
+verifier or suite, access a database, perform a controlled write, reboot or
+access a protected historical `/tmp` artifact. This assignment creates no host
+authority.
+[Codex review](../review/project-review-2026-09-27-p5-r5-operational-evidence-prompt.md);
+[remediation assignment](../review/phase-5-0-p5-r5-operational-evidence-prompt-remediation-claude-prompt.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-R5-E1 was repository-only and
+issued no host command.** No SSH, synchronization, inspection, verifier,
+suite, database access or protected-artifact access occurred; no guard refused
+a call. The reconciliation recommends, but does not authorize, future
+disposable-host evidence (harness bands, a supervised reboot) and creates **no
+new host authority**. Every prohibition below remains in force.
+[Reconciliation handback](../review/phase-5-0-p5-r5-evidence-reconciliation-handback.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-R5-E1 is a draft repository-only
+evidence-reconciliation prompt.** It is not accepted, assigned or authorized and
+creates no host authority. Do not SSH, synchronize, inspect, provision, invoke a
+verifier or suite, access a database, perform a controlled write or access any
+protected `/tmp` artifact.
+[Draft prompt](../review/phase-5-0-p5-r5-evidence-reconciliation-claude-prompt.md).
+
+**Restriction unchanged, 2026-09-22 — R6 findings disposed and I3 closed on R8
+evidence.** R6 remains retained but inadmissible as gate evidence. The historical
+`/tmp/fb-i3-r6-filelist.txt` remains protected and preserved; no cleanup, read,
+inspection, `stat`, modification, move or reuse is authorized. This decision
+creates no SSH, synchronization, inspection, verifier, suite, database or other
+host authority.
+[Decision record](../review/project-review-2026-09-22-r6-findings-and-i3-disposition.md).
+
+**Restriction unchanged, 2026-09-22 — R8-R6 accepted and
+LAB-I3-R8-D1-TABLE-1 closed.** This documentation decision creates no host
+authority. The two R6 Blocking findings remain Open and I3 remains unconfirmed.
+No SSH, synchronization, inspection, verifier invocation, suite, database
+access or protected-artifact access is authorized.
+[Acceptance record](../review/project-review-2026-09-22-reserved-laboratory-i3-r8-r6-acceptance.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-LAB-I3-R8-R6 was repository-only
+and issued no host command.** The repair and its follow-up changed only the
+change-log table's Markdown structure and added two register rows. **No SSH, synchronization, inspection, verifier invocation,
+suite or database access occurred.** The three protected `/tmp` artifacts were
+not accessed. No secrets scan was run and no guard refused a call. R8-R5 is
+accepted, so any lower note saying it awaits review records its historical
+state only. **No new host authority is created.** Every prohibition below
+remains in force.
+[R8-R6 repair handback](../review/phase-5-0-reserved-laboratory-i3-r8-r6-change-log-table-structure-handback.md).
+
+**Restriction unchanged, 2026-09-22 — R8-R5 accepted; R8-R6 remains draft.**
+Peter Duscha closed LAB-I3-R8-R2-ROLLBACK-1 as remediated and wants no R8-R2
+rollback. The draft R8-R6 change-log table repair creates no host authority.
+Every prohibition below remains in force.
+
+*Current-state note, 2026-09-22:* R8-R5 has returned and is consumed, awaiting
+independent Codex review. Any lower banner saying R8-R5 is active, or naming one
+of the five maintainer-disposed R8 findings as Open, records its historical
+state only. No action on this host is authorized.
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-LAB-I3-R8-R5 was repository-only
+and issued no host command.** The bounded remediation withdrew the R8-R2
+handback's `git checkout --` rollback instruction as **unsafe** and its
+exact-restoration claim as **unsupported** (**LAB-I3-R8-R2-ROLLBACK-1, Open,
+Important**). **No SSH, synchronization, inspection, verifier invocation, suite
+or database access occurred.** The three protected `/tmp` artifacts were **not
+read, inspected, `stat`ed, written, moved, modified or reused**; this record
+*refers* to them and to this restriction, which is not access to what it
+protects. **No secrets scan was run and no command expected to engage a secrets
+guard was issued**; **no guard or tool refused any call**; **no guard, hook or
+rule was altered**; and the withdrawn command was **not executed** — no file was
+reverted, deleted or restored. **No new host authority is created.** Every
+prohibition below remains in force.
+[R8-R5 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r5-r8-r2-rollback-safety-remediation-handback.md).
+
+**Historical restriction, 2026-09-22 — R8-R4 review accepted; R8-R5 assigned
+repository-only.** Peter Duscha closed five remediated R8 documentation and
+evidence findings on their recorded terms and wants no R8-R3 rollback. This
+decision issued no host command and creates no host authority.
+**LAB-I3-R8-R2-ROLLBACK-1 remains Open, Important** under the active R8-R5
+documentation remediation. Every prohibition below remains in force.
+[Decision record](../review/project-review-2026-09-22-r8-r4-acceptance-and-r8-dispositions.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-LAB-I3-R8-R4 was repository-only
+and issued no host command.** The bounded remediation of Codex's re-review of
+R8-R3 withdrew that handback's `git checkout --` rollback instruction as
+**unsafe** and its exact-restoration claim as **unsupported**
+(**LAB-I3-R8-R3-ROLLBACK-1, Open, Important**), and corrected its absolute "or
+referenced" protected-artifact wording (**LAB-I3-R8-R3-WORDING-1, Open,
+Optional**). **No SSH, synchronization, inspection, verifier invocation, suite
+or database access occurred.** The three protected `/tmp` artifacts were **not
+read, inspected, `stat`ed, written, moved, modified or reused**, and no artifact
+content was added or inferred; this record *refers* to them and to this
+restriction, which is not access to what it protects. **No new host authority is
+created.** The withdrawn rollback command was **not executed**, no file was
+reverted, deleted or restored, and no reverse patch was manufactured. **No
+secrets scan was run and no command expected to engage a secrets guard was
+issued**; **no guard or tool refused any call**; and **no guard, hook or rule was
+altered**. It made **no measurement of any kind**: the R8, R8-R2 and R8-R3
+recorded values stand exactly as recorded. Every prohibition in the restriction
+that follows remains in force.
+[R8-R4 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r4-rollback-safety-and-protected-artifact-wording-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-LAB-I3-R8-R3 was repository-only
+and issued no host command.** The bounded remediation of Codex's re-review of
+R8-R2 recorded the R8-R2 secrets-guard refusal as a **procedural violation**
+(**LAB-I3-R8-R2-GUARD-1, Open, Blocking**, pending Peter Duscha's disposition)
+and restated the candidate count in its actual units
+(**LAB-I3-R8-R2-COUNT-1, Open, Important**). **No SSH, synchronization,
+inspection, verifier invocation, suite or database access occurred**, the three
+protected `/tmp` artifacts were not read, `stat`ed or changed, and **no new host
+authority is created**. **No secrets scan was run and no command expected to
+engage a secrets guard was issued**; the refused R8-R2 check was **not rerun or
+reproduced through another tool**, and **no guard, hook or rule was altered**.
+It made **no measurement of any kind**: the R8 and R8-R2 recorded values stand
+exactly as recorded. Every prohibition in the restriction that follows remains
+in force.
+[R8-R3 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-22 — C-P5.0-LAB-I3-R8-R2 was repository-only
+and issued no host command.** The bounded aggregate-precision remediation
+withdrew the "accounted for by the calculation" overclaim from the R8 erratum,
+the R8-R1 handback and the registers, recorded the historical cause
+**unresolved**, and reconciled the candidate count under one explicit
+convention. **No SSH, synchronization, inspection, verifier invocation, suite or
+database access occurred**, the three protected `/tmp` artifacts were not read,
+`stat`ed or changed, and **no new host authority is created**. Its
+re-enumeration and digest reproduction were performed in the repository
+workspace only; **no target-side value was measured or re-measured**, and the R8
+target-side observations below stand exactly as recorded. Every prohibition in
+the restriction that follows remains in force.
+[R8-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r2-aggregate-precision-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-21 — C-P5.0-LAB-I3-R8-R1 was repository-only
+and issued no host command.** The bounded aggregate-explanation remediation
+corrected R8 handback §3.3 in the repository and nothing else. **No SSH,
+synchronization, inspection, verifier invocation, suite or database access
+occurred**, the three protected `/tmp` artifacts were not read, `stat`ed or
+changed, and **no new host authority is created**. Its common-formula
+calculation was performed in the repository workspace only; **no target-side
+value was measured or re-measured**, and the R8 target-side observations below
+stand exactly as recorded. Every prohibition in the restriction that follows
+remains in force.
+[R8-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r1-aggregate-remediation-handback.md).
+
+**Current restriction, 2026-09-21 — the R8 pass is complete and consumed; NO
+further action on this host is authorized.** The assigned C-P5.0-LAB-I3-R8 pass
+ran **unbroken**: the exact plain §3.2 synchronization executed on its first
+attempt, the read-only prerequisites were confirmed, and both verifier
+invocations returned run status `verified` — root (T1 under V4, §2.3.3 under V5,
+P2 under temporary canonical `R/bin`), then `ubuntu` (T6 under V9). All four
+contexts verified, every tracked object `removed`, 0 barrier and 0 descriptor
+failures, and both final surveys reported 0 `.fb-i3-verify-` names with
+canonical `/var/lib/fb-evidence-p5-0` absent.
+
+**No refusal or denial occurred**, no escalation or bypass parameter was
+requested or used, and **no unauthorized host action or auxiliary artifact was
+created**: no `scp`, `sftp` or second `rsync`; no file list, capture file,
+redirection, wrapper, script or `/tmp` object; and no manual operator contact
+with any verifier object. **The host's one operator-caused change is the
+authorized synchronized repository worktree.**
+
+**This host's state on the evidence of both clean surveys:** V1, V2, V3, V12,
+V4, V9 and V5 provisioned as reviewed; V7 absent; canonical `R` absent; no
+residue. The historical `/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` remain **protected** — they were not read, `stat`ed
+or changed by this pass and must not be read, deleted, truncated, overwritten,
+moved, modified or reused.
+
+**C-P5.0-LAB-I3-R8 is consumed.** Until fresh, explicitly bounded maintainer
+authorization and assignment are recorded: **no SSH, synchronization,
+inspection, `sudo`, controlled write, verifier invocation or retry.** I3 is
+performed but remains unconfirmed and not closed; the two R6 Blocking findings
+remain Open.
+[R8 operational handback](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-handback.md).
+
+**Superseded authorization, 2026-09-21 — C-P5.0-LAB-I3-R8 assigned to
+Claude.** *Superseded by the banner above: the pass was performed and returned.
+Its scope is retained as the authority the pass ran under.* Peter Duscha
+authorizes only the exact accepted R8 prompt and assigns
+Claude as implementing operator. The release is limited to the exact plain
+§3.2 synchronization, necessary read-only prerequisite inspection, the exact
+root verifier and—only after complete root success—the exact `ubuntu` verifier.
+Any repository-guard or tool/harness permission denial consumes the pass; no
+escalation, bypass, altered re-issuance or retry is permitted. No action outside
+the prompt is authorized. Stop after handback for independent Codex review.
+[Authorized R8 prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+**Superseded restriction, 2026-09-21 — R8 prompt accepted but inactive; NO action
+on this host is authorized.** Peter Duscha accepts the C-P5.0-LAB-I3-R8 prompt,
+but has not authorized the pass or assigned Claude. Both are required in a
+later explicit instruction before host action. Every existing prohibition and
+protected `/tmp` evidence rule remains in force.
+[Prompt acceptance](../review/project-review-2026-09-21-reserved-laboratory-i3-r8-prompt-acceptance.md).
+
+**Superseded restriction, 2026-09-20 — R8 is draft and inactive; NO action on this
+host is authorized.** A fresh C-P5.0-LAB-I3-R8 prompt is prepared by Codex for
+maintainer acceptance. Prompt preparation is not operational authority.
+Peter must later accept the prompt, explicitly authorize R8 and assign
+Claude before any host action. R7 remains consumed. Every existing prohibition
+and protected `/tmp` evidence rule remains in force.
+[Draft R8 prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+**Superseded restriction, 2026-09-20 — R7 is consumed; NO action on this host is
+authorized.** Peter Duscha accepts Codex's independent R7-R2 review, closes the
+three R7-R1/R2 documentation findings and accepts the recommendation that
+**C-P5.0-LAB-I3-R7 is consumed**. This creates no host authority. Any future
+operational pass requires fresh, explicitly bounded maintainer authorization
+and assignment. Until then: no SSH, synchronization, inspection, `sudo`,
+controlled write, verifier invocation or retry. The historical
+`/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` remain protected and must not be accessed or
+changed. I3 remains unconfirmed, and the two R6 Blocking findings remain Open.
+[Acceptance record](../review/project-review-2026-09-20-reserved-laboratory-i3-r7-r2-acceptance.md).
+
+**Superseded restriction, 2026-09-20 — a repository bookkeeping count was
+corrected; NO action on this host is authorized.** The bounded,
+repository-documentation-only C-P5.0-LAB-I3-R7-R2 remediation **issued no
+command of any kind to this host**, and neither did the R7-R1 remediation or
+the R7 pass before it. **This host was not contacted and is in exactly the
+state the R6 record describes.**
+
+That remediation corrected one figure in the R7-R1 handback and recorded
+**PR-20260920-LAB-I3-R7-R2-1 — the R7-R1 handback understates its completed
+working-tree count — Open, Important**, raised by Codex's independent
+re-review. The corrected progression is **84 → 85 → 86 paths**, the completed
+R7-R1 state being **86 paths (34 modified, 52 untracked)**. **This is a count of
+paths in the repository checkout. It is not an execution digest, it says
+nothing about this host, and it adds no evidence about it.** Every substantive
+R7-R1 result stands: the §12 omission remains an uncured operational-process
+deviation, the identity claim remains limited to the measured **50-file
+review-input set**, the withdrawn claims stay withdrawn and every recorded hash
+and the statement that **no target-side comparison exists** stay retained.
+
+**Until Peter decides whether the R7 stop consumes C-P5.0-LAB-I3-R7 — a
+decision he has not made, and which Codex's recommendation to treat it as
+consumed does not make for him — every prohibition below stays in force: no
+SSH, synchronization, inspection, `sudo`, controlled write, verifier invocation
+or retry.** The historical `/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` remain protected. PR-20260920-LAB-I3-R7-R1-1,
+PR-20260920-LAB-I3-R7-R1-2 and PR-20260920-LAB-I3-R7-R2-1 remain Open,
+Important; PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2 remain Open,
+Blocking; I3 remains unconfirmed.
+[R7-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r2-count-remediation-handback.md).
+
+**Superseded restriction, 2026-09-20 — documentation remediation returned; NO
+action on this host is authorized.** *Superseded as the current banner by the
+entry above; **its prohibitions are unchanged and remain fully in force**.* The
+bounded, repository-documentation-only
+C-P5.0-LAB-I3-R7-R1 remediation **issued no command of any kind to this host**,
+and neither did the R7 pass it corrects. **This host was not contacted and is in
+exactly the state the R6 record describes.**
+
+The remediation added a dated erratum to the R7 stopped-pass handback recording
+two Codex findings as **Open, Important**: **PR-20260920-LAB-I3-R7-R1-1**,
+required implementation-plan §12 (Package 5.0) context was skipped on the
+operational pass — an operator process deviation that later documentation work
+does **not** cure; and **PR-20260920-LAB-I3-R7-R1-2**, the workspace identity
+claim exceeded its measurement — the recorded aggregate covers the **50-file
+review-input set** only, not the complete workspace and not every path the
+repository-wide §3.2 synchronization would have transferred, so the "would have
+carried" and whole-tree byte-for-byte claims are **withdrawn**. Every recorded
+hash and the explicit statement that **no target-side comparison exists** are
+retained. Neither finding is closed; only independent Codex re-review may close
+them.
+
+**Until Peter decides whether the R7 stop consumes C-P5.0-LAB-I3-R7 — a
+decision he has not made, and which Codex's recommendation to treat it as
+consumed does not make for him — every prohibition below stays in force: no
+SSH, synchronization, inspection, `sudo`, controlled write, verifier invocation
+or retry.** The historical `/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` remain protected. PR-20260920-LAB-I3-R6-1 and
+PR-20260920-LAB-I3-R6-2 remain Open, Blocking; I3 remains unconfirmed.
+[Remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r1-erratum-remediation-handback.md).
+
+**Superseded restriction, 2026-09-20 — the R7 pass stopped before
+synchronization; NO action on this host is authorized.** *Superseded as the
+current banner by the entry above; its prohibitions are unchanged and remain
+fully in force.* The assigned C-P5.0-LAB-I3-R7 pass
+issued **no command of any kind** to this host. Its first synchronization
+attempt was denied before execution by the Claude Code auto-mode permission
+classifier over a tool-level `dangerouslyDisableSandbox` parameter the
+authorization never named; **no repository guard refused it**, and the operator
+stopped rather than re-issue it. **This host was not contacted and is in exactly
+the state the R6 record describes.**
+
+Until Peter decides whether that stop consumes R7: **no SSH, synchronization,
+inspection, `sudo`, controlled write, verifier invocation or retry.** The
+historical `/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` remain protected — they must not be read, deleted,
+truncated, overwritten, moved, modified or reused. PR-20260920-LAB-I3-R6-1 and
+PR-20260920-LAB-I3-R6-2 remain Open, Blocking; I3 remains unconfirmed.
+[Stopped-pass handback](../review/phase-5-0-reserved-laboratory-i3-r7-stopped-pass-handback.md).
+
+**Superseded authorization, 2026-09-20 — C-P5.0-LAB-I3-R7 assigned to
+Claude.** *Superseded by the banner above: the pass was attempted and stopped
+before synchronization; whether this authority survives is Peter's decision.*
+Peter Duscha authorizes Claude to perform exactly the R7 prompt: the
+exact plain §3.2 synchronization as the first synchronization attempt,
+necessary read-only prerequisite inspection, the exact root verifier and—only
+after complete root success—the exact `ubuntu` verifier. Any guard refusal ends
+the entire pass and consumes the authority. No auxiliary host-side artifact or
+manual action on a verifier object is permitted. The historical
+`/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
+`/tmp/fb-i3-r6-filelist.txt` must not be read, deleted, truncated, overwritten,
+moved, modified or reused. Stop after the handback for independent review.
+[Authorized R7 prompt](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+**Superseded restriction, 2026-09-20 — R6-R2 accepted; R7 still NOT authorized;
+NO action on this host is authorized.** Peter Duscha accepts the independently
+reviewed R6-R2 documentation remediation and closes
+PR-20260920-LAB-I3-R6-R1-1. That acceptance corrects a draft prompt only and
+confers no host authority. C-P5.0-LAB-I3-R7 remains draft and inactive pending
+a separate explicit authorization and operator assignment.
+
+The restriction below remains fully in force: no SSH, synchronization,
+inspection, `sudo`, controlled write, verifier invocation, retry or change to
+any protected `/tmp` evidence artifact. PR-20260920-LAB-I3-R6-1 and
+PR-20260920-LAB-I3-R6-2 remain Open, Blocking; I3 remains unconfirmed.
+
+**Standing R6 state, 2026-09-20 — C-P5.0-LAB-I3-R6 not accepted; two Blocking
+findings Open.** *Its blanket host prohibition is superseded only by the exact
+bounded R7 authorization above; every action outside R7 remains prohibited.*
+Independent
+Codex review of the C-P5.0-LAB-I3-R6 pass does **not** recommend closing I3 and
+raises two Blocking findings against how that pass was conducted on this host:
+**PR-20260920-LAB-I3-R6-1**, execution continued after a mandatory guard stop —
+the secrets-guard refusal of the first synchronization attempt ended the pass's
+authority, and synchronization and both verifier invocations should never have
+been issued; and **PR-20260920-LAB-I3-R6-2**, an unauthorized host write — the
+`scp` that created `/tmp/fb-i3-r6-filelist.txt` was outside the R6 authority.
+Both are **Open**.
+
+**Standing restriction, except for the exact R7 actions above.** No other SSH
+action, synchronization, inspection, `sudo`, creation under `/var/lib`,
+capability change, controlled write, verifier invocation or retry.
+**No `/tmp` evidence artifact may be deleted, truncated,
+overwritten, moved or modified** — this now covers
+`/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` **and
+`/tmp/fb-i3-r6-filelist.txt`**, whose disposition is the maintainer's alone;
+tidying it up would be a further unauthorized write. Do not read their contents.
+
+**The host's physical state is as the R6 handback records it** and is not
+disputed: canonical `/var/lib/fb-evidence-p5-0` absent, V7 absent, no
+`.fb-i3-verify-` residue, and V1, V2, V3, V12, V4, V9 and V5 unchanged in
+ownership, mode and inode (`1275049`–`1275052`). The R6 verifier runs **did
+occur** and returned internally coherent `verified` results; **occurrence is not
+acceptable gate evidence**, so I3 is **unconfirmed and not closed**.
+
+**C-P5.0-LAB-I3-R6 is consumed and cannot be retried under its authority.** A
+**draft, inactive** C-P5.0-LAB-I3-R7 prompt exists for one clean operational
+pass; it is **not authorized** and confers no permission. A new pass requires
+Peter Duscha's later explicit authorization and assignment after independent
+Codex review of the C-P5.0-LAB-I3-R6-R1 remediation. V7 remains excluded;
+V8/V10 unperformed; `plan.is_executable=False`; Package 5.0 not ready.
+[R6-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r6-r1-remediation-handback.md);
+[draft R7 prompt — not authorized](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+**Superseded state and restriction, 2026-09-20 — C-P5.0-LAB-I3-R6 performed; no
+further action authorized.** *Superseded by the banner above: the pass was not
+accepted, two Blocking findings are Open, and `/tmp/fb-i3-r6-filelist.txt` is
+now explicitly protected from deletion. Retained unaltered as the historical
+record.* Claude executed the bounded I3 retry on this host.
+Both authorized verifier invocations returned run status `verified` — root (T1
+under V4, §2.3.3 under V5, P2 under temporary canonical `R/bin`) and then
+`ubuntu` (T6 under V9). Each of the four contexts published one object, observed
+it under both names with link count two and the pinned payload, and removed both
+names under identity guards; every tracked object is `removed`, every barrier
+and descriptor succeeded, and both surveys found **0** verifier names with
+canonical `R` absent.
+
+**This host is left provisioned and clean.** Canonical `/var/lib/fb-evidence-p5-0`
+is absent, V7 is absent, no `.fb-i3-verify-` residue exists, and V1, V2, V3, V12,
+V4, V9 and V5 are unchanged in ownership, mode and inode (`1275049`–`1275052`).
+The directory mtimes of `laboratory`, `laboratory/runs` and `recovery` moved to
+2026-09-20 18:53Z because entries were created and removed inside them; contents
+are empty. The historical `/tmp/fb-i3-root.out` and `/tmp/fb-i3-root.err` are
+unchanged, were not read, and **must still not be deleted, truncated,
+overwritten or reused**. One operator artifact, `/tmp/fb-i3-r6-filelist.txt`
+(2,210 bytes, `ubuntu:ubuntu`), was created unnecessarily, was never used and is
+left for the maintainer; it is not verifier residue.
+
+**C-P5.0-LAB-I3-R6 is consumed.** Until independent Codex review and a fresh
+maintainer authorization: no SSH action, synchronization, inspection, creation
+under `/var/lib`, capability change, controlled write, verifier invocation or
+retry. I3 is **performed but not closed**; V7 remains excluded; V8/V10
+unperformed; `plan.is_executable=False`; Package 5.0 not ready.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-verification-handback.md).
+
+**Superseded authorization, 2026-09-20 — C-P5.0-LAB-I3-R6.**
+Peter Duscha authorizes Claude as implementing operator for the bounded I3
+retry. Claude may use only the exact accepted inline §3.2 synchronization,
+necessary read-only prerequisite inspection, the reviewed root verifier
+invocation and—only after complete root success—the reviewed `ubuntu`
+invocation. The historical `/tmp/fb-i3-root.out` and
+`/tmp/fb-i3-root.err` files must not be deleted, truncated, overwritten or
+reused. Stop on every mismatch, refusal, residue, nonzero exit, incomplete
+context or unexpected output; do not repair or retry. No database, V7,
+participant, harness, generated vector, service change, provisioning,
+permission change, V8, V10, real boundary/materializer, `--execute` or
+production action is authorized. I3 remains unconfirmed until evidence is
+independently reviewed; `plan.is_executable=False`; Package 5.0 not ready.
+[Authorized prompt](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-retry-claude-prompt.md).
+
+**Superseded restriction, 2026-09-20 — R5 accepted; R6 prompt prepared but not
+authorized.** Peter accepted the repository reconciliation, but operational
+authority had not yet been issued at this point.
+
+**Superseded restriction, 2026-09-20 — target identity Option A implemented;
+still repository-only.** C-P5.0-LAB-I3-R5 reconciled the approved target facts,
+I3 admission, runner contract r6, the review manifest (version 17) and both
+generated artifacts in the repository, and has returned for independent Codex
+technical and security review. **Nothing was done on this host, and no action on
+it is authorized:** no SSH, synchronization, inspection, deletion of
+`/tmp/fb-i3-root.out` or `/tmp/fb-i3-root.err`, creation under `/var/lib`,
+capability change, controlled write, verifier invocation or retry. The two
+`/tmp` files remain in place as evidence artifacts and must not be deleted. The
+review-input digest for the reconciled tree is `c358ea8b…`; the previously
+accepted `be9e110f…` does not describe it, and neither is authority. I3 remains
+unconfirmed and unperformed, V7 excluded, V8/V10 unperformed,
+`plan.is_executable=False`, and Package 5.0 not ready.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r5-target-identity-handback.md).
+
+**Superseded restriction, 2026-09-20 — target identity Option A decided;
+repository reconciliation only.** Peter Duscha has chosen to keep
+`oracle-test` as the operational SSH alias and separately approve kernel
+nodename `Test`. C-P5.0-LAB-I3-R5 authorizes repository reconciliation and
+independent review only. **No action on this host is authorized:** no SSH,
+synchronization, inspection, deletion of `/tmp/fb-i3-root.out` or
+`/tmp/fb-i3-root.err`, verifier invocation, controlled write or retry. I3
+remains unconfirmed, V7 excluded, V8/V10 unperformed,
+`plan.is_executable=False`, and Package 5.0 not ready.
+[Decision](../review/project-review-2026-09-20-reserved-laboratory-i3-target-identity-decision.md).
+
+**Superseded restriction, 2026-09-20 — I3 verification refused before the first
+controlled write; no verifier-controlled mutation, and no authority in force.**
+Under C-P5.0-LAB-I3-R4 Claude synchronized this host with the exact accepted
+inline §3.2 command, performed read-only prerequisite inspection, and ran the
+armed I3 verifier's root invocation. **It refused admission with
+`target-mismatch` at exit `4`; the verifier performed no controlled write and
+created no verifier object**, and the `ubuntu` invocation was not run. The
+cause is a naming divergence: this host's kernel nodename is `Test`, while
+`APPROVED_TARGET_FACTS.host` is the SSH alias `oracle-test`. Kernel release
+`7.0.0-31-generic` and architecture `x86_64` matched. Every prerequisite was
+observed unchanged — V1, V2, V3, V12, V4, V9 and V5 provisioned; V7 absent;
+canonical `R` absent; no `.fb-i3-verify-` residue; `protected_hardlinks=1` —
+and no reviewed object was created, removed or altered. The pass's two
+disclosed effects on this host are the authorized synchronization, which
+updated the repository worktree at `/opt/freedom-blades/platform`, and the
+operator's output redirection, which created `/tmp/fb-i3-root.out` and
+`/tmp/fb-i3-root.err`. Those two files remain in place as evidence artifacts
+outside canonical `R` and the four publication directories; they are **not
+verifier residue** and must not be deleted under the current restriction.
+C-P5.0-LAB-I3-R4 is **consumed**. Wording corrected by C-P5.0-LAB-I3-R4-E1;
+the result and this restriction are unchanged. Until a maintainer decides the target-identity
+question (RAID LAB-I3-TARGET-1) and issues a new authorization: no SSH,
+synchronization, inspection, creation under `/var/lib`, capability change,
+controlled write or verifier invocation. I3 remains unconfirmed, V7 excluded,
+V8/V10 unperformed, `plan.is_executable=False`, and Package 5.0 not ready.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r4-controlled-write-blocker-handback.md).
+
+**Superseded restriction, 2026-09-20 — mode reconciliation accepted; fresh
+operational authority pending.** Peter accepts the independent review of
+C-P5.0-LAB-I3-R3 with no finding. This acceptance closes the repository review
+but releases no host action. The single next step is a fresh, explicit,
+bounded authorization for Claude to run the separately armed I3 verifier in
+the reviewed root and `ubuntu` invocations; the superseded 2026-09-19 authority
+is consumed and cannot be reused. Until that release: no SSH, synchronization,
+inspection, creation under `/var/lib`, capability change, controlled write or
+verifier invocation. I3 remains unconfirmed, V7 excluded, V8/V10 unperformed,
+`plan.is_executable=False`, and Package 5.0 not ready. [Acceptance](../review/project-review-2026-09-20-reserved-laboratory-i3-r3-mode-reconciliation-acceptance.md).
+
+**Superseded restriction, 2026-09-20 — mode reconciliation implemented; still
+repository-only.** C-P5.0-LAB-I3-R3 reconciled the two accepted mode rulings
+in the repository — canonical `R` created `root:root 0700`, P2's temporary
+`0500` through an explicit creation-mode input whose default remains `0600` for
+T1, T6 and §2.3.3, and P2 still `root:root 0555` before publication — and has
+returned for fresh independent Codex technical and security review. **Nothing
+was done on this host, and no action on it is authorized:** no SSH,
+synchronization, inspection, creation under `/var/lib`, capability change,
+controlled write or verifier invocation. I3 remains unconfirmed, V7 excluded,
+V8/V10 unperformed, `plan.is_executable=False`, and Package 5.0 not ready.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r3-mode-reconciliation-handback.md).
+
+**Superseded restriction, 2026-09-19 — P2/I3 decision made; repository
+remediation only.** Peter Duscha has ruled P2 `root:root 0555`, using the
+protected-hardlink filesystem-UID owner condition rather than `CAP_FOWNER`, and
+has narrowly allowed the future armed verifier to create temporary canonical
+`R`/`R/bin` topology. The contract, implementation, tests and generated
+artifacts have not yet been reconciled or independently reviewed. Therefore no
+action on `oracle-test` is authorized: no SSH, synchronization, inspection,
+creation under `/var/lib`, capability change, controlled write or verifier
+invocation. I3 remains unconfirmed, V7 excluded, V8/V10 unperformed,
+`plan.is_executable=False`, and Package 5.0 not ready. [Decision
+review](../review/project-review-2026-09-19-reserved-laboratory-i3-r1-decision-handback.md).
+
+**Consumed authorization, 2026-09-19 — bounded I3 verification assigned to
+Claude.** The earlier assignment stopped before implementation under its stop
+clause. Its P2/`CAP_FOWNER` premise is superseded by the ruling above and it
+authorizes no further host action.
+
+**Current state, 2026-09-18 — prerequisite subset applied; host provisioned and
+fail-closed.** All seven released items — V1, V2, V3, V12, V4, V9, V5 — were applied on `oracle-test` in exact order on 2026-09-18 (22:06–22:07Z), and the read-only I12/V6 verification observed every object matching its reviewed definition. `freedomlab` is gid 986 with `ubuntu` appended (five prior groups retained); the V3 fragment is byte-exact and `systemd-tmpfiles` created `/run/freedom-blades` `0750` and the lock `0660`, both `root:freedomlab`; the provisioning CLI exited 0 with V12, V4, V9, V5 `created` at `2049:1275049`–`1275052`, no refusal, nothing unattempted and no residue. `lifecycle.json` and `.tmp` are absent. LAB-V6-P3 and V6 were closed on 2026-09-19, and the one-time `--exclude-from` deviation was accepted retrospectively for R4 only. Future synchronization must use the accepted inline runbook command. I3 remains unconfirmed; V8 and V10 are unperformed; V7 is excluded and absent; `is_executable=False`; LAB-V6-P2 is deferred; Package 5.0 is **not ready**. [Operational handback](../review/phase-5-0-reserved-laboratory-v6-p-r4-operational-provisioning-handback.md).
+
+Objects now present: group `freedomlab` (gid 986, member `ubuntu`); `/etc/tmpfiles.d/freedom-blades-laboratory.conf`; `/run/freedom-blades` and `laboratory.lock`; `/var/lib/freedom-blades` with `laboratory`, `laboratory/runs` and `recovery`. The C-P5.0-LAB-V6-P-R4 authorization below is **consumed**; no further host action is authorized until review and maintainer direction.
+
+**Consumed authorization, 2026-09-18 — reviewed prerequisite-provisioning retry
+released.** Peter accepts Codex's R3 independent review with no finding, closes
+PR-20260918-LAB-V6P-R2-1 and LAB-V6-P1, and authorizes
+**C-P5.0-LAB-V6-P-R4**. Claude is the implementing operator and may safely
+synchronize and inspect `oracle-test`, then apply **V1, V2, V3, V12, V4, V9
+and V5 in that exact order**, using the reviewed provisioning CLI for the four
+directory items, followed only by read-only I12/V6 verification. Stop on any
+refusal, discrepancy, unexpected precondition, unclassified result or residue
+and return evidence for independent Codex review.
+
+This does not authorize V7, I3, V8, V10, database access, participant wiring or
+invocation, generated-vector execution, the evidence harness, a real boundary
+or materializer, or `--execute`. `plan.is_executable` remains false,
+`reservation.REAL_EXECUTION_REFUSAL` remains unconditional, LAB-V6-P2 remains
+Open and deferred, and Package 5.0 remains not ready. This banner supersedes
+the repository-only 2026-09-18 restriction immediately below.
+
+**Superseded restriction, 2026-09-18 — provisioning entry-point implementation
+only; this host remains untouched.** Peter authorizes
+**C-P5.0-LAB-V6-P-R1**, a bounded repository-local Claude pass adding the
+missing dedicated operator CLI over the reviewed directory provisioner. This
+does **not** release any action on `oracle-test`: no SSH, synchronization,
+inspection, provisioning, permission/group change, `systemd-tmpfiles`,
+database operation, controlled write verification, generated-vector execution,
+participant, real boundary/materializer or `--execute`. The implementation
+must receive independent Codex technical and security review before Peter may
+separately release an operational retry. LAB-V6-P1 remains Open; LAB-V6-P2 is
+deferred; V6 remains performed-but-not-closed, I3 unconfirmed, V7 excluded,
+V8/V10/I12 unperformed, `is_executable=False`, and Package 5.0 not ready.
+
+**Prior state, 2026-09-17 — provisioning pass stopped before mutation; this
+host is still untouched.** Claude performed the **C-P5.0-LAB-V6-P** pass under
+the authorization below and **applied nothing**. No group, no membership, no
+edit under `/etc`, nothing created under `/run`, `/var/lib` or
+`/opt/freedom-blades`, no `systemd-tmpfiles`, no link, no controlled write
+verification, no database operation, no generated vector, no real participant,
+no boundary or materializer and no `--execute`. No synchronization was
+performed. The
+[handback](../review/phase-5-0-reserved-laboratory-v6-p-provisioning-blocker-handback.md)
+is returned for independent Codex technical and security review.
+
+**Why it stopped.** The repository has **no already reviewed operator
+invocation** that can drive the directory provisioner as approved — no `main`
+or `__main__` in `tools/phase_5_0_evidence/execution/provisioner.py`, no
+provisioning subcommand in the harness CLI, and no reference to it outside the
+module except the test suite's armed construction over a temporary directory
+with a fake account lookup. The assignment's application rules require a stop
+rather than adding source or inventing an entry point. RAID item **LAB-V6-P1**.
+
+**Observed read-only, and recorded as pre-application facts only.** All seven
+released items **absent**: `freedomlab` resolves to zero records,
+`/etc/tmpfiles.d/freedom-blades-laboratory.conf` and both `/run` objects are
+absent, and `/var/lib/freedom-blades` and all three of its children are absent.
+`ubuntu` still holds exactly the five supplementary groups V6 observed —
+`adm`, `cdrom`, `sudo`, `dip`, `lxd`. `/var/lib` is a real directory,
+`root:root 0755`, `dev=2049 ino=97831`, on the ext4 root mount, with no group-
+or other-write bit. Both `lifecycle.json` and `lifecycle.json.tmp` are absent.
+`/opt/freedom-blades` is unchanged at `1001:1001 0755` and
+`/opt/freedom-blades/evidence` is absent. Canonical
+`R = /var/lib/fb-evidence-p5-0` is absent. **The repository tree on this host
+is stale (5 September) and does not contain the applier**, so the pass that
+does apply must synchronize under §3.2 first.
+
+**The I12/V6 verification was not performed**; its rows need the provisioned
+objects. `protected_hardlinks=1` and the observing `ubuntu` identity and
+capability masks were read as ambient context and are **not** verification
+rows. **I3 remains unconfirmed — no link was created.** V6 remains performed
+2026-09-16 and not closed; V7 excluded; V8, V10 and I12 unperformed;
+`is_executable=False`; Package 5.0 not ready.
+
+**Note on the banners below.** The 2026-09-17 authorization banner and the
+2026-09-17 restriction banner that follows it are both labelled *current* and
+disagree about SSH, synchronization and provisioning. The authorization is the
+later maintainer act and is what this pass worked under, performing only
+read-only inspection within it. The overlap is a documentation defect for a
+maintainer to reconcile; it was not resolved by an implementer.
+
+**Consumed authorization, 2026-09-17 — Claude assigned reviewed prerequisite
+provisioning and read-only verification.** Peter assigns **Claude as
+implementing operator** and authorizes the necessary safe synchronization,
+inspection and administrative application on this host of **V1, V2, V3, V12,
+V4, V9 and V5, in that order**, followed only by the read-only I12/V6
+verification. **Codex remains the Independent Reviewer and does not perform the
+operation. V7, the I3 controlled-write test, participant wiring, database
+access, generated-vector execution, a real participant, the evidence harness,
+a real boundary/materializer and `--execute` remain unauthorized.** Stop after
+returning evidence for independent Codex review.
+
+**Prior restriction, 2026-09-17 — r6 topology-contract correction accepted;
+host still untouched.** Peter accepted Codex's independent
+[re-review](../review/project-review-2026-09-17-reserved-laboratory-v6-d-r1-contract-correction.md)
+with no finding and closed PR-20260917-LAB-V6D-R1-1. This acceptance grants no
+host authority. Repository-local work with `TEST_DATABASE_URL` unset only
+remains authorized; **no SSH, synchronization, inspection, provisioning,
+permission change, database operation, controlled write verification,
+generated-vector execution, real participant or `--execute`**. V6 remains
+performed-but-not-closed, I3 unconfirmed, V7 excluded, V8/V10/I12 unperformed,
+`is_executable=False`, and Package 5.0 not ready.
+
+**Prior restriction, 2026-09-17 — r6 contract topology correction; this host
+is still untouched.** Claude completed **C-P5.0-LAB-V6-D-R1**, one bounded
+repository-local documentation correction of Codex Blocking
+PR-20260917-LAB-V6D-R1-1, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-d-r1-contract-correction-handback.md)
+for independent Codex re-review. Runner contract r6 §1.3.3 now defines
+`R = /var/lib/fb-evidence-p5-0` with D1 on its parent `/var/lib`, and §7's V6
+row observes only the canonical locations and records V6 as **performed
+2026-09-16 and not closed**. **No source file changed and no artifact was
+regenerated.** The restriction below is unchanged and still in force: repository
+changes and local tests with `TEST_DATABASE_URL` unset only, and **no SSH,
+synchronization, inspection, provisioning, permission change, database
+operation, controlled write verification, generated-vector execution, real
+participant or `--execute`.**
+
+**Prior restriction, 2026-09-17 — topology decisions approved; repository
+remediation only.** Peter accepted R4 and decided LAB-V6-1 through LAB-V6-3:
+V11 and `/opt/freedom-blades/evidence` are withdrawn,
+`/var/lib/fb-evidence-p5-0` is canonical `R`, and V12 defines persistent
+`/var/lib/freedom-blades` as `root:root 0755`. Production `EVIDENCE_ROLE`
+registration remains deferred. This authorizes repository changes and local
+tests with `TEST_DATABASE_URL` unset only. **This host remains untouched:** no
+SSH, synchronization, inspection, provisioning, permission change, database
+operation, controlled write verification, generated-vector execution, real
+participant or `--execute`.
+
 This document defines the operational profile, access method, and execution instructions for the dedicated disposable Linux test environment.
 
-**Current restriction, 2026-09-15 — preflight authorized but not yet released.**
+**Prior restriction, 2026-09-16 — verification and reversal finalization
+repaired in the repository; this host is still untouched.** Claude completed
+**C-P5.0-LAB-V6-R4**, one bounded repository-local remediation of Codex Blocking
+finding PR-20260916-LAB-V6R3-1, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r4-verification-rollback-handback.md)
+for independent Codex technical and security re-review.
+
+The four bare `os.close` calls the R3 pass reported and left are gone. **No
+release anywhere in `tools/phase_5_0_evidence/execution/provisioner.py` is a bare
+close any more**: `_release` is the one function that calls `os.close` at all, it
+calls it once, and it reports instead of raising.
+
+`verify()` — the read-only V6 re-observation — now returns **one observation for
+every target** even when a descriptor will not release; the release is an
+appended `descriptor-not-released` discrepancy that never displaces what was
+observed about the object, and the later targets are still observed. The same
+condition through an idempotent `ensure()` is a closed refusal carrying the
+`already-provisioned` item exactly once, with `created` empty and nothing
+written. Guarded rollback refuses **before** an effect: a descriptor that will
+not release before the `rmdir` means nothing is removed and the object is still
+this application's to reverse. Where `rmdir` succeeded and the parent descriptor
+then failed, the removal is reported as real, the object leaves the live created
+account exactly once, and a second reversal cannot aim at it.
+
+**Nothing was applied to this host and nothing may be applied yet.** No SSH, no
+synchronization, no inspection, no `sudo`, no user or group creation, no edit
+under `/etc`, nothing created under `/run` or `/var/lib` or
+`/opt/freedom-blades`, no `systemd-tmpfiles`, no link, no controlled write
+verification, no database operation, no generated-vector execution, no real
+participant, no boundary or materializer and no `--execute`.
+
+**LAB-V6-1, LAB-V6-2 and LAB-V6-3 are unchanged and remain maintainer stop
+conditions**, so **V11 must remain unapplied**. **V7 remains excluded** and a
+provisioned host with no lifecycle record refuses all seven participants. V6
+remains **performed but not closed**, I3 unconfirmed, V8 and V10 unperformed,
+`is_executable` False, Package 5.0 not ready.
+
+**Prior restriction, 2026-09-16 — descriptor finalization repaired in the
+repository; this host is still untouched.** Claude completed
+**C-P5.0-LAB-V6-R3**, one bounded repository-local remediation of Codex Blocking
+finding PR-20260916-LAB-V6R2-1, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r3-descriptor-finalization-handback.md)
+for independent Codex technical and security re-review.
+
+`tools/phase_5_0_evidence/execution/provisioner.py` no longer lets a failing
+`close()` out of the application path, and no longer lets one **replace** the
+refusal it was unwinding. All three descriptors it holds — the created object's
+and the parent's synchronizable and traversal descriptors — are released through
+one helper that reports instead of raising. A release failure with nothing else
+in flight is the closed refusal `descriptor-not-released`, carrying the object
+**exactly once** with the identity its read-back established, so guarded
+rollback survives; a release failure while an ownership, mode, read-back,
+barrier or parent refusal is unwinding leaves that refusal exactly as it was.
+An ambiguous `close()` is treated as ambiguous: the descriptor is neither reused
+nor closed again, and **no leak is claimed either way**.
+
+**Two release sites are reported and deliberately unchanged** — `_verify_one`,
+used by `verify()` and the already-provisioned path, and `_remove`, used by
+guarded rollback. Both sit outside the window the finding governs and both can
+still raise; scoping them is a maintainer's decision, not an implementer's.
+
+**Nothing was applied to this host and nothing may be applied yet.** No SSH, no
+synchronization, no inspection, no `sudo`, no user or group creation, no edit
+under `/etc`, nothing created under `/run` or `/var/lib` or
+`/opt/freedom-blades`, no `systemd-tmpfiles`, no link, no controlled write
+verification, no database operation, no generated-vector execution, no real
+participant, no boundary or materializer and no `--execute`. Peter's approval of
+the prerequisite subset applies only after independent review accepts the
+returned contract and code.
+
+**LAB-V6-1, LAB-V6-2 and LAB-V6-3 are unchanged and remain maintainer stop
+conditions**, so **V11 must remain unapplied**: `/opt/freedom-blades` is
+`1001:1001 0755`, `/var/lib/freedom-blades` is absent with no item defining it,
+and r6's `R` is unreconciled with the approved target root. **V7 remains
+excluded** and a provisioned host with no lifecycle record refuses all seven
+participants, which is the intended fail-closed state.
+
+V6 remains **performed but not closed**, I3 unconfirmed, V8 and V10 unperformed,
+`is_executable` False, Package 5.0 not ready.
+
+**Prior restriction, 2026-09-16 — post-creation accounting repaired in the
+repository; this host is still untouched.** Claude completed
+**C-P5.0-LAB-V6-R2**, one bounded repository-local remediation of Codex Blocking
+finding PR-20260916-LAB-V6R1-1, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r2-partial-state-handback.md)
+for independent Codex technical and security re-review.
+
+`tools/phase_5_0_evidence/execution/provisioner.py` no longer lets an ordinary
+`OSError` out of the window between a successful `mkdirat` and the parent's
+barrier, and no longer reports that nothing was created while a directory it
+created sits at the target. Each of the six post-creation failure points is a
+closed refusal that carries the object it left; an object whose identity could
+never be established is reported as residue and **guarded rollback refuses the
+whole reversal** while one is present.
+
+**Nothing was applied to this host and nothing may be applied yet.** No SSH, no
+synchronization, no inspection, no `sudo`, no user or group creation, no edit
+under `/etc`, nothing created under `/run` or `/var/lib` or
+`/opt/freedom-blades`, no `systemd-tmpfiles`, no link, no controlled write
+verification, no database operation, no generated-vector execution, no real
+participant, no boundary or materializer and no `--execute`. Peter's approval of
+the prerequisite subset applies only after independent review accepts the
+returned contract and code.
+
+**LAB-V6-1, LAB-V6-2 and LAB-V6-3 are unchanged and remain maintainer stop
+conditions**, so **V11 must remain unapplied**: `/opt/freedom-blades` is
+`1001:1001 0755`, `/var/lib/freedom-blades` is absent with no item defining it,
+and r6's `R` is unreconciled with the approved target root. **V7 remains
+excluded** and a provisioned host with no lifecycle record refuses all seven
+participants, which is the intended fail-closed state.
+
+V6 remains **performed but not closed**, I3 unconfirmed, V8 and V10 unperformed,
+`is_executable` False, Package 5.0 not ready.
+
+**Prior restriction, 2026-09-16 — V6 provisioning contract completed in the
+repository; this host is still untouched.** Claude completed
+**C-P5.0-LAB-V6-R1**, one bounded repository-local remediation, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-provisioning-remediation-handback.md)
+for independent Codex technical and security review.
+
+The r6 §7 delta is now **eleven items**: `/opt/freedom-blades/evidence`, which
+V6 found absent and which r6 described only as "root-only [A]", is stated
+exactly as **V11, `0700 root:root`**, with its creation mechanism, persistence,
+verification and rollback. `tools/phase_5_0_evidence/execution/provisioner.py`
+is the applier for the four directory items, and
+`provisioning.VERIFICATION_PROCEDURE` is the read-only post-provision V6
+re-observation.
+
+**Nothing was applied to this host and nothing may be applied yet.** No SSH, no
+synchronization, no inspection, no `sudo`, no user or group creation, no edit
+under `/etc`, nothing created under `/run` or `/var/lib` or
+`/opt/freedom-blades`, no `systemd-tmpfiles`, no link, no controlled write
+verification, no database operation, no generated-vector execution, no real
+participant, no boundary or materializer and no `--execute`. Peter's approval of
+the prerequisite subset applies only after that independent review accepts the
+returned contract and code.
+
+**Two things a reader of the new delta must not miss.** **V7 is excluded**: the
+lifecycle record is not initialized, because its `linkat` is the first real
+exclusive publication here and **I3** is unconfirmed — a provisioned host with
+no record refuses all seven participants, and that is the intended fail-closed
+state. And **`/opt/freedom-blades` was observed `1001:1001 0755`**, so `ubuntu`
+can rename or unlink the `evidence` entry whatever mode V11 sets; the applier
+refuses to provision under it, and resolving that is a maintainer decision.
+`/var/lib/freedom-blades` is absent and no item defines it, which refuses V4 and
+V5 the same way.
+
+V6 remains **performed but not closed**, I3 unconfirmed, V8 and V10 unperformed,
+`is_executable` False, Package 5.0 not ready.
+
+**Prior restriction, 2026-09-16 — V6 survey complete; no execution release.**
+Peter accepted the independent D12-R1 re-review, closed
+PR-20260915-LAB-D12-1 and released the queued V6 read-only prerequisite survey.
+The [dated record](../review/project-review-2026-09-16-reserved-laboratory-d12-r1-acceptance-and-v6-preflight.md)
+reports its result. V6 was performed but does not close: the exact publication
+paths and proposed `freedomlab` group are absent, so their target ownership/mode
+assumptions cannot be confirmed. It does not prove real `linkat` viability and
+I3 remains unconfirmed. No synchronization, provisioning, permission/group
+change, link creation, database operation, generated-vector execution, real
+participant, boundary/materializer or `--execute` is authorized. V8 and V10
+remain unperformed. Further host mutation or controlled write verification
+requires separate maintainer authorization.
+
+**Prior restriction, 2026-09-15 — preflight authorized but not yet released.**
 Peter authorizes V6 as a read-only prerequisite survey, but the preflight
 remains queued behind remediation and independent re-review of Blocking
 PR-20260915-LAB-D12-1. It does not prove `linkat` viability or close I3. Until
@@ -16,7 +949,7 @@ checkpoint closes. See
 the active [handover](../review/Handover%20information) and
 [Codex re-review](../review/project-review-2026-09-15-reserved-laboratory-one-shot-authority.md).
 
-**Current state, 2026-09-14 — the mechanism is wired in the repository; this
+**Prior state, 2026-09-14 — the mechanism is wired in the repository; this
 host is still untouched.** The C-P5.0-LAB-I-R1 remediation is
 [returned for independent re-review](../review/phase-5-0-reserved-laboratory-implementation-remediation-handback.md).
 Reservation enforcement now has a repository-owned integration point for all
@@ -39,7 +972,7 @@ any of that**, for two separate reasons, and both matter:
 **No reservation is claimed by this document.** Nothing was run, synchronized,
 inspected or changed on this host, and V6, V8 and V10 remain unperformed.
 
-**Current authorization boundary, 2026-09-14.** C-P5.0-LAB-I-R1 authorizes
+**Prior authorization boundary, 2026-09-14.** C-P5.0-LAB-I-R1 authorizes
 repository changes and local tests with `TEST_DATABASE_URL` unset only. It does
 **not** authorize SSH, synchronization, inspection, preflight, provisioning,
 permission changes, database operations, generated-vector execution or execution
@@ -59,7 +992,7 @@ mechanism refuses on an absent lock or record rather than creating either. **No
 reservation is claimed by this document.** Nothing was run, synchronized,
 inspected or changed on this host, and V6, V8 and V10 remain unperformed.
 
-**Current authorization boundary, 2026-09-13.** C-P5.0-LAB-I authorizes
+**Prior authorization boundary, 2026-09-13.** C-P5.0-LAB-I authorizes
 repository implementation and local tests only. It does **not** authorize SSH,
 synchronization, inspection, preflight, provisioning, permission changes,
 database operations or execution on this server. Provisioning definitions may
@@ -173,10 +1106,12 @@ seven participants' identities. **None of that is approved or provisioned**, the
 adapter is still not built, no reservation is enforced by anything today and none
 is claimed by this document.
 
-The active [Claude handover](../review/Handover%20information) permits local
-remediation only. Do not run the SSH, synchronization, provisioning or test-server
-commands below for that task. VM work is deferred; the general server profile
-does not override the existing pre-execution review and task-specific gates.
+The active [Claude handover](../review/Handover%20information) permits
+repository-only prompt drafting. Do not run the SSH, synchronization,
+provisioning or test-server commands below for that task. VM work is deferred;
+the general server profile does not override the existing pre-execution review
+and task-specific gates. Consumed handovers are retained under
+[`handover-archive/`](../review/handover-archive/) as history only.
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the
@@ -259,6 +1194,8 @@ rsync -avz --delete \
   --exclude='.pytest_cache/' \
   /opt/freedom-blades/platform/ oracle-test:/opt/freedom-blades/platform/
 ```
+
+**Secrets guard (LAB-V6-P3 remediation r1, accepted 2026-09-19).** The repository secrets guard admits this command only in the documented shape: one plain `rsync` invocation whose exclusion values are **single-quoted**. It still refuses double-quoted or unquoted exclusion values, `--exclude-from`, a secret named as a source or destination, and any command that chains, substitutes, redirects or comments. Do not rewrite the command to get past a refusal; a refusal is a stop condition. [Independent review](../review/project-review-2026-09-19-lab-v6-p3-secrets-guard-remediation.md).
 
 ### 3.3 Running Test Suites Against PostgreSQL
 

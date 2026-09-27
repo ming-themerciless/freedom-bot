@@ -62,16 +62,10 @@ from tools.phase_5_0_evidence.identity import (
     group_case_id,
     membership_matrix_holds,
 )
+from tests.phase_5_0_evidence.unit_sandbox_fixtures import classify as classify_s4_3
 from tools.phase_5_0_evidence.journal import (
-    CONDITION_REFUSALS,
-    GenerationCondition,
-    JournalObservation,
     RECOVERY_PROCEDURE,
-    SealBody,
-    classify_generation_state,
     classify_recovery,
-    diagnose,
-    p5_0_r5_evidence_complete,
 )
 from tools.phase_5_0_evidence.manifest import (
     DeploymentEntry,
@@ -962,8 +956,12 @@ def passing_probe() -> list:
         ALL_CASES.values(), key=lambda case: case.role is not CaseRole.CONTROL
     )
     for case in ordered:
-        control = by_id[case.control_case_id] if case.control_case_id else None
-        record = classify_probe_case(case.case_id, case.expected, control=control)
+        if case.case_id == "S4-3":
+            # C-P5.0-R5-R1: S4-3 is a typed comparison, not a supplied outcome.
+            record, _ = classify_s4_3()
+        else:
+            control = by_id[case.control_case_id] if case.control_case_id else None
+            record = classify_probe_case(case.case_id, case.expected, control=control)
         by_id[case.case_id] = record
         records.append(record)
     return records
@@ -1213,86 +1211,10 @@ def test_the_deploy_path_reads_no_file_in_the_group_writable_worktree() -> None:
 # journal — P5.0-R5
 # ---------------------------------------------------------------------------
 
-SEAL = SealBody(
-    generation_id="000001",
-    binding_format_version=3,
-    seal_body_digest="sbd",
-    genesis_record_digest="grd",
-    journal_device=66,
-    journal_inode=1234,
-    host_machine_id="mid",
-    writer_deployment_digest="dep",
-    probe_report_digest="probe",
-    source_manifest_digest="sm",
-    predecessor_close_digest=None,
-)
-
-
-def observation(**overrides) -> JournalObservation:
-    base = dict(
-        journal_present=True,
-        seal_present=True,
-        current_symlink_present=True,
-        record_count=5,
-        genesis_prev_hash="sbd",
-        first_record_generation_id="000001",
-        observed_device=66,
-        observed_inode=1234,
-        chain_intact=True,
-        observed_deployment_digest="dep",
-        observed_machine_id="mid",
-    )
-    base.update(overrides)
-    return JournalObservation(**base)
-
-
-CONDITIONS = [
-    (GenerationCondition.HEALTHY, {}),
-    (GenerationCondition.MISSING, {"seal_present": False}),
-    (GenerationCondition.CORRUPT, {"chain_intact": False}),
-    (GenerationCondition.RESET, {"record_count": 0}),
-    (GenerationCondition.STALE, {"observed_deployment_digest": "other"}),
-    (GenerationCondition.CROSS_GENERATION, {"first_record_generation_id": "000002"}),
-]
-
-
-@pytest.mark.parametrize("condition, overrides", CONDITIONS, ids=[c[0].value for c in CONDITIONS])
-def test_each_condition_is_diagnosed_as_itself(condition, overrides) -> None:
-    assert diagnose(SEAL, observation(**overrides)) is condition
-
-
-@pytest.mark.parametrize("condition, overrides", CONDITIONS, ids=[c[0].value for c in CONDITIONS])
-def test_each_condition_produces_its_own_named_refusal(condition, overrides) -> None:
-    record = classify_generation_state(
-        case_id=f"JNL-{condition.value}",
-        seal=SEAL,
-        observation=observation(**overrides),
-        expected_condition=condition,
-    )
-    assert record.status is Status.PASSED
-    if condition is not GenerationCondition.HEALTHY:
-        writer, coordinator = CONDITION_REFUSALS[condition]
-        assert record.observed.value.endswith(writer)
-        assert record.detail["coordinator_refusal"] == coordinator
-
-
-def test_a_case_that_refuses_for_the_wrong_reason_fails() -> None:
-    """Stop condition 10h: a detector that fires on a differently named field is
-    not a detector for the field the case claims."""
-    record = classify_generation_state(
-        case_id="JNL-38",
-        seal=SEAL,
-        observation=observation(observed_inode=9999),
-        expected_condition=GenerationCondition.RESET,
-    )
-    assert record.status is Status.FAILED
-
-
-def test_an_emptied_journal_cannot_look_like_a_fresh_one() -> None:
-    """§2.13.5: the generation is anchored outside the file, so a reset is a named
-    refusal rather than an empty history."""
-    assert diagnose(SEAL, observation(record_count=0)) is GenerationCondition.RESET
-    assert CONDITION_REFUSALS[GenerationCondition.RESET][0] == "SW-J04"
+#: The generation classifier's tests moved to `test_r5_r1_journal_classifier.py`
+#: under C-P5.0-R5-R1. The ones that stood here encoded the harness's own
+#: five-condition table rather than §2.13.6, which is how the four contradictions
+#: in the P5.0-R5 reconciliation handback §3.13 passed.
 
 
 def test_the_recovery_procedure_is_operator_run_and_leaves_no_residue() -> None:
@@ -1302,22 +1224,3 @@ def test_the_recovery_procedure_is_operator_run_and_leaves_no_residue() -> None:
     incomplete = classify_recovery([1, 2], residue_after=("/var/lib/fb-evidence-r1/probe",))
     assert incomplete.status is Status.FAILED
     assert incomplete.detail["first_remaining"] == "/var/lib/fb-evidence-r1/probe"
-
-
-def test_coverage_is_reported_as_coverage_and_not_as_a_closure() -> None:
-    records = [
-        classify_generation_state(
-            case_id=f"JNL-{condition.value}",
-            seal=SEAL,
-            observation=observation(**overrides),
-            expected_condition=condition,
-        )
-        for condition, overrides in CONDITIONS
-    ]
-    complete, message = p5_0_r5_evidence_complete(records)
-    assert complete
-    assert "P5.0-R5 remains Blocking" in message
-
-    partial, message = p5_0_r5_evidence_complete(records[:2])
-    assert not partial
-    assert "No evidence record for" in message

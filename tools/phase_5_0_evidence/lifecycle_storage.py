@@ -417,7 +417,16 @@ FIRST_USE_RECOVERY: Mapping[FirstUseRefusal, tuple[str, ...]] = {
     ),
     FirstUseRefusal.INTERRUPTED_INITIALIZATION: (
         "The temporary is reported by absolute path and is not removed "
-        "automatically.",
+        "automatically. Every participant refuses while it is there — the six "
+        "ordinary ones included, and whether or not the final record parses.",
+        "Compare the two names' `(st_dev, st_ino)` first. **The comparison is "
+        "required and it must immediately precede the removal**: it is what "
+        "tells the two interruption states apart, and a removal taken without "
+        "it, or on a comparison that has since stopped holding, removes an "
+        "object nobody has identified. `remove_publication_temporary` takes the "
+        "comparison as an argument and refuses `no_observed_comparison`, "
+        "`identity_mismatch` and `stale_comparison` rather than proceeding "
+        "without one — *amended 2026-09-15, D1 remediation*.",
         "If the final record name does not resolve, nothing was published: an "
         "operator removes the temporary after establishing that, and "
         "initialization is then attempted again from the beginning.",
@@ -427,7 +436,8 @@ FIRST_USE_RECOVERY: Mapping[FirstUseRefusal, tuple[str, ...]] = {
         "An operator removes only the temporary; initialization is not repeated, "
         "and the next participant's re-seal establishes the record's durability.",
         "If the final name resolves to any other object, neither case holds, and "
-        "the host stays refused until an operator establishes what it is.",
+        "the host stays refused until an operator establishes what it is. The "
+        "mismatch is refused, not repaired.",
     ),
     FirstUseRefusal.NO_FIRST_USE_EVIDENCE: (
         "Obtain the attestation. A first use is a positive claim about the host, "
@@ -1318,6 +1328,151 @@ class PublicationOutcome:
             raise PlanRefused("A refused publication names which refusal it is.")
 
 
+@dataclass(frozen=True, slots=True)
+class PublicationTemporary:
+    """One comparison of a record's temporary and final names — r6 §6.2, D1.
+
+    **It is one observation, not two, and that is the whole point.** r6 §6.2
+    says an operator tells the second interruption state from the first by
+    comparing the two names' `(st_dev, st_ino)`, and a recovery that removes the
+    temporary without that comparison is a removal of an object nobody has
+    identified. So the comparison is an object: it is produced by one call that
+    stats both names, it carries what each resolved to, and
+    `remove_publication_temporary` **requires one** rather than re-deriving the
+    answer for itself. An unobserved comparison is therefore not expressible.
+
+    `temporary_identity` and `final_identity` are the filesystem's own identity
+    strings — `"{st_dev}:{st_ino}"` on the mechanism, the object id in the
+    model — or `None` when the name does not resolve. Nothing here removes,
+    creates or repairs anything.
+    """
+
+    directory: str
+    name: str
+    temporary: str
+    temporary_identity: str | None
+    final_identity: str | None
+    #: `True` when either `fstatat` refused, which is **not** an absent
+    #: temporary. A name whose resolution is unknown is refused exactly as an
+    #: unreadable lock is: the observation failed, so nothing is established.
+    observation_failed: bool = False
+    reason: str = ""
+
+    @property
+    def present(self) -> bool:
+        """Whether a temporary name resolves **right now**."""
+        return self.temporary_identity is not None
+
+    @property
+    def same_inode(self) -> bool:
+        """r6 §6.2's second interruption state: two names, one inode.
+
+        Equality is the only admitting branch for the operator recovery, and
+        both sides must have resolved. Two absent names are not equal here.
+        """
+        return (
+            self.temporary_identity is not None
+            and self.final_identity is not None
+            and self.temporary_identity == self.final_identity
+        )
+
+    def refusals(self) -> tuple[str, ...]:
+        """Why this observation refuses a participant, or `()` if it does not.
+
+        The three §6.2 states are reported apart, because their operator
+        recoveries are different and a refusal that named neither would send an
+        operator to the wrong one. **Every branch refuses**; the distinction is
+        what the operator is told, never whether anybody proceeds.
+        """
+        if self.observation_failed:
+            return (
+                f"the publication temporary {self.temporary!r} in "
+                f"{self.directory!r} could not be observed: {self.reason} A name "
+                "whose resolution is unknown is not an absent name, so this "
+                "participant refuses rather than reading the record beside it.",
+            )
+        if not self.present:
+            return ()
+        common = (
+            f"a publication temporary {self.temporary!r} is present beside "
+            f"{self.name!r}, so an earlier publication of this record was "
+            "interrupted and nothing has established how. **PR-20260915-LAB-D12-1**: "
+            "all seven participants refuse here, before any work is called, and "
+            "the six ordinary ones no longer admit on a final record whose "
+            "publication is unresolved. Both names and their bytes are left "
+            "exactly as they are.",
+        )
+        if self.same_inode:
+            return common + (
+                f"The two names resolve to one inode ({self.temporary_identity}), "
+                "which is runner contract r6 §6.2's second interruption state "
+                "(amendment D1): the exclusive publication stopped between its "
+                "`linkat` and its `unlinkat`, so the record **was** published and "
+                "is not yet durable. The operator removes only the temporary, "
+                "after this same comparison and immediately before the removal, "
+                "and does not repeat the publication.",
+            )
+        if self.final_identity is None:
+            return common + (
+                "The final name does not resolve, so nothing was published: the "
+                "publication stopped before its `linkat`. An operator removes "
+                "the temporary after establishing that, and the publication is "
+                "attempted again from the beginning.",
+            )
+        return common + (
+            f"The two names resolve to different objects (temporary "
+            f"{self.temporary_identity}, final {self.final_identity}), so this "
+            "is neither of r6 §6.2's first two interruption states. **Nothing "
+            "removes it automatically**: the host stays refused until an "
+            "operator establishes what the temporary is.",
+        )
+
+
+class TemporaryRemovalRefusal(str, Enum):
+    """Why an operator's removal of a publication temporary refused."""
+
+    #: No comparison was presented at all. **An unobserved comparison is the
+    #: default**, so a caller that simply removes cannot exist.
+    NO_OBSERVED_COMPARISON = "no_observed_comparison"
+    #: A comparison was presented and it is about another record's names.
+    FOREIGN_COMPARISON = "foreign_comparison"
+    #: The comparison did not show one inode under two names, so this is not r6
+    #: §6.2's second interruption state and the temporary is not this record.
+    IDENTITY_MISMATCH = "identity_mismatch"
+    #: The comparison was true once and is not true now. *Immediately
+    #: preceding* is a requirement about the moment of the call.
+    STALE_COMPARISON = "stale_comparison"
+    #: The removal was unattributed. A recovery with no author is an assertion
+    #: with no author, exactly as §5.5's entries are.
+    UNATTRIBUTED = "unattributed"
+    #: `unlinkat` itself refused.
+    REMOVAL_REFUSED = "removal_refused"
+
+
+@dataclass(frozen=True, slots=True)
+class TemporaryRemoval:
+    """What one operator removal of a publication temporary concluded."""
+
+    removed: bool
+    refusal: TemporaryRemovalRefusal | None = None
+    reasons: tuple[str, ...] = ()
+    #: The comparison the operator presented, and the one this call made
+    #: immediately before issuing `unlinkat`. They must agree.
+    presented: "PublicationTemporary | None" = None
+    confirmed: "PublicationTemporary | None" = None
+    #: What the two names resolved to **after** a removal that was issued. It is
+    #: an absence check on the temporary and a presence check on the record, and
+    #: it is nothing more — r6 §1.4.5's rule about what a post-check can see.
+    after: "PublicationTemporary | None" = None
+    limits: tuple[str, ...] = MODEL_LIMITS
+
+    def __post_init__(self) -> None:
+        if self.removed and self.refusal is not None:
+            raise PlanRefused("A removal that happened carries no refusal.")
+        if not self.removed and self.refusal is None:
+            raise PlanRefused("A refused removal names which refusal it is.")
+
+
 class DurableRecordStore:
     """One appended-to record file in one provisioned directory.
 
@@ -1400,8 +1555,50 @@ class DurableRecordStore:
         """Whether the final name resolves. A name, not a durability claim."""
         return self._fs.fstatat(self._path_fd(), self._name) is not None
 
+    def observe_publication_temporary(self) -> PublicationTemporary:
+        """Stat both names once and report what each resolves to — r6 §6.2, D1.
+
+        **The one comparison, and every caller uses it.** `temporary_present`,
+        the admission path and the operator recovery all read this, so there is
+        no second place a temporary's meaning is decided. A refusing `fstatat`
+        is reported as a failed observation and never as an absent temporary.
+        """
+        path_fd = self._path_fd()
+        try:
+            temporary_identity = self._fs.fstatat(path_fd, self.temporary)
+            final_identity = self._fs.fstatat(path_fd, self._name)
+        except ModelRefused as refusal:
+            return PublicationTemporary(
+                directory=self._label,
+                name=self._name,
+                temporary=self.temporary,
+                temporary_identity=None,
+                final_identity=None,
+                observation_failed=True,
+                reason=str(refusal),
+            )
+        return PublicationTemporary(
+            directory=self._label,
+            name=self._name,
+            temporary=self.temporary,
+            temporary_identity=temporary_identity,
+            final_identity=final_identity,
+        )
+
     def temporary_present(self) -> bool:
-        return self._fs.fstatat(self._path_fd(), self.temporary) is not None
+        """Whether a temporary resolves. **A failed observation raises.**
+
+        The two callers that ask this question — `publish` and
+        `initialize_first_use_record` — are about to write, and a writer that
+        read *absent* from an `fstatat` that refused would create a temporary
+        over a state nobody observed. `read_and_admit` asks
+        `observe_publication_temporary` directly instead, because a reader
+        refuses where a writer raises.
+        """
+        observation = self.observe_publication_temporary()
+        if observation.observation_failed:
+            raise ModelRefused(observation.reason)
+        return observation.present
 
     def read_record_bytes(self) -> bytes | None:
         """The record's bytes, through a descriptor, or `None` if absent.
@@ -1437,6 +1634,160 @@ class DurableRecordStore:
                 "and names the recovery owner rather than proceeding."
             )
         self._fs.fsync(self._sync_fd(), barrier=f"reseal:{self._label}")
+
+    def remove_publication_temporary(
+        self,
+        *,
+        comparison: PublicationTemporary | None,
+        author: str,
+        reference: str,
+    ) -> TemporaryRemoval:
+        """T1's and T6's operator recovery, with the comparison made mandatory.
+
+        r6 §6.2 says an operator tells the second interruption state from the
+        first **by comparing the two names' `(st_dev, st_ino)`**, and §5.10's
+        recovery then says to remove only the temporary. Stated as prose, the
+        comparison is a step an operator can skip; stated here it is the
+        argument, so a removal that never compared is not expressible and
+        `comparison=None` is the whole of the unobserved case.
+
+        Five refusals, all before `unlinkat`, and **equality is the only
+        admitting branch** — the shape PR-20260913-LABI-2 established for every
+        removal in this package:
+
+        1. **no comparison** — nothing was observed, so nothing is removed;
+        2. **a foreign comparison** — it is about another record's two names,
+           which is not this record's evidence however true it is;
+        3. **a mismatch** — the two names are not one inode, so this is not r6
+           §6.2's second state. It may be the first state, in which the
+           publication is retried from the beginning rather than repaired, or a
+           final name that resolves to some third object, which stays refused;
+        4. **staleness** — *immediately preceding* is a claim about the moment
+           of the call, so the comparison is made again here and the presented
+           one must still hold. A comparison that was true a minute ago is a
+           comparison of a state that may have been recovered since; and
+        5. **an unattributed removal** — recoveries in this protocol name who
+           performed them and against what reference, and this one is no
+           different for being a removal rather than an entry.
+
+        **What it does not do.** It removes exactly one name, the temporary.
+        It never removes the final record, never republishes, never repeats an
+        initialization, and issues no barrier: the directory entry the removal
+        changes is made durable by the next participant's re-seal, which is the
+        same §5.6 obligation that covers the publication it is recovering.
+        `unlinkat` resolves its component at the time of the call and no flag
+        binds it to a previously observed inode — r6 §1.4.5 — so the guard
+        above is a detection and this does not claim otherwise.
+        """
+        if comparison is None:
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.NO_OBSERVED_COMPARISON,
+                reasons=(
+                    f"no comparison of {self.temporary!r} and {self._name!r} was "
+                    "presented, so nothing has established that the temporary is "
+                    "a second name for the published record. An unobserved "
+                    "comparison refuses and the temporary is left where it is.",
+                ),
+            )
+        if (
+            comparison.directory != self._label
+            or comparison.name != self._name
+            or comparison.temporary != self.temporary
+        ):
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.FOREIGN_COMPARISON,
+                reasons=(
+                    f"the comparison presented is of {comparison.temporary!r} and "
+                    f"{comparison.name!r} in {comparison.directory!r}, and this "
+                    f"removal is of {self.temporary!r} and {self._name!r} in "
+                    f"{self._label!r}. Evidence about another record's names is "
+                    "not evidence about these.",
+                ),
+                presented=comparison,
+            )
+        if not author.strip() or not reference.strip():
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.UNATTRIBUTED,
+                reasons=(
+                    "an operator recovery names who performed it and the "
+                    "reference it was performed under. This one names "
+                    f"author {author!r} and reference {reference!r}, so it is "
+                    "refused before anything is removed.",
+                ),
+                presented=comparison,
+            )
+        if not comparison.same_inode:
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.IDENTITY_MISMATCH,
+                reasons=(
+                    f"the presented comparison does not show one inode under two "
+                    f"names: temporary {comparison.temporary_identity!r}, final "
+                    f"{comparison.final_identity!r}. This is not runner contract "
+                    "r6 §6.2's second interruption state, so removing the "
+                    "temporary would be removing an object nobody has "
+                    "identified. It stays, and the host stays refused until an "
+                    "operator establishes what it is.",
+                )
+                + comparison.refusals(),
+                presented=comparison,
+            )
+        confirmed = self.observe_publication_temporary()
+        if (
+            confirmed.observation_failed
+            or not confirmed.same_inode
+            or confirmed.temporary_identity != comparison.temporary_identity
+            or confirmed.final_identity != comparison.final_identity
+        ):
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.STALE_COMPARISON,
+                reasons=(
+                    "the presented comparison does not hold at the moment of the "
+                    f"removal: it reported temporary "
+                    f"{comparison.temporary_identity!r} and final "
+                    f"{comparison.final_identity!r}, and the names now report "
+                    f"{confirmed.temporary_identity!r} and "
+                    f"{confirmed.final_identity!r}. The comparison this recovery "
+                    "requires is the immediately preceding one, so a stale one "
+                    "refuses and nothing is removed.",
+                )
+                + confirmed.refusals(),
+                presented=comparison,
+                confirmed=confirmed,
+            )
+        try:
+            self._fs.unlinkat(self._path_fd(), self.temporary)
+        except ModelRefused as refusal:
+            return TemporaryRemoval(
+                removed=False,
+                refusal=TemporaryRemovalRefusal.REMOVAL_REFUSED,
+                reasons=(
+                    f"the removal of {self.temporary!r} refused: {refusal} Both "
+                    "names are left as they were.",
+                ),
+                presented=comparison,
+                confirmed=confirmed,
+            )
+        after = self.observe_publication_temporary()
+        return TemporaryRemoval(
+            removed=True,
+            reasons=(
+                f"{self.temporary!r} was removed by {author!r} under reference "
+                f"{reference!r}, after a comparison — made immediately before the "
+                f"removal — showing it and {self._name!r} resolving to one inode "
+                f"({confirmed.temporary_identity}). The record itself was neither "
+                "removed nor rewritten and the publication is not repeated. The "
+                "next participant's re-seal makes both the record and this "
+                "directory entry durable.",
+            ),
+            presented=comparison,
+            confirmed=confirmed,
+            after=after,
+        )
 
     def publish(
         self,
@@ -3205,6 +3556,39 @@ class RunLedger:
             barrier=f"reseal:{self._label}",
         )
 
+    # -- the one operator recovery — r6 §6.2, T6 ------------------------------
+
+    def observe_publication_temporary(self, run_id: str) -> PublicationTemporary:
+        """r6 §6.2's comparison over one run file's two names.
+
+        The survey already counts a `.tmp` in this directory as unreadable and
+        blocks every successor on it — that is T6's refusal and it is unchanged.
+        This is what an operator compares **before** removing one, and it is the
+        same call and the same comparison the record's recovery makes.
+        """
+        return self._store(run_id).observe_publication_temporary()
+
+    def remove_publication_temporary(
+        self,
+        run_id: str,
+        *,
+        comparison: PublicationTemporary | None,
+        author: str,
+        reference: str,
+    ) -> TemporaryRemoval:
+        """T6's operator recovery, on the same guard as T1's.
+
+        One implementation serves both because `DurableRecordStore` is one
+        publication path for both objects: giving the ledger its own removal
+        would be the second reader every finding since R3-1 is about. **The
+        removal settles nothing.** Once the temporary is gone the run is visible
+        as started and unsettled, it still blocks every successor, and only an
+        attributed `participant_recovered` entry — T16 — settles it.
+        """
+        return self._store(run_id).remove_publication_temporary(
+            comparison=comparison, author=author, reference=reference
+        )
+
     def survey(self) -> RunLedgerSurvey:
         """Read every run file and classify it, fail-closed.
 
@@ -3566,6 +3950,11 @@ class SuccessorAdmission:
     may_proceed: bool
     refusals: tuple[str, ...] = ()
     resealed: bool = False
+    #: The one `(st_dev, st_ino)` comparison this pass made over the record's
+    #: two names — r6 §6.2, D1. It is carried so a refusal can be attributed to
+    #: the interruption state it actually met, and so an operator recovery has
+    #: a comparison to present rather than one to re-derive.
+    interruption: PublicationTemporary | None = None
     parsed: ParsedHistory | None = None
     history: LifecycleHistory | None = None
     validation: LifecycleValidation | None = None
@@ -3602,18 +3991,24 @@ def read_and_admit(
        power loss. A failure is a refusal naming the recovery owner. Under
        `R3_TRUSTS_THE_VISIBLE_RECORD` this step does not happen, which is the
        negative control;
-    3. **the bytes** — read the record through a descriptor. Absent refuses, and
+    3. **the publication** — one `fstatat` on each of the record's two names,
+       r6 §6.2's comparison. A present temporary refuses **every** participant,
+       because an unresolved publication is a fact about the name and the bytes
+       beside it can be perfectly valid. This is PR-20260915-LAB-D12-1: without
+       it the six ordinary participants admitted on the published final record
+       of an interrupted T1 and only the harness refused, later, at T7;
+    4. **the bytes** — read the record through a descriptor. Absent refuses, and
        initialization is the only way out of absent;
-    4. **the parse** — `parse_history`, which refuses malformed, truncated,
+    5. **the parse** — `parse_history`, which refuses malformed, truncated,
        unsupported, contradictory, missing-binding and wrong-binding records
        rather than normalizing any of them;
-    5. **the order** — `check_history_semantics`, so a history that is not one
+    6. **the order** — `check_history_semantics`, so a history that is not one
        produces no decision input and no earlier convenient admitting entry is
        selected;
-    6. **the shared validator** — `reservation.validate_lifecycle()`, over a
+    7. **the shared validator** — `reservation.validate_lifecycle()`, over a
        `LifecycleHistory` derived from the stored bytes rather than constructed
        beside them. This is the connection R3-3 found missing; and
-    7. **the ledger** — every participant's durable in-progress accounting. An
+    8. **the ledger** — every participant's durable in-progress accounting. An
        unsettled, unreadable or invalid run refuses every successor, the harness
        and the environment reset included, until its recovery is published. This
        is R3-2, and **a ledger that was not supplied refuses too** — R4-2's
@@ -3660,6 +4055,18 @@ def read_and_admit(
                 ),
             )
         resealed = True
+
+    # **PR-20260915-LAB-D12-1, and it sits exactly here.** It follows the
+    # re-seal because no participant reads before it re-seals, and it precedes
+    # the parse because an unresolved publication is a fact about the record's
+    # *name*, not about the history its bytes happen to spell: in r6 §6.2's
+    # second interruption state the bytes are valid and complete, which is why
+    # a parse-only admission let the six ordinary participants through while
+    # the harness refused later, at T7. It appends rather than returning, so a
+    # refusal still carries everything else the pass found. Nothing here
+    # removes, repairs or renames either name.
+    interruption = record.observe_publication_temporary()
+    refusals.extend(interruption.refusals())
 
     parsed = parse_history(
         record.read_record_bytes(),
@@ -3736,6 +4143,7 @@ def read_and_admit(
         may_proceed=not refusals,
         refusals=tuple(refusals),
         resealed=resealed,
+        interruption=interruption,
         parsed=parsed,
         history=history,
         validation=validation,
@@ -3770,6 +4178,7 @@ __all__ = [
     "PARTICIPATING_ENTRY_POINTS",
     "PROPOSED_PROVISIONING",
     "PUBLICATION_UNCERTAINTY",
+    "PublicationTemporary",
     "ParsedHistory",
     "Participant",
     "ParticipantDecision",
@@ -3795,6 +4204,8 @@ __all__ = [
     "SuccessorAdmission",
     "TERMINAL_PUBLICATION_ORDER",
     "TERMINAL_STATES",
+    "TemporaryRemoval",
+    "TemporaryRemovalRefusal",
     "TerminalPublication",
     "UNIT_TEST_CONSTRUCTORS",
     "check_history_semantics",

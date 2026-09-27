@@ -178,9 +178,34 @@ CASE_PROGRAM_RELATIVE_PATH = "bin/case"
 
 #: The mode, owner and group `P-04` asserts. Stated here so the install vector
 #: and the assertion cannot disagree.
-CASE_PROGRAM_MODE = "0755"
+#:
+#: **`root:root 0555` — C-P5.0-LAB-I3-D1, 2026-09-19.** Peter ruled P2's installed
+#: case program `root:root 0555`, matching runner contract r6 §§1.4.2, 1.4.4 and
+#: 3; the `0755` this constant carried until C-P5.0-LAB-I3-R2 disagreed with the
+#: contract. Owner and group are unchanged. Under P2's reviewed root identity the
+#: protected-hardlink publication relies on the filesystem-UID owner condition:
+#: the root executor's filesystem UID owns the file. P2 has no `CAP_FOWNER`
+#: dependency, and nothing here claims that a capability authorized the link.
+CASE_PROGRAM_MODE = "0555"
 CASE_PROGRAM_OWNER = "root"
 CASE_PROGRAM_GROUP = "root"
+
+#: The mode P2's **exclusive publication temporary** is created with — runner
+#: contract r6 §6.2's P2 row, `openat(D4.bin, ".case-program.tmp",
+#: O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, 0500)`.
+#:
+#: **`0500` — C-P5.0-LAB-I3-R3, 2026-09-20.** Peter ruled P2's creation mode
+#: `0500` rather than the shared `descriptors.EXCLUSIVE_CREATION_MODE` default.
+#: This is a **creation** mode and not a published one: the already-open
+#: writable descriptor remains the authority for completing and synchronizing
+#: the write, so the absent write bit on the pathname does not reach the bytes.
+#: `CASE_PROGRAM_MODE` is then applied to that same descriptor, and `0555` — not
+#: this value — is what the published name carries.
+#:
+#: The choice is **P2's alone**. T1, T6 and §2.3.3 keep the shared `0600`
+#: default, which is why this is a value passed at P2's call rather than a
+#: change to that default.
+CASE_PROGRAM_TEMPORARY_MODE = "0500"
 
 
 def interpreter_real_path_confirmed() -> bool:
@@ -811,6 +836,7 @@ __all__ = [
     "CASE_PROGRAM_RELATIVE_PATH",
     "CASE_PROGRAM_SOURCE",
     "CASE_PROGRAM_SOURCE_PATH",
+    "CASE_PROGRAM_TEMPORARY_MODE",
     "CASE_VERBS",
     "EXIT_INTERNAL",
     "EXIT_REFUSED",

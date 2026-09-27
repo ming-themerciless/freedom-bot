@@ -1705,7 +1705,7 @@
       "reversed_by": "CL-06"
     }
   ],
-  "confirmation_token": "oracle-test:/var/lib/fb-evidence-p5-0:fb_evidence_p5_0#ceb58ad1f9f0e070",
+  "confirmation_token": "oracle-test:/var/lib/fb-evidence-p5-0:fb_evidence_p5_0#fc2a9c9b9d581cc7",
   "evidence_schema_version": 3,
   "exit_classifications": [
     {
@@ -1837,7 +1837,7 @@
         "key": "case_program"
       },
       {
-        "expected": "188af751d2a306b88697b152332389d00d357a3dd0ee37859c6eb352f6359de0",
+        "expected": "5ec710a5f8ba3f1f40b33ea3768baef4721cc8a361c4b1681f6e63686a7dd2b6",
         "key": "case_program_sha256"
       },
       {
@@ -1985,7 +1985,7 @@
   "harness_name": "phase-5-0-evidence-harness",
   "harness_version": "0.7.0-pre-execution",
   "manifest_schema": "phase-5-0-evidence-review-manifest",
-  "manifest_version": 12,
+  "manifest_version": 22,
   "materializations": [
     {
       "after_step_id": "B6-03",
@@ -2560,6 +2560,17 @@
       "produced_by": [],
       "source": "package plan \u00a72.13.2b and acceptance row 19; \u00a72.13.8 JNL-47",
       "supplied_externally": true
+    },
+    {
+      "asserts": "The applied property set of the transient unit S4-1 and S4-2 ran in, captured by `systemctl show`, compared under \u00a72.13.2a's four conditions with the deployed `freedom-sheet-writer.service` and its allowed drop-ins, and bound to the systemd identity it was made under. Without it S4-1 and S4-2 attest nothing about the writer's sandbox.",
+      "band": "filesystem",
+      "blocked_by": [
+        "C-S4-3"
+      ],
+      "case_id": "S4-3",
+      "produced_by": [],
+      "source": "package plan \u00a72.13.2a S4-3 and conditions 1\u20134; \u00a72.13.6 J-25",
+      "supplied_externally": false
     }
   ],
   "source_digests": [
@@ -2569,7 +2580,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/approved_target.py",
-      "sha256": "02f8404ed98865c421266c6bee410f81964ff3a67735e602b07b392a74239573"
+      "sha256": "6cb145bedcb79a3aedb0b55b8b615c3b9b430d6c7bd27c423e5b120789f26e30"
     },
     {
       "path": "tools/phase_5_0_evidence/binding.py",
@@ -2584,8 +2595,12 @@
       "sha256": "0c4fc958082aade1bba30dfe2bbfbbbd3a09b25714a28118ee4ca86afb71e4f0"
     },
     {
+      "path": "tools/phase_5_0_evidence/capture_contract.py",
+      "sha256": "e7a42d102346da369315852bb07ab3e8a846bdd223b79605e02050a1d356e7a5"
+    },
+    {
       "path": "tools/phase_5_0_evidence/case_runtime.py",
-      "sha256": "15261b6cd98bdbf53ecd7f467d82230068c0193be49d524ea86581715bf9f66f"
+      "sha256": "bbadc0a099fd310a9a1ad8ee249d1b4345cdd114138c823ae155176b9b1b31b9"
     },
     {
       "path": "tools/phase_5_0_evidence/cleanup.py",
@@ -2593,11 +2608,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/concrete_plan.py",
-      "sha256": "d24ba5ca94b5a910197e23a87fbc69a9c090509d733c5d9a371abee282e5c483"
+      "sha256": "20d5da9c45df2c391fc6613348846dca31787efd273a707b91637d6ceef3cc11"
     },
     {
       "path": "tools/phase_5_0_evidence/durability_model.py",
-      "sha256": "d8f2cc3e30aaf80e259cdc1dbb52862bf61ed3d89abefbae59d5303d7c4722af"
+      "sha256": "b2c69ad743151879fcead62c638c866841c92553bc9a2e9bfd9849136a86a40b"
     },
     {
       "path": "tools/phase_5_0_evidence/errors.py",
@@ -2613,11 +2628,19 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/boundary.py",
-      "sha256": "1354b600cab03e649e90cd780e47c57a1cb4d0e7abc394cd063888005ebc5c32"
+      "sha256": "329d000171fb07a91bd2cd5ff072ef7471c09d331efc42b23cb8e185f2397b25"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/capture_mechanism.py",
+      "sha256": "a1c758898419da2b00019d7f1fb7f16f6a9dd7775c7494665d4ba4d0eae6f6bb"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/capture_store.py",
+      "sha256": "4dfb5ceeff7bfd7d847b028c0a36b56f75085315556bcfa8c35da34807080248"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/case_program.py",
-      "sha256": "188af751d2a306b88697b152332389d00d357a3dd0ee37859c6eb352f6359de0"
+      "sha256": "5ec710a5f8ba3f1f40b33ea3768baef4721cc8a361c4b1681f6e63686a7dd2b6"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/cli.py",
@@ -2625,7 +2648,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/descriptors.py",
-      "sha256": "91de32e2ade8c1aa518e04defb8f968aa4881eb3e199ac8ebc391766ce546542"
+      "sha256": "499ea15a42cc39da68ae1f47c3574d5020fb8c3c1edd46e6de3cadc01e5212ca"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/evidence_cli.py",
@@ -2633,15 +2656,23 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/executor.py",
-      "sha256": "a5b17330fb6bfe5c1903f8feb0aaf41203d68b1b2d781099ca646ecb97af48f5"
+      "sha256": "0a45781f9f2a022100afc248a0122dca721a0d0c4bbedd1ab6266079b5436ebb"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/host_lock.py",
       "sha256": "2eab78fb2ad8b0746a79ef7100c9c9b05327cd9a69b7d96999c34f2092bff38d"
     },
     {
+      "path": "tools/phase_5_0_evidence/execution/i3_verifier.py",
+      "sha256": "e7a4b0fc785b227af081a99d853530d3be9233ad3ffa7f83502e58a87c8566ed"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/i3_verifier_cli.py",
+      "sha256": "9421331ddb8155e86c78a2995f8bc6f81c9945b7ea110727d6252e149f8fc3bd"
+    },
+    {
       "path": "tools/phase_5_0_evidence/execution/lifecycle_record.py",
-      "sha256": "d7d38ccf704f091937cc8b0719670c2f65065bf77614817e282874d2a5ca9407"
+      "sha256": "e8151442c938cae4a126c3423838dcaf2714bd473909cb90a32faadc7e26169e"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/materializer.py",
@@ -2652,12 +2683,24 @@
       "sha256": "430965c81d6fc746d46cb64b6be626c70339047c355ffd28fbb93685b082199a"
     },
     {
+      "path": "tools/phase_5_0_evidence/execution/provisioner.py",
+      "sha256": "32ff8d9a9dc0bb4205ce59b2f73f67bb1834bab994d75fbe87aa57b54b8fd0e7"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/execution/provisioning_cli.py",
+      "sha256": "f65cca5f84a36d791ec912b2166ff0806be3560c5bca451cf54cf3696abf343f"
+    },
+    {
       "path": "tools/phase_5_0_evidence/execution/recovery_store.py",
       "sha256": "e6d0c18857439a43e6614b939425fd95667feadb1a0e2eb27a5dd3dbed576142"
     },
     {
+      "path": "tools/phase_5_0_evidence/execution/retention_check.py",
+      "sha256": "7bfb2116ea5b15ac76de7b9cf1babe16c4b5152780a30d1d8eb9af276659176f"
+    },
+    {
       "path": "tools/phase_5_0_evidence/execution/run_ledger.py",
-      "sha256": "ab050d86870e39ebf97f1e3759b052596555f7cbd865925f140c7b2c26ef3e63"
+      "sha256": "735bf449260c2e909bac0f04d102d6802643eb96c42931412fb3f2a7ed953fbc"
     },
     {
       "path": "tools/phase_5_0_evidence/expectations.py",
@@ -2669,7 +2712,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/filesystem.py",
-      "sha256": "d5a99a4cd597c0d2de1c9d1213e130f712b9c186ec41828558f8d61fd576a189"
+      "sha256": "ebc1daa97c59f4f64cf938de89241662755f363ebb4cd9ed7138704877d6528b"
     },
     {
       "path": "tools/phase_5_0_evidence/hba.py",
@@ -2681,11 +2724,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/journal.py",
-      "sha256": "9678c5a20c8bcc582172f3df55f09ba04a260c2cd5fded7c7bfde7e10ebd9e22"
+      "sha256": "b9ecf08c87ad0928e8d31436fd3ab1e5f0a4442ae451c80364ef09cbea93d0a9"
     },
     {
       "path": "tools/phase_5_0_evidence/lifecycle_storage.py",
-      "sha256": "cc135b83e71d2317410f9b4114174cad119118b2ac7d89a4a8d900cb63024e7a"
+      "sha256": "7bbfc11ae5efd1d19f9c0de173e52488a87304beef4ee1c3060b7ff71f39882a"
     },
     {
       "path": "tools/phase_5_0_evidence/manifest.py",
@@ -2697,7 +2740,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/observations.py",
-      "sha256": "e4cfc6e1b23053387b8307f33ec7e369bfbf7e98c2a12d0fe4f3cff35f582db6"
+      "sha256": "77c128440e25c990ead20d1c046f4191bf6d358a893cee47714baff7c3ec2352"
     },
     {
       "path": "tools/phase_5_0_evidence/plan.py",
@@ -2709,7 +2752,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/provisioning.py",
-      "sha256": "9658392cf53f2bffb554cd46640533a9a478c32d4c8696b42585f89178e10614"
+      "sha256": "318aa55f462b3a672cddc55f4e55e7150db897556f90320904095ae15294f8e6"
     },
     {
       "path": "tools/phase_5_0_evidence/records.py",
@@ -2717,7 +2760,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/required_cases.py",
-      "sha256": "850ffeff4e92c9263213ac7cc2834f7fd691b9f2b4935e631ace4da494d2e1ed"
+      "sha256": "d6a77f0cb35e4103e83f94da4ff6d6bd52409dfe50b2e9b785a7aca67b552755"
     },
     {
       "path": "tools/phase_5_0_evidence/reservation.py",
@@ -2725,7 +2768,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/review_manifest.py",
-      "sha256": "0faef4546b8674e8c8e23c66b836a0fa7e585e57cb6860c9e22067ccfc246440"
+      "sha256": "e35435a0f89cfe7ede63d21e94c26a85ba916a537d4dc4d182289437fd2ebfd2"
     },
     {
       "path": "tools/phase_5_0_evidence/sudoers.py",
@@ -2734,6 +2777,10 @@
     {
       "path": "tools/phase_5_0_evidence/targets.py",
       "sha256": "a657a1f3d4aa215967a9f9182bd2498fae6428f9780aab87c50bd0917f42512c"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/unit_sandbox.py",
+      "sha256": "edd360fbd01aaded56ee29bdf61af5cb9ae0882d0f990ad8f4e620fd8fc7a92c"
     }
   ],
   "steps": [
@@ -4481,7 +4528,7 @@
         "ROOT-EXCLUSIVE-CREATION"
       ],
       "expected_refusal": "any disagreement stops the run. A root that is not the object this plan describes is not a root the rest of the band may build inside.",
-      "expected_result": "uid 0, gid 0, mode 755, type directory \u2014 all four compared.",
+      "expected_result": "uid 0, gid 0, mode 700, type directory \u2014 all four compared.",
       "identity_name": "",
       "mutation_ids": [],
       "nothing_created_statuses": [],
@@ -4500,7 +4547,7 @@
         },
         {
           "comparison": "text",
-          "expected": "755",
+          "expected": "700",
           "key": "mode",
           "uncompared_because": ""
         },
@@ -4703,7 +4750,7 @@
         "flags": [],
         "group": "root",
         "kind": "install_payload",
-        "mode": "0755",
+        "mode": "0555",
         "name": "case",
         "owner": "root",
         "path": "/var/lib/fb-evidence-p5-0/bin/case",
@@ -4714,7 +4761,7 @@
       "establishes_ownership_of_contained": [],
       "evidence_case_ids": [],
       "expected_refusal": "content whose digest is not the manifest's is refused rather than installed, and an occupied final name is `EEXIST`.",
-      "expected_result": "/var/lib/fb-evidence-p5-0/bin/case exists as root:root 0755, byte-identical to the reviewed source, published exclusively and synchronized with its containing entry.",
+      "expected_result": "/var/lib/fb-evidence-p5-0/bin/case exists as root:root 0555, byte-identical to the reviewed source, published exclusively and synchronized with its containing entry.",
       "identity_name": "",
       "mutation_ids": [
         "file:/var/lib/fb-evidence-p5-0/bin/case"
@@ -4788,7 +4835,7 @@
         "CAP-CASE-BINARY-MODE"
       ],
       "expected_refusal": "a set-user-ID bit or a non-root owner stops the band.",
-      "expected_result": "0 0 755 regular file \u2014 all four compared before the step may be satisfied (EH-R13-3).",
+      "expected_result": "0 0 555 regular file \u2014 all four compared before the step may be satisfied (EH-R13-3).",
       "identity_name": "",
       "mutation_ids": [],
       "nothing_created_statuses": [],
@@ -4807,7 +4854,7 @@
         },
         {
           "comparison": "text",
-          "expected": "755",
+          "expected": "555",
           "key": "mode",
           "uncompared_because": ""
         },
@@ -4819,7 +4866,7 @@
         }
       ],
       "preexisting_statuses": [],
-      "purpose": "Prove the installed case program is root:root 0755 and not set-user-ID.",
+      "purpose": "Prove the installed case program is root:root 0555 and not set-user-ID.",
       "refusal_required": false,
       "role": "prerequisite",
       "run_as": "root",
@@ -8190,9 +8237,7 @@
       "establishes_ownership_by_creation": [],
       "establishes_ownership_of": [],
       "establishes_ownership_of_contained": [],
-      "evidence_case_ids": [
-        "S4-3"
-      ],
+      "evidence_case_ids": [],
       "expected_refusal": "any other directive set is INCONCLUSIVE rather than a failure: it says the sandbox under test was not the one the design describes.",
       "expected_result": "ProtectSystem=strict and ReadWritePaths=/var/lib/fb-evidence-p5-0/probe \u2014 the deployed unit's directive set, with the single recorded ReadWritePaths= substitution.",
       "identity_name": "",
@@ -8213,7 +8258,7 @@
         }
       ],
       "preexisting_statuses": [],
-      "purpose": "S4-3: the directive set systemd actually applied to the unit S4-2 ran in, compared out of band with the deployed unit's. A mismatch is inconclusive: the transient unit did not exercise the sandbox the writer will run under, so S4-1 and S4-2 attest nothing about it.",
+      "purpose": "A partial capture of the directive set systemd applied to the unit S4-2 ran in. **It is not S4-3 evidence**: S4-3 is declared unresolved under C-S4-3 (`STAGE4-S4-3`), because two properties cannot satisfy condition 4's complete comparison.",
       "refusal_required": false,
       "role": "standalone",
       "run_as": "root",
@@ -9999,14 +10044,18 @@
     "schema_version": 3,
     "synthetic_target_identity": "SYNTHETIC-FIXTURE",
     "withheld": [
-      "Overall required-case completeness is withheld. The required cases outside this importer's scope are produced by the executed plan, and no validated execution observation has been joined to this result under the same target, run and review-manifest digest.",
-      "Operational eligibility is withheld for the same reason. A Band-7 result cannot be the basis for accepting evidence whose capability cases and their controls are not in it."
+      "Overall required-case completeness is withheld. The required cases outside this importer's scope are of two kinds, and neither is in this result. The capability cases are produced by the executed plan's steps, and no validated execution observation has been joined to this result under the same target, run and review-manifest digest. S4-3 has no producer at all: no step produces it, no reviewed external producer supplies it, the plan declares it unresolved under C-S4-3, and no execution or supplied observation can cover it.",
+      "Operational eligibility is withheld for the same reason. A Band-7 result cannot be the basis for accepting evidence whose other required cases, produced or still without a producer, are not in it."
     ]
   },
   "target_facts": [
     {
       "name": "host",
       "value": "oracle-test"
+    },
+    {
+      "name": "kernel_nodename",
+      "value": "Test"
     },
     {
       "name": "ipv4",
@@ -10075,8 +10124,20 @@
     "root_path": "/var/lib/fb-evidence-p5-0"
   },
   "target_identity": "oracle-test:/var/lib/fb-evidence-p5-0",
-  "target_identity_digest": "ceb58ad1f9f0e07057ae9d292096a2f88910d5986a50507df8f7a7c14a149403",
+  "target_identity_digest": "fc2a9c9b9d581cc79c7f9bff15712ce4d2e958123c0f8b9d1a6fc2bc2b1308ff",
   "unresolved": [
+    {
+      "band": "filesystem",
+      "blocks_mutation_ids": [],
+      "conflict_id": "C-S4-3",
+      "design_requires": "S4-3 \u2014 \u00a72.13.2a: the transient unit's applied property set, captured by `systemctl show`, normalized and compared under the four conditions with the deployed unit and its drop-ins, and bound to the systemd identity it was made under. Resolution requires **all** of: (1) the reviewed deployed `freedom-sheet-writer.service` and its allowed drop-in policy; (2) a capture vector requesting every property in `unit_sandbox.COMPARED_PROPERTIES` exactly once; (3) the canonical `ReadWritePaths=` substitution, `unit_sandbox.CANONICAL_PROBE_PATH`; and (4) a reviewed producer and binding for `unit_sandbox.SystemdIdentity`.",
+      "evidence_case_ids": [
+        "S4-3"
+      ],
+      "step_ref": "STAGE4-S4-3",
+      "what_would_resolve_it": "a separately authorized, independently reviewed pass that adds the reviewed deployed unit and drop-in policy, widens the capture vector, and implements and integrates the reviewed `SystemdIdentity` producer \u2014 code and artifacts that change this generator. No review reference, label, path, digest or flag resolves it, and neither does a supplied observation, an `ExternalCase` or a PASSED record from `unit_sandbox`. Independent of C-7: resolving Band 7's producers leaves this open, and resolving this leaves C-7 open.",
+      "why_not_a_vector": "the step that runs `systemctl show` on the transient unit exists, but it cannot produce a passing S4-3: no reviewed deployed `freedom-sheet-writer.service` and allowed drop-in policy exists in this repository (P5.0-R5 reconciliation row 16); the capture vector does not request every property in `unit_sandbox.COMPARED_PROPERTIES` exactly once: it requests 2 of 12 compared properties; omits User, Group, NoNewPrivileges, CapabilityBoundingSet, AmbientCapabilities, ProtectHome, PrivateTmp, ProtectProc, RestrictSUIDSGID, ReadOnlyPaths; no reviewed producer and binding for `unit_sandbox.SystemdIdentity` exists in this repository. Widening the vector needs the deployed writer unit, and capturing the systemd identity needs a producer outside `plan.PERMITTED_EXECUTABLES`; both are gated work this plan does not perform."
+    },
     {
       "band": "provenance",
       "blocks_mutation_ids": [],

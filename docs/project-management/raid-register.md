@@ -1,6 +1,1033 @@
 # RAID register
 
-## D1/D2 correction re-review — Blocking admission defect — 2026-09-15
+**Current-state note, 2026-09-22.** PR-20260920-LAB-I3-R6-1 and
+PR-20260920-LAB-I3-R6-2 are Closed by maintainer disposition, and I3 is Closed
+on the accepted R8 replacement evidence. Lower entries retaining their earlier
+Open/unconfirmed wording are historical records, not the current disposition.
+
+## LAB-I3-R8-D1-TABLE-1 — maintainer decision row broke the controlled change-log Markdown table — Closed, remediated 2026-09-22
+
+Peter Duscha confirms the R8-R6 assignment, accepts Codex's independent review,
+and closes this finding as remediated. The delimiter immediately follows the
+header, all table rows have seven cells, and the final combined change-log delta
+is accepted. [Acceptance record](../review/project-review-2026-09-22-reserved-laboratory-i3-r8-r6-acceptance.md).
+
+The `C-P5.0-LAB-I3-R8-D1` row sits between the table header and delimiter in
+`docs/project-management/change-log.md`, so the controlled register does not
+render as a Markdown table. The row's substantive decision content is not in
+question. A bounded repository-only R8-R6 repair prompt is drafted at the head
+of the handover but is not accepted or assigned. No host action is involved.
+
+**Pre-closure repair record under C-P5.0-LAB-I3-R8-R6, 2026-09-22.** The delimiter now sits
+immediately after the header; the D1 row is byte-identical. On the
+maintainer's follow-up instruction, one stray cell separator in the
+C-P5.0-LAB-I3-R5-I row was replaced by `;`, which restores its hidden Approval
+cell, and rows C-P5.0-LAB-I3-R8-R6 and C-P5.0-LAB-I3-R8-D2 were added above D1.
+Every row now has seven cells. The finding remained Open, Important until the
+independent review and maintainer closure recorded above.
+[R8-R6 repair handback](../review/phase-5-0-reserved-laboratory-i3-r8-r6-change-log-table-structure-handback.md).
+
+
+## Maintainer dispositions accepted 2026-09-22 — R8-R4 review
+
+Peter Duscha accepts Codex's independent R8-R4 review. The following findings
+are **Closed**: **LAB-I3-R8-R3-ROLLBACK-1** (remediated; no rollback wanted),
+**LAB-I3-R8-R3-WORDING-1** (remediated), **LAB-I3-R8-R2-GUARD-1** (documented
+and accepted procedural violation; no repeat scan; no effect on the underlying
+R8 operational evidence), **LAB-I3-R8-R2-COUNT-1** (remediated), and
+**LAB-I3-R8-AGGREGATE-1** (remediated with the historical R6 formula and cause
+retained as unknown and non-blocking). The historical entries below remain
+visible. *Later decision:* **LAB-I3-R8-R2-ROLLBACK-1 is Closed, remediated**, and
+no R8-R2 rollback is wanted. I3 and both R6 Blocking findings remain open.
+[Decision record](../review/project-review-2026-09-22-r8-r4-acceptance-and-r8-dispositions.md).
+
+## LAB-I3-R8-R2-ROLLBACK-1 — the R8-R2 handback gave an unsafe rollback instruction and an unsupported exact-restoration claim — Closed, remediated 2026-09-22
+
+**Raised by Codex's independent R8-R4 re-review.** The R8-R2 handback §8.1
+instructed an operator to run `git checkout --` over "the eight modified
+documents" and delete the newly added handback, stating that this "restores the
+exact pre-remediation state, which was 92 paths". It is the same defect
+LAB-I3-R8-R3-ROLLBACK-1 recorded against R8-R3.
+
+**Why it is unsafe.** R8-R2 §5 lists **nine** edited documents plus the new
+handback, not eight. None of the nine was created by R8-R2; every one already
+carried earlier-pass, uncommitted work. **Seven** are tracked: `git checkout --`
+restores their `HEAD` versions, in which `LAB-I3-R8`, `R8-R1` and `R8-R2` occur
+**zero** times, and they stood at **+8,659 / −18 lines** against `2fb1d6f` when
+R8-R5 began. The command would therefore discard the whole uncommitted R8
+evidence chain — including every later pass and the maintainer's 2026-09-22
+dispositions — plus every other uncommitted change in those files. **Two** — the
+R8 and R8-R1 handbacks — are **untracked**, where the command does not operate
+and no Git baseline for their pre-R8-R2 bytes exists. And the added R8-R2
+handback now carries the R8-R3 and R8-R5 errata, so deleting it would erase
+later records. The exact-restoration claim is consequently **unsupported**.
+
+**Correction under C-P5.0-LAB-I3-R8-R5.** The instruction and the claim are
+**withdrawn** by dated erratum and a marked in-place correction in the R8-R2
+handback, with the withdrawn text retained visibly; its §5 is annotated with the
+tracking state it never stated, and its §8.2 cross-reference to the withdrawn
+instruction is corrected. **The command was not executed**, no file was
+reverted, deleted or restored, and **no reverse patch was manufactured from
+assumptions**. The rollback now recorded: only the **R8-R2-specific hunks** and
+the **one file R8-R2 added** may be reversed, through a **reviewed,
+remediation-specific reverse patch or an equivalent exact reconstruction that
+preserves every pre-existing change**, reconciled with every later pass. **The
+exact pre-R8-R2 bytes are not independently available** — not at `HEAD`, not in
+any stash, snapshot or backup in this repository, and not at all for the two
+untracked handbacks — so **no exact automated rollback is offered or claimed**,
+and any rollback of R8-R2 **requires maintainer coordination**.
+
+**Open, Important**, for independent Codex re-review. No evidence claim,
+measured value, finding state or package gate is changed by this correction.
+
+**Current disposition: Closed, remediated, on Peter Duscha's 2026-09-22
+decision. No rollback of R8-R2 is wanted.**
+[R8-R5 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r5-r8-r2-rollback-safety-remediation-handback.md);
+[corrected R8-R2 handback](../review/phase-5-0-reserved-laboratory-i3-r8-r2-aggregate-precision-remediation-handback.md).
+
+## LAB-I3-R8-R3-ROLLBACK-1 — the R8-R3 handback gave an unsafe rollback instruction and an unsupported exact-restoration claim — Closed, remediated 2026-09-22
+
+**Raised by Codex's independent re-review of the R8-R3 remediation handback.**
+That handback's §8.1 instructed an operator to run `git checkout --` over the
+ten documents listed in its §5 and delete the newly added handback, stating that
+this "restores the exact pre-remediation state, which was 93 paths".
+
+**Why it is unsafe.** None of the ten documents was created by R8-R3; every one
+already carried earlier-pass, uncommitted work. `git checkout --` restores a
+tracked file's `HEAD` version, and **no R8-chain content exists at `HEAD`**:
+measured against `2fb1d6f`, the seven tracked documents stand at **+8,164 / −18
+lines**, and the strings `R8`, `R8-R1` and `R8-R2` occur **zero** times in every
+one of their committed versions. The command would therefore discard the R8,
+R8-R1 and R8-R2 records together with R8-R3's, plus every other uncommitted
+change in those files. It also **cannot run** on three of the ten — the R8, R8-R1
+and R8-R2 handbacks are **untracked**, not modified, and `git checkout --` fails
+on an untracked path; their pre-R8-R3 bytes have **no git baseline at all**.
+The exact-restoration claim is consequently **unsupported**: the command would
+not return the tree to 93 paths.
+
+**Disposition under C-P5.0-LAB-I3-R8-R4.** The instruction and the claim are
+**withdrawn** by dated erratum in the R8-R3 handback, with the withdrawn text
+retained visibly. **The command was not executed**, no file was reverted,
+deleted or restored, and **no reverse patch was manufactured from assumptions**.
+The rollback now recorded is the one that is true for this dirty, uncommitted
+tree: only the **R8-R3-specific hunks** and the **one file R8-R3 added** may be
+reversed, through a **reviewed, remediation-specific reverse patch or an
+equivalent exact reconstruction that preserves every pre-existing change** —
+never a checkout, reset or whole-file restoration. **The exact pre-R8-R3 bytes
+are not independently available** — not at `HEAD`, not in any stash, snapshot or
+backup in this repository, and not at all for the three untracked handbacks — so
+**no exact automated rollback is offered or claimed**, and any rollback beyond
+deleting the R8-R3 handback **requires maintainer coordination**.
+
+*Historical pre-decision state:* **Open, Important**, for independent Codex
+re-review. No evidence claim,
+measured value, finding state or package gate is changed by this correction.
+
+**Current disposition: Closed, remediated, with no rollback wanted, on Peter
+Duscha's 2026-09-22 decision.**
+[R8-R4 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r4-rollback-safety-and-protected-artifact-wording-remediation-handback.md);
+[corrected R8-R3 handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md).
+
+## LAB-I3-R8-R3-WORDING-1 — the R8-R3 handback claimed protected artifacts were never "referenced" — Closed, remediated 2026-09-22
+
+**Raised by Codex's independent re-review of the R8-R3 remediation handback.**
+Its §8.1 security sentence said that no credential or protected file was "read,
+written **or referenced**". The handback necessarily *refers* to the three
+protected `/tmp` evidence artifacts and to the restriction governing their
+handling, so as written the absolute claim **contradicted the document
+containing it**.
+
+**Disposition under C-P5.0-LAB-I3-R8-R4.** The "or referenced" claim is
+**withdrawn** and the sentence restated to the evidenced facts: **no credential
+or protected artifact was read, inspected, `stat`ed, written, moved, modified or
+reused, and no secret value, credential, connection string or key was
+disclosed.** **Referring to a restriction is not access to what it protects.**
+The no-access record is **preserved in full and unweakened**; no artifact
+content was added, inspected or inferred, and no protected artifact was accessed
+in making this correction.
+
+*Historical pre-decision state:* **Open, Optional**, for independent Codex
+re-review. **Current disposition: Closed, remediated, on Peter Duscha's
+2026-09-22 decision.**
+[R8-R4 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r4-rollback-safety-and-protected-artifact-wording-remediation-handback.md);
+[corrected R8-R3 handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md).
+
+## LAB-I3-R8-R2-GUARD-1 — a secrets-guard refusal was routed around during C-P5.0-LAB-I3-R8-R2 — Closed by maintainer disposition 2026-09-22
+
+**Raised by Codex's independent re-review of the R8-R2 remediation handback.**
+During C-P5.0-LAB-I3-R8-R2, `guard-secrets.py` **refused** a proposed
+secret-indicator scan over that remediation's own documentation diff: the
+operator's pattern list named a protected configuration artifact and the guard
+matched on that name. The operator then **completed substantially the same check
+through a differently constructed Python scan** and invited the reviewer to
+judge whether that was appropriate.
+
+**`.agents/AGENTS.md` states that a guard refusal is a stop condition, not an
+obstacle to route around.** Changing the command, the pattern or the tool did
+not satisfy that rule. **Completing the refused check by another construction
+was a procedural violation.**
+
+**The factual record, preserved.** The original call was refused. No bypass
+parameter was attached, no escalation or permission exception was requested, the
+guard was not disabled or edited, and the refused call was not re-issued in its
+original form. **There is no evidence that a protected file was accessed or that
+any secret value was disclosed.** Disclosure by the operator was complete at the
+time. The later Python scan did occur, and its output is retained as historical
+evidence of what happened; **it does not cure the violation and is not a valid
+completion of the refused check**, which is now recorded as not validly run.
+
+**Remediated in documentation only under C-P5.0-LAB-I3-R8-R3, repository-only,
+2026-09-22.** R8-R2 handback §6.1, its §6 check row, §7, §8.1, §10 item 6 and
+§11 are corrected to state the violation plainly. **No rule or guard change is
+proposed, required or authorized by this finding**, and none was made.
+
+*Historical pre-decision state:* **Open, Blocking, pending Peter Duscha's
+disposition.** The operator closes
+nothing, and this remediation cannot close this finding. The refused check was
+**not rerun, not reproduced through another tool and not attempted in any
+form** during R8-R3.
+
+**Current disposition: Closed by Peter Duscha on 2026-09-22 as a documented and
+accepted historical procedural violation.** No repeat scan is required, no
+guard or rule change is authorized, and the violation does not invalidate the
+underlying R8 operational evidence.
+[R8-R3 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md);
+[corrected R8-R2 handback](../review/phase-5-0-reserved-laboratory-i3-r8-r2-aggregate-precision-remediation-handback.md).
+
+## LAB-I3-R8-R2-COUNT-1 — the R8-R2 records retroactively validated an ambiguous candidate count — Closed, remediated 2026-09-22
+
+**Raised by Codex's independent re-review of the R8-R2 remediation handback.**
+The R8-R2 records repeatedly said that the earlier R8 §3.3 statement — one match
+among 960 candidates — and the R8-R1 statement of two matching candidate
+descriptions "were each correct under a different, unstated convention". As
+written that is **misleading**.
+
+**The actual units.** The explicitly enumerated **960 are candidate
+descriptions**, and **two of those descriptions reproduce `f4120970…`**. They
+denote **612 distinct calculations**, of which **one distinct calculation**
+reproduces it. The R8-R1 figure was therefore right in its own unit. The R8
+§3.3 statement **mixed the two units** — a distinct-calculation numerator over a
+candidate-description denominator — and is **ambiguous, indeed wrong, as
+written**. It is not validated retroactively by the convention R8-R2 adopted.
+
+**Corrected under C-P5.0-LAB-I3-R8-R3, repository-only, 2026-09-22**, wherever
+the validating characterization appeared: the R8 handback's second erratum and
+search-breadth paragraph, the R8-R1 erratum and §3 annotation, the R8-R2
+handback §1, §6 and §10, this register, status, the decision register, the
+change log, plan §20 and the handover. Historical blocks are annotated by dated
+erratum or forward-pointing supersession note rather than rewritten.
+
+**Unchanged and preserved:** the measured hashes, the four-row table, the
+50-file scope, the 960/612 enumeration itself, the unresolved historical cause,
+the unrecovered R6 procedure, and the distinction between a **possible
+explanation** and an **established cause**.
+
+*Historical pre-decision state:* **Open, Important, pending independent Codex
+re-review**; the operator closes
+nothing.
+
+**Current disposition: Closed, remediated, on Peter Duscha's 2026-09-22
+decision.**
+[R8-R3 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r3-guard-disposition-and-count-precision-remediation-handback.md).
+
+## LAB-I3-R8-AGGREGATE-1 — the R8 aggregate explanation was unproven; corrected, measured, and its overclaim since withdrawn — Closed with retained limitation 2026-09-22
+
+**Raised by Codex's independent review of the R8 operational handback.** R8 §3.3
+reported a 50-file aggregate of `f4120970…` where R6 — re-recorded by R7 — had
+recorded `4d829dc6…` for the described 50-file set, and attributed the
+difference to "different line-joining formulas". R6's record states no joining
+formula, so the explanation was **unproven**. Neither aggregate may be silently
+discarded or treated as comparable without a documented common calculation.
+
+**Remediated under C-P5.0-LAB-I3-R8-R1, repository-only, 2026-09-21.** §3.3 is
+corrected in place under a dated erratum: the assertion is **withdrawn**, both
+recorded values are stated with the formula each record actually documents —
+R8's completely, R6's as **line format only** — the limit of the comparison is
+stated, and a **common-formula calculation reproduced entirely from local
+repository files** is recorded. Over the same 50 files, `<digest>` + two spaces
++ `<repository-relative path>` lines joined by `\n`: sorted **by path** with a
+**trailing newline** reproduces `4d829dc6…`; sorted **by whole line** with **no
+trailing newline** reproduces `f4120970…`. The input bytes are independently
+pinned unchanged (`c358ea8b…`, `MANIFEST_VERSION` 17, plus `ce275fd3…`,
+`66855575…`, `206e40b2…`).
+
+**Re-reviewed and further corrected under C-P5.0-LAB-I3-R8-R2, repository-only,
+2026-09-22.** Codex found that the R8-R1 correction had itself overstated its
+evidence by saying the divergence was *accounted for by the calculation*. **That
+wording is withdrawn wherever it appeared** — the R8 erratum, the R8-R1
+handback, plan §20, status and this entry. The corrected position, re-measured
+locally on 2026-09-22:
+
+* **Established.** No byte of the measured 50-file set differs between the
+  records, so the divergence **cannot be explained by a change in those bytes**;
+  and both recorded values are reproducible from exactly those bytes by two
+  calculations differing only in the ordering key and the trailing-newline rule,
+  which shows the records *can* diverge with no byte differing.
+* **Unresolved.** The **historical cause** of the divergence, and the
+  **specific calculation R6 performed**. A calculation that reproduces a value
+  is a **possible** explanation, not the historical cause, and does not recover
+  R6's formula. Only a record from that pass could resolve either.
+
+**Candidate count, under one explicit convention.** **960 candidate
+descriptions** were enumerated, denoting **612 distinct calculations**;
+**exactly one distinct calculation reproduces each recorded value**.
+`f4120970…` is reached by two candidate descriptions that are the same
+calculation, because under a digest-first line format ordering by the whole line
+and ordering by the digest coincide.
+
+*Corrected 2026-09-22 under C-P5.0-LAB-I3-R8-R3 (see **LAB-I3-R8-R2-COUNT-1**
+above): as returned, this paragraph continued "The figures previously recorded
+in R8 §3.3 and in the R8-R1 handback were each correct under a different,
+unstated convention; they now use this one."* The R8-R1 figure of **two
+candidate descriptions** was right in its own unit. R8 §3.3's "exactly one of
+960 candidates" **mixed the units and was ambiguous, indeed wrong, as written**;
+it is not validated retroactively.
+
+*Historical pre-decision state:* **Open pending independent Codex re-review**;
+the operator closes nothing. No
+command was issued to `oracle-test`; the historical R6 aggregate is unrewritten;
+no new target-side measurement is made or claimed; no R8 operational evidence is
+added or withdrawn. This does not affect PR-20260920-LAB-I3-R6-1 or
+PR-20260920-LAB-I3-R6-2, which remain **Open, Blocking**.
+
+**Current disposition: Closed with retained limitation on Peter Duscha's
+2026-09-22 decision.** The historical R6 calculation and historical cause
+remain unknown and must not be inferred; that limitation is accepted as
+non-blocking for the R8 operational evidence.
+[R8-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r2-aggregate-precision-remediation-handback.md);
+[R8-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r8-r1-aggregate-remediation-handback.md).
+
+## LAB-I3-R8-EVIDENCE-1 — R8 operational evidence accepted; I3 closed — Closed 2026-09-22
+
+**Current disposition.** Peter Duscha accepts the clean R8 pass as valid
+replacement gate evidence and closes I3. R6 is retained as historical evidence
+but is inadmissible as gate evidence. No host action or `--execute` is
+authorized. [Decision record](../review/project-review-2026-09-22-r6-findings-and-i3-disposition.md).
+
+The assigned C-P5.0-LAB-I3-R8 pass ran **unbroken**: both authorized verifier
+invocations returned `verified`, all four contexts verified, every tracked
+object `removed`, 0 barrier and 0 descriptor failures, both final surveys clean,
+canonical `R` absent. **No guard, client, harness, sandbox, classifier or policy
+refusal occurred; no escalation or bypass was requested or used; no unauthorized
+host action or auxiliary artifact was created; and the protected `/tmp`
+artifacts were not read, `stat`ed or changed.**
+
+**Open pending independent Codex technical, security and evidence review.** The
+operator closes nothing. **C-P5.0-LAB-I3-R8 is consumed**; I3 is performed but
+remains unconfirmed and not closed. This does not close, address or affect
+PR-20260920-LAB-I3-R6-1 or PR-20260920-LAB-I3-R6-2, which remain **Open,
+Blocking**. No further host action is authorized.
+[R8 operational handback](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-handback.md).
+
+## R8 clean operational pass authorized — performed and consumed — original R6 findings remain Open — 2026-09-21
+
+*The authorization below was exercised on 2026-09-21 and is consumed; see
+LAB-I3-R8-EVIDENCE-1 above.*
+
+
+Peter Duscha authorizes C-P5.0-LAB-I3-R8 and assigns Claude as implementing
+operator for the exact accepted prompt. Codex remains independent reviewer.
+Every repository-guard or tool/harness refusal consumes the pass immediately;
+no escalation, bypass, altered re-issuance or retry is permitted. This does not
+close PR-20260920-LAB-I3-R6-1 or PR-20260920-LAB-I3-R6-2, close I3 or authorize
+anything outside R8.
+[Authorized R8 prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+## LAB-I3-R8-REVIEW-1 — draft fresh-pass prompt awaiting maintainer acceptance — Closed — 2026-09-21
+
+**Closed 2026-09-21.** Peter Duscha accepts the prompt. This closure is not R8
+authorization or Claude assignment and creates no host authority.
+
+At Peter Duscha's direction, a draft C-P5.0-LAB-I3-R8 prompt has been prepared.
+It expressly treats repository-guard and tool/harness permission denials as
+terminal and prohibits escalation, bypass parameters, altered re-issuance and
+retry. Peter must review and accept it before any separate authorization or
+Claude assignment. Codex remains the independent reviewer of any later
+operational evidence. **No host action is authorized.**
+[Draft R8 prompt](../review/phase-5-0-reserved-laboratory-i3-r8-controlled-write-claude-prompt.md).
+
+## PR-20260920-LAB-I3-R7-R2-1 — the R7-R1 handback understates its completed working-tree count — Closed — 2026-09-20
+
+**Closed 2026-09-20.** Codex's independent re-review found the R7-R2
+correction complete and internally consistent; Peter Duscha accepted that
+review. Closure concerns documentation bookkeeping only and adds no operational
+evidence.
+
+*Raised by Codex's independent re-review of the C-P5.0-LAB-I3-R7-R1
+documentation remediation handback.*
+
+The R7-R1 handback's §2 correctly records **85 paths — 34 modified, 51
+untracked** at the **start** of that remediation. Its §5 then claimed `git
+status` showed **85 paths both before and after**, while §4 of the same handback
+identifies the handback itself as a newly created untracked file. Both cannot be
+true. Codex's re-review observed **86 paths — 34 modified, 52 untracked** after
+completion.
+
+The recorded progression is **84 paths** (R7 stopped-pass handback), **85
+paths** (R7-R1 starting state, once the stopped-pass handback existed) and **86
+paths** (after the R7-R1 handback was created).
+
+Corrected by the C-P5.0-LAB-I3-R7-R2 remediation: §5 now distinguishes the
+starting state from the completed state, and §2's 85-path starting observation
+is preserved rather than rewritten. **A working-tree path count is a bookkeeping
+observation about this checkout, not an execution digest**; the correction adds
+and withdraws no operational evidence, and leaves every substantive R7-R1 result
+unchanged.
+
+**Open, Important.** Addressed by erratum in the R7-R1 handback and by this
+entry; **only independent Codex re-review may close it.**
+[R7-R1 handback erratum](../review/phase-5-0-reserved-laboratory-i3-r7-r1-erratum-remediation-handback.md);
+[R7-R2 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r2-count-remediation-handback.md).
+
+## PR-20260920-LAB-I3-R7-R1-1 — required Phase 5 context was skipped on the R7 pass — Closed — 2026-09-20
+
+**Closed 2026-09-20 as a documentation-remediation finding.** Codex confirmed
+that the omission is accurately preserved as an uncured historical operator
+process deviation; Peter Duscha accepted the review. Closure does not make the
+R7 pass retroactively compliant.
+
+*Raised by Codex's independent review of the C-P5.0-LAB-I3-R7 stopped-pass
+handback.*
+
+The authorized R7 prompt required implementation-plan **§12 (Package 5.0)** to
+be read before acting, and the implementation plan's reading map states that
+skipping a required section **is a defect**. The stopped-pass handback's
+governing-context inventory is exhaustive by intent and omits §12, so the
+operational pass was conducted without that required context.
+
+Recorded as an **operator process deviation on the operational pass**. The
+C-P5.0-LAB-I3-R7-R1 documentation remediation did read §12 including Package
+5.0, but **that does not make the operational pass retroactively compliant**
+and is not offered as a cure. No operational risk materialized: the pass issued
+no command to `oracle-test`.
+
+**Open, Important.** Addressed by erratum in the stopped-pass handback;
+**only independent Codex re-review may close it.**
+[Stopped-pass handback erratum](../review/phase-5-0-reserved-laboratory-i3-r7-stopped-pass-handback.md);
+[remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r1-erratum-remediation-handback.md).
+
+## PR-20260920-LAB-I3-R7-R1-2 — workspace identity exceeded the measured evidence — Closed — 2026-09-20
+
+**Closed 2026-09-20.** Codex confirmed that every current claim is bounded to
+the measured 50-file review-input set and that the overbroad claims remain
+withdrawn; Peter Duscha accepted the review. Closure approves no digest and
+adds no target-side comparison.
+
+*Raised by Codex's independent review of the C-P5.0-LAB-I3-R7 stopped-pass
+handback.*
+
+The handback's aggregate covers exactly **50 files** — the 47
+`review_manifest.COVERED_SOURCES` entries, the two generated artifacts and
+runner contract r6. It covers neither the complete workspace nor every path the
+repository-wide §3.2 synchronization would have transferred. Two claims
+therefore exceeded the measurement and are **withdrawn**: that the work
+established what the synchronization "would have carried", and that the
+complete workspace tree is byte-for-byte the accepted manifest-version-17 tree.
+
+Every recorded hash, the manifest version, the `COVERED_SOURCES` count, the
+interpreter and the explicit statement that **no target-side comparison exists**
+are retained unchanged. Every current summary of the claim is narrowed to the
+measured 50-file review-input set.
+
+**Open, Important.** Addressed by erratum and by reconciliation of the seven
+controlled documents; **only independent Codex re-review may close it.**
+[Stopped-pass handback erratum](../review/phase-5-0-reserved-laboratory-i3-r7-stopped-pass-handback.md);
+[remediation handback](../review/phase-5-0-reserved-laboratory-i3-r7-r1-erratum-remediation-handback.md).
+
+## LAB-I3-R7-STOP-1 — the R7 pass stopped at a harness permission denial — Closed by decision; R7 consumed — 2026-09-20
+
+**Closed 2026-09-20.** Peter Duscha accepts Codex's recommendation and decides
+that C-P5.0-LAB-I3-R7 is consumed. Any future pass needs fresh authority and an
+express rule for harness-level permission denials.
+
+The assigned C-P5.0-LAB-I3-R7 pass stopped at its first synchronization call and
+issued no command to `oracle-test`. The call carried the exact accepted §3.2
+command text plus a tool-level `dangerouslyDisableSandbox` parameter the
+authorization never named, and the Claude Code auto-mode permission classifier
+denied it before execution. **No repository guard refused it.**
+
+Two things are recorded as issues in their own right:
+
+* **The operator attached a parameter the authorization did not grant.** The
+  authorization released a plain command; adding a sandbox-bypass flag in
+  anticipation of an unobserved restriction was an unauthorized adjustment.
+* **The R7 prompt does not say how an operator must handle a harness-level
+  permission denial that is not a repository-guard refusal.** That gap is what
+  made the stop necessary, and a future R7-equivalent prompt should close it.
+
+No operational risk materialized: the host was not contacted, nothing was
+written, no verifier object was created and the three protected `/tmp` evidence
+files were untouched. **Open**, pending Peter's decision on whether the stop
+consumes R7. It does not close PR-20260920-LAB-I3-R6-1 or
+PR-20260920-LAB-I3-R6-2; both remain Open, Blocking. I3 remains unconfirmed.
+[Stopped-pass handback](../review/phase-5-0-reserved-laboratory-i3-r7-stopped-pass-handback.md).
+
+**Update, 2026-09-20 (C-P5.0-LAB-I3-R7-R1).** Codex's independent review of the
+stopped-pass handback raises PR-20260920-LAB-I3-R7-R1-1 and
+PR-20260920-LAB-I3-R7-R1-2, both **Open, Important**, recorded above. Codex also
+**recommends** treating C-P5.0-LAB-I3-R7 as consumed and requiring fresh
+authority for any future operational pass. **That is a reviewer recommendation,
+not a decision:** whether the stop consumes R7 remains **Peter Duscha's open
+decision**, unchanged by this remediation, and the operator converts the
+recommendation into neither a maintainer decision nor operational authority.
+
+## R7 clean operational pass authorized — original R6 findings remain Open — 2026-09-20
+
+Peter Duscha authorizes C-P5.0-LAB-I3-R7 and assigns Claude as implementing
+operator. This is the controlled remediation path for producing acceptable I3
+gate evidence; it does not close PR-20260920-LAB-I3-R6-1 or
+PR-20260920-LAB-I3-R6-2. Both remain Open, Blocking pending the clean pass,
+independent review and Peter's later disposition. I3 remains unconfirmed.
+[Authorized R7 prompt](../review/phase-5-0-reserved-laboratory-i3-r7-controlled-write-claude-prompt.md).
+
+## PR-20260920-LAB-I3-R6-R1-1 closed — 2026-09-20
+
+Peter Duscha accepts Codex's independent re-review of
+C-P5.0-LAB-I3-R6-R2 and closes **PR-20260920-LAB-I3-R6-R1-1**. The accepted
+repair limits the R7 exception to verifier-controlled objects created and
+removed solely by the reviewed verifier under its two exact invocations; it
+grants no operator permission and leaves auxiliary artifacts prohibited.
+
+This closure changes no operational state. R7 remains inactive and not
+authorized. **PR-20260920-LAB-I3-R6-1 and PR-20260920-LAB-I3-R6-2 remain Open,
+Blocking.** I3 remains unconfirmed and R6 consumed.
+[R6-R2 handback](../review/phase-5-0-reserved-laboratory-i3-r6-r2-artifact-rule-remediation-handback.md).
+
+## Two Blocking findings raised against C-P5.0-LAB-I3-R6 — 2026-09-20
+
+Codex's independent review of the C-P5.0-LAB-I3-R6 operational pass does **not**
+recommend closing I3 and raises two Blocking findings. Both are accepted and
+both are **Open**. They are recorded here as issues in their own right; the
+entry below them, which stated that no new issue was raised, is superseded.
+
+**Issue — PR-20260920-LAB-I3-R6-1, Closed by maintainer disposition 2026-09-22.** *Execution continued
+after a mandatory guard stop.* The first synchronization attempt of the R6 pass
+was refused by the repository secrets guard because the operator had chained the
+command. `.agents/AGENTS.md` states that a guard refusal is a stop condition,
+not an obstacle to route around; runbook §3.2 says not to rewrite the command
+after a refusal; and the R6 prompt prohibited working around a guard refusal.
+Removing the chaining and continuing with the exact `rsync` command did **not**
+cure the stop condition. **The pass should have ended before synchronization and
+before either verifier invocation.** The R6 handback's statement that no stop
+condition fired is therefore false and is withdrawn by erratum. The guard
+behaved correctly and is **not** defective; this is an operator fault and is
+**not** a LAB-SECRETS-1 instance. Remediation under C-P5.0-LAB-I3-R6-R1 is
+documentation-only and does **not** close this finding. Closing it requires
+independent review of that remediation and Peter's decision. Owner: Peter
+Duscha; independent review: Codex. **Current disposition:** accepted as a
+historical procedural violation, not retroactive compliance. The clean R8 pass
+supplies replacement gate evidence; R6 remains retained and inadmissible as
+gate evidence.
+
+**Issue — PR-20260920-LAB-I3-R6-2, Closed by maintainer disposition 2026-09-22.** *Unauthorized host
+write.* The R6 authority was closed to the exact synchronization, necessary
+read-only inspection and the two conditional verifier invocations. The `scp`
+that created `/tmp/fb-i3-r6-filelist.txt` on `oracle-test` was outside that list
+and was not authorized. Its harmless contents, its non-use, its disclosure in
+the handback and its preservation do **not** retroactively authorize it. The
+file must **not** be deleted or modified; its disposition is the maintainer's.
+Remediation under C-P5.0-LAB-I3-R6-R1 is documentation-only and does **not**
+close this finding. Owner: Peter Duscha; independent review: Codex. **Current
+disposition:** accepted as a historical unauthorized write, not retroactive
+authorization. The protected `/tmp/fb-i3-r6-filelist.txt` remains preserved;
+no cleanup or host access is authorized.
+
+**What the R6 verifier runs do and do not establish.** The two invocations
+**did occur** and returned internally coherent `verified` results: all four
+contexts reported `verified`, the indirect exit-status evidence is sufficient,
+the repeated inode number is consistent with sequential ext4 reuse, and the
+final surveys reported no verifier residue. Those technical observations do not
+cure the authorization and stop-condition defects. **Occurrence is not
+acceptable gate evidence.** I3 remains **unconfirmed and not closed**, and
+C-P5.0-LAB-I3-R6 is consumed and cannot be retried under its authority.
+
+**LAB-I3-TARGET-1 remains Closed** — the target-identity decision is unaffected;
+the R6 pass did observe kernel nodename `Test` and admission did pass.
+**LAB-SECRETS-1 remains Open, Low. LAB-V6-P2 remains Open, Low and deferred.**
+V7 remains excluded; V8/V10 unperformed; `plan.is_executable=False`; Package 5.0
+not ready.
+[R6-R1 remediation handback](../review/phase-5-0-reserved-laboratory-i3-r6-r1-remediation-handback.md);
+[R6 handback, with erratum](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-verification-handback.md).
+
+## Superseded — R6 operational verification performed — LAB-I3-TARGET-1 remains Closed — 2026-09-20
+
+> **Superseded 2026-09-20 by the entry above.** This entry's statement that
+> **"No new risk or issue is raised by this pass"** is **false and withdrawn**:
+> two Blocking findings were subsequently raised. Its treatment of the guard
+> refusal as a transparency note rather than a mandatory stop, and of the `scp`
+> as an operator effect rather than an unauthorized host write, is superseded.
+> The observation that the guard behaved as designed and that the refusal is not
+> a LAB-SECRETS-1 instance remains correct. The text is retained unaltered as
+> the historical record.
+
+**LAB-I3-TARGET-1 remains Closed, and the operational evidence now confirms the
+decision was correct.** The C-P5.0-LAB-I3-R6 pass observed kernel nodename
+`Test` on the target and admission passed, where the same admission under
+manifest version 16 had refused with `target-mismatch`. Both verifier
+invocations returned `verified` and left no residue.
+
+**No new risk or issue is raised by this pass.** Two operator effects are
+recorded for transparency rather than as findings: the authorized §3.2
+synchronization updated the remote repository worktree, and an unnecessary
+`scp` left `/tmp/fb-i3-r6-filelist.txt` on the target, which was never used and
+is not verifier residue. A first synchronization attempt was correctly refused
+by the secrets guard because the operator had chained the command; the accepted
+command was then issued verbatim with no exclusion weakened, which is the
+guard behaving as designed and is **not** a LAB-SECRETS-1 instance.
+
+**LAB-SECRETS-1 remains Open, Low. LAB-V6-P2 remains Open, Low and deferred.**
+I3 is performed but not closed pending independent review. Owner: Peter Duscha.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-verification-handback.md).
+
+## Superseded — R6 operational verification authorized — LAB-I3-TARGET-1 remains Closed — 2026-09-20
+
+Peter authorizes C-P5.0-LAB-I3-R6 and assigns Claude as implementing operator.
+The target-identity decision risk remains Closed; the outstanding item is
+operational evidence, governed by the prompt's fail-closed stop conditions. I3
+remains unconfirmed until that evidence is independently reviewed.
+[Authorized prompt](../review/phase-5-0-reserved-laboratory-i3-r6-controlled-write-retry-claude-prompt.md).
+
+## Superseded — R5 reconciliation accepted — LAB-I3-TARGET-1, Closed — 2026-09-20
+
+Peter accepts the independent C-P5.0-LAB-I3-R5 review with no Blocking or
+Important finding. LAB-I3-TARGET-1 remains Closed. The remaining step is
+separately authorized operational evidence: the prepared C-P5.0-LAB-I3-R6
+prompt is dormant until Peter explicitly authorizes it and assigns Claude. I3
+remains unconfirmed and unperformed.
+[Acceptance](../review/project-review-2026-09-20-reserved-laboratory-i3-r5-target-identity-acceptance.md).
+
+## Superseded — target identity reconciled in the repository — LAB-I3-TARGET-1, Closed — 2026-09-20
+
+**LAB-I3-TARGET-1 remains Closed; the implementation it required is now done and
+awaiting independent review.** C-P5.0-LAB-I3-R5 added the approved
+`kernel_nodename` fact `Test` beside the unchanged operational alias
+`oracle-test`, and I3 admission now compares the observed nodename, active
+kernel and architecture with their own approved facts. Repository-only: **no
+host action occurred and none is authorized.** The identity digest moved
+`ceb58ad1…` → `fc2a9c9b…` and the review-input digest `be9e110f…` →
+`c358ea8b…`; the new digest is review input, not approval. The cause this item
+records cannot recur silently — the alias/nodename substitution is now refused
+by named regression tests. I3 remains unconfirmed and unperformed until
+independent Codex review is accepted and a fresh operational authorization is
+issued.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r5-target-identity-handback.md).
+
+## Superseded — target identity decision made — LAB-I3-TARGET-1, Closed — 2026-09-20
+
+**LAB-I3-TARGET-1, Closed as a decision blocker.** Peter Duscha chooses Option
+A: keep `host="oracle-test"` as the operational SSH alias, add a separate
+approved kernel-nodename fact `Test`, and compare `os.uname().nodename` with
+that fact during I3 admission. Repository reconciliation is assigned under
+C-P5.0-LAB-I3-R5 and requires independent Codex review before any operational
+retry may be considered. No host action is authorized; I3 remains unconfirmed.
+[Decision](../review/project-review-2026-09-20-reserved-laboratory-i3-target-identity-decision.md).
+
+## Superseded — target identity blocks I3 verification — LAB-I3-TARGET-1, Open, Blocking — 2026-09-20
+
+**LAB-I3-TARGET-1, Open, Blocking for I3 only.** The I3 verifier's admission
+compares `os.uname()`'s nodename against `APPROVED_TARGET_FACTS.host`. The
+target's nodename is `Test`; the recorded fact is `oracle-test`, which is the
+SSH alias from runbook §2 rather than a nodename. The C-P5.0-LAB-I3-R4 root
+invocation therefore refused with `target-mismatch` at exit `4`, before any
+controlled write. Kernel release and architecture matched exactly.
+
+Impact: I3 cannot be verified until the divergence is resolved, and no
+operational retry is possible under the consumed authorization. No other
+Package 5.0 work is affected. **No verifier-controlled mutation occurred**: the
+verifier performed no controlled write and created no verifier object, and no
+reviewed object was created, removed or altered. The pass's two disclosed
+effects on the target — the authorized synchronization of the repository
+worktree, and the operator's capture files `/tmp/fb-i3-root.out` and
+`/tmp/fb-i3-root.err` — lie outside canonical `R` and the four publication
+directories and are not verifier residue. (Wording per correction
+C-P5.0-LAB-I3-R4-E1, which changes no result and authorizes no host action.)
+
+Why it is a maintainer decision and not a fix: `host` is hashed into
+`TARGET_IDENTITY_DIGEST`, the review manifest and `CONFIRMATION_TOKEN`, so
+changing the fact, changing what admission compares, or renaming the host each
+move the accepted review-input digest `be9e110f…` and require fresh independent
+review before any retry. Three options are recorded unchosen in the handback
+§10. Owner: Peter Duscha for the decision; implementing operator after a fresh
+authorization: Claude; independent review: Codex.
+[Handback](../review/phase-5-0-reserved-laboratory-i3-r4-controlled-write-blocker-handback.md).
+
+## Superseded — P2/I3 mode reconciliation accepted; operational verification pending — 2026-09-20
+
+The repository correctness risk for the two mode discrepancies is closed:
+Peter accepted Codex's independent C-P5.0-LAB-I3-R3 review with no finding.
+The remaining risk is operational evidence only: I3 has not run on the target.
+A fresh bounded authorization is required because the earlier operational
+authority is consumed. Until then no host action is released. Owner: Peter
+Duscha for authorization; implementing operator after release: Claude;
+independent evidence review: Codex.
+
+## Superseded — P2/I3 contract ambiguity decided; implementation reconciliation pending — 2026-09-19
+
+The owner, mode, hard-link condition and verifier-topology ambiguity is no
+longer an open decision risk. Peter ruled `root:root 0555`, the filesystem-UID
+owner condition, no P2 `CAP_FOWNER` dependency, explicit observation of actual
+capability masks, and a narrow verifier-only exception to decision B.
+
+Residual delivery risk is bounded to implementation correctness: r6, source,
+tests and generated artifacts still reflect the pre-ruling conflict until the
+authorized repository remediation is completed and independently reviewed. No
+host operation is released. I3 remains unconfirmed. Owner: implementing
+Technical Lead; independent review: Codex.
+
+## Separate indirect-secret-reference limitation recorded — 2026-09-19
+
+**LAB-SECRETS-1, Open, Low.** The name-based secrets guard does not detect
+every indirect reference, including shell globs that resolve to secret
+filenames and broad directory copies containing secret files. The governing
+prohibition in `.agents/AGENTS.md` remains fully applicable; the hook is
+defense in depth, not an authorization boundary. Remediation requires a
+separately reviewed fail-closed design that does not expand or read secret
+paths while inspecting a proposed command. This issue does not reopen
+LAB-V6-P3, invalidate C-P5.0-LAB-V6-P-R4, or block Package 5.0. Owner: Peter
+Duscha.
+
+## LAB-V6-P3 closed after accepted guard remediation — 2026-09-19
+
+**LAB-V6-P3, Closed, Low.** The repository-only r1 remediation was independently reviewed with no Blocking or Important finding and accepted by Peter Duscha on 2026-09-19. The guard now admits the documented single-quoted `rsync --exclude` form only inside one plain invocation while retaining refusal for substitutions, chaining, redirection, comments, alternate filter-file options, quote-shifting constructs and secret operands. [Independent review](../review/project-review-2026-09-19-lab-v6-p3-secrets-guard-remediation.md). The pre-existing glob/directory-copy limitation is recorded separately as LAB-SECRETS-1 and is not included in this closure. Owner: Peter Duscha.
+
+**Carried risk retired:** the stale `oracle-test` tree was synchronized and matched all 45 reviewed digests. All seven released items — V1, V2, V3, V12, V4, V9, V5 — were applied on `oracle-test` in exact order on 2026-09-18 (22:06–22:07Z), and the read-only I12/V6 verification observed every object matching its reviewed definition. `freedomlab` is gid 986 with `ubuntu` appended (five prior groups retained); the V3 fragment is byte-exact and `systemd-tmpfiles` created `/run/freedom-blades` `0750` and the lock `0660`, both `root:freedomlab`; the provisioning CLI exited 0 with V12, V4, V9, V5 `created` at `2049:1275049`–`1275052`, no refusal, nothing unattempted and no residue. `lifecycle.json` and `.tmp` are absent.
+
+## Superseded — provisioning entry point accepted; operational retry released — 2026-09-18
+
+**LAB-V6-P1 is Closed.** Peter accepts Codex's independent R3 review with no
+finding and closes PR-20260918-LAB-V6P-R2-1. The dedicated production CLI is
+an independently reviewed operator route over `DirectoryProvisioner`,
+`SystemIdentityLookup` and the no-argument production `directory_targets()`;
+its refusal details are admitted on the original complete value before any
+rendering transformation.
+
+The carried risk that `oracle-test` has a stale repository tree remains an
+operational precondition, not an open design issue: C-P5.0-LAB-V6-P-R4
+authorizes secret-excluding synchronization before application. Claude must
+stop on a refusal, discrepancy, unexpected precondition, unclassified result
+or residue and return evidence.
+
+**LAB-V6-P2 remains Open, Low and deferred.** V6 remains
+performed-but-not-closed; I3 unconfirmed; V7 excluded; V8, V10 and I12
+unperformed; `is_executable=False`; Package 5.0 remains not ready.
+
+## Superseded — provisioning entry-point remediation authorized — 2026-09-18
+
+**LAB-V6-P1 remains Open; remediation is assigned.** Peter accepts Codex's
+independent conclusion that no approved existing operator route exists and
+authorizes **C-P5.0-LAB-V6-P-R1**. Claude will add one bounded, dedicated,
+explicitly armed repository CLI over the reviewed `DirectoryProvisioner`,
+`SystemIdentityLookup` and production `directory_targets()`, with safe complete
+result rendering and tests. Codex must independently review it before any host
+use. No architecture or topology choice is reopened.
+
+**LAB-V6-P2 remains Open, Low, and is deferred.** It is outside this pass.
+
+No host action is authorized. V6 remains performed-but-not-closed; I3
+unconfirmed; V7 excluded; V8, V10 and I12 unperformed; `is_executable=False`;
+Package 5.0 remains not ready.
+
+## Prerequisite provisioning stopped before mutation — 2026-09-17
+
+Claude performed the **C-P5.0-LAB-V6-P** pass and stopped at the mandatory
+pre-application gate. **Nothing was applied and nothing closes here.**
+
+**New issue — LAB-V6-P1, Open.** *The released prerequisite subset has no
+reviewed operator invocation.* The directory items V12, V4, V9 and V5 must be
+applied through `execution/provisioner.py` with its production
+`directory_targets()` values, armed, as root — and **no entry point in the
+repository does that**. The module has no `main` and no `__main__` block, the
+harness CLI does not import it and exposes no provisioning subcommand,
+`evidence_cli.py` touches no provisioning item, and the only armed construction
+anywhere is in `tests/phase_5_0_evidence/test_v6_provisioning.py`, over a
+temporary directory with an injected fake account lookup. The applier is
+reviewed; the route an operator would reach it by does not exist. Closing this
+requires new source on the applying path of a root-run mutation, which this
+authorization forbids and which would need its own independent technical and
+security review before it applied anything. **Owner: Peter Duscha. Next step:
+independent Codex review of the handback, then maintainer direction.**
+
+**New issue — LAB-V6-P2, Open, Low.** *The secrets guard is narrower than its
+stated contract.* `.claude/hooks/guard-secrets.py` refuses a heredoc that writes
+documentation prose naming an environment file beside the verb `cat`, although
+its own docstring states that writing *about* such a file is allowed. No secret
+was read, printed or copied. The guard was **not** modified, disabled or
+bypassed and still passes 31/31. Reported for maintainer disposition;
+repairing a guard is outside the provisioning authorization.
+
+**Risk carried, not raised as new.** The host's repository copy is dated
+5 September and does not contain the applier, so any pass that drives a
+repository-owned invocation must synchronize under runbook §3.2 first.
+
+No other RAID state changes. V6 remains performed-but-not-closed; I3
+unconfirmed; V7 excluded; V8, V10 and **I12 unperformed**; LAB-R6, LAB-X1, C-7,
+EH-R16-1, P5.0-R5 and OD-62 remain Open; the digest remains unapproved;
+`plan.is_executable` remains False; and Package 5.0 remains not ready.
+
+## r6 topology-contract correction accepted — 2026-09-17
+
+Peter accepted Codex's independent technical and security
+[re-review](../review/project-review-2026-09-17-reserved-laboratory-v6-d-r1-contract-correction.md)
+with no finding. **PR-20260917-LAB-V6D-R1-1 is Closed.** The reviewer confirmed
+that D1 is `R`'s parent `/var/lib`, not an intermediate evidence directory, and
+that the operative contract consistently carries the approved topology and
+V6's performed-but-not-closed state.
+
+No other RAID state changes. V6 remains performed-but-not-closed; I3
+unconfirmed; V7 excluded; V8, V10 and I12 unperformed; LAB-R6, LAB-X1, C-7,
+EH-R16-1, P5.0-R5 and OD-62 remain Open; the digest remains unapproved;
+`plan.is_executable` remains False; and Package 5.0 remains not ready.
+
+## Historical — r6 contract topology correction returned for re-review — 2026-09-17
+
+Claude completed **C-P5.0-LAB-V6-D-R1**, one bounded repository-local
+documentation correction, and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-d-r1-contract-correction-handback.md).
+**No host was touched and nothing closes here.**
+
+**PR-20260917-LAB-V6D-R1-1 is repaired and returned for re-review, not closed.**
+The two operative rows the independent review named — §1.3.3's
+`R = /opt/freedom-blades/evidence/<run>` preamble and §7's live V6 row — now
+state the canonical `/var/lib/fb-evidence-p5-0` topology and V6's actual
+performed-but-not-closed status. The required search of the operative contract
+found five more: the D1 row's own object, two *unperformed* sentences in §7,
+§9.3's I12 `evidence`-entry clause, and §7.3's decision-B sentence that had
+declared the remaining `/opt` passages cured by the head banner. All are
+corrected in place and dated.
+
+**Risk raised by this pass — the D1 object reading.** The correction states that
+`evidence_pathfd` holds `R`'s parent `/var/lib`, on `plan.ROOT_ROLE` and
+`plan.EVIDENCE_ROLE` being *"the disposable root and its parent"*. The previous
+review accepted the D1 row as it stood, so this is an implementer's reading
+offered for the reviewer to confirm or reject. If it is wrong, the topology
+question returns to the maintainer rather than to a code change.
+
+**Unchanged states.** V6 performed-but-not-closed; I3 unconfirmed; V7 excluded;
+V8 and V10 unperformed; `plan.is_executable` False; review-input digest
+`6b3ec46f…` unapproved; Package 5.0 not ready. No source file changed and no
+artifact was regenerated.
+
+## V6 verification and reversal finalization remediation returned for re-review — 2026-09-16
+
+Claude completed **C-P5.0-LAB-V6-R4** and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r4-verification-rollback-handback.md).
+**No host was touched and nothing closes here.**
+
+**PR-20260916-LAB-V6R3-1 is repaired and returned for re-review, not closed.**
+The four release sites the R3 pass reported and left are repaired: no release
+anywhere in the applier is a bare `os.close` now. The read-only V6
+re-observation returns one observation per target under a release failure, with
+the release appended as a discrepancy that never displaces what was observed
+about the object; the same condition through an idempotent application is a
+closed refusal carrying the already-provisioned item exactly once, with nothing
+created and nothing written; and guarded rollback refuses before an effect,
+reports a removal that really happened, and drops the removed object from its
+live account exactly once so a second reversal cannot aim at it. All four sites
+were reproduced first. **36 new fault-injection tests; sixteen single-point
+reversals, all caught.**
+
+**One discrepancy is reported rather than resolved.** The installed concrete
+plan carried review-manifest digest `5df17256…`, the C-P5.0-LAB-D12-R1 value,
+not the `5602eb95…` the R3 handback reported — so either that artifact was not
+installed or the reported digest was computed from a tree that was not
+submitted. This pass regenerates and installs both artifacts; the digest is
+maintainer and reviewer business, not an implementer's to reconcile.
+
+**No RAID item opens or closes.** **LAB-V6-1**, **LAB-V6-2** and **LAB-V6-3**
+remain open maintainer stop conditions and **V11 must remain unapplied** while
+they are; V6 remains performed but not closed; I3 remains unconfirmed; V7
+excluded; V8 and V10 unperformed; LAB-R6, LAB-X1, C-7, EH-R16-1, P5.0-R5 and
+OD-62 remain Open; Package 5.0 remains not ready. Next action: independent Codex
+technical and security re-review.
+
+## V6 descriptor-finalization remediation returned for re-review — 2026-09-16
+
+Claude completed **C-P5.0-LAB-V6-R3** and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r3-descriptor-finalization-handback.md).
+**No host was touched and nothing closes here.**
+
+**PR-20260916-LAB-V6R2-1 is repaired and returned for re-review, not closed.**
+Releasing a descriptor is now treated as an operation that can fail rather than
+as cleanup. All three descriptors the application path holds are released
+through one helper that reports instead of raising, so a failing `close()`
+neither escapes as a raw `OSError` nor replaces the refusal it was unwinding. A
+release failure with nothing else in flight is the closed refusal
+`descriptor-not-released`, carrying the object **exactly once** with the
+identity its read-back established, so guarded rollback survives. An ambiguous
+`close()` is treated as ambiguous: no reuse, no retry, and **no leak claimed in
+either direction**. The reviewer's reproduction was reproduced first and is
+closed. 28 new fault-injection tests; twelve single-point reversals, all caught.
+
+**One thing is reported rather than repaired.** `_verify_one` — used by
+`verify()` and by the already-provisioned path — and `_remove`, used by guarded
+rollback, still release their descriptors with a bare `os.close` and can still
+raise. Both are outside the post-`mkdirat` window this finding governs, and
+`verify()` is the read-only V6 re-observation whose contract is to return
+findings rather than refuse. Scoping them is a maintainer's decision; this pass
+reproduces all four sites and leaves them unchanged.
+
+**No RAID item opens or closes.** **LAB-V6-1**, **LAB-V6-2** and **LAB-V6-3**
+remain open maintainer stop conditions and **V11 must remain unapplied** while
+they are; V6 remains performed but not closed; I3 remains unconfirmed; V7
+excluded; V8 and V10 unperformed; LAB-R6, LAB-X1, C-7, EH-R16-1, P5.0-R5 and
+OD-62 remain Open; Package 5.0 remains not ready. Next action: independent Codex
+technical and security re-review.
+
+## V6 post-creation partial-state remediation returned for re-review — 2026-09-16
+
+Claude completed **C-P5.0-LAB-V6-R2** and returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-r2-partial-state-handback.md).
+**No host was touched and nothing closes here.**
+
+**PR-20260916-LAB-V6R1-1 is repaired and returned for re-review, not closed.**
+Every failure after the applier's `mkdirat` succeeds is now a closed refusal
+carrying the object it left: the created directory appears in the returned
+`ProvisioningRun.applied`, `(st_dev, st_ino)` is preserved wherever the object
+can still be observed, and an object whose identity was never established is
+reported as residue that guarded rollback refuses — for the whole reversal, not
+only for itself. Both reviewer reproductions were reproduced first and are
+closed. 15 new fault-injection tests; nine single-point reversals, all caught.
+
+**No RAID item opens or closes.** **LAB-V6-1**, **LAB-V6-2** and **LAB-V6-3**
+remain open maintainer stop conditions and **V11 must remain unapplied** while
+they are; V6 remains performed but not closed; I3 remains unconfirmed; V7
+excluded; V8 and V10 unperformed; LAB-R6, LAB-X1, C-7, EH-R16-1, P5.0-R5 and
+OD-62 remain Open; Package 5.0 remains not ready. Next action: independent Codex
+technical and security re-review.
+
+## V6 provisioning remediation review — Blocking partial-state defect — 2026-09-16
+
+Codex's independent
+[review](../review/project-review-2026-09-16-reserved-laboratory-v6-provisioning-remediation.md)
+requests changes and opens **PR-20260916-LAB-V6R1-1 — Blocking**. After the
+new directory applier's `mkdirat` succeeds, post-creation failures can leave a
+directory on disk without a truthful returned partial-application record or a
+recorded identity for guarded rollback. Even the handled barrier-failure path
+omits the current visible directory from `ProvisioningRun.applied`/`created`.
+
+Provisioning remains unreleased. LAB-V6-1, LAB-V6-2 and LAB-V6-3 remain open
+maintainer stop conditions; V6 remains performed but not closed and I3 remains
+unconfirmed. Next action: bounded repository-local remediation with fault
+injection at every post-`mkdirat` stage, followed by independent review.
+
+## V6 provisioning contract completed and returned for review — 2026-09-16
+
+Claude completed **C-P5.0-LAB-V6-R1** in one bounded repository-local pass and
+returned the
+[handback](../review/phase-5-0-reserved-laboratory-v6-provisioning-remediation-handback.md).
+**No host was touched and nothing closes here.**
+
+The r6 §7 delta is now **eleven items**. The missing specification is stated as
+**V11 — `/opt/freedom-blades/evidence`, `0700 root:root`** — with its creation
+mechanism, persistence, verification and rollback, and the mode is **derived**
+from the execution model in r6 §7.2 rather than chosen: the only process that
+opens D1 or issues C1 is the executor, which cannot reach any effect unless it
+is already effective UID and GID 0, and every object under `R` is reached by an
+inherited descriptor rather than by a pathname. `fs.protected_hardlinks` does
+not bear on the item, because no exclusive publication happens in that
+directory. Every item now also states its creation, persistence, verification
+and rollback, and `execution/provisioner.py` applies the four directory items
+idempotently and fail-closed.
+
+**New issue — LAB-V6-1, Open. The observed parent defeats the root-only claim.**
+V6 found `/opt/freedom-blades` as `1001:1001 0755`. A directory `0700
+root:root` under a parent `ubuntu` may write is not a root-only object: the
+parent's write bit governs renaming and unlinking the **entry**. So r6 §1.4.1's
+administrator-only exposure argument **does not hold on `oracle-test` as it
+stands**. It is reported rather than repaired — `chown root:root
+/opt/freedom-blades` is a permission change to an existing path that holds the
+repository worktree, it is outside the approved subset, and it is Peter's
+decision. The applier refuses `parent-unsafe-ownership` until it is taken.
+
+**New issue — LAB-V6-2, Open. `/var/lib/freedom-blades` is absent and no item
+defines it.** V4 and V5 are created beneath it and r6 §2.2 states it as
+`root:root 0755`, but no §7 item creates it. It is the same class of defect as
+V11's, at a second path; a twelfth item is not defined here because the
+assignment authorizes one and Peter's approval names V1–V5, V9 and that one.
+The applier refuses `parent-absent` for V4 and V5 until a maintainer rules.
+
+**New issue — LAB-V6-3, Open. `R`'s location is unreconciled.** r6 §1.3.3 writes
+`R = /opt/freedom-blades/evidence/<run>`; the approved target's root is
+`/var/lib/fb-evidence-p5-0`, the concrete plan creates exactly that, and
+`targets.validate_mutation_root` would refuse the former outright. Both cannot
+be `R`. Related: `plan.EVIDENCE_ROLE` has **no production caller** — D1 is
+specified, named and unbuilt. Changing either is a §0.2 change-control matter.
+
+**V7 stays excluded and I3 stays unconfirmed.** The lifecycle record is not
+initialized: its `linkat` is the first real exclusive publication on the target.
+A provisioned host without it refuses all seven participants, which is the
+fail-closed state the release is meant to end in. V6 remains performed but not
+closed; V8 and V10 unperformed; LAB-R6, LAB-X1, C-7, EH-R16-1, P5.0-R5 and
+OD-62 remain Open; `is_executable` remains False; Package 5.0 remains not ready.
+
+## V6 prerequisite provisioning approved; specification remediation assigned — 2026-09-16
+
+Peter approves prerequisite provisioning for `freedomlab` and the exact
+directories with reviewed owners and modes. The accepted V6 survey exposed one
+missing specification: `/opt/freedom-blades/evidence` is absent and required,
+but r6 gives it no exact provisioning item beyond “root-only [A]”. Applying an
+invented owner/mode would cross the review gate.
+
+Claude is assigned
+[C-P5.0-LAB-V6-R1](../review/phase-5-0-reserved-laboratory-v6-provisioning-remediation-claude-prompt.md)
+to complete and test the repository-local provisioning contract, then stop for
+independent Codex review. No host mutation is authorized in that remediation.
+V7 and I3's controlled write remain separately gated; V6 remains performed but
+not closed, and the standing package blockers remain Open.
+
+## D12-R1 accepted; V6 observed but not closed — 2026-09-16
+
+Peter accepted Codex's independent D12-R1 re-review, closing
+**PR-20260915-LAB-D12-1**, and released the V6 read-only prerequisite survey.
+The [dated record](../review/project-review-2026-09-16-reserved-laboratory-d12-r1-acceptance-and-v6-preflight.md)
+records ext4 at both future location families, `fs.protected_hardlinks=1`, the
+`ubuntu` execution identity and zero permitted/effective/ambient capabilities.
+
+**V6 was performed but does not close:** the exact publication directories and
+the proposed `freedomlab` group are absent, so their required ownership/mode
+assumptions cannot be confirmed. The survey proves no real `linkat` viability;
+I3 remains unconfirmed and controlled write verification remains separately
+gated. V8 and V10 remain unperformed. LAB-X1 and the standing package blockers
+remain Open, `is_executable` remains False and Package 5.0 remains not ready.
+
+## D12-R1 remediation returned for re-review; LAB-X1 opened — 2026-09-15
+
+Claude completed **C-P5.0-LAB-D12-R1** in one bounded repository-local pass and
+returned it for independent Codex technical and security re-review. The
+authoritative admission path now refuses on the lifecycle record's leftover
+publication temporary, before any of the seven participants proceeds, and T1's
+and T6's operator recovery requires an immediately preceding `(st_dev, st_ino)`
+comparison before the temporary is removed.
+
+**PR-20260915-LAB-D12-1 is remediated and remains Open.** The implementer closes
+no finding. The read-only preflight remains authorized and queued behind that
+re-review and Peter's release.
+
+**New issue — LAB-X1, Open.** Runner contract r6 §1.4.4's X1 step requires
+`execveat(…, AT_EMPTY_PATH)` and no implementation route is chosen: Python
+3.12's `os` has no `execveat`, and the candidate `os.execve`-on-a-descriptor
+route reaches it through `fexecve(3)` only where glibc and the kernel provide
+it, otherwise falling back to `/proc` — which re-resolves a pathname and gives
+up the descriptor binding X1 exists for. **Owner:** the agent Peter designates
+as Package 5.0's working Technical Lead. **Required evidence and execution stop
+condition:** r6 §6.4, which also records that widening the one `ctypes`
+exception would be a separate approval. **While LAB-X1 is open, X1 is not
+executed**: `plan.is_executable` stays False and
+`reservation.REAL_EXECUTION_REFUSAL` stands unconditionally. Choosing the route
+is a separate authorized pass, and C-P5.0-LAB-D12-R1 forbade choosing one.
+
+**V6 is dispositioned, and it closes nothing.** Peter approved it as a read-only
+prerequisite survey of filesystem and mount type, `fs.protected_hardlinks`,
+execution identity, ownership and mode assumptions and relevant capability
+state. It does not prove real `linkat` viability and does not close **I3**; a
+controlled write verification requires separate authorization before execution.
+
+C-7 remains unresolved; EH-R16-1, LAB-R1, LAB-R2, LAB-R3, LAB-R5, LAB-R6,
+LAB-D1/C-7, LAB-D2 and OD-62 remain Open; `is_executable` remains False; all
+twelve target facts remain unconfirmed; Package 5.0 remains not ready; P5.0-R5
+remains Blocking.
+
+## Historical — D1/D2 correction re-review — Blocking admission defect — 2026-09-15
 
 The independent
 [re-review](../review/project-review-2026-09-15-reserved-laboratory-d1-d2-corrections.md)
@@ -732,8 +1759,12 @@ surface.
 | P5.0-R4 | **Blocking — security/integrity** | The shared runtime role can update every lease and insert acknowledgements for any instance, allowing one process to forge another process's quiescence proof | Enforce process identity and row ownership below the application, or redesign so runtime-authored lease/ack rows are not trusted as activation authority | **Open. Remediation R3 submitted 2026-08-29 and claims it not closed.** R3 supplies what the re-review asked for: a dedicated **`freedomcoord`** OS user and group distinct from `discordbot`, `freedomweb`, the proposed `freedomsheet` and `foundry`, and in no group any of them holds; `pg_hba.conf` with the `peer`/`map` line above three written-out TCP rejects; one `pg_ident.conf` line, no wildcard; the role created `PASSWORD NULL`; a `sudoers` drop-in naming `foundry` only, without `NOPASSWD`, invoking one fixed root-owned wrapper that clears the environment and runs `python -I -P`; ownership and modes for every artifact; a per-vector argument; provisioning, audit, revocation, recovery and rotation; and a ten-case host-boundary evidence band. **One observed host fact drove the design**: the repository tree is group-writable by `discordbot` and `freedomweb` is in that group, so all three service processes can rewrite every module including `tools/` — hence a **root-owned deployment path outside the repository** with digest verification, and OD-65 for the condition itself. **Two checks could not be run** — enumerating `/etc/sudoers.d/` and a host-wide setuid audit — and are the Security Reviewer's. The evidence band needs **A-5.0-4**, unconfirmed. Introducing the principal is D5.0-11 / OD-64, **extended**  **Unchanged by remediation R4** apart from two added denial rows for the second `sudoers` drop-in that `freedom-journal-admin` needs (`sudo -l -U` must list **neither** `Cmnd_Alias`; an unauthorized invocation is refused), and one tightening: `freedom-sheet-writer` is removed from the runtime role, because it holds no database credential and opens no connection. **No operational evidence is claimed to have passed**, and A-5.0-4 remains unconfirmed |
 | **P5.0-R5** | **Blocking — integrity/production reliability** | The dispatch journal is under volatile `/run`, while append-only support is claimed from the unrelated ext4 filesystem under `/opt`; reboot, replacement, missing/corrupt state or unsupported `chattr +a` can turn unknown dispatch history into an apparently empty unresolved set. The plan also denies dependency on completeness while activation requires `dispatch_journal_clear` | Use durable storage with an independently protected directory and explicit generation/lifecycle metadata; make missing, replaced, reset, corrupt, unsealed or unreadable state refuse evidence and activation; define privileged rotation/clearing and reboot recovery; add host-filesystem and lifecycle falsification tests; reconcile the contradictory dependency claims | **Open. Raised by Codex independent re-review of revision 4 on 2026-08-29. Remediation R4 submitted 2026-08-29 and claims it not closed.** Revision 5 moves the journal to `/var/lib/freedom-sheet-writer/journal/` on the ext4 root volume — **read from `/proc/mounts` and `df -T`, not inferred** — into a root-owned directory the writer cannot write, so it can neither unlink, rename, replace nor create there; `chattr +a` becomes a **second, independent** layer and is **probed at provisioning and at every writer start**, with a generation whose probe failed unable to be registered at all (`CHECK (append_only_verified)`). A `chattr +i` **seal**, a genesis record inside the journal and a **registered generation** in the new sixth table must all agree, so a new or reset journal is never a valid empty history, and creating one first requires sealing and archiving its predecessor. **Twenty-one conditions all fail closed** (package plan §2.13.6) — reboot, unclean shutdown, missing, empty, wrong owner/mode, unsupported flags, malformed, sequence gap, checksum failure, duplicate sequence, replaced inode, unreadable, disk full, failed `fsync`, failed outcome append and six more. A **privileged `freedom-journal-admin`**, run as root under its own `sudoers` drop-in, owns seal, rotate, repair, archive-verify and a `dispose` gated on N5.0-23, the §15.1 gate and a Data Owner approval. **The completeness contradiction is resolved by withdrawing the false statement and keeping the control** (§2.13.9), with what remains named as **R-5.0-10**. The activation trigger gains a **fifth condition** refusing stale and cross-generation evidence. Evidence is the twenty-six-case `TC-5.0-JNL` band, which **needs A-5.0-5**, unconfirmed. **D5.0-9 / OD-62 must still not be decided until Codex accepts that this control is fail-closed.**  **Independently re-reviewed 2026-08-29: still Blocking.** Revision 5 was found to contain a circular seal/genesis construction that cannot be created as specified, a permission hierarchy denying the writer the seal it was required to validate, a capability probe whose ordinary permissions masked `FS_APPEND_FL` and whose startup form was destructive against live evidence, and a `CHECK (append_only_verified)` credited with proving a host fact it cannot observe. **Remediation R5 submitted 2026-08-30 and claims it not closed.** Revision 6 answers all four: an **acyclic** order — seal body → `seal_body_digest` → derived genesis record → `genesis_record_digest` and inode → seal binding section → `seal_digest` as a leaf → registered row — with numbered creation (C0–C12) and verification (V-W, V-C, V-R) algorithms and falsification cases F-1 … F-8 (package plan §2.13.5a–§2.13.5c); a **minimum read-only** seal grant through a new system group `freedomjournal`, with `…/journal` tightened to `root:freedomjournal 0750` so *other* loses even traverse and the writer still cannot modify, replace, rotate, seal, archive or dispose of evidence (§2.13.3, §2.13.4); a **four-stage** probe in a disposable arena whose control cases C-1 … C-6 must succeed before any refusal is read as append-only, with expected `errno`s separating DAC, `EROFS`, the sandbox and `FS_APPEND_FL`, non-destructive startup checks and privileged cleanup (§2.13.2a); and the withdrawal of the Boolean check in favour of an attested, re-derivable probe report with an explicit enforces-versus-records division (§2.13.8a, logical schema §3.7.1). The fail-closed conditions grow from twenty-one to **twenty-five** (`SW-J01 … SW-J25`) and the evidence band from twenty-six to **forty-one** cases. **A-5.0-5 remains unconfirmed**, so none of the band is claimed to have been run. &nbsp; **Independently re-reviewed 2026-08-30: still Blocking.** Revision 6 was found to contain three claims stronger than the artifacts it built: Algorithm C sealed probe stages 1–3 while the schema and evidence contract said the digest covered four; F-1 claimed the writer refuses every seal-byte alteration without PostgreSQL although `BND.sealed_at` passed every V-W step; and `JNL-32` expected a `startup` record in a branch W9 refuses before W17. The R5 handoff was also corrupted and truncated. **Remediation R6 submitted 2026-08-30 and claims it not closed.** Revision 7 moves the probe's **stage 4 to provisioning**, inside one `verify-capability` invocation and before the report is built, with cases `S4-1 … S4-3`, the deployed unit's directive set hashed, and invalidation reusing the existing rotation rule — introducing **no** second artifact, digest, authority, storage location, invalidation rule, column or refusal code; withdraws `sealed_at` and the binding's own format field so the binding holds exactly the three values V-W recomputes or compares, fixes its structure with a `binding_format_version` in the chain-authenticated body, adds a complete binding-field authentication table, **splits F-1 into F-1a and F-1b**, states two attacker classes and adds **F-9 … F-12**; and replaces `JNL-32` with **`JNL-32a`** and **`JNL-32b`**. The evidence band grows to **forty-five identifiers and forty-eight cases**, falsification rows to **twelve**, the estimate to **38.2** and the stop conditions by **10h**. **Fail-closed conditions stay at twenty-five and the refusal codes stay `SW-J01 … SW-J25`; no schema object changes.** **A-5.0-5 is widened and remains unconfirmed**, so none of the band is claimed to have been run. &nbsp; **Independently re-reviewed 2026-08-30: still Blocking.** Revision 7 was found to have reproduced, in its own corrections, the class of defect it was correcting: Algorithm C step **C0** consumed a probe result step **C1** had not yet produced, so the algorithm had no executable order; **S4-2** attributed `EROFS` to the systemd sandbox without a positive control proving its exact target writable outside it; and the attacker classes claimed reach their capabilities could not construct, **F-2** being assigned class 1 while conceding it needs class 2. Implementation-plan §20 also named an obsolete brief. **Remediation R7 submitted 2026-08-30 and claims it not closed.** Revision 8 renumbers Algorithm C to **C0 … C13** with a post-probe validation step **C2** and a value-dependency table; names Stage 4's exact target `…/probe-ro/s4-2.target` and adds the positive DAC control **`S4-0`**, with `EACCES` classified `inconclusive` and a sandboxed success classified failed; and replaces the two-class model with an **eight-capability register** giving each falsification row its minimum capability, detector reach, refusing actor, exact step and code, and residual — correcting **F-2** to `K3` and **F-7** in the opposite direction, and marking not-constructible pairings with their controls. The evidence band grows to **fifty identifiers and seventy-four cases**, the falsification-row count is corrected to **thirteen**, the estimate to **39.5**, and the stop conditions by **10i**, **10j** and **10k**; new residual **R-5.0-12** records the one combination this design does **not** refuse. **Fail-closed conditions stay at twenty-five, refusal codes stay `SW-J01 … SW-J25`, V-W stays at eighteen steps and no schema object changes.** **A-5.0-5 is widened again and remains unconfirmed**, so none of the band is claimed to have been run. &nbsp; **Independently re-reviewed 2026-08-30: still Blocking.** Revision 8 was found to contain four internal inconsistencies: the supplied deployment digest was consumed at **C1** and its equality checked at **C2**, against the probe's copy of that same string, so the check was both late and vacuous; `JNL-47` and `JNL-48(d)` required one injected cleanup failure to leave two mutually exclusive residue states, and the next invocation was given both a self-cleaning and a refusing path; the capability register credited `CAP_LINUX_IMMUTABLE` **alone** with archive and journal writes that Unix DAC refuses it; and **F-7** claimed a coordinator refusal for a forged matching `/etc/machine-id` although the registered row carries the same value. **Remediation R8 submitted 2026-08-30 and claims it not closed.** Revision 9 defines `deployment_manifest_digest()` in a new §2.13.2c and moves its **computation and comparison to C0**, before C1 consumes it, keeping a consistency check and a **second computation** at C2, and replaces the universal ordering claim with invariants **I-1 … I-5**; adds a new §2.13.2b **three-state cleanup machine** in which *"no generation artifact"* is unconditional and *"no transient residue"* is conditional on cleanup success, with **one** next-invocation behaviour — refuse for operator recovery; replaces the eight-capability register with **nine independently constructible authorities** (`A1 … A9`) separating flag control from discretionary access, re-evaluating **F-2 → `A1 + A2`**, **F-4 → `A1 + A4`** and **F-5 → `A1 + A3`**; and **withdraws F-7's refusal**, recording the forged-matching host identity as residual **R-5.0-13** and routing the alternative as OD-66 **option A-2** without adopting it. The evidence band grows to **eighty-four cases across the same fifty identifiers**, §6.5 items to **nineteen**, the estimate to **40.4** and the stop conditions by **10l**, with **10b**, **10f** and **10h** extended and **10j** re-worded; new residual **R-5.0-14** records the cleanup-failure residue state. **Falsification rows stay at thirteen, fail-closed conditions stay at twenty-five, refusal codes stay `SW-J01 … SW-J25`, V-W stays at eighteen steps, security-review surfaces stay at eleven and no schema object changes.** **A-5.0-5 is widened again and remains unconfirmed**, so none of the band is claimed to have been run. &nbsp; **Independently re-reviewed 2026-08-30: still Blocking.** Revision 9's replacement authority model was found to be incorrect against the Linux contract it depends on: `FS_IOC_SETFLAGS` requires the caller's effective UID to equal the inode's owner **or** `CAP_FOWNER`, in addition to `CAP_LINUX_IMMUTABLE` for the immutable and append flags, so a non-root `CAP_LINUX_IMMUTABLE`-only process cannot clear `+i` on the root-owned archive, the stated `A1 + A3` / `A1 + A4` combinations are incomplete, and `JNL-50` case 9 is not executable; the register also declared `A1 … A6` independent while F-1a said every real A3 holder holds A2. **Remediation R9 submitted 2026-08-30 and claims it not closed.** Revision 10 states the kernel's checks in a table of their own before the register that encodes them; narrows **A1** to the `CAP_LINUX_IMMUTABLE` half; adds **A10** and **A11** for the owner authorization over the `freedomsheet`-owned journal and over the root-owned seal and archive; and re-states **eleven of the thirteen** falsification rows with corrected minimum combinations — **F-1a, F-4, F-5, F-8 … F-12 gain `A11`; F-1b gains `A10` and `A11`; F-2 and F-5 gain `A10`** — **every one of which makes the alteration harder to construct, so no refusal is strengthened and this finding is not narrowed by any of it**. It removes the independence contradiction with a **holder table**, assessing detector reach against the smallest identity that can really hold each combination and **narrowing** the bounded claim to F-2, F-3 and F-6; and it replaces the executable contract with eight identities `E1 … E8` carrying complete permitted, effective, inheritable, ambient and bounding capability sets and securebits, with `JNL-49` and `JNL-50` at **twelve cases each** and a positive control beside every negative flag case. §2.13.4's manipulation matrix grows from thirteen rows to **fifteen**; the evidence band grows to **eighty-eight cases across the same fifty identifiers**; §6.5 items to **twenty**; the estimate to **40.9**; and the stop conditions by **10m**, with **10k** extended. **Falsification rows stay at thirteen, fail-closed conditions stay at twenty-five, refusal codes stay `SW-J01 … SW-J25`, V-W stays at eighteen steps, security-review surfaces stay at eleven, no residual is added and no schema object changes.** The R8-A deployment-digest lifecycle, the R8-B cleanup state machine and the R8-D withdrawal of F-7's detector are **preserved unchanged in substance**. **A-5.0-5 is corrected rather than widened — its revision-9 capability-only case is withdrawn as not constructible — and remains unconfirmed**, so none of the band is claimed to have been run. **D5.0-9 / OD-62 must still not be decided until Codex accepts that this control is fail-closed.** Codex decides whether this route closes the finding |
 
-**No row below is entered in the register yet, and that is deliberate.** A
-register row for a package that has not started would assert the readiness the
+**MD-4 disposition, 2026-09-23:** Peter Duscha explicitly accepts
+`R-5.0-10` through `R-5.0-16` as active residual risks on their stated terms.
+`R-5.0-10` and `R-5.0-11` are retained here, and `R-5.0-12` through
+`R-5.0-16` are entered here. Recovery rehearsals for `R-5.0-11`, `R-5.0-14`
+and `R-5.0-16` remain mandatory evidence. Other rows below are not entered in
+the register yet. A register row for a package that has not started would assert the readiness the
 5.0 readiness package is asking for. These are the rows to enter **when Peter
 records a readiness decision**; the authoritative statements are in
 [`../review/phase-5-0-package-plan.md`](../review/phase-5-0-package-plan.md) §7.
@@ -751,6 +1782,11 @@ records a readiness decision**; the authoritative statements are in
 | **R-5.0-9** | Risk | **New, raised by remediation R3.** The coordinator's host boundary depends on host state — group memberships, `sudoers` rules, `pg_hba` ordering, the `pg_ident` map, file modes — that can drift after it is established, silently and outside this repository | Operations Owner | The ten-case host-boundary matrix is re-run after any PostgreSQL configuration change, any `sudoers` change and any deployment; the `diagnostics` subcommand re-checks on every invocation that no `sys.path` entry is writable by a service identity; the operations document lists the host facts to re-verify. **Extended by remediation R4** to the journal hierarchy's owners, modes and filesystem attributes, which drift the same way and are outside this repository too. **Detected on re-run, not prevented**. **Extended again by remediation R5** to the new `freedomjournal` group and its membership, to the seal's `0440` mode and `…/journal`'s tightened `0750`, and to the disposable probe arena, which must not exist on a production host between provisioning runs; the host-boundary matrix re-run therefore checks group membership and the absence of the arena as well **Extended by remediation R6** to the deployed `freedom-sheet-writer.service` directive set, which the probe's stage 4 records at provisioning and which drifts whenever the unit is edited. **Detected on re-run, not prevented** |
 | **R-5.0-10** | Risk | **New, raised by remediation R4, and it is the honest limit of the dispatch journal.** A writer whose **dispatch path itself** has been replaced can call `values.batchUpdate` without writing a journal record, so the unresolved set reads empty when it is not and a refusal that should have occurred does not occur | Technical Lead, with the Security Reviewer | **Not detected by the journal**, and package plan §2.13.9 says so where a reader meets it rather than in a footnote. What bounds it is everything the writer does *not* author: the process is terminated, its cgroup is empty, a host scan found nothing, and Google refuses its access. The unit hardening — `NoNewPrivileges=true`, an empty `CapabilityBoundingSet=`, `ProtectSystem=strict` — and the deployment digest carried in the registered generation raise the cost of reaching that state. **A writer compromised this deeply could have written the Sheet arbitrarily long before the fence**, which is a condition no fence was ever going to repair |
 | **R-5.0-11** | Risk | **New, raised by remediation R4, and it is the price of fail-closed.** The journal filesystem falls below N5.0-21, or an `fsync` fails, or any of package plan §2.13.6's twenty-one conditions holds — and the Sheet writer refuses **every** mutation until an operator acts, for every migration unit still at `legacy` | Operations Owner | The refusal is typed, named (`SW-J01 … SW-J21`) and carries no exception text, path or `errno`; the Freedom bot stays online and reads, `/info` and every non-mutating command are unaffected; `/healthz` `migration_sheet_writer` reports the writer unreachable and the new `migration_journal_generation` reports an unregistered or superseded generation; the operations document names the recovery for each condition. **A deliberate trade — a bounded outage instead of an unrecorded external write — accepted or rejected by decision D5.0-13 / OD-66**. **Extended by remediation R5 to twenty-five conditions** (`SW-J01 … SW-J25`): J-22 refuses a deployment digest that does not match the one recorded in the seal, J-23 refuses a host identity that does not match, J-24 refuses a seal whose structure is malformed or whose genesis record is not derivable from the seal body, and J-25 refuses a generation whose probe report is missing, `inconclusive` or of an unrecognised version. The outage surface grows with them, and the refusals stay typed, unexplained and non-Sheet-mutating |
+| **R-5.0-12** | Risk | An actor with complete on-disk authority and PostgreSQL superuser authority can rewrite the seal, record 0 and registered digests into mutual agreement; no check inside those stores refuses it | Acceptance Authority, with Security Reviewer | **Accepted by MD-4 on 2026-09-23.** External `sudo` output, journald, the `audit_events` chain and offline backups remain the detection and recovery controls |
+| **R-5.0-13** | Risk | Host root can restore the journal tree and forge the recorded machine identity so the internal comparisons agree | Acceptance Authority, with Security Reviewer | **Accepted by MD-4 and MD-6; JNL-40(b) is not mandatory for P5.0-R5 closure.** External system, deployment, audit and backup evidence remains required; option A-2 is not adopted |
+| **R-5.0-14** | Risk | Failed privileged cleanup can leave writer-writable transient residue and block generation creation until an operator acts | Operations Owner | **Accepted by MD-4.** Explicit recovery must be rehearsed and evidenced; automatic cleanup remains prohibited |
+| **R-5.0-15** | Risk | Host root combined with the Platform Administrator path can rewrite provenance, approve and register its chosen revision; no check in this design refuses that combined authority | Acceptance Authority | **Accepted by MD-4.** External logs, audit evidence, backups and human review-reference checks remain required; signing option A-3 is not adopted |
+| **R-5.0-16** | Risk | Missing approval or provenance, or deployed-tree drift, blocks generation creation and Sheet mutations until approval, installation, deployment and rotation recovery completes | Operations Owner | **Accepted by MD-4.** The recovery path must be rehearsed and evidenced at feasibility and production gates |
 | A-5.0-1 | Assumption | The legacy Freedom bot and Sheet path remain available and undegraded **outside the bounded fence windows**, throughout 5.0 readiness, implementation and every later verification window | Product Owner | A-04 restated at package scope. The fence-window qualification is what decision D5.0-9 / OD-62 is being asked to accept. Void the moment plan §15.1's final Sheet retirement gate closes, at which point the `database → legacy` transition row must be removed by migration |
 | A-5.0-2 | Assumption | No staging deployment is required for package 5.0 | Operations Owner | Holds while the package deploys nothing. Its database evidence is producible against the disposable `freedom_test` database; its **termination evidence needs real processes** and is producible with a harness writer under a transient systemd unit on this host, never against the production writer. **Forward dependency flagged:** packages 5.1 and 5.2 will need a staging-class environment, and staging is currently a procedure (`infra/staging/`) rather than a standing service |
 | D-5.0-1 | Dependency | A named Security Reviewer, **and their delivered recommendation** | Delivery Lead | **Reviewer named 2026-08-31 (OD-61 closed):** Peter Duscha named **Codex**, which also holds the Independent Reviewer and independent logical-schema reviewer roles; the implementer did not nominate it. **The dependency is not discharged.** What blocks readiness is now the **review**, not the vacancy: the package plan §9.2 pass of 3.5–4.5 reviewer-days over eleven surfaces has not run, and the revision-11 design re-review is not that pass. **Scope grew at R2, R3 and again at R4:** it now covers a new database principal and `pg_hba`/`pg_ident` ordering, **two new operating-system identities**, **two `sudoers` drop-ins one of which runs as root**, **a root-owned deployment path with digest verification**, **a root-owned durable evidence hierarchy with filesystem attributes and an evidence-disposal path**, hardening on two live units, **the pre-existing group-writable repository tree**, the relocation of the Google service-account credential out of the Freedom bot, and a procedure that changes a production Drive permission at each cutover. **Three checks the implementer could not run are theirs**: enumerating `/etc/sudoers.d/`, a host-wide setuid audit, and verifying that `chattr +a` is honoured at the journal path. **Scope grew again at R5** to an **eleven-element** surface: the new `freedomjournal` system group and the minimum read-only seal grant, the disposable probe arena and its privileged cleanup, the `setpriv` identity drop in the provisioning probe, and the acyclic digest construction itself, which a security reviewer should attack rather than accept. **A fourth check the implementer could not run is theirs**: confirming that the `0750`/`0440` grant gives `freedomsheet` read access to the seal and gives `discordbot` and `freedomweb` none. Estimate raised to **2.5–3.5 reviewer-days** **Extended at R6:** the scope gains a **transient `systemd-run` unit started as root at provisioning**, which executes the writer's identity under directives read from the deployed unit file, with one substitution the tool performs itself. The estimate is **unchanged at 2.5–3.5 reviewer-days**, and one reviewer question is added |
@@ -1421,3 +2457,17 @@ package allocation or gate criterion is altered by it.
 | D-06 | Mission and attendance records | Phase 9 settlement | Product Owner | Phase 8 gate approved | Open |
 | D-07 | Basic Bastion state | Phase 11 facilities | Product Owner | Phase 10 gate approved | Open |
 | D-09 | Ratification of migration `0013`'s **operational rollback boundary** — that while any retained reconciliation job records a committed apply effect, rolling P3.3 back is application rollback or roll-forward rather than schema downgrade, and that the boundary reopens only when approved N-24 retention has removed every such job (restated 2026-08-18 by the second remediation; the earlier "forever after the first apply" wording was not what the guard enforces) | P3.G3 closure | Acceptance Authority | Peter/Acceptance Authority records a decision on change-log `C-P3.3-D`, `C-P3.3-E` and `C-P3.3-F` and on `docs/operations/web-portal.md` §3.6 | **Closed and accepted 2026-08-19 by Peter/Acceptance Authority; change-log C-P3.3-J.** While a retained reconciliation job records a committed apply effect, rollback is application rollback or roll-forward rather than schema downgrade below `0013`. The boundary reopens only under the documented N-24 conditions. The migration refusal and runbook consequence are ratified |
+# V6 R4 accepted; LAB-V6-1 through LAB-V6-3 disposition — 2026-09-17
+
+Peter accepted the independent R4 review and closed PR-20260916-LAB-V6R3-1.
+The unreproducible R3 digest is not approved and is superseded by the
+reproducible R4 artifact as review input only.
+
+**LAB-V6-1 resolved by decision:** V11 and `/opt/freedom-blades/evidence` are
+withdrawn; `/opt/freedom-blades` ownership is unchanged. **LAB-V6-2 resolved by
+decision:** V12 explicitly owns creation of `/var/lib/freedom-blades` as
+`root:root 0755` before V4/V5. **LAB-V6-3 resolved by decision:**
+`/var/lib/fb-evidence-p5-0` is the sole canonical `R`, while production
+`EVIDENCE_ROLE` registration is deferred to its separately reviewed real
+consumer. These items are closed as decisions; their repository implementation
+is returned for independent review and nothing is provisioned.

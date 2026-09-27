@@ -82,6 +82,16 @@ publication, and r6 §6.2 names what each reader of a leftover temporary does.
 `EXCLUSIVE_PUBLICATION_SUBSTITUTE` states it where a reader of the publication
 path will see it.
 
+**One `linkat`, factored rather than duplicated — C-P5.0-LAB-I3-R2.** The
+exclusive claim itself is `PosixFilesystem.linkat`, and `renameat(noreplace=True)`
+is that call followed by the unlink of the temporary. The I3 controlled-write
+verifier must observe r6 §6.2's second interruption state deliberately — both
+names present, one inode, link count two — and the fused call removes the
+temporary before it returns, so that state was unobservable through it. Reusing
+it was unsafe for that one purpose; a second `os.link` beside it would be a
+divergent implementation of the same guarantee. `EXCLUSIVE_LINK_PRIMITIVE` states
+the factoring where a reader of the publication path will see it.
+
 **D2 — the listing descriptor, r6 §1.3.3's D20.** §2.5's recovery discovery and
 §5.11's ledger survey list a directory, and r6 as first accepted enumerated no
 descriptor for `readdir`. `listing()` opens a short-lived descriptor
@@ -159,10 +169,62 @@ EXCLUSIVE_PUBLICATION_SUBSTITUTE = (
     "publication never reports success, and every reader of a leftover "
     "temporary refuses and removes nothing; r6 §6.2 names each reader.",
     "V6 no longer asks about `RENAME_NOREPLACE`. It observes what `linkat` needs "
-    "from the target instead: hard-link support on each filesystem that holds "
-    "an exclusive publication, and the `fs.protected_hardlinks` policy. V6 "
-    "remains unconfirmed and is not closed by this statement.",
+    "from the target instead, and Peter approved it on 2026-09-15 as a "
+    "**read-only prerequisite survey**: the filesystem and mount type under each "
+    "directory that holds an exclusive publication, `fs.protected_hardlinks`, "
+    "the execution identity, the ownership and mode assumptions, and the "
+    "relevant capability state. No link is created. It does **not** prove that "
+    "the real `linkat` publication succeeds and it does not close I3; a "
+    "controlled write verification requires separate authorization before "
+    "execution. V6 remains unconfirmed and is not closed by this statement.",
+    "A leftover publication temporary refuses **every** participant at the "
+    "admission, before any of the seven proceeds — PR-20260915-LAB-D12-1, "
+    "repaired in `lifecycle_storage.read_and_admit`. The final name can carry a "
+    "complete and valid record and still be a publication nobody finished, so "
+    "the check is of the two names and not of the bytes. Removing the temporary "
+    "is an operator recovery, it is never a participant's, and "
+    "`remove_publication_temporary` takes r6 §6.2's `(st_dev, st_ino)` "
+    "comparison as a required argument made immediately before the removal.",
 )
+
+#: The one exclusive-link primitive, stated where a reader of the publication
+#: path will see it — C-P5.0-LAB-I3-R2, under the C-P5.0-LAB-I3-D1 ruling.
+EXCLUSIVE_LINK_PRIMITIVE = (
+    "`PosixFilesystem.linkat` is the only `linkat` in this package. It claims "
+    "the final name exclusively — `link(2)` fails with EEXIST when the "
+    "destination exists — and it neither unlinks the temporary nor issues a "
+    "barrier.",
+    "`PosixFilesystem.renameat(noreplace=True)` is `linkat` followed by the "
+    "`unlinkat` of the temporary, and raises when that unlink fails. Every "
+    "existing exclusive publication — T1, T6, §2.3.3 and P2 — still reaches the "
+    "link through it, unchanged.",
+    "Why the factoring, rather than reuse: the I3 controlled-write verifier must "
+    "observe both names on one inode with link count two before removing "
+    "either, and the fused call removed the temporary before returning, so the "
+    "observation was impossible through it. A second `os.link` in the verifier "
+    "would have been a divergent implementation of the same exclusive, "
+    "no-follow guarantee; the factoring keeps one.",
+    "**Amended by C-P5.0-R5-RP11-I1, 2026-09-27, on the maintainer's decision.** "
+    "The one `os.link` call now lives in the private `_exclusive_link`, and it "
+    "has two callers. `PosixFilesystem.linkat` passes `follow=False`, so its "
+    "behaviour, its flags and its no-follow guarantee are unchanged. "
+    "`link_unnamed_descriptor` passes `follow=True`, and only for "
+    "`/proc/self/fd/N` of an inode with no name, for RP-11's `O_TMPFILE` "
+    "publication (`UNNAMED_PUBLICATION`). There is still one link "
+    "implementation in the package, and one exclusivity rule: the kernel's "
+    "EEXIST.",
+)
+
+#: The **default** creation mode of `create_file`, and the mode the lifecycle
+#: record and the run ledger publish with, because neither applies another. It
+#: is the value r6 §7.4.3 names for T1 and T6, and the mode §2.3.3's capture
+#: temporary is created with before `recovery_store.STORED_OBJECT_MODE` is
+#: applied to its descriptor.
+#:
+#: **It remained `0600` under C-P5.0-LAB-I3-R3, 2026-09-20.** P2's ruled `0500`
+#: is passed at P2's own call as `create_file(..., mode=…)`; it is not this
+#: default, and these three contexts are unchanged by it.
+EXCLUSIVE_CREATION_MODE = 0o600
 
 #: Runner contract r6 amendment D2, approved 2026-09-15: the listing descriptor.
 LISTING_DESCRIPTOR = (
@@ -175,6 +237,41 @@ LISTING_DESCRIPTOR = (
     "to, and it is never retained, transferred, synchronized or used as a "
     "`dirfd`.",
     "It is not authority to widen any other descriptor's permitted uses.",
+)
+
+#: r6 §6.4's open implementation item, with the three things an open item needs:
+#: an owner, the evidence that would close it, and the condition that stops
+#: execution while it is open — *added 2026-09-15, C-P5.0-LAB-D12-R1*.
+#:
+#: **No route is chosen here and none is implemented.** The assignment that
+#: added this text forbids choosing one, and the point of stating it is that an
+#: unimplemented step with no owner is a step that gets implemented by whoever
+#: reaches it first, under pressure, at the moment of execution.
+UNIMPLEMENTED_EXECUTION_ROUTE = (
+    "Item: r6 §1.4.4 X1's `execveat(D7, \"\", argv, envp, AT_EMPTY_PATH)`. "
+    "Python 3.12's `os` has no `execveat`. The candidate is `os.execve` on a "
+    "descriptor, whose `fexecve(3)` uses `execveat(2)` since glibc 2.27 where "
+    "the kernel provides it and otherwise falls back to `/proc` [D]. **X1 is "
+    "unimplemented and no route is chosen.**",
+    "Owner: the implementing agent Peter designates as working Technical Lead "
+    "for Package 5.0, under implementation-plan §0.3. It is not the reviewer's "
+    "and not this module's, and it is not closed by an agent on its own "
+    "recommendation.",
+    "Required evidence, all of it, before the route is accepted: which call is "
+    "issued and from where; whether the one `ctypes` exception "
+    "(`case_program._prctl_get_securebits`) would be widened, which is a "
+    "separate approval; that the `/proc` fallback is either reached or refused "
+    "rather than reached silently, since a `/proc`-mediated execution "
+    "re-resolves a pathname and gives up the descriptor binding X1 exists for; "
+    "and the r6 §9.3 I7 check, that the reviewed payload executes under every "
+    "disposable identity.",
+    "**Execution stop condition:** while this item is open, X1 is not executed. "
+    "`plan.is_executable` stays False, `reservation.REAL_EXECUTION_REFUSAL` "
+    "stands "
+    "unconditionally, and no `--execute` run may be taken on the grounds that "
+    "the remaining route is obvious. Choosing the route is a separate "
+    "authorized pass; reaching for it at execution time is the failure this "
+    "stop condition exists to prevent.",
 )
 
 #: Where the accepted design does not answer an operation it requires. Reported
@@ -549,18 +646,34 @@ class DescriptorInventory:
 
     def close(self) -> None:
         """Close every descriptor. Idempotent, and it never raises."""
+        self.release_all()
+
+    def release_all(self) -> tuple[str, ...]:
+        """Close every descriptor and name each role whose release failed.
+
+        `close()` is this with the answer ignored, which is what every existing
+        caller wants. A caller that must account for finalization — the I3
+        verifier treats a failed release as non-success — reads the answer
+        instead. **Nothing is retried**: a second `close()` of a number the
+        kernel may already have released can close a descriptor something else
+        has since been handed, so an ambiguous release is reported, not
+        repeated. Idempotent: a closed inventory has nothing left to release.
+        """
+        failed: list[str] = []
         for handle in self._directories.values():
             for fd in (handle.synchronizable_fd, handle.traversal_fd):
                 if fd is None:
                     continue
                 try:
                     os.close(fd)
-                except OSError:  # pragma: no cover - a closed descriptor
-                    pass
+                except OSError:
+                    if handle.role not in failed:
+                        failed.append(handle.role)
         self._directories = {}
         self._by_object = {}
         self._transfer = ()
         self._closed = True
+        return tuple(failed)
 
     def __enter__(self) -> "DescriptorInventory":
         return self
@@ -722,18 +835,34 @@ class PosixFilesystem:
 
     # -- files ----------------------------------------------------------------
 
-    def create_file(self, dirfd: int, name: str, data: bytes = b"") -> Descriptor:
+    def create_file(
+        self,
+        dirfd: int,
+        name: str,
+        data: bytes = b"",
+        *,
+        mode: int = EXCLUSIVE_CREATION_MODE,
+    ) -> Descriptor:
         """**B1 for a file.** `O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW`, mode 0600.
 
         `O_EXCL` proves the temporary name was free, so the bytes that follow go
         into an object this run created and into nothing that was already there.
+
+        `mode` is the **creation** mode, and it defaults to the shared
+        `EXCLUSIVE_CREATION_MODE`. T1, T6 and §2.3.3 take that default; P2 alone
+        passes `case_runtime.CASE_PROGRAM_TEMPORARY_MODE` — C-P5.0-LAB-I3-R3,
+        2026-09-20. It is the mode the *pathname* is created with and never the
+        published mode: this call returns the writable descriptor, and that
+        descriptor — not the name — is what the caller writes, synchronizes,
+        `fchown`s and `fchmod`s afterwards. A creation mode without a write bit
+        therefore constrains nothing this sequence does.
         """
         parent = self._directory_descriptor(dirfd)
         role = self._inventory.role_for_object(parent.object_id)
         _require_component(name, role)
         flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW
         try:
-            fd = os.open(name, flags, 0o600, dir_fd=dirfd)
+            fd = os.open(name, flags, mode, dir_fd=dirfd)
         except FileExistsError:
             raise DescriptorRefused(DESCRIPTOR_OBJECT_EXISTS, role) from None
         except OSError:
@@ -793,7 +922,9 @@ class PosixFilesystem:
         `noreplace=False` is a plain `renameat`. `noreplace=True` is the
         `linkat`/`unlinkat` substitute `EXCLUSIVE_PUBLICATION_SUBSTITUTE`
         describes: the kernel refuses the link when the destination exists, so
-        the exclusivity is not a check this module performs.
+        the exclusivity is not a check this module performs. The link is
+        `linkat` below — the one implementation — and the unlink follows it
+        here.
         """
         source_parent = self._directory_descriptor(source_dirfd)
         destination_parent = self._directory_descriptor(destination_dirfd)
@@ -802,22 +933,9 @@ class PosixFilesystem:
         _require_component(source_name, source_role)
         _require_component(destination_name, destination_role)
         if noreplace:
-            try:
-                os.link(
-                    source_name,
-                    destination_name,
-                    src_dir_fd=source_dirfd,
-                    dst_dir_fd=destination_dirfd,
-                    follow_symlinks=False,
-                )
-            except FileExistsError:
-                raise DescriptorRefused(
-                    DESCRIPTOR_OBJECT_EXISTS, destination_role
-                ) from None
-            except OSError:
-                raise DescriptorRefused(
-                    DESCRIPTOR_OPERATION_REFUSED, destination_role
-                ) from None
+            self.linkat(
+                source_dirfd, source_name, destination_dirfd, destination_name
+            )
             try:
                 os.unlink(source_name, dir_fd=source_dirfd)
             except OSError:
@@ -832,6 +950,51 @@ class PosixFilesystem:
                 src_dir_fd=source_dirfd,
                 dst_dir_fd=destination_dirfd,
             )
+        except OSError:
+            raise DescriptorRefused(
+                DESCRIPTOR_OPERATION_REFUSED, destination_role
+            ) from None
+
+    def linkat(
+        self,
+        source_dirfd: int,
+        source_name: str,
+        destination_dirfd: int,
+        destination_name: str,
+    ) -> None:
+        """**The exclusive claim**, and nothing else: `linkat(…, 0)`.
+
+        `link(2)` fails with `EEXIST` when the destination exists, so the final
+        name is claimed by the kernel and never overwritten; the flags are `0`,
+        so a symbolic link at the source is linked as itself and never
+        followed. Both names are one component under a registered traversal
+        descriptor.
+
+        It leaves **both names present** on success — r6 §6.2's second
+        interruption state, deliberately. `renameat(noreplace=True)` is this
+        call followed by the unlink of the temporary; the I3 verifier calls it
+        alone so that it can observe the two names before removing either.
+        `EXCLUSIVE_LINK_PRIMITIVE` records why it was factored out of the fused
+        call rather than written a second time.
+        """
+        source_parent = self._directory_descriptor(source_dirfd)
+        destination_parent = self._directory_descriptor(destination_dirfd)
+        source_role = self._inventory.role_for_object(source_parent.object_id)
+        destination_role = self._inventory.role_for_object(destination_parent.object_id)
+        _require_component(source_name, source_role)
+        _require_component(destination_name, destination_role)
+        try:
+            _exclusive_link(
+                source_name,
+                destination_name,
+                source_dir_fd=source_dirfd,
+                destination_dir_fd=destination_dirfd,
+                follow=False,
+            )
+        except FileExistsError:
+            raise DescriptorRefused(
+                DESCRIPTOR_OBJECT_EXISTS, destination_role
+            ) from None
         except OSError:
             raise DescriptorRefused(
                 DESCRIPTOR_OPERATION_REFUSED, destination_role
@@ -923,17 +1086,30 @@ class PosixFilesystem:
             ) from None
 
     def close(self, number: int) -> None:
+        self.release(number)
+
+    def release(self, number: int) -> bool:
+        """Close a descriptor this filesystem issued; say whether that worked.
+
+        `close()` is this with the answer ignored, which is what every existing
+        caller wants. The I3 verifier reads the answer, because it treats a
+        failed release as non-success. The descriptor leaves this filesystem's
+        table **before** the call, so a failed release is never retried: a
+        second `close()` of a number the kernel may already have released can
+        close a descriptor something else has since been handed.
+        """
         descriptor = self._descriptor(number)
         self._descriptors.pop(number, None)
         if self._is_inventory_descriptor(descriptor):
             # The inventory owns its two descriptors for the whole run and
             # closes them itself. Releasing one here would take a barrier away
             # from every later publication.
-            return
+            return True
         try:
             os.close(number)
-        except OSError:  # pragma: no cover - already closed
-            pass
+        except OSError:
+            return False
+        return True
 
     def describe(self, number: int) -> Descriptor:
         return self._descriptor(number)
@@ -1023,6 +1199,73 @@ class PosixFilesystem:
         return ObjectIdentity.of(fd).object_id
 
 
+def _exclusive_link(
+    source: str,
+    destination: str,
+    *,
+    source_dir_fd: int | None,
+    destination_dir_fd: int,
+    follow: bool,
+) -> None:
+    """**The package's one `link(2)` call site.** Both uses reach it.
+
+    `link(2)` fails with `EEXIST` when the destination exists, so neither use
+    can replace an entry. `follow` is `False` for `PosixFilesystem.linkat`,
+    whose source is a name and must never be followed, and `True` only for
+    `link_unnamed_descriptor`, whose source is the `/proc/self/fd` magic link of
+    an inode that has no name. `EXCLUSIVE_LINK_PRIMITIVE` states both.
+    """
+    os.link(
+        source,
+        destination,
+        src_dir_fd=source_dir_fd,
+        dst_dir_fd=destination_dir_fd,
+        follow_symlinks=follow,
+    )
+
+
+#: The `O_TMPFILE` publication route, stated where a reader of the link will see
+#: it — C-P5.0-R5-RP11-I1, maintainer decision of 2026-09-27.
+UNNAMED_PUBLICATION = (
+    "RP-11 publishes a record or index state by writing it into an unnamed "
+    "`O_TMPFILE` inode in the directory that will hold it, synchronizing it, and "
+    "then giving it its first and only name with one `linkat` through "
+    "`/proc/self/fd/N` with `AT_SYMLINK_FOLLOW`. The link fails with EEXIST "
+    "rather than replace an entry, and there is no temporary name at any point, "
+    "so a failure before the link leaves nothing behind and a failure after it "
+    "leaves exactly one name.",
+    "`link_unnamed_descriptor` refuses a descriptor whose inode already has a "
+    "name (`st_nlink != 0`), so this route can never create a second name for "
+    "an existing file: a hard-link alias is exactly what B0-RA must refuse.",
+)
+
+
+def link_unnamed_descriptor(fd: int, destination_dir_fd: int, destination_name: str) -> None:
+    """Give an unnamed `O_TMPFILE` inode its first and only name, exclusively.
+
+    `destination_name` is one component relative to `destination_dir_fd`. The
+    inode must have **no** name — `st_nlink == 0` — or the call refuses before
+    linking. Raises `OSError` unchanged, including `FileExistsError`; the
+    caller classifies it.
+    """
+    if (
+        not destination_name
+        or destination_name in (".", "..")
+        or "/" in destination_name
+        or "\0" in destination_name
+    ):
+        raise ValueError("the destination is exactly one component")
+    if os.fstat(fd).st_nlink != 0:
+        raise ValueError("only an unnamed inode is linked; this one already has a name")
+    _exclusive_link(
+        f"/proc/self/fd/{fd}",
+        destination_name,
+        source_dir_fd=None,
+        destination_dir_fd=destination_dir_fd,
+        follow=True,
+    )
+
+
 __all__ = [
     "CONTRACT_GAPS",
     "LISTING_DESCRIPTOR",
@@ -1038,8 +1281,13 @@ __all__ = [
     "DESCRIPTOR_OPERATION_REFUSED",
     "DESCRIPTOR_REFUSALS",
     "DESCRIPTOR_TRANSFER_REFUSED",
+    "EXCLUSIVE_CREATION_MODE",
+    "EXCLUSIVE_LINK_PRIMITIVE",
     "EXCLUSIVE_PUBLICATION_SUBSTITUTE",
     "FIRST_TRANSFERRED_DESCRIPTOR",
+    "UNIMPLEMENTED_EXECUTION_ROUTE",
+    "UNNAMED_PUBLICATION",
+    "link_unnamed_descriptor",
     "DescriptorInventory",
     "DescriptorRefused",
     "DirectoryHandle",

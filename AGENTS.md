@@ -12,6 +12,8 @@ Before planning, reviewing, or changing anything in this repository, read:
 3. `docs/review/Handover information` — the **active assignment and its
    restrictions**. A task-specific restriction overrides the general
    environment and test-server instructions, and several are usually in force.
+   This is a concise current-state entry point; consumed and superseded material
+   is indexed under `docs/review/handover-archive/`.
 4. `docs/operations/disposable-test-server.md` — the dedicated disposable Linux
    test environment (`oracle-test` / `138.2.182.39`) where agents have full
    administrative (root) access for isolated test runs and system drills. Check
@@ -19,6 +21,11 @@ Before planning, reviewing, or changing anything in this repository, read:
 
 These documents apply to the entire repository. If they conflict or a requested
 change would cross a review gate, stop and ask a maintainer.
+
+Current delivery state is summarized in `docs/project-management/status.md`.
+Historical status snapshots are indexed under
+`docs/project-management/status-archive/`; archived text is evidence, not
+current authority.
 
 The repository location is `/opt/freedom-blades/platform`. For test execution,
 follow the canonical agreement and disposable-server document above: the

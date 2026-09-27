@@ -657,10 +657,16 @@ def test_band_7_declares_its_three_producers_unresolved(plan) -> None:
     blocked = {
         case_id
         for item in plan.unresolved
+        if item.conflict_id == "C-7"
         for case_id in item.evidence_case_ids
     }
     assert blocked == set(BAND_7_SCHEMA)
-    assert {item.conflict_id for item in plan.unresolved} == {"C-7"}
+    # **C-P5.0-R5-R2, PLAN-1.** S4-3's producer dependency is a separate
+    # conflict and names no Band-7 case.
+    assert {item.conflict_id for item in plan.unresolved} == {"C-7", "C-S4-3"}
+    assert [
+        item.evidence_case_ids for item in plan.unresolved if item.conflict_id != "C-7"
+    ] == [("S4-3",)]
     assert plan.is_executable is False
 
 
@@ -776,13 +782,55 @@ def test_the_manifest_pins_whether_a_contract_resolves_anything(plan) -> None:
     # covered source set and the reviewed verb table both change; what this test
     # is about does not. The supplied-observation schema stays at 3, the three
     # contracts still resolve nothing, and `is_executable` stays False.
-    assert body["manifest_version"] == MANIFEST_VERSION == 12
+    #
+    # **C-P5.0-LAB-V6-R1, 2026-09-16.** It moves to 13 for the same kind of
+    # reason and no other: `execution/provisioner.py` joins the covered set. The
+    # three clauses below are unchanged, and provisioning resolves no contract.
+    #
+    # **C-P5.0-LAB-V6-P-R1, 2026-09-18.** It moves to 14 for the same kind of
+    # reason again: `execution/provisioning_cli.py`, the operator entry point
+    # for that applier, joins the covered set. An entry point resolves no
+    # contract either, and the three clauses below are unchanged once more.
+    #
+    # **C-P5.0-LAB-I3-R2, 2026-09-19.** It moves to 15: the I3 verifier and its
+    # entry point join the covered set, and P2's installed mode becomes the
+    # ruled `0555`. The verifier resolves no contract and the three clauses
+    # below are unchanged.
+    #
+    # **C-P5.0-LAB-I3-R3, 2026-09-20.** It moves to 16: canonical `R` is created
+    # `0700` and P2's temporary `0500`. Both change what the digest covers, the
+    # covered set is unchanged, and the three clauses below are unchanged again.
+    #
+    # **C-P5.0-LAB-I3-R5, 2026-09-20.** It moves to 17: approved target identity
+    # gains `kernel_nodename` and I3 admission compares `os.uname().nodename`
+    # with it instead of with the SSH alias `host`. A version-16 digest covered
+    # a plan whose admission could not admit the approved target at all. The
+    # covered set is unchanged and the three clauses below are unchanged again.
+    #
+    # **C-P5.0-R5-R1, 2026-09-23.** It moves to 18: `unit_sandbox.py` joins the
+    # covered set and the journal classifier is replaced. No vector moves, and
+    # the three clauses below are unchanged again.
+    #
+    # **C-P5.0-R5-R2, 2026-09-23.** It moves to 19: S4-3 is declared unresolved
+    # under C-S4-3 and the Stage-4 capture step no longer claims it. No vector
+    # moves; the first three clauses below are unchanged again, and the last
+    # gains C-S4-3.
+    #
+    # **C-P5.0-R5-R3, 2026-09-23.** It moves to 20: the label-only S4-3 producer
+    # is removed, C-S4-3 is unconditional, and S4-3 becomes a required case. No
+    # vector moves; the clauses below are unchanged again.
+    #
+    # **C-P5.0-R5-R4, 2026-09-23.** It moves to 21: the pinned withholding
+    # rationale no longer says every outside-scope case is produced by the plan,
+    # because S4-3 has no producer. No vector moves; the clauses below are
+    # unchanged again.
+    assert body["manifest_version"] == MANIFEST_VERSION == 22
     assert body["supplied_observations"]["schema_version"] == 3
     assert "Band 7 supplied observations only" in (
         body["supplied_observations"]["importer_scope"]
     )
     assert len(body["supplied_observations"]["withheld"]) == 2
-    assert {item["conflict_id"] for item in body["unresolved"]} == {"C-7"}
+    assert {item["conflict_id"] for item in body["unresolved"]} == {"C-7", "C-S4-3"}
 
 
 def test_the_executor_gate_refuses_a_plan_with_a_missing_producer(plan) -> None:

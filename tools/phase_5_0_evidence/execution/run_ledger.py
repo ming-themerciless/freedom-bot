@@ -68,10 +68,12 @@ from ..lifecycle_storage import (
     CompletionObservation,
     Participant,
     PublicationOutcome,
+    PublicationTemporary,
     ReleasePublication,
     RunLedger,
     RunLedgerSurvey,
     StoredRun,
+    TemporaryRemoval,
     TerminalPublication,
     conclude_reservation,
 )
@@ -227,6 +229,30 @@ class ParticipantRunLedger:
     def reseal(self) -> None:
         """§5.6's obligation for the ledger's containing entry."""
         self.ledger.reseal()
+
+    # -- the one operator recovery — r6 §6.2, T6 ------------------------------
+
+    def observe_publication_temporary(self, run_id: str) -> PublicationTemporary:
+        """r6 §6.2's `(st_dev, st_ino)` comparison over one run file's names."""
+        return self.ledger.observe_publication_temporary(run_id)
+
+    def remove_publication_temporary(
+        self,
+        run_id: str,
+        *,
+        comparison: PublicationTemporary | None,
+        author: str,
+        reference: str,
+    ) -> TemporaryRemoval:
+        """T6's operator recovery: remove the temporary, settle nothing.
+
+        No participant reaches this and the survey's refusal is unchanged. After
+        it the run is visible as started and unsettled, and it still blocks every
+        successor until T16's attributed `participant_recovered` settles it.
+        """
+        return self.ledger.remove_publication_temporary(
+            run_id, comparison=comparison, author=author, reference=reference
+        )
 
 
 @dataclass(frozen=True, slots=True)

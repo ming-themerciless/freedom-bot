@@ -811,8 +811,18 @@ def test_the_manifest_pins_the_question_and_the_blocked_mutations() -> None:
     # are declared unresolved under C-7 because their producers do not exist.
     # What C-8 no longer contributes is a *filesystem* blocker, and that is what
     # is asserted, together with the claim that replaced it.
-    assert {item["conflict_id"] for item in body["unresolved"]} == {"C-7"}
-    assert {item["band"] for item in body["unresolved"]} == {"provenance", "journal"}
+    # **C-P5.0-R5-R2, PLAN-1.** S4-3's producer dependency is declared under
+    # C-S4-3 in the filesystem band. It is a missing producer, not a blocked
+    # ownership baseline, so it blocks no mutation.
+    assert {item["conflict_id"] for item in body["unresolved"]} == {"C-7", "C-S4-3"}
+    assert {
+        item["band"] for item in body["unresolved"] if item["conflict_id"] == "C-7"
+    } == {"provenance", "journal"}
+    assert [
+        (item["band"], item["evidence_case_ids"], item["blocks_mutation_ids"])
+        for item in body["unresolved"]
+        if item["conflict_id"] == "C-S4-3"
+    ] == [("filesystem", ["S4-3"], [])]
     creation = next(
         step for step in body["steps"] if step["establishes_ownership_by_creation"]
     )

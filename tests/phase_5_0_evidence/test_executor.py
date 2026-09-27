@@ -528,7 +528,9 @@ def test_the_default_cli_invocation_executes_nothing(capsys) -> None:
     # producers to the unresolved column, so `executable` is `False` and the dry
     # run says which conflict and how many contracts resolve nothing.
     assert "executable            : False" in output
-    assert "unresolved conflicts  : 3 (C-7)" in output
+    # **C-P5.0-R5-R2, PLAN-1.** S4-3's producer dependency is a fourth item
+    # under its own conflict, C-S4-3, beside C-7's three.
+    assert "unresolved conflicts  : 4 (C-7, C-S4-3)" in output
     assert "blocked baselines     : 0 mutations proved absent by nothing" in output
     assert "creation ownership    : 1 step(s) owning 29 mutations" in output
     assert "external contracts    : 3 documented input contract(s)" in output

@@ -24,7 +24,10 @@ that disagrees with the target cannot be written.
    `materialization.py` does not already contain.
 4. **`UnresolvedStep`s** — the parts of the reviewed design that **cannot be
    expressed at all with the reviewed mechanisms**, each with the conflict it
-   raises. **There are none**: R11's Option-B ruling resolved the last of them.
+   raises. R11's Option-B ruling resolved the last vector-shaped one; what
+   remains are missing **producers** — Band 7's three cases under **C-7** (R16)
+   and S4-3 under **C-S4-3** (C-P5.0-R5-R2). The section below describes the
+   state after R11 and is kept as that history.
 
 ## Why the fourth kind exists, and why it is now empty
 
@@ -115,6 +118,7 @@ from .plan import (
     StepRole,
 )
 from .targets import POSTGRES_CONFIG_FILES, DisposableTarget
+from .unit_sandbox import CANONICAL_PROBE_PATH, COMPARED_PROPERTIES
 
 # ---------------------------------------------------------------------------
 # The names the run creates. Every one is checked by
@@ -330,6 +334,96 @@ class ExternalCase:
                 "requires before it is covered. A case with none could be "
                 "covered by nothing."
             )
+
+
+# ---------------------------------------------------------------------------
+# S4-3's producer dependency — C-P5.0-R5-R2, finding P5.0-R5-R1-PLAN-1
+# ---------------------------------------------------------------------------
+
+#: The stable identifier of S4-3's producer dependency. **Not C-7**: C-7 is Band
+#: 7's three coordinator-tooling producers and may be resolved without touching
+#: Stage 4, and this dependency may be resolved without touching Band 7. A
+#: separate identifier is what lets `conflicts()` show one open while the other
+#: closes.
+S4_3_CONFLICT = "C-S4-3"
+
+
+#: **C-P5.0-R5-R3, finding P5.0-R5-R2-PLAN-1.** The two S4-3 requirements only a
+#: concrete, reviewed artifact can discharge, and which **nothing in this
+#: repository discharges**. R2 represented them as `SandboxAttestationProducer`,
+#: two nonblank review-reference strings, so `SandboxAttestationProducer("x",
+#: "y")` cleared both — a description of future work standing in for the work,
+#: which is the substitution EH-R16-4 refuses. That class is removed and nothing
+#: replaces it: a review reference is provenance metadata, not the reviewed unit,
+#: not the reviewed `SystemdIdentity` producer and not the binding between them.
+#:
+#: So there is no value, flag, path, digest or label a caller can supply to meet
+#: these two requirements. Meeting them needs code and artifacts that do not
+#: exist yet — the reviewed deployed unit and drop-in policy, and a reviewed
+#: `SystemdIdentity` producer integrated into the S4-3 attestation — added by a
+#: separately authorized pass and independently reviewed. That pass changes this
+#: module; it cannot be done from outside it.
+S4_3_UNMET_PRODUCER_REQUIREMENTS: tuple[str, ...] = (
+    "no reviewed deployed `freedom-sheet-writer.service` and allowed drop-in "
+    "policy exists in this repository (P5.0-R5 reconciliation row 16)",
+    "no reviewed producer and binding for `unit_sandbox.SystemdIdentity` exists "
+    "in this repository",
+)
+
+
+def s4_3_dependency_gaps(
+    *,
+    requested_properties: Sequence[str],
+    substituted_path: str,
+) -> tuple[str, ...]:
+    """Every S4-3 requirement not met, in a fixed order. **Never empty.**
+
+    `requested_properties` is what the plan's capture vector asks `systemctl
+    show` for, and `substituted_path` is the `ReadWritePaths=` the plan's own
+    transient-unit vector applies. Both come from the plan, so no caller can
+    satisfy them by assertion. The two producer requirements are always
+    reported unmet (`S4_3_UNMET_PRODUCER_REQUIREMENTS`): this function takes no
+    argument that could say otherwise.
+
+    The result is the **detail** C-S4-3 renders, not its gate. `_stage_four`
+    declares C-S4-3 unconditionally, so an empty result — which only a
+    monkeypatch can produce — does not clear it.
+    """
+    gaps: list[str] = [S4_3_UNMET_PRODUCER_REQUIREMENTS[0]]
+    asked = tuple(requested_properties)
+    missing = [name for name in COMPARED_PROPERTIES if name not in asked]
+    duplicated = sorted({name for name in asked if asked.count(name) > 1})
+    unrequested = sorted(set(asked) - set(COMPARED_PROPERTIES))
+    if missing or duplicated or unrequested:
+        detail = [f"requests {len(set(asked) & set(COMPARED_PROPERTIES))} of "
+                  f"{len(COMPARED_PROPERTIES)} compared properties"]
+        if missing:
+            detail.append("omits " + ", ".join(missing))
+        if duplicated:
+            detail.append("repeats " + ", ".join(duplicated))
+        if unrequested:
+            detail.append("adds " + ", ".join(unrequested))
+        gaps.append(
+            "the capture vector does not request every property in "
+            "`unit_sandbox.COMPARED_PROPERTIES` exactly once: it "
+            + "; ".join(detail)
+        )
+    if substituted_path != CANONICAL_PROBE_PATH:
+        gaps.append(
+            f"the transient unit's `ReadWritePaths=` is {substituted_path!r}, "
+            f"not the canonical probe path {CANONICAL_PROBE_PATH!r}"
+        )
+    gaps.append(S4_3_UNMET_PRODUCER_REQUIREMENTS[1])
+    return tuple(gaps)
+
+
+def _requested_properties(argv: Sequence[str]) -> tuple[str, ...]:
+    """The `--property=` names a `systemctl show` vector asks for, in order."""
+    return tuple(
+        argument.split("=", 1)[1]
+        for argument in argv
+        if argument.startswith("--property=")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -818,10 +912,11 @@ def _mount_facts_expected() -> tuple[DeclaredExpectation, ...]:
 def _stat_mode(mode: str) -> str:
     """A four-digit `install --mode` argument as `stat --format=%a` prints it.
 
-    `install` is given `0755` and `stat` prints `755`: `%a` emits the octal
-    permission bits with no leading zero unless a set-user-ID, set-group-ID or
-    sticky bit is set. Deriving the expected text from the mode the plan installs
-    keeps one source for the value; writing `755` beside `0755` would be two.
+    The case program is installed `0555` and `stat` prints `555`: `%a` emits the
+    octal permission bits with no leading zero unless a set-user-ID,
+    set-group-ID or sticky bit is set. Deriving the expected text from the mode
+    the plan installs keeps one source for the value; writing `555` beside
+    `0555` would be two.
     """
     trimmed = mode.lstrip("0")
     return trimmed if trimmed else "0"
@@ -1916,12 +2011,20 @@ def _create_disposable_root(
 
     ## The mode
 
-    `mkdir(2)` is given `0755` and `fchmod(2)` applies it again to the descriptor
+    `mkdir(2)` is given `0700` and `fchmod(2)` applies it again to the descriptor
     of the directory just created, so the process umask does not decide it and no
     path is resolved a second time. Owner and group are `root:root` by
     construction: `mkdir` takes the creating process's uid and gid, and this
     vector runs as `E7`. `B3-02` reads all four back with `stat` rather than
     assuming them.
+
+    **`0700`, not `0755` — C-P5.0-LAB-I3-R3, 2026-09-20.** The mode is
+    `case_program.ROOT_DIRECTORY_MODE`, and it is the value r6 §1.4.1's C1 row
+    and §7.2's derivation always gave canonical `R`. This root holds
+    security-sensitive execution evidence and nothing traverses it but the one
+    root identity that created it; every object beneath it is reached by an
+    inherited descriptor, so no group or other bit has a consumer. `R/bin`
+    remains `0755`, which is a separate item below.
     """
     contained = tuple(
         mutation_id
@@ -2008,10 +2111,10 @@ def _create_disposable_root(
             role=StepRole.CONTROL,
             capture=CapturePolicy.FILE_MODE,
             observation_expectations=_file_mode_expected(
-                uid="0", gid="0", mode=_stat_mode("0755"), file_type="directory"
+                uid="0", gid="0", mode=_stat_mode("0700"), file_type="directory"
             ),
             expected_result=(
-                "uid 0, gid 0, mode 755, type directory — all four compared."
+                "uid 0, gid 0, mode 700, type directory — all four compared."
             ),
             expected_refusal=(
                 "any disagreement stops the run. A root that is not the object "
@@ -2270,8 +2373,9 @@ def _case_program_prerequisites(steps: _Steps, paths: _Paths) -> None:
             run_as="root",
             argv=("/usr/bin/stat", "--format=%u %g %a %F", paths.case_binary),
             purpose=(
-                "Prove the installed case program is root:root 0755 and not "
-                "set-user-ID."
+                "Prove the installed case program is "
+                f"{CASE_PROGRAM_OWNER}:{CASE_PROGRAM_GROUP} {CASE_PROGRAM_MODE} "
+                "and not set-user-ID."
             ),
             evidence_case_ids=("CAP-CASE-BINARY-MODE",),
             role=StepRole.PREREQUISITE,
@@ -3244,26 +3348,77 @@ def _stage_four(
             ),
         )
     )
+    capture_argv = (
+        "/usr/bin/systemctl",
+        "show",
+        "--property=ProtectSystem",
+        "--property=ReadWritePaths",
+        TRANSIENT_UNIT,
+    )
+    # **C-P5.0-R5-R2/R3, PLAN-1.** The vector is unchanged and cannot pass S4-3
+    # under condition 4, and no reviewed producer exists, so S4-3 is declared
+    # unresolved under its own conflict **unconditionally**. There is no branch
+    # in which this step produces S4-3: adding one is the separately authorized,
+    # independently reviewed producer-integration pass, not a value to supply.
+    gaps = s4_3_dependency_gaps(
+        requested_properties=_requested_properties(capture_argv),
+        substituted_path=paths.probe,
+    )
+    steps.block(
+        UnresolvedStep(
+            step_ref="STAGE4-S4-3",
+            band="filesystem",
+            conflict_id=S4_3_CONFLICT,
+            design_requires=(
+                "S4-3 — §2.13.2a: the transient unit's applied property set, "
+                "captured by `systemctl show`, normalized and compared under "
+                "the four conditions with the deployed unit and its drop-ins, "
+                "and bound to the systemd identity it was made under. "
+                "Resolution requires **all** of: (1) the reviewed deployed "
+                "`freedom-sheet-writer.service` and its allowed drop-in "
+                "policy; (2) a capture vector requesting every property in "
+                "`unit_sandbox.COMPARED_PROPERTIES` exactly once; (3) the "
+                "canonical `ReadWritePaths=` substitution, "
+                "`unit_sandbox.CANONICAL_PROBE_PATH`; and (4) a reviewed "
+                "producer and binding for `unit_sandbox.SystemdIdentity`."
+            ),
+            why_not_a_vector=(
+                "the step that runs `systemctl show` on the transient unit "
+                "exists, but it cannot produce a passing S4-3: "
+                + "; ".join(gaps)
+                + ". Widening the vector needs the deployed writer unit, and "
+                "capturing the systemd identity needs a producer outside "
+                "`plan.PERMITTED_EXECUTABLES`; both are gated work this plan "
+                "does not perform."
+            ),
+            what_would_resolve_it=(
+                "a separately authorized, independently reviewed pass that adds "
+                "the reviewed deployed unit and drop-in policy, widens the "
+                "capture vector, and implements and integrates the reviewed "
+                "`SystemdIdentity` producer — code and artifacts that change "
+                "this generator. No review reference, label, path, digest or "
+                "flag resolves it, and neither does a supplied observation, an "
+                "`ExternalCase` or a PASSED record from `unit_sandbox`. "
+                "Independent of C-7: resolving Band 7's producers leaves "
+                "this open, and resolving this leaves C-7 open."
+            ),
+            evidence_case_ids=("S4-3",),
+        )
+    )
     steps.add(
         CommandStep(
             step_id=next_id(),
             band="filesystem",
             run_as="root",
-            argv=(
-                "/usr/bin/systemctl",
-                "show",
-                "--property=ProtectSystem",
-                "--property=ReadWritePaths",
-                TRANSIENT_UNIT,
-            ),
+            argv=capture_argv,
             purpose=(
-                "S4-3: the directive set systemd actually applied to the unit "
-                "S4-2 ran in, compared out of band with the deployed unit's. A "
-                "mismatch is inconclusive: the transient unit did not exercise "
-                "the sandbox the writer will run under, so S4-1 and S4-2 attest "
-                "nothing about it."
+                "A partial capture of the directive set systemd applied to "
+                "the unit S4-2 ran in. **It is not S4-3 evidence**: S4-3 is "
+                f"declared unresolved under {S4_3_CONFLICT} (`STAGE4-S4-3`), "
+                "because two properties cannot satisfy condition 4's complete "
+                "comparison."
             ),
-            evidence_case_ids=("S4-3",),
+            evidence_case_ids=(),
             capture=CapturePolicy.UNIT_DIRECTIVES,
             observation_expectations=_unit_directives_expected(
                 protect_system=STAGE_4_PROTECT_SYSTEM,
@@ -4493,8 +4648,11 @@ __all__ = [
     "ExternalCase",
     "MAPPED_OS_USER",
     "MAPPED_POSTGRES_ROLE",
+    "S4_3_CONFLICT",
+    "S4_3_UNMET_PRODUCER_REQUIREMENTS",
     "TRANSIENT_UNIT",
     "UnresolvedStep",
     "build_concrete_plan",
     "build_mutations",
+    "s4_3_dependency_gaps",
 ]

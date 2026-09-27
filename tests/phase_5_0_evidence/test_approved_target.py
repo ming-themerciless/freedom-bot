@@ -39,6 +39,7 @@ def test_the_confirmed_environment_is_the_one_peter_named_and_codex_verified() -
     facts = dict(APPROVED_TARGET_FACTS.as_fields())
     assert facts == {
         "host": "oracle-test",
+        "kernel_nodename": "Test",
         "ipv4": "138.2.182.39",
         "operating_system": "Ubuntu 26.04.1 LTS",
         "architecture": "x86_64",
@@ -189,3 +190,58 @@ def test_the_identity_digest_covers_the_environment_facts_too() -> None:
     assert TARGET_IDENTITY_DIGEST != hashlib.sha256(
         "\n".join(changed).encode("utf-8")
     ).hexdigest()
+
+
+def test_the_ssh_alias_and_the_kernel_nodename_are_two_separate_facts() -> None:
+    """Peter's Option A decision, LAB-I3-TARGET-1, 2026-09-20.
+
+    The operational name did not move: `host` is still the runbook §2 SSH alias
+    `oracle-test`, on both the planning target and the review facts. What is new
+    is a *second* name, `Test`, which is what the target's kernel calls itself
+    and the only value I3 admission compares its `os.uname()` observation with.
+
+    Asserted as an inequality as well as two values, because the defect this
+    decision resolves was precisely the two being treated as one field.
+    """
+    assert APPROVED_TARGET.host == "oracle-test"
+    assert APPROVED_TARGET_FACTS.host == "oracle-test"
+    assert APPROVED_TARGET_FACTS.kernel_nodename == "Test"
+    assert APPROVED_TARGET_FACTS.kernel_nodename != APPROVED_TARGET_FACTS.host
+
+    # And the alias is not silently a nodename under a different spelling.
+    assert APPROVED_TARGET_FACTS.kernel_nodename.lower() != APPROVED_TARGET_FACTS.host.lower()
+
+
+def test_the_kernel_nodename_is_part_of_the_canonical_identity_material() -> None:
+    """It is hashed, ordered and carried into the token — not a loose note.
+
+    The nodename is approved target identity, so supplying a different one must
+    move `TARGET_IDENTITY_DIGEST` and `CONFIRMATION_TOKEN` and force the
+    re-review that a moved digest triggers. A fact recorded beside the identity
+    rather than inside it would let the target's name change under an approved
+    digest.
+    """
+    import hashlib
+    from dataclasses import replace
+
+    names = [name for name, _ in APPROVED_TARGET_FACTS.as_fields()]
+    assert "kernel_nodename" in names
+    # Deterministic ordering: immediately after `host`, the fact it is paired
+    # with and must never be confused for.
+    assert names.index("kernel_nodename") == names.index("host") + 1
+    assert names == sorted(names, key=names.index)  # the order is the tuple's, not a dict's
+
+    def digest_of(facts) -> str:
+        parts = [f"{name}={getattr(APPROVED_TARGET, name)!r}" for name in COMPARED_TARGET_FIELDS]
+        parts.extend(f"{name}={value}" for name, value in facts.as_fields())
+        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+    assert digest_of(APPROVED_TARGET_FACTS) == TARGET_IDENTITY_DIGEST
+    moved = digest_of(replace(APPROVED_TARGET_FACTS, kernel_nodename="oracle-test"))
+    assert moved != TARGET_IDENTITY_DIGEST
+
+    # The token carries the digest's first sixteen characters, so it moves too.
+    assert CONFIRMATION_TOKEN.endswith(TARGET_IDENTITY_DIGEST[:16])
+    assert not CONFIRMATION_TOKEN.endswith(moved[:16])
+    # The token still names the operational alias, which this decision kept.
+    assert CONFIRMATION_TOKEN.startswith("oracle-test:")

@@ -787,11 +787,13 @@ def test_a_complete_synthetic_payload_classifies_every_band_7_case(plan) -> None
     assert result.band_7_records_all_passed is True
     assert result.band_7_evidence_holds is True
 
-    # And the three the importer does not observe are named, not skipped.
+    # And the ones the importer does not observe are named, not skipped.
+    # **C-P5.0-R5-R3:** S4-3 is a required case with no Band-7 schema.
     assert set(result.outside_scope) == {
         "JNL-49-E4-CLEAR-ARCHIVE-IMMUTABLE",
         "JNL-49-E6-CLEAR-ARCHIVE-IMMUTABLE",
         "JNL-50-E5-CLEAR-THEN-DENIED-OPEN",
+        "S4-3",
     }
     assert result.overall_completeness_established is False
     assert result.eligible_for_operational_acceptance is False
@@ -1103,7 +1105,11 @@ def test_every_required_case_is_mapped_to_a_producer(plan) -> None:
         "JNL-51-PROVENANCE-OMITTED",
         "JNL-47-NO-GENERATION-ON-FAILURE",
         "JNL-47-RECOVERY-STATE",
+        # **C-P5.0-R5-R3.** Required, produced by no step, blocked by C-S4-3.
+        "S4-3",
     }
+    assert rows["S4-3"].produced_by_plan_steps == ()
+    assert rows["S4-3"].declared_unresolved_by == ("C-S4-3",)
     for case_id in (
         "JNL-49-E4-CLEAR-ARCHIVE-IMMUTABLE",
         "JNL-49-E6-CLEAR-ARCHIVE-IMMUTABLE",
@@ -1173,6 +1179,7 @@ def test_the_artifact_persists_the_scope_and_the_missing_evidence(
         "JNL-49-E4-CLEAR-ARCHIVE-IMMUTABLE",
         "JNL-49-E6-CLEAR-ARCHIVE-IMMUTABLE",
         "JNL-50-E5-CLEAR-THEN-DENIED-OPEN",
+        "S4-3",  # C-P5.0-R5-R3
     }
     assert scope["overall_completeness_established"] is False
     assert scope["eligible_for_operational_acceptance"] is False

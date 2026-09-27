@@ -2426,6 +2426,7 @@ class DescriptorBoundEffects:
         uid: int | None = None,
         gid: int | None = None,
         mode: int = 0o555,
+        creation_mode: int = int(case_runtime.CASE_PROGRAM_TEMPORARY_MODE, 8),
         step_id: str = "",
     ) -> ObjectIdentity:
         """**P2.** Install the reviewed bytes from one held buffer.
@@ -2434,6 +2435,16 @@ class DescriptorBoundEffects:
         last possible moment, and against `materialization.REVIEWED_DIGESTS`
         where the content is one the planning tier pinned. Content that changed
         between the manifest and the write is refused rather than installed.
+
+        **The two modes are different modes — C-P5.0-LAB-I3-R3, 2026-09-20.**
+        `creation_mode` is r6 §6.2's `0500`, given to the exclusive `openat`
+        that makes the temporary pathname; `mode` is the ruled published
+        `0555`, applied to the descriptor that `openat` returned. The sequence
+        between them is unchanged and the descriptor is the authority
+        throughout: the bytes are written to it, synchronized on it, and its
+        ownership and final mode are applied to it, all before the exclusive
+        link claims the final name. The temporary's creation mode never becomes
+        the published mode.
         """
         self._require_armed("installing the case program")
         digest = hashlib.sha256(content).hexdigest()
@@ -2444,7 +2455,9 @@ class DescriptorBoundEffects:
                 "what was reviewed."
             )
         traversal = self.inventory.traversal(directory_role)
-        descriptor = self.filesystem.create_file(traversal, temporary)
+        descriptor = self.filesystem.create_file(
+            traversal, temporary, mode=creation_mode
+        )
         try:
             self.filesystem.write(descriptor.number, content)
             if uid is not None and gid is not None:

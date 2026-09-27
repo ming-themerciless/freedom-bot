@@ -652,7 +652,7 @@ def test_unobserved_false_or_incomplete_quiescence_refuses_the_effect(
         name="subject",
         expected_identity=original,
         quiescence=quiescence,
-        residue_paths=("/opt/freedom-blades/evidence/run/journal/subject",),
+        residue_paths=("/var/lib/fb-evidence-p5-0/run/journal/subject",),
         dependent_work=("L4 classification", "reservation release"),
     )
 
@@ -660,7 +660,7 @@ def test_unobserved_false_or_incomplete_quiescence_refuses_the_effect(
     assert outcome.refused is True
     assert any(expected in reason for reason in outcome.reasons)
     assert outcome.residue == (
-        "/opt/freedom-blades/evidence/run/journal/subject",
+        "/var/lib/fb-evidence-p5-0/run/journal/subject",
     )
     assert outcome.dependent_work_refused == (
         "L4 classification",
@@ -869,7 +869,7 @@ def test_the_environment_reset_refuses_especially_while_a_quarantine_exists():
         host=HOST,
         reservation_id="RES-0",
         reason="residue was not accounted for.",
-        residue=("/opt/freedom-blades/evidence/run/journal/000001.seal",),
+        residue=("/var/lib/fb-evidence-p5-0/run/journal/000001.seal",),
     )
 
     decisions = survey(

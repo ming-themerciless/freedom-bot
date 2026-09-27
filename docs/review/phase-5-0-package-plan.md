@@ -4,6 +4,20 @@ Readiness statement, design proposal, work breakdown and impact assessment.
 **Revision 12 — remediation R11. Independently security re-reviewed 2026-09-02;
 P5.0-SR1 and P5.0-SR2 Closed on design; package remains `not ready`.**
 
+**Current governance update, 2026-09-22.** I3 is Closed on the accepted clean
+R8 replacement evidence. The two R6 findings are Closed as retained historical
+violations; R6 remains inadmissible as gate evidence. This removes the I3/R6
+decision dependency only. **P5.0-R5 remains Blocking, OD-62 remains Open with
+G-A provisional, `plan.is_executable=False`, and this package remains not
+ready.** No host action, implementation, migration or `--execute` is authorized.
+
+**Post-cutover verification decision, 2026-09-22.** Each approved field-group
+cutover has a **four-week** verification window. Its source Sheet is frozen
+read-only and retained with the export, connector, credential and rollback path.
+PostgreSQL is the sole authority; no dual writes and no live diagnostic Sheet
+are permitted. Retirement requires the completed verification gate and explicit
+maintainer approval.
+
 **Current implementation authorization, 2026-09-13.** C-P5.0-LAB-I authorizes
 repository implementation and local tests for the accepted r6 laboratory
 mechanism and the bounded code required to address C-7 and EH-R16-1. It does not
@@ -691,7 +705,7 @@ touched.**
 
 | Input | Effect on this plan |
 |---|---|
-| **R6-A** — *reconcile the probe report lifecycle* | **§2.13.2a.** Stage 4 moves from deployment to **provisioning**, inside the same `verify-capability` invocation and **before** the report is built, so `append_only_probe_digest` covers the four stages it is said to cover. Its cases are named **`S4-1 … S4-3`**: an append inside the substituted `ReadWritePaths=`, an append outside it refused `EROFS`, and a `systemctl show` capture whose applied directive set is hashed and compared with the deployed unit — a mismatch is **`inconclusive`**. `verify-capability` gains two preconditions (the unit file deployed, the deployment digest supplied) and Algorithm C **C0** refuses unless the report's `writer_deployment_digest` equals the one it was given. **Invalidation reuses the existing rule** — redeployment forces a rotation (**J-22**, **F-6**) — so no second invalidation rule, artifact, digest, authority or refusal code exists. The re-review's **option 2** is priced and rejected in the same table, with its own requirement — *how does the writer authenticate deployment evidence without PostgreSQL?* — given as the reason |
+| **R6-A** — *reconcile the probe report lifecycle* | **§2.13.2a.** Stage 4 moves from deployment to **provisioning**, inside the same `verify-capability` invocation and **before** the report is built, so `append_only_probe_digest` covers the four stages it is said to cover. Its cases are named **`S4-1 … S4-3`**: an append inside the substituted `ReadWritePaths=`, an append outside it refused `EROFS`, and a `systemctl show` capture whose applied directive set is hashed and compared with the deployed unit — a mismatch is **`inconclusive`**. `verify-capability` gains two preconditions (the unit file deployed, the deployment digest supplied) and Algorithm C **C0** refuses unless the report's `writer_deployment_digest` equals the one it was given. **Invalidation reuses the existing rule** — redeployment forces a rotation (**J-22**, **F-6**) — so no second invalidation rule, artifact, digest, authority or refusal code exists. *(Superseded 2026-09-23 as to the invalidation rule only, pending review: C-P5.0-R5-R1/R2 add a second invalidation condition — a systemd or package identity change, enforced at W4/C-a under J-25 — with no second artifact or refusal-code family; see §2.13.2a.)* The re-review's **option 2** is priced and rejected in the same table, with its own requirement — *how does the writer authenticate deployment evidence without PostgreSQL?* — given as the reason |
 | **R6-B** — *make the whole-seal claim true or narrow it* | **Both, because one alone would have left something false.** **§2.13.5a**: `BND.sealed_at` and `BND`'s own format field are **withdrawn**; the binding holds exactly `genesis_record_digest`, `journal_device` and `journal_inode`, encoded at a **`binding_format_version` carried in the chain-authenticated body**, and the seal file's length is exactly `len(SB) + len(BND)`. **§2.13.5b** adds a field-by-field table naming the **V-W** step that recomputes or compares each, plus the one-row statement for the body (`W13` against record 0). **§2.13.5c** splits **F-1** into **F-1a** — refused by the writer with no database — and **F-1b** — a `CAP_LINUX_IMMUTABLE` holder rewriting the seal *and* record 0 consistently, refused **only** by the coordinator against PostgreSQL — and adds **F-9 … F-12** for `genesis_record_digest`, device, inode and a planted `sealed_at`. Two **attacker classes** are stated, and *"each half fails closed alone"* is reconciled to what each half covers. **`chattr +i` is not the answer**, and the section says why |
 | **R6-C** — *correct `JNL-32` everywhere* | **§2.13.8.** `JNL-32a` — `+a` present, the start reaches **W18**, W17 is the only write and appends exactly one `startup` record, seal and archive unchanged. `JNL-32b` — `+a` absent, the start refuses at **W9** with `SW-J06` **before W17**, no write-mode journal open at all, no `startup` record, journal, seal and archive **byte-for-byte unchanged**. Corrected in the same terms in WP-4b, §6.5 item 15, logical schema §9 and every traceability row |
 | **R6-D** — *preserve a valid review record* | **`phase-5-0-remediation-r6-handback.md`**, complete Markdown, `git diff --check` clean, replacing the corrupt R5 handback, which stays in Git history only |
@@ -2340,7 +2354,65 @@ The two directories are siblings rather than one directory, because the arena
 | **S4-0** | **New in revision 8 — the positive DAC control for S4-2.** On the **exact** `…/probe-ro/s4-2.target`, on the same mount, under the same uid: `open(O_WRONLY\|O_APPEND)`, `write`, `fsync`, `close`; then `rename` `s4-2.target` → `s4-2.target.moved` **within `…/probe-ro`** and `rename` back, so the negative case meets the same path it did; and, on the identically created sibling `…/probe-ro/s4-0.unlink`, `unlink` | as `freedomsheet` through `setpriv`, **outside any unit**, with **no** sandbox | **every operation succeeds.** If any fails, the Stage-4 result is **`inconclusive`**, never `passed`, and `verify-capability` exits non-zero naming the operation and its `errno` |
 | **S4-1** | `open(O_WRONLY\|O_APPEND)`, write, `fsync` on an arena file **inside** the substituted `ReadWritePaths=` | inside the transient unit, as `freedomsheet` | **succeeds** |
 | **S4-2** | **the same append, to the exact `…/probe-ro/s4-2.target` S4-0 just proved writable**, which is outside the substituted `ReadWritePaths=` and inside `ProtectSystem=strict`'s read-only tree | inside the transient unit, as `freedomsheet` | **`EROFS`, and nothing else.** `EACCES` means discretionary permissions refused it — which S4-0 has just excluded — so `EACCES` is **`inconclusive`**, not a pass. **Success** is a **failed** stage: the sandbox did not deny |
-| **S4-3** | `systemctl show` on the transient unit, compared with the deployed unit file | root | the **applied** directive set is captured and hashed, and must equal the deployed unit's directive set except for the single recorded `ReadWritePaths=` substitution; the deployed unit file's own digest is recorded alongside it. A mismatch is **`inconclusive`** |
+| **S4-3** | `systemctl show` on the transient unit, compared with the deployed unit file **and its drop-ins** under the four conditions below | root | the **applied** property set is captured, normalized and hashed, and must equal the deployed unit's normalized sandbox property set except for the single `ReadWritePaths=` substitution, **which is the canonical probe path and nothing else**; the deployed unit's digest (unit and drop-ins) and the **systemd identity** — `systemd` version and the providing package's name and version — are recorded alongside it. **Any refusal under the four conditions, and any mismatch, is `inconclusive`** |
+
+**S4-3's four conditions — amended 2026-09-23 under C-P5.0-R5-R1, and pending
+independent Codex review.** The security review (rev 11, *"Stage 4 remains
+conditional"*) made these implementation conditions; the P5.0-R5 reconciliation
+(matrix row 15) found them neither stated here nor implemented. They are now
+normative, and each is a refusal rather than an interpretation:
+
+1. **A closed allowlist of supported unit directives and drop-ins.** S4-3
+   parses the deployed unit in a closed grammar — the sections `[Unit]`,
+   `[Service]` and `[Install]`, one `Key=Value` per line, no continuation line,
+   no specifier, quote, escape or variable, and no `~` capability inversion —
+   and admits only the directives on the allowlist: §2.13.3's hardened sandbox
+   directives, `ExecStart=` and `Type=`, and non-authority lifecycle
+   directives. **The supported drop-in set is empty**, because this section
+   names none: a drop-in beside the writer unit is refused by name, and
+   admitting one is a design change. *Maintainer confirmation of the empty set
+   is requested in the C-P5.0-R5-R1 handback.*
+2. **Duplicate or unknown authority-bearing directives are rejected, including
+   in drop-ins.** An unknown directive is refused outright, because a parser that
+   does not know a directive cannot know it bears no authority. An
+   authority-bearing directive assigned more than once anywhere across the unit
+   and its drop-ins — including an empty reset assignment — is refused, so the
+   comparison never depends on systemd's reset-and-accumulate rules. Every
+   sandbox directive must be assigned exactly once.
+3. **The substituted `ReadWritePaths=` is constructed from the internally
+   fixed canonical probe path** — `…/probe`, derived from the approved target
+   and taken from no caller, argument or report. A report that recorded any
+   other substitution is refused, and the deployed unit's own `ReadWritePaths=`
+   value never enters the expected set.
+4. **The complete normalized applied property set is compared, and a systemd
+   or package change invalidates the evidence.** `systemctl show` must report
+   every compared property exactly once, with no omitted, duplicated or
+   unrequested property, and each value must equal the deployed value after the
+   same normalization. The attestation carries the systemd identity it was made
+   under; **a different identity invalidates it even when the deployed unit's
+   bytes are unchanged**, because what S4-3 attests is systemd's
+   *interpretation* of those bytes, and an upgrade can change that without
+   changing them. So does a re-read applied set that no longer matches. The
+   only way back is a fresh `verify-capability`, which is a rotation.
+
+The harness implements these as typed, fail-closed repository logic in
+`tools/phase_5_0_evidence/unit_sandbox.py`. **That is not evidence**: no
+deployed writer unit exists yet (reconciliation row 16), and the concrete
+plan's S4-3 vector still asks `systemctl show` for two properties, so it cannot
+produce a passing S4-3 under condition 4 until the unit exists and the vector
+carries the complete set. *Added 2026-09-23 under C-P5.0-R5-R2, pending
+review:* the concrete plan declares that gap as its own unresolved conflict,
+**C-S4-3** (`STAGE4-S4-3`), which keeps `is_executable` false independently of
+Band 7's C-7 until a reviewed producer supplies the deployed unit and drop-in
+policy, the complete capture, the canonical substitution and the systemd
+identity. *Amended 2026-09-23 under C-P5.0-R5-R3, pending review:* no
+review reference, label, path, digest or flag can stand in for that producer.
+C-S4-3 is declared unconditionally and has no resolution branch; resolving it
+is a separately authorized code and artifact integration pass — the reviewed
+deployed unit and drop-in policy, the widened capture, and a reviewed
+`SystemdIdentity` producer bound into the attestation — followed by independent
+review. S4-3 is a required case (`required_cases.REQUIRED_CASES`), so a plan
+that neither produces nor declares it is refused.
 
 **Why S4-0 has to run outside the unit, and why that is not a weaker control.**
 The claim S4-2 makes is *"the systemd read-only bind is what refused this
@@ -2380,8 +2452,14 @@ to the probe, and compared it against the probe's copy of that same string*
 recomputes the manifest to detect a deployment changed since C0 and checks
 `PR`'s copy for consistency, and the sandbox evidence inside the seal describes
 **this** deployment. The rule that already exists — a redeployment requires a
-rotation (**J-22**, **F-6**) — is what invalidates it. No second invalidation
-rule is invented, because none is needed.
+rotation (**J-22**, **F-6**) — is what invalidates it **for a change of
+deployed bytes**. *Amended 2026-09-23 under C-P5.0-R5-R1, pending review:*
+revision 9 said *"No second invalidation rule is invented, because none is
+needed."* **That was not true.** A systemd or package upgrade can change how the
+unchanged unit is interpreted, and the deployment digest cannot see it. So
+there is a second rule — S4-3 condition 4 — and it has an enforcement point:
+**W4** and **C-a** refuse (`SW-J25`/`J-25`) when the systemd identity `PR`
+recorded at S4-3 differs from the host's current one.
 
 **The lifecycle choice, made in the open rather than for Peter.** The re-review
 named two coherent lifecycles. Revision 7 takes the **first**, and states the
@@ -2392,8 +2470,8 @@ comparison rather than presenting the outcome alone.
 | Shape | run sandbox attribution **before** seal creation and bind its exact result into the one immutable report | separate filesystem-capability evidence from deployment/sandbox evidence as two typed artifacts, with distinct digests, timestamps, authorities, storage, invalidation rules and writer/coordinator checks |
 | Is it feasible? | **Yes.** The stage needs the unit *file*, not a running writer, and the unit file is already deployed before a generation exists — **C0** requires the unit deployed and the digest supplied, both pre-probe facts, and **C2** compares the digest against the report once the report exists | Yes, but it adds a second evidence artifact to a design whose entire integrity argument is that one seal is the anchor |
 | How the **writer** authenticates it, with **no PostgreSQL** | it needs no new mechanism: the report is inside the seal body, covered by `seal_body_digest`, anchored by record 0, and checked at **W4** | **this is the difficulty.** A file written at deployment sits outside the `chattr +i` seal, is authored by an actor the writer cannot verify, and the writer has no database to compare it against. Authenticating it honestly means giving it its own seal — which is option 1 with more parts |
-| Invalidation | the existing rule: redeployment requires a rotation (**J-22**, **F-6**), which discards the whole generation and its sandbox evidence with it | a **new** rule, plus new absent / stale / mismatched / corrupt refusal paths and a writer-side check for each |
-| Cost | one `systemd-run` step, one precondition and — after revision 8's R7-B correction — **four** cases in `verify-capability`, plus one transient sibling directory with two files. **No new artifact, digest, authority, storage location, invalidation rule or refusal code** | a new artifact, its digest, its writer, its storage, its own invalidation rules, and at least three new refusal codes |
+| Invalidation | **two conditions, both enforced inside the one sealed report** — *amended 2026-09-23 under C-P5.0-R5-R2, pending review.* (1) A change of **deployed bytes** invalidates through the existing rule: redeployment requires a rotation (**J-22**, **F-6**), which discards the whole generation and its sandbox evidence with it. (2) A change of **systemd or package identity** — which can change how unchanged bytes are interpreted — invalidates the S4-3 attestation at **W4** and **C-a** under **J-25** (§2.13.2a S4-3 condition 4), and it too requires a fresh `verify-capability`, which is a rotation. The second condition introduces **no second evidence artifact and no new refusal-code family**: it is a further refusal cause of the existing `SW-J25`/`J-25`, checked against the report already inside the seal | a **new** rule, plus new absent / stale / mismatched / corrupt refusal paths and a writer-side check for each |
+| Cost | one `systemd-run` step, one precondition and — after revision 8's R7-B correction — **four** cases in `verify-capability`, plus one transient sibling directory with two files. **No new artifact, digest, authority, storage location or refusal-code family.** *Amended 2026-09-23 under C-P5.0-R5-R2, pending review:* revision 7 also said *"no new … invalidation rule"*; that is **superseded** by the second invalidation condition above. Its availability cost — a systemd or package upgrade stops Sheet mutations until a rotation — **extends the already identified R-5.0-11 and R-5.0-16 exposure and remains pending review and maintainer disposition** | a new artifact, its digest, its writer, its storage, its own invalidation rules, and at least three new refusal codes |
 | Risk it carries | the probe now requires systemd and a deployed unit **at provisioning time**. Recorded in **A-5.0-5**, which grows accordingly | two artifacts that can disagree — a class of defect this package has already met once |
 
 **Why option 1.** Option 2's own stated requirement is what rules it out. The
@@ -2617,8 +2695,12 @@ schema-versioned, in the encoding `application/idempotency.py`'s
 writer's files, its unit and its drop-ins and runs `systemctl daemon-reload`. It
 is invariant from that instant until the next deployment, and a redeployment
 **requires a rotation** — rows **J-22** and **F-6**, and no second invalidation
-rule. It is therefore final **before C0**, which already requires the unit
-deployed; the ordering is a property of the deploy procedure, not an assumption.
+rule **for a change of deployed bytes**. It is therefore final **before C0**,
+which already requires the unit deployed; the ordering is a property of the
+deploy procedure, not an assumption. *Amended 2026-09-23 under C-P5.0-R5-R2,
+pending review:* a systemd or package identity change is a separate
+invalidation condition the digest cannot see — §2.13.2a S4-3 condition 4,
+enforced at **W4**/**C-a** under **J-25**, and it also requires a rotation.
 
 **Who computes it, at each point.**
 
@@ -2744,8 +2826,15 @@ read the journal and the seal and may append to the journal, and that is the
 complete list. It cannot modify, replace, rotate, seal, archive or dispose of
 anything, and §2.13.4 proves each of those one `errno` at a time.
 
-**The unit is hardened to match.** `freedom-sheet-writer.service` carries at
-least:
+**The unit is hardened to match.** `freedom-sheet-writer.service` carries
+the directives below, each exactly once. *Amended 2026-09-23 under
+C-P5.0-R5-R1, pending review:* this said *"at least"*, which S4-3's closed
+allowlist (§2.13.2a, condition 1) no longer permits — an authority-bearing
+directive not listed here, in the unit or in a drop-in, makes S4-3
+`inconclusive`. `ExecStart=`, `Type=` and non-authority lifecycle directives are
+on the allowlist beside them. The comment on `TimeoutStopSec=` is this
+document's annotation; systemd does not strip a trailing comment, so it is not
+part of the deployed line:
 
 ```
 User=freedomsheet
@@ -3136,7 +3225,7 @@ Unprivileged, and read-only apart from one appended record.**
 | **W1** | `readlink("…/journal/current")`; refuse unless it is a relative name matching `^[0-9]{6}\.journal$` in the same directory | `SW-J03` |
 | **W2** | `open("…/journal/__GEN__.seal", O_RDONLY\|O_NOFOLLOW)`; read fully | `SW-J17` |
 | **W3** | Parse `SB`; refuse on an unknown `format_version`. **Then parse `BND` at exactly the `binding_format_version` `SB` declares**, refusing an unsupported version, a short binding, or **any byte after it** — the file's length must be exactly `len(SB) + len(BND)`. Recompute `seal_body_digest` over `SB` | `SW-J24` |
-| **W4** | Recompute `probe_report_digest` over the embedded `PR` and compare with `SB.probe_report_digest`; refuse if `SB.append_only_probe_version` is not one this writer build supports, if `PR` does not carry **all four stages** and every one of their cases, if any case in `PR` is not a pass, or if `PR.writer_deployment_digest` ≠ `SB.writer_deployment_digest` | `SW-J25` |
+| **W4** | Recompute `probe_report_digest` over the embedded `PR` and compare with `SB.probe_report_digest`; refuse if `SB.append_only_probe_version` is not one this writer build supports, if `PR` does not carry **all four stages** and every one of their cases, if any case in `PR` is not a pass, or if `PR.writer_deployment_digest` ≠ `SB.writer_deployment_digest`; **and — amended 2026-09-23 under C-P5.0-R5-R1, pending review — if the systemd identity S4-3 recorded in `PR` differs from the host's current systemd identity** (§2.13.2a S4-3 condition 4) | `SW-J25` |
 | **W5** | **Derive** the genesis record from `SB` alone (Algorithm C step **C4**) and compare its `record_hash` with `BND.genesis_record_digest`. **This is the acyclicity check made observable**: the writer computes the digest, it does not accept it | `SW-J24` |
 | **W6** | `FS_IOC_GETFLAGS` on the seal fd: `FS_IMMUTABLE_FL` present | `SW-J17` |
 | **W7** | `open("…/journal/__GEN__.journal", O_RDONLY\|O_NOFOLLOW)`; `fstat`; compare `(st_dev, st_ino)` with `BND` | `SW-J11` |
@@ -3992,7 +4081,7 @@ the coordinator, and it refuses before either exists.
 | **J-22** | **New in revision 6. Writer deployment digest mismatch** | **W11**: the digest the process computes over its own deployed files ≠ `SB.writer_deployment_digest` | refuse | refuse (**C-d**) | **a writer redeployed without a rotation cannot reuse the old generation's clear evidence.** Revision 5 bound the deployment into the seal and then gave the writer no way to check it |
 | **J-23** | **New in revision 6; scope narrowed in revision 9 (R8-D). Host identity mismatch — the *unforged* case, and only that** | **W10**: `/etc/machine-id` ≠ `SB.host_machine_id` | refuse | refuse (**C-d**) | a journal and seal restored onto another host **whose `/etc/machine-id` was left alone** refuse **before** any Sheet mutation, not only at the coordinator. **It detects nothing where `/etc/machine-id` has been rewritten to the recorded value**: `SB`, the file and the registered row then carry the same value and neither W10 nor C-d has anything to compare. That is **F-7** and residual **R-5.0-13**, not a condition this table can add |
 | **J-24** | **New in revision 6; widened in revision 7. The seal's internal structure or its genesis derivation fails** | **W3**, **W5**: an unknown body `format_version`, an unsupported or short binding, **any byte after the binding the `binding_format_version` does not permit — including a `sealed_at` field revision 7 withdrew** — or a derived genesis digest ≠ the binding section's | refuse | refuse | **this is the row that makes §2.13.5a checkable at runtime.** A seal whose parts do not derive each other is not a seal; and after **R6-B** a seal carrying a field no **V-W** step authenticates is not a seal either |
-| **J-25** | **New in revision 6. The probe report is absent, altered, unsupported, or not a pass** | **W4**: `probe_report_digest` mismatch, an `append_only_probe_version` this build does not support, or any case not passing | refuse | refuse (**C-d**, against the registered `append_only_probe_digest`) | **the probe's result travels with the evidence and is re-checked**, rather than being trusted because a database column said `true` |
+| **J-25** | **New in revision 6. The probe report is absent, altered, unsupported, or not a pass** | **W4**: `probe_report_digest` mismatch, an `append_only_probe_version` this build does not support, any case not passing, or — *amended 2026-09-23, pending review* — an S4-3 attestation made under a systemd identity other than the host's current one | refuse | refuse (**C-d**, against the registered `append_only_probe_digest`) | **the probe's result travels with the evidence and is re-checked**, rather than being trusted because a database column said `true` |
 | **J-26** | **New in revision 12. The provenance record is absent, wrongly owned or moded, malformed, or disagrees with the seal** | **W11a**: `/etc/freedom-blades/sheet-writer.provenance` missing, not `root:root 0444`, unparseable, or differing from `SB` on `source_commit`, `source_tree_id` or `source_manifest_digest`. **C-a** performs the same check | refuse | refuse | **an omitted or removed provenance step is a refusal, not a default.** This is the condition that closes the *"skipped silently"* half of P5.0-SR1, and it holds at the writer even with no database reachable |
 | **J-27** | **New in revision 12. The deployed source manifest does not match the sealed one** | **W11a**: `deployed_source_manifest_digest()` over this process's own region-S bytes ≠ `SB.source_manifest_digest` — including because a file was added to the deployed root that belongs to neither region | refuse | refuse (**C-a**, and **C-d** against the registered `source_manifest_digest`) | **the writer refuses to dispatch under bytes that are not the sealed reviewed bytes**, which `J-22` did not cover: `J-22` compares a digest of the deployment with itself at two times, and this compares the deployment with a **reviewed source** |
 | **J-28** | **New in revision 12. The generation's source revision is not an approved revision** | **V-R**: no `approved_source_revisions` row matches `(component, source_commit, source_tree_id, source_manifest_digest)`; and, structurally, the `NOT NULL` foreign key on `sheet_writer_journal_generations` | — (*the writer does not read PostgreSQL*) | **refuse — the generation cannot be registered at all** | **an unprovenanced deployment cannot reach activation**, because **C-c** requires a registered generation and no such row can exist. The refusal is a schema constraint, not a procedure step, so it survives a coordinator whose code was altered |
@@ -4142,7 +4231,7 @@ them, because no case asserts E8 is denied a read it now has.
 |---|---|---|
 | verify the actual filesystem and required append/immutability behaviour at the journal path | `JNL-01` | `/proc/mounts` for the journal path reports a **non-`tmpfs`** filesystem backed by a block device; `+a` set; the §2.13.2a Stage-2 cases each produce their stated `errno` |
 | reboot between dispatch and outcome preserves an unresolved entry | `JNL-02a` | **process-level:** the writer is `SIGKILL`ed after a dispatch record, restarted, and the entry is still unresolved |
-| — | `JNL-02b` | **boot-level:** a **supervised host reboot** in the WP-9 rehearsal, on a disposable generation. **This cannot be produced by an automated test on this host**, and if the Operations Owner will not authorize a reboot it is recorded as a check not run rather than claimed (§8.1) |
+| — | `JNL-02b` | **boot-level:** a **supervised host reboot** in the WP-9 rehearsal, on a disposable generation. **MD-3, decided 2026-09-23:** this case is mandatory for P5.0-R5 harness-facsimile feasibility closure and may not end as Not Run or an accepted residual. It must run on `oracle-test` under separately reviewed and explicitly authorized operational scope; this requirement is not itself reboot authority |
 | service restart cannot reset a non-empty or indeterminate generation | `JNL-03` | after restart the writer **appends** and does not create; `seq` continues; a creation attempt fails `EACCES`; a `suspect` generation refuses to start at all |
 | missing, replaced, truncated, corrupt, wrong-owner, wrong-mode, wrong-inode, sequence-gap and checksum-failure states refuse clear evidence | `JNL-04 … 12` | one test per condition **J-03 … J-12**, each asserting the writer's named refusal code **and** the coordinator recording no evidence |
 | a compromised `freedomsheet` cannot unlink, rename, replace, truncate, rotate, clear or alter prior records or its parent | `JNL-13` | the **fifteen** rows of §2.13.4, each asserting the expected `errno`, executed under identity **E1** (§2.13.5c). **Revision 10 adds the two flag rows** — `chattr -i` on the seal and on an archived file — and asserts, for the seal, that the refusal survives **both** independent checks: it is `EPERM` under E1, and it is still `EPERM` under **E2**, which holds `CAP_LINUX_IMMUTABLE` and lacks the owner authorization `A11`. *Revision 9 counted thirteen rows and had neither* |
@@ -4247,7 +4336,7 @@ breaking a digest that three different readers recompute.
 | Authority | that the inserting principal is the coordinator, authenticated by peer as `freedomcoord`, and names a real `platform_accounts` row | that the human behind that account ran the probe honestly |
 | Fencing | that a `dispatch_journal_clear` evidence row names the **current head** and predates no later registration (§3.4 condition 5) | — |
 | The probe | **nothing about whether it ran.** It enforces that a well-formed digest, a supported version and a timestamp were supplied | that `verify-capability` produced this report at this time — an attestation whose falsity is **detectable**, because the report is inside the `+i` seal and every reader recomputes its digest |
-| The systemd sandbox (**new in revision 7**) | **nothing whatever.** No column names a directive, a unit or a mount | that Stage 4's `S4-0 … S4-3` observed the deployed unit's directives at provisioning, with `S4-0` proving the target writable outside the sandbox first. It is inside the same report, under the same digest, and invalidated by the same rule — a redeployment forces a rotation (**J-22**, **F-6**) — so it needs no column, no second artifact and no second authority |
+| The systemd sandbox (**new in revision 7**) | **nothing whatever.** No column names a directive, a unit or a mount | that Stage 4's `S4-0 … S4-3` observed the deployed unit's directives at provisioning, with `S4-0` proving the target writable outside the sandbox first. It is inside the same report, under the same digest. *Amended 2026-09-23 under C-P5.0-R5-R3, pending review:* it is invalidated under **two conditions**, matching §2.13.2a's Option-1 table — (1) a change of **deployed bytes** invalidates through **J-22**/**F-6** and requires a rotation; (2) a change of **systemd or package identity** invalidates the S4-3 attestation at **W4**/**C-a** under **J-25** and requires a fresh `verify-capability`, which is a rotation. The second is a further refusal cause of the existing `SW-J25`/`J-25`, not a new rule family: it needs no column, no second evidence artifact, no second digest authority and no new refusal-code family. Its availability cost extends **R-5.0-11** and **R-5.0-16** and remains pending review and maintainer disposition. *(Revision 7 said "invalidated by the same rule — a redeployment forces a rotation"; that single-rule statement is superseded.)* |
 
 **Why this is stronger than the withdrawn `CHECK`, and why it is still not a
 proof.** It is stronger because a false attestation is now *detectable* rather
@@ -5516,7 +5605,7 @@ To be entered in the register **when this plan is accepted**, not now.
 | **R-5.0-7** | Risk | A Drive write permission revoked for a cutover and not restored afterwards is a silent Sheet-mutation outage for every unit still at `legacy` | Operations Owner | The restore is the checklist's last step and is a named line item in the rehearsal; `/healthz` `migration_sheet_writer` reports a writer whose writes are failing; the operations document states the one-line restore |
 | **R-5.0-8** | Risk | **New, and it is a residual rather than a mitigation gap.** A `values.batchUpdate` request Google accepted before the fence, whose response never reached the writer, and which Google applies after the final import has read the Sheet, silently diverges the frozen legacy store from the imported snapshot. **No control in the published Google API prevents it or proves it absent** (§2.10.2) | **Acceptance Authority** | Made rare by the drain (W-1); enumerated when the writer worked correctly (W-2); refuses the cutover while outstanding (W-3, N5.0-20); cannot reach PostgreSQL (W-4); detected by two re-reads (W-5); disclosed before any rollback replay (W-6). **Accepted or rejected by D5.0-9 / OD-62 as reframed a third time.** It is not owned by the Technical Lead, because it is not a thing implementation can close |
 | **R-5.0-9** | Risk | The coordinator's host boundary depends on host state — group memberships, `sudoers`, `pg_hba` ordering, `pg_ident`, file modes — that can drift after it is established, silently and outside this repository | Operations Owner | The WP-14 matrix is re-run after any PostgreSQL configuration change, any `sudoers` change and any deployment; `diagnostics` asserts no `sys.path` entry is writable by a service identity on every invocation; the operations document lists the host facts to re-verify. **Extended in revision 5** to the journal hierarchy's owners, modes and filesystem attributes, which drift the same way, **in revision 6** to the membership of the new `freedomjournal` group and to any residue of the `…/probe` arena, **in revision 7 to the deployed `freedom-sheet-writer.service` directive set, which Stage 4 records at provisioning and which drifts whenever the unit is edited, in revision 8 to any `…/probe-ro` residue and to the ownership and mode of both transient directories, and in revision 9 to the whole of §2.13.2c's deployment manifest — including `freedom-sheet-writer.service.d/` drop-ins, which change the directives Stage 4 attests without touching the unit file — and to any §2.13.2b state-S-B residue, which is now an operator-recovery condition rather than something a later run clears**. **Detected on re-run, not prevented** |
-| **R-5.0-10** | Risk | **New, raised by remediation R4, and it is the honest limit of the dispatch journal.** A writer whose **dispatch path itself** has been replaced can call `values.batchUpdate` without writing a journal record, so the unresolved set reads empty when it is not and a refusal that should have occurred does not | Technical Lead, with the Security Reviewer | Not detected by the journal, and §2.13.9 says so where a reader meets it rather than in a footnote. What bounds it is everything the writer does **not** author: the process is terminated, its cgroup is empty, a host scan found nothing, and Google refuses its access. The unit hardening (`NoNewPrivileges`, an empty `CapabilityBoundingSet`, `ProtectSystem=strict`) and the deployment digest in the registered generation raise the cost of reaching that state. **A writer compromised this deeply could have written the Sheet arbitrarily long before the fence**, which is a condition no fence was ever going to repair |
+| **R-5.0-10** | Risk | **Accepted by MD-4 on 2026-09-23; retained as an active residual. New, raised by remediation R4, and it is the honest limit of the dispatch journal.** A writer whose **dispatch path itself** has been replaced can call `values.batchUpdate` without writing a journal record, so the unresolved set reads empty when it is not and a refusal that should have occurred does not | Technical Lead, with the Security Reviewer | Not detected by the journal, and §2.13.9 says so where a reader meets it rather than in a footnote. What bounds it is everything the writer does **not** author: the process is terminated, its cgroup is empty, a host scan found nothing, and Google refuses its access. The unit hardening (`NoNewPrivileges`, an empty `CapabilityBoundingSet`, `ProtectSystem=strict`) and the deployment digest in the registered generation raise the cost of reaching that state. **A writer compromised this deeply could have written the Sheet arbitrarily long before the fence**, which is a condition no fence was ever going to repair |
 | **R-5.0-11** | Risk | **New, raised by remediation R4; extended by remediation R5, and it is the price of fail-closed.** The journal filesystem falls below N5.0-21, or an `fsync` fails, or any of §2.13.6's **twenty-five** conditions holds — including the four revision 6 adds, **J-22** (the writer was redeployed without a rotation), **J-23** (the journal was restored onto another host), **J-24** (the seal does not derive its own genesis) and **J-25** (the probe report is altered or unsupported) — and the writer refuses **every** Sheet mutation until an operator acts, for every unit still at `legacy`. **J-22 is the one an operator will meet in normal work**: an ordinary writer redeployment now requires a rotation and a re-registration before Sheet mutations resume | Operations Owner | The refusal is typed, named and carries no exception text; the Freedom bot stays online and reads, `/info` and every non-mutating command are unaffected; `/healthz` `migration_sheet_writer` reports the writer as unreachable and `migration_journal_generation` reports an unregistered or superseded generation; the operations document names the recovery for each condition. **This is a deliberate trade — an outage instead of an unrecorded write — and D5.0-13 is where it is accepted or rejected** |
 | **R-5.0-12** | Risk | **New, raised by remediation R7-C; its authority set corrected by remediation R9-A.** An attacker holding **both** the complete on-disk set — `A1 + A2 + A3 + A10 + A11`, which on this host means uid 0 or a non-root identity carrying `CAP_LINUX_IMMUTABLE`, `CAP_FOWNER`, `CAP_DAC_OVERRIDE` and `CAP_DAC_READ_SEARCH` (§2.13.5c identity **E6**) — **and** PostgreSQL superuser authority can rewrite the seal, record 0 and the registered digests into mutual agreement. *Revision 9 wrote this set as `A1 + A2 + A3 + A9` and omitted the owner authorizations; the correction makes the set **larger**, not the risk worse.* **No check in this design refuses that**, because every check compares two copies and this attacker writes both | **Acceptance Authority**, with the Security Reviewer | Not prevented. Detected only by artifacts outside both stores: `sudo log_output`, journald, the `audit_events` chain and offline backups; and a forged head still has no `seal` record, no `.close` manifest and no archive. Distinguished in §2.13.5c from `CAP_LINUX_IMMUTABLE` **alone**, which — as revision 10 records — reaches **no row at all** on this hierarchy, because it owns none of these inodes and holds no `CAP_FOWNER`. **Recorded as a residual for D5.0-13 rather than as a control** |
 | **R-5.0-13** | Risk | **New, raised by remediation R8-D, and it is an undetected case rather than a mitigated one.** An actor holding **A6** — root on whichever host the tree is read on — restores the journal tree there and rewrites `/etc/machine-id` to the value the seal records. `SB.host_machine_id`, the file and the **registered row** then all carry that value, so **neither W10 nor C-d refuses**. *Revision 8's F-7 recorded a coordinator refusal; the registered row holds the forged value too, and the claim is withdrawn* | **Acceptance Authority**, with the Security Reviewer | **Not detected.** Bounded, not mitigated: the restored tree carries no production database, so the forgery is inert until its holder also reaches the coordinator (**A8**) and, for registered rows, **A9**. Evidence that remains: `sudo log_output`, journald, `audit_events`, the production host's systemd and deployment records, and a forged head with no `seal` record, `.close` manifest or archive. The design change that would close it is **D5.0-13 / OD-66 option A-2**, routed under §0.2 and **not adopted** |
@@ -5544,6 +5633,14 @@ confirmed as still holding.
 ## 8. Environment and operations
 
 ### 8.1 Verified on 2026-08-29 and, for **H-6** only, on 2026-08-31 — not assumed
+
+**MD-2 disposition, 2026-09-23.** The observations in this section were made
+on the development host and remain historical context for the design work that
+used them. They do **not** satisfy target-specific P5.0-R5 feasibility
+requirements. `oracle-test` is the approved disposable target whose host facts
+count; every relevant fact must be freshly observed there during a separately
+authorized evidence pass and bound to that pass's reviewed target identity and
+artifacts. This disposition authorizes no host access or execution.
 
 | Requirement | State |
 |---|---|

@@ -232,7 +232,195 @@ MANIFEST_SCHEMA = "phase-5-0-evidence-review-manifest"
 #: three cases declared unresolved. Integration is repository wiring, not
 #: permission to invoke it, and a digest is review input rather than execution
 #: approval in either version.
-MANIFEST_VERSION = 12
+#: **13** is the C-P5.0-LAB-V6-R1 completion of the r6 §7 provisioning contract,
+#: 2026-09-16. It moves for one reason, and it is a change in what a digest
+#: covers rather than in how a plan is rendered.
+#:
+#: * **The covered set grows by one file.** `execution/provisioner.py` is the
+#:   applier for the delta's directory items, and it is the first module in this
+#:   repository that would create a provisioned object at all. A digest approved
+#:   under version 12 covered a tree in which nothing could.
+#:
+#: `provisioning.py`'s own bytes also move: the delta grows from ten items to
+#: **eleven** with V12, the persistent state parent, which r6 §1.3.3 makes D1
+#: and r6 §1.4.1 described only as *"root-only [A]"*. That is an ordinary
+#: covered-source change and would not need a version on its own.
+#:
+#: What does **not** move: the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb
+#: table at **20**, and `is_executable` stays `False` with C-7's three cases
+#: declared unresolved. Provisioning is not execution: V7 is excluded from the
+#: release, **I3** is unconfirmed, and a digest is review input rather than
+#: execution approval in this version as in every other.
+#: **14** is the C-P5.0-LAB-V6-P-R1 provisioning entry point, 2026-09-18. It
+#: moves for one reason, and it is a change in what a digest covers rather than
+#: in how a plan is rendered.
+#:
+#: * **The covered set grows by one file.** `execution/provisioning_cli.py` is
+#:   the operator entry point for the applier version 13 added. A digest
+#:   approved under version 13 covered a tree in which the applier could be
+#:   reached by nothing outside its own test suite, which is the gap that
+#:   stopped the C-P5.0-LAB-V6-P operational pass (RAID LAB-V6-P1).
+#:
+#: What does **not** move: the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb
+#: table at **20**, the delta at **eleven** items, and `is_executable` stays
+#: `False` with C-7's three cases declared unresolved. An entry point is not an
+#: application: the new module applies nothing without its explicit flag, it
+#: cannot reach the executing runner, V7 remains excluded, **I3** is
+#: unconfirmed, and a digest is review input rather than execution approval in
+#: this version as in every other.
+#: **15** is the C-P5.0-LAB-I3-R2 remediation of C-P5.0-LAB-I3-D1, 2026-09-19. It
+#: moves for two reasons, and both are changes in what a digest covers rather
+#: than in how a plan is rendered.
+#:
+#: * **The covered set grows by two files.** `execution/i3_verifier.py` is the
+#:   separately armed I3 controlled-write mechanism and
+#:   `execution/i3_verifier_cli.py` its only operator entry point. A digest
+#:   approved under version 14 covered a tree in which no reviewed route
+#:   reached the exclusive-link primitive outside V7, a participant, the harness
+#:   or `--execute` — the gap that stopped C-P5.0-LAB-I3.
+#: * **P2's installed mode is `0555`.** `case_runtime.CASE_PROGRAM_MODE` moves
+#:   from `0755` to Peter's ruled `root:root 0555`, so P2's effect row and
+#:   `P-04`'s compared expectation change. A version-14 digest approved a plan
+#:   that installed and asserted a mode the contract never stated.
+#:
+#: What does **not** move: the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb
+#: table at **20**, the delta at **eleven** items, and `is_executable` stays
+#: `False` with C-7's three cases declared unresolved. The verifier cannot reach
+#: the executing runner, **I3** stays unconfirmed until a maintainer closes it on
+#: reviewed evidence, and a digest is review input rather than execution
+#: approval in this version as in every other.
+#: **16** is the C-P5.0-LAB-I3-R3 reconciliation of the two mode discrepancies
+#: C-P5.0-LAB-I3-R2 reported and Peter ruled on, 2026-09-20. Both are changes in
+#: what a digest covers rather than in how a plan is rendered, and neither adds
+#: or removes a covered file.
+#:
+#: * **Canonical `R` is created `0700`.** `case_program.ROOT_DIRECTORY_MODE`
+#:   moves from `0755` to the value r6 §1.4.1's C1 row and §7.2's derivation
+#:   always gave it, so `mkroot`'s bytes and `B3-02`'s compared expectation both
+#:   change. A version-15 digest approved a plan that created and asserted a
+#:   root mode the contract never stated. `R/bin` is unchanged at `0755`.
+#: * **P2's temporary is created `0500`.** `create_file` gains an explicit
+#:   creation-mode input whose default stays `0600`, and
+#:   `case_runtime.CASE_PROGRAM_TEMPORARY_MODE` is passed at P2's call alone.
+#:   P2's **published** mode is unchanged: the descriptor still reaches
+#:   `root:root 0555` before `linkat`. T1, T6 and §2.3.3 keep the `0600`
+#:   default, so no other publication context moves.
+#:
+#: What does **not** move at 16: the covered set stays at the version-15 files,
+#: the supplied-observation schema at **3**, the run-record schema at **3**,
+#: `plan.PERMITTED_EXECUTABLES` at **20**, the verb table at **20**, the delta at
+#: **eleven** items, and `is_executable` stays `False`. I3 stays unconfirmed, V7
+#: excluded, and a digest remains review input rather than execution approval.
+#: **17** is the C-P5.0-LAB-I3-R5 implementation of Peter's Option A decision on
+#: target identity (LAB-I3-TARGET-1), 2026-09-20. It moves for one reason, and it
+#: is a change in what a digest covers rather than in how a plan is rendered.
+#:
+#: * **Approved target identity gains a fact, and I3 admission compares a
+#:   different one.** `APPROVED_TARGET_FACTS` grows a sixteenth field,
+#:   `kernel_nodename` = `Test`, and the verifier's admission step 2 compares
+#:   `os.uname().nodename` with *it* rather than with `host`, the runbook §2 SSH
+#:   alias. A digest approved under version 16 covered a plan whose I3 admission
+#:   compared a kernel nodename with an SSH alias — a comparison the approved
+#:   target cannot satisfy, and which refused C-P5.0-LAB-I3-R4 with
+#:   `target-mismatch` before its first controlled write. That is a different
+#:   plan, not a differently rendered one, so it stops matching rather than being
+#:   reinterpreted. The new fact is part of canonical identity, so
+#:   `TARGET_IDENTITY_DIGEST`, `CONFIRMATION_TOKEN`, `target_facts` and the
+#:   review-input digest all move with it, and the previously accepted
+#:   `be9e110f…` must not be carried forward as evidence for this tree.
+#:
+#: What does **not** move at 17: the covered set stays at the version-15 files,
+#: the supplied-observation schema at **3**, the run-record schema at **3**,
+#: `plan.PERMITTED_EXECUTABLES` at **20**, the verb table at **20**, the delta at
+#: **eleven** items, every mode ruled at 15 and 16, and `is_executable` stays
+#: `False`. `APPROVED_TARGET.host` is unchanged at `oracle-test` and no operator
+#: name moves. Reconciling an identity model is not performing I3: it stays
+#: unconfirmed and unperformed, V7 excluded, and a digest remains review input
+#: rather than execution approval.
+#: **18** is C-P5.0-R5-R1, 2026-09-23. It moves because the covered set does:
+#: `unit_sandbox.py` joins it — §2.13.2a S4-3 as a typed, fail-closed
+#: comparison — and `journal.py`'s generation classifier is replaced by the V-W
+#: step-ordered model, so a version-17 digest covered a classifier whose
+#: refusal codes contradicted §2.13.6. `filesystem.py` no longer classifies S4-3
+#: from a supplied outcome.
+#:
+#: What does **not** move at 18: no vector, step, mutation, materialization,
+#: expectation or target fact changes; the supplied-observation schema stays at
+#: **3**, the run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**,
+#: the verb table at **20**, and `is_executable` stays `False` with C-7's three
+#: cases declared unresolved. The S4-3 vector still asks for two properties and
+#: therefore cannot produce a passing S4-3; widening it waits for the deployed
+#: writer unit. A digest remains review input rather than execution approval.
+#: **19** is C-P5.0-R5-R2, 2026-09-23, finding P5.0-R5-R1-PLAN-1. It moves
+#: because what a digest covers does: S4-3 is declared unresolved under its own
+#: conflict **C-S4-3** (`STAGE4-S4-3`, filesystem band), and the Stage-4
+#: `systemctl show` step no longer claims S4-3 as a produced case. A version-18
+#: digest covered a plan that attributed S4-3 to a two-property capture that
+#: cannot pass condition 4, and declared nothing unresolved for it.
+#:
+#: What does **not** move at 19: no vector, mutation, materialization,
+#: expectation or target fact changes, and the covered set stays at the
+#: version-18 files; the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb
+#: table at **20**, C-7's three cases stay unresolved, and `is_executable` stays
+#: `False`. A digest remains review input rather than execution approval.
+#: **20** is C-P5.0-R5-R3, 2026-09-23, finding P5.0-R5-R2-PLAN-1. It moves
+#: because what a digest covers does: version 19's `SandboxAttestationProducer`
+#: let two nonblank review-reference strings discharge S4-3's two producer
+#: requirements, so a version-19 digest covered a generator in which a label
+#: could clear C-S4-3. The class, `S4_3_PRODUCER` and the resolved branch are
+#: removed; C-S4-3 is declared unconditionally and its producer requirements are
+#: always reported unmet. S4-3 joins `required_cases.REQUIRED_CASES` — alone, not
+#: the other Stage 1–4 cases — so the manifest's `required_cases` gains one
+#: entry, blocked by C-S4-3; and the Band-7 importer counts only in-scope cases
+#: as unresolved.
+#:
+#: What does **not** move at 20: no vector, step, mutation, materialization,
+#: expectation or target fact changes, and the covered set stays at the
+#: version-18 files; the supplied-observation schema stays at **3**, the
+#: run-record schema at **3**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb
+#: table at **20**, C-7's three cases and C-S4-3 stay unresolved, and
+#: `is_executable` stays `False`. A digest remains review input rather than
+#: execution approval.
+#: **21** is C-P5.0-R5-R4, 2026-09-23, finding P5.0-R5-R3-EVIDENCE-1. It moves
+#: because the pinned withholding rationale changes: version 20's
+#: `supplied_observations.withheld` said every required case outside the Band-7
+#: importer's scope is produced by the executed plan, but S4-3 is outside that
+#: scope because nothing produces it. The rationale now names both kinds, and
+#: `observations.producer_mapping()` reports an in-harness producer only where a
+#: plan step carries the case, so S4-3's row says it has no producer.
+#:
+#: What does **not** move at 21: no vector, step, mutation, materialization,
+#: expectation, target fact, required case or unresolved entry changes, and the
+#: covered set stays at the version-18 files; the supplied-observation schema
+#: stays at **3**, the run-record schema at **3**, the classified-artifact schema
+#: at **1**, `plan.PERMITTED_EXECUTABLES` at **20**, the verb table at **20**,
+#: C-7's three cases and C-S4-3 stay unresolved, and `is_executable` stays
+#: `False`. A digest remains review input rather than execution approval.
+#: **22** is C-P5.0-R5-RP11-I1, 2026-09-27: the repository implementation of
+#: RP-11, the client-side capture mechanism and B0-RA's read-only retention
+#: check. It moves because the covered set does. `test_the_covered_sources_are_
+#: exactly_the_package` requires every module in the package to be covered, and
+#: RP-11 adds four: `capture_contract.py`, `execution/capture_store.py`,
+#: `execution/capture_mechanism.py` and `execution/retention_check.py`. Two
+#: covered files change as well: `execution/boundary.py` gains
+#: `StreamCaptureLauncher`, because it is the one module permitted to import
+#: `subprocess`, and `execution/descriptors.py` moves its one `os.link` call into
+#: a shared private helper with a second, `O_TMPFILE`-only caller. A version-21
+#: digest covered a tree with no capture mechanism.
+#:
+#: What does **not** move at 22: no vector, step, mutation, materialization,
+#: expectation, target fact, required case or unresolved entry changes; the
+#: supplied-observation schema stays at **3**, the run-record schema at **3**,
+#: the classified-artifact schema at **1**, `plan.PERMITTED_EXECUTABLES` at
+#: **20** and the verb table at **20**. C-7's three cases and C-S4-3 stay
+#: unresolved and `is_executable` stays `False`. RP-11 is **not** satisfied by
+#: this version: it is unreviewed, unpinned and wired to no command. A digest
+#: remains review input rather than execution approval.
+MANIFEST_VERSION = 22
 
 #: The source files whose exact bytes the manifest pins, relative to the
 #: repository root. Enumerated rather than globbed: a file added to the package
@@ -244,6 +432,7 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/binding.py",
     "tools/phase_5_0_evidence/capability.py",
     "tools/phase_5_0_evidence/capture.py",
+    "tools/phase_5_0_evidence/capture_contract.py",
     "tools/phase_5_0_evidence/case_runtime.py",
     "tools/phase_5_0_evidence/cleanup.py",
     "tools/phase_5_0_evidence/concrete_plan.py",
@@ -252,16 +441,23 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/execution/__init__.py",
     "tools/phase_5_0_evidence/execution/artifact.py",
     "tools/phase_5_0_evidence/execution/boundary.py",
+    "tools/phase_5_0_evidence/execution/capture_mechanism.py",
+    "tools/phase_5_0_evidence/execution/capture_store.py",
     "tools/phase_5_0_evidence/execution/case_program.py",
     "tools/phase_5_0_evidence/execution/cli.py",
     "tools/phase_5_0_evidence/execution/descriptors.py",
     "tools/phase_5_0_evidence/execution/evidence_cli.py",
     "tools/phase_5_0_evidence/execution/executor.py",
     "tools/phase_5_0_evidence/execution/host_lock.py",
+    "tools/phase_5_0_evidence/execution/i3_verifier.py",
+    "tools/phase_5_0_evidence/execution/i3_verifier_cli.py",
     "tools/phase_5_0_evidence/execution/lifecycle_record.py",
     "tools/phase_5_0_evidence/execution/materializer.py",
     "tools/phase_5_0_evidence/execution/participants.py",
+    "tools/phase_5_0_evidence/execution/provisioner.py",
+    "tools/phase_5_0_evidence/execution/provisioning_cli.py",
     "tools/phase_5_0_evidence/execution/recovery_store.py",
+    "tools/phase_5_0_evidence/execution/retention_check.py",
     "tools/phase_5_0_evidence/execution/run_ledger.py",
     "tools/phase_5_0_evidence/expectations.py",
     "tools/phase_5_0_evidence/feasibility.py",
@@ -282,6 +478,7 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/review_manifest.py",
     "tools/phase_5_0_evidence/sudoers.py",
     "tools/phase_5_0_evidence/targets.py",
+    "tools/phase_5_0_evidence/unit_sandbox.py",
 )
 
 #: §2.13.2b's three exit classifications, pinned so a reviewer approves what each

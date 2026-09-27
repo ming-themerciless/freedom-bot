@@ -2,6 +2,93 @@
 
 Date: 2026-09-11. Author: Claude. Change record: C-P5.0-LAB-1.
 
+**Current amendment, 2026-09-20 — C-P5.0-LAB-I3-R5, target identity.** Peter
+decides Option A for LAB-I3-TARGET-1: the approved target keeps `host` as the
+operational SSH alias `oracle-test` and gains a separately approved kernel
+nodename fact, `Test`. §7.4.2's admission step 2 is corrected accordingly — it
+compares `os.uname().nodename` with `APPROVED_TARGET_FACTS.kernel_nodename`,
+while kernel release and architecture keep comparing their own approved facts.
+The two names are two facts about two layers and are never substituted for one
+another. Because the nodename is approved identity, `TARGET_IDENTITY_DIGEST`,
+`CONFIRMATION_TOKEN`, the review manifest (version **17**) and the review-input
+digest all move; the previously accepted `be9e110f…` is not evidence for the
+reconciled tree. This amendment authorizes repository reconciliation and
+independent review only. It releases no host access, synchronization,
+controlled write, verifier invocation or retry; **I3 remains unconfirmed and
+unperformed**, V7 excluded, `plan.is_executable=False`.
+
+**Superseded amendment, 2026-09-19 — C-P5.0-LAB-I3-D1.** Peter rules that P2's
+case program is `root:root 0555` and its protected-hardlink publication relies
+on the filesystem-UID owner condition, not `CAP_FOWNER`. The actual
+operation-time capability masks remain required observations; `CapBnd` is not
+evidence of `CapEff`. Decision B is narrowly amended so the separately armed
+I3 verifier may temporarily create canonical `R` and `R/bin` solely for I3,
+with reviewed ownership/modes, identity-guarded removal, and non-success on
+any mismatch, residue or cleanup/barrier failure. This amendment authorizes
+repository remediation only. It does not release synchronization, host access,
+controlled writes or verifier execution; I3 remains unconfirmed.
+
+**Dated remediation, 2026-09-19 — C-P5.0-LAB-I3-R2, implementing
+C-P5.0-LAB-I3-D1.** The ruling is carried into code, tests and generated
+artifacts. `case_runtime.CASE_PROGRAM_MODE` is `0555`, so P2's effect row and
+`P-04`'s compared expectation now say `root:root 0555`; the owner and group are
+unchanged. `provisioning.VERIFICATION_PROCEDURE` no longer states a P2
+`CAP_FOWNER` dependency. The exclusive link is factored out of
+`renameat(noreplace=True)` as the one primitive `PosixFilesystem.linkat` (§6.2),
+because the fused call could not expose the two-name state. **§7.4 is new**: the
+complete procedure of the separately armed I3 verifier — two gates, two
+identities as separate invocations, admission before the first write, the four
+contexts, decision B's `R`/`R/bin` exception, operation-time capability
+evidence, guarded removal, partial-state accounting, the survey, safe output and
+exit statuses. §9.2 rows **90–105** trace it and §9.3's I3 row names it.
+Passages this remediation changed are marked *amended 2026-09-19,
+C-P5.0-LAB-I3-R2*. **Nothing was applied to any host**: the verifier is
+implemented and unperformed, I3 stays unconfirmed, no finding is closed on the
+implementer's authority, and no digest is approved.
+
+**Dated acceptance, 2026-09-17 — C-P5.0-LAB-V6-D-R1-A.** Peter accepted
+Codex's independent technical and security re-review of the R1 correction with
+no finding and closed **PR-20260917-LAB-V6D-R1-1**. This confirms the operative
+topology below: canonical `R = /var/lib/fb-evidence-p5-0`, D1 on `R`'s parent
+`/var/lib`, and the `/opt` form only in explicitly labelled history. It
+approves no digest, authorizes no host action and advances no gate. V6 remains
+performed-but-not-closed; I3 unconfirmed; V7 excluded; V8, V10 and I12
+unperformed; `is_executable=False`; Package 5.0 not ready. See the
+[independent re-review](project-review-2026-09-17-reserved-laboratory-v6-d-r1-contract-correction.md).
+
+**Dated amendment, 2026-09-17 — C-P5.0-LAB-V6-D.** Peter accepted the
+independent R4 review and closed PR-20260916-LAB-V6R3-1. V11 and
+`/opt/freedom-blades/evidence` are withdrawn; no ownership change to
+`/opt/freedom-blades` is made. The sole canonical `R` is the approved
+`/var/lib/fb-evidence-p5-0`. V12 creates persistent
+`/var/lib/freedom-blades` as `root:root 0755` before V4 and V5. Production
+`EVIDENCE_ROLE` registration is deferred until its real consumer receives
+separate implementation and review authority. This amendment supersedes every
+contrary operative V11/location statement retained below as historical design
+evidence. It authorizes repository remediation only, not provisioning or
+execution.
+
+**Dated correction, 2026-09-17 — C-P5.0-LAB-V6-D-R1, Blocking
+PR-20260917-LAB-V6D-R1-1.** Codex's
+[independent review of the topology disposition](project-review-2026-09-17-reserved-laboratory-v6-topology-disposition.md)
+found that the amendment above had not reached two operative rows: §1.3.3's
+descriptor inventory still opened with `R = /opt/freedom-blades/evidence/<run>`
+six lines above its own amended D1 row, and §7's live V6 row still directed the
+survey to observe the withdrawn `/opt/freedom-blades/evidence` and reported it
+as **unperformed**. **A dated banner is not a correction of a normative row** —
+the same control failure Blocking PR-20260917-LAB-V6D-2 named — so the rows are
+corrected in place: §1.3.3 defines `R = /var/lib/fb-evidence-p5-0` and D1 on
+`R`'s parent `/var/lib`; §7's V6 row observes only the canonical locations and
+states V6 **performed 2026-09-16 and not closed**; §7's remaining *unperformed*
+sentences, §2.2's location, §7.3's decision-B closing sentence and §9.3's I12
+are corrected with them. Passages this correction changed are marked *amended
+2026-09-17, C-P5.0-LAB-V6-D-R1*. **No approved value moves**: `R`, V12's mode,
+the released subset and its order, V7's exclusion and every `approved` flag are
+unchanged, no code is changed and no artifact is regenerated. **Nothing was
+applied to any host**, V6 remains performed-but-not-closed, **I3 stays
+unconfirmed**, no finding is closed on the implementer's authority and no
+preflight, provisioning or execution is authorized.
+
 **Implementation authorization, 2026-09-13:** Peter authorizes
 C-P5.0-LAB-I, bounded repository implementation and local tests of this accepted
 design. The authorization includes provisioning definitions but not their
@@ -32,6 +119,65 @@ paragraphs but left the operative steps specifying `renameat2`; those steps, one
 pending Codex's review. The amendment changes contract text only: it confirms no
 target fact, closes no finding and authorizes no preflight, provisioning or
 execution.
+
+**Dated remediation, 2026-09-15 — C-P5.0-LAB-D12-R1, Blocking
+PR-20260915-LAB-D12-1.** Codex's
+[re-review of the corrected D1/D2 delta](project-review-2026-09-15-reserved-laboratory-d1-d2-corrections.md)
+accepted it except for one Blocking admission defect: an interrupted
+lifecycle-record publication did not refuse all seven participants. The final
+record was valid and readable, the admission re-sealed and parsed it without
+asking whether its publication had finished, and the six ordinary participants
+proceeded while only the harness refused later at T7. **The admission now
+refuses on the record's leftover publication temporary, before any of the seven
+proceeds** (§§5.6, 5.9, 6.2, 9.2 rows 74–78). In the same pass, T1's and T6's
+operator recovery requires an immediately preceding `(st_dev, st_ino)`
+comparison before the temporary is removed (§§5.10, 6.2); the unresolved X1
+`execveat` route is given an owner, its required evidence and its execution stop
+condition (§6.4); and Peter's approved V6 disposition is incorporated (§§7, 9.3,
+10). Passages this remediation changed are marked *amended 2026-09-15, D1
+remediation*. **No route is chosen for X1, no target fact is confirmed, no
+finding is closed and no preflight, provisioning or execution is authorized.**
+
+**Dated remediation, 2026-09-16 — C-P5.0-LAB-V6-R1, the incomplete provisioning
+contract.** The released V6 read-only survey found `/opt/freedom-blades/evidence`
+**absent**, and §7 had assigned it no owner, group, numeric mode, creation
+mechanism, persistence behaviour or provisioning item — §1.4.1 called it only
+*"root-only [A]"*. The approved prerequisite provisioning therefore could not be
+applied as one exact, reviewable delta. **The §7 set grows by one item to
+eleven: V11, `/opt/freedom-blades/evidence`, `0700 root:root`**, with §7.2
+deriving that mode from the identity that opens D1 rather than choosing it,
+§7.1 recording the released subset and V7's exclusion with its stop condition,
+and §7.3 reporting the two parents the delta still does not define — including
+that the observed `/opt/freedom-blades` is `1001:1001 0755`, which **defeats
+§1.4.1's administrator-only exposure argument for the entry** and is raised
+rather than repaired. §§1.3.3, 1.4.1, 6.4, 9.2 (rows 80–86), 9.3 and 10 are
+amended to match, and passages this remediation changed are marked *amended
+2026-09-16, V6 remediation*. **Nothing was applied to any host**, V7 is
+excluded, **I3 stays unconfirmed**, V6 remains performed-but-not-closed, no
+finding is closed and no preflight, provisioning or execution is authorized.
+
+**Dated remediation, 2026-09-16 — C-P5.0-LAB-V6-R2, Blocking
+PR-20260916-LAB-V6R1-1.** Codex's
+[review of the completed §7 delta](project-review-2026-09-16-reserved-laboratory-v6-provisioning-remediation.md)
+accepted V11, V7's exclusion, the read-only verification boundary and the three
+reported stop conditions, and found one Blocking defect in the applier: after
+its `mkdirat` succeeded, a failure in the `open`, `fchown`, `fchmod` or
+read-back path escaped as a raw `OSError` with the directory already on disk and
+no identity recorded, and the handled parent-barrier failure returned
+`applied == ()` while the same result said the object was visible. **Every
+failure after a successful `mkdirat` is now a closed refusal that carries the
+created object**: six classifications, the object returned in
+`ProvisioningRun.applied`, `(st_dev, st_ino)` preserved wherever the object can
+still be observed, and an object whose identity was never established reported
+as residue that guarded rollback refuses. §7.1's applier row and §9.2 row **87**
+state it. Nothing else moves: V11's definition, V7's exclusion, the V7-absent
+fail-closed state, the separation of provisioning identity from declared owner,
+the read-only verification boundary and the pre-`rmdir` emptiness check are
+unchanged, and **LAB-V6-1, LAB-V6-2 and LAB-V6-3 remain open maintainer stop
+conditions**. Passages this remediation changed are marked *amended 2026-09-16,
+V6-R2 remediation*. **Nothing was applied to any host**, **I3 stays
+unconfirmed**, V6 remains performed-but-not-closed, no finding is closed and no
+preflight, provisioning or execution is authorized.
 
 **This revision supersedes
 [`phase-5-0-reserved-laboratory-runner-contract-r5.md`](phase-5-0-reserved-laboratory-runner-contract-r5.md)
@@ -266,13 +412,31 @@ control.
 
 #### 1.3.3 The complete descriptor inventory
 
-`R = /opt/freedom-blades/evidence/<run>`. **Owner** is the executor in every row:
+**`R = /var/lib/fb-evidence-p5-0`** — the sole canonical disposable root: the
+approved target's own `root_path`, normally created exclusively by the reviewed
+concrete plan's `mkroot` and **not** by prerequisite provisioning. The one
+narrow exception is the separately armed I3 verifier, which may create and
+remove temporary `R`/`R/bin` topology solely under C-P5.0-LAB-I3-D1 (§7.3,
+decision B; §7.4 is its procedure, and the verifier holds `R`'s parent under its
+own role name and never registers `plan.EVIDENCE_ROLE` — *amended 2026-09-19,
+C-P5.0-LAB-I3-R2*;
+`provisioning.EVIDENCE_ROOT` reads it from `approved_target.APPROVED_TARGET`
+rather than restating it). Its final component is the one
+`targets.validate_mutation_root` admits, so the `"<run>"` name C1's `mkdirat` and
+§1.4.1's by-name `fstatat` resolve **is `R`'s own final component** and no
+directory above it. **`R`'s parent is `/var/lib`** — root-owned, not group- or
+other-writable, administrator-only **[A]** (§1.3.2, §10) — and that parent, not a
+provisioned evidence directory, is the object D1 holds. The withdrawn
+`/opt/freedom-blades/evidence/<run>` form this inventory previously stated as
+current defines nothing here; it survives only where it is marked as design
+history (§1.4.1, §7.2, §7.3) — *amended 2026-09-17, C-P5.0-LAB-V6-D-R1, on
+Blocking PR-20260917-LAB-V6D-R1-1*. **Owner** is the executor in every row:
 one long-lived privileged process per reservation, created before the first
 effect, not exiting until cleanup has classified §2.13.2b state.
 
 | # | Descriptor | Object | Flags | Lifetime | Permitted uses | Transfer |
 |---|---|---|---|---|---|---|
-| D1 | `evidence_pathfd` | `/opt/freedom-blades/evidence` | `O_PATH\|O_NOFOLLOW\|O_DIRECTORY` | run | `dirfd` for C1's `mkdirat` and for the by-name `fstatat` of §1.4.1 | none |
+| D1 | `evidence_pathfd` | ~~`/opt/freedom-blades/evidence`, V11~~ — **`R`'s parent, `/var/lib`**: the directory `R` is created in, root-owned, not group- or other-writable, administrator-only **[A]**, and **not** a provisioning item (§7.3, decision C). The provisioned evidence root this row formerly named is withdrawn with V11 (§7, §7.3); `R` is the approved target's own `/var/lib/fb-evidence-p5-0`, created by the reviewed concrete plan, and nothing stands between it and this descriptor — *amended 2026-09-17, C-P5.0-LAB-V6-D; object corrected to `R`'s parent 2026-09-17, C-P5.0-LAB-V6-D-R1, matching `executor`'s "the disposable root and its parent" and `plan.EVIDENCE_ROLE`*. No production caller registers this role and registration stays deferred (decision D) | `O_PATH\|O_NOFOLLOW\|O_DIRECTORY` | run | `dirfd` for C1's `mkdirat` and for the by-name `fstatat` of §1.4.1. **These two, and no `linkat`**: no exclusive publication happens in this directory (§7.2(5)) | none |
 | D2 | `root_pathfd` | `R` | `O_PATH\|O_NOFOLLOW\|O_DIRECTORY` | run | `dirfd` for P1 | none |
 | D3 | `root_syncfd` | `R` | `O_RDONLY\|O_NOFOLLOW\|O_DIRECTORY` | run | `fsync` after P1 | never |
 | D4 | `bin_pathfd`, `before_pathfd`, `journal_pathfd`, `probe_pathfd`, `probe_ro_pathfd` | the five directories P1 creates | `O_PATH\|O_NOFOLLOW\|O_DIRECTORY` | run | `dirfd` for the effects under each | `bin_pathfd` and `journal_pathfd` are inherited by steps whose case enumerates them |
@@ -348,8 +512,27 @@ D2 later compares the descriptor with itself and always agrees — §1.1(1).
 Replacement of the *pathname* `R` is detected only by
 `fstatat(D1, "<run>", AT_SYMLINK_NOFOLLOW)` against the recorded pair, which is a
 different call on a different descriptor, and even that is detection rather than
-prevention. `/opt/freedom-blades/evidence` is root-only **[A]**, so the exposure
-is administrator-only.
+prevention.
+
+**Where `R` lives, and why the `/opt` form below is historical** — *amended
+2026-09-17, C-P5.0-LAB-V6-D*. This subsection was written against
+`R = /opt/freedom-blades/evidence/<run>`, whose root-only claim rested on the
+*entry* being root-only as well as the directory. V6 found the parent
+`/opt/freedom-blades` as `1001:1001 0755`, so `ubuntu` — every participant's
+identity — could rename or unlink the `evidence` entry whatever mode V11 put on
+the directory, and **the administrator-only exposure argument did not hold on
+`oracle-test`**. The maintainer **withdrew the location** rather than widening
+the rule or re-owning a path that holds the repository worktree. The sole
+canonical `R` is `/var/lib/fb-evidence-p5-0` — the approved target's root,
+created by the reviewed concrete plan, under a `/var/lib` that is root-owned and
+not group- or other-writable. The `/opt/freedom-blades/evidence` form is
+retained **only in this dated paragraph**, as the design history that led to that
+decision, and states nothing operative. §1.3.3's inventory preamble and its D1
+row now state the canonical topology directly — `R = /var/lib/fb-evidence-p5-0`
+and D1 on its parent `/var/lib` — rather than leaving a withdrawn path in a
+current table to be read against an amendment elsewhere, and C1's `"<run>"` is
+`R`'s own final component under that topology — *amended 2026-09-17,
+C-P5.0-LAB-V6-D-R1, on Blocking PR-20260917-LAB-V6D-R1-1*.
 
 #### 1.4.2 Provisioning
 
@@ -583,8 +766,10 @@ recovery basis.
 ### 2.2 The independent store
 
 **Location.** `/var/lib/freedom-blades/recovery/<run-id>/`, and **not** under
-`R`, not under `/opt/freedom-blades/evidence`, and not under any path an
-experimental identity can write.
+`R`, not under the withdrawn `/opt/freedom-blades/evidence` (V11, withdrawn
+2026-09-17 — §7, §7.3; nothing is provisioned under `/opt`), and not under any
+path an experimental identity can write — *withdrawal noted 2026-09-17,
+C-P5.0-LAB-V6-D-R1*.
 
 | Property | Value | Why |
 |---|---|---|
@@ -1209,6 +1394,7 @@ depends on it:
 ```text
 acquire the lock  →  re-seal the record's parent entry
                   →  re-seal the ledger's parent entry
+                  →  compare the record's two names   (§6.2, D1 remediation)
                   →  read the record's bytes through a descriptor
                   →  parse      (§5.5's bounded schema)
                   →  check order(§5.5's history rules)
@@ -1233,6 +1419,20 @@ completion to observe the release, which no process could do.
 **No participant reads before it re-seals, and no participant writes before it
 reads.** A reader that acted on content it had not re-sealed is revision 3.
 
+**The publication comparison, and why it is a step of its own — *amended
+2026-09-15, D1 remediation*.** One `fstatat` on the record's temporary and one
+on its final name, immediately after the re-seal and **before** the bytes are
+read. A temporary that resolves refuses **every** participant, whatever the
+bytes beside it say. It is not part of the parse and it cannot be, because r6
+§6.2's second interruption state leaves a *valid, complete* record under the
+final name: the publication that wrote it never finished, and nothing in its
+bytes records that. Codex's **PR-20260915-LAB-D12-1** is exactly that gap — the
+six ordinary participants admitted on such a record and only the harness refused
+later, at T7, when its own publication met the temporary. A failed `fstatat` is
+a failed observation and **not** an absent temporary, on the same rule §5.9
+applies to an unreadable lock. The two names are left exactly as they are:
+removing one is an operator recovery (§5.10, §6.2) and never a participant's.
+
 ### 5.7 The transition and publication table — every phase, provisioning to reuse
 
 **How to read it.** One row per transition, split across two tables because ten
@@ -1248,7 +1448,7 @@ exercises it. Nothing here is **[D]** except the barrier semantics §5.6 cites.
 | T1 | initialize the first-use record | operator, root, out of band | none; nobody may be running | writes the whole history, one entry | host **and** approved target, plus attester and basis | `fsync` the temporary's bytes | `fsync` the laboratory directory after the exclusive `linkat` and `unlinkat` (*D1*) |
 | T2 | take the cooperative lock | any participant, `ubuntu` | acquires it | none | none | — | — |
 | T3 | **re-seal** the record's and the ledger's parent entries | any participant, `ubuntu` | **holds it** | none | none | — | `fsync` both parents, `O_RDONLY`, no write permission |
-| T4 | read, parse, check order, validate | any participant | holds it | reads the whole record | compares the record's host and target with this run's | — | — |
+| T4 | **compare the record's two names (*D1 remediation*)**, then read, parse, check order, validate | any participant | holds it | **`fstatat` on the temporary and the final name**, then reads the whole record | compares the record's host and target with this run's; **a temporary that resolves refuses all seven before the bytes are read** | — | — |
 | T5 | survey the ledger | any participant | holds it | reads every run file | each run file's own host/target | — | — |
 | T6 | publish `participant_started` | that participant, `ubuntu` | holds it | writes its own run file, one entry | host, target, participant, identity, declared effects **and — new in r6 — the reservation the run owns, empty for the six** | `fsync` the temporary | `fsync` the runs directory after the exclusive `linkat` and `unlinkat` (*D1*) |
 | T7 | publish `admitted` | executor, root | holds it | reads the history, writes it plus one entry | host, target, reservation id | `fsync` the temporary | `fsync` the laboratory directory after the rename |
@@ -1270,7 +1470,7 @@ exercises it. Nothing here is **[D]** except the barrier semantics §5.6 cites.
 | # | Permitted effects | The uncertain outcome | What a restart observes | Recovery owner | Status |
 |---|---|---|---|---|---|
 | T0 | create paths and the group | a partially provisioned host | some paths present, some absent; every participant refuses on the absent lock or record | operator; **never a participant** | **[P]** |
-| T1 | create exactly one record | **publication succeeded, barrier failed**: visible, not durable. A stop between `linkat` and `unlinkat` is §6.2's second interruption state (*D1*) | the readable record and no trace of the failure. **This is R3-1** | the next participant's re-seal, or an operator if it fails | **[M]** `test_the_reviewers_reproduction_still_reproduces_against_the_writer`, `test_a_successor_establishes_the_durability_the_writer_could_not` |
+| T1 | create exactly one record | **publication succeeded, barrier failed**: visible, not durable. A stop between `linkat` and `unlinkat` is §6.2's second interruption state (*D1*) | the readable record and no trace of the failure. **This is R3-1.** In §6.2's second state a readable record is also reachable **beside its temporary**, and every participant refuses on it at T4 — *amended 2026-09-15, D1 remediation* | the next participant's re-seal, or an operator if it fails. For the leftover temporary: an operator, on §5.10's recovery, **after the immediately preceding `(st_dev, st_ino)` comparison** | **[M]** `test_the_reviewers_reproduction_still_reproduces_against_the_writer`, `test_a_successor_establishes_the_durability_the_writer_could_not`; rows 74–78 |
 | T2 | none | lock unreadable | wait or refuse; an unreadable lock is not an unheld one | — | **[M]** `test_a_concurrent_participant_arriving_during_initialization_waits` |
 | T3 | **none. It is a barrier, not a write** | the barrier fails | nothing was taken and nothing published | the record's recovery owner, attributably | **[M]** `test_a_failed_re_seal_refuses_pending_an_attributable_recovery` |
 | T4 | none | bytes malformed, truncated, contradictory or wrongly bound | the same refusal, deterministically | operator | **[M]** `test_a_tampered_record_refuses_and_is_never_normalized` (ten cases) |
@@ -1381,6 +1581,8 @@ about a run**, not only the admitting three, because a record is about a host
 | **The ledger is absent or unreadable** | **refuse. New in r5 — R4-2.** Unavailable accounting is not empty accounting |
 | **A completion supplies a lifecycle-owned condition as an observation** | **refuse. New in r5 — R4-3.** Those are derived from the operations this process performed |
 | **A leftover run-publication temporary** | **refuse and report it. It is not removed automatically** |
+| **A leftover record-publication temporary** | **refuse, every participant, before the record's bytes are read — new in the D1 remediation, PR-20260915-LAB-D12-1.** The final name may carry a valid, complete record and still be a publication nobody finished. Report which of §6.2's three states it is and remove nothing |
+| **The record's temporary cannot be observed** | **refuse. A name whose resolution is unknown is not an absent name**, exactly as an unreadable lock is not an unheld one |
 | Crash, restart, lock free, record `ADMITTED` or `RUNNING` | **refuse.** No expiry and no free lock authorizes reuse |
 
 ### 5.10 Verified first use — a provisioning operation, proposed and unperformed
@@ -1400,10 +1602,15 @@ Carried from r3 §5.8, with three changes.
 Refusals and recoveries are otherwise r3's: `already_initialized` (read it),
 `prior_use_not_excluded` (**never reinitialize**; establish the predecessor or
 rebuild), `interrupted_initialization` (the temporary is reported by absolute
-path and not removed. **If the final name resolves to the same inode, the record
-was published** — §6.2's second interruption state — so the operator removes
-only the temporary and initialization is not repeated; *corrected 2026-09-15,
-D1*), `no_first_use_evidence` (obtain the attestation),
+path and not removed. **Every participant refuses while it is there**, whether
+or not the final record parses — *amended 2026-09-15, D1 remediation*. **If the
+final name resolves to the same inode, the record was published** — §6.2's
+second interruption state — so the operator removes only the temporary and
+initialization is not repeated; *corrected 2026-09-15, D1*. **The `(st_dev,
+st_ino)` comparison is required and must immediately precede the removal**: a
+removal taken without one, or on a comparison that has since stopped holding,
+removes an object nobody has identified, and both are refused rather than
+performed — *amended 2026-09-15, D1 remediation*), `no_first_use_evidence` (obtain the attestation),
 `binding_mismatch` (correct the binding), `not_durable` (above).
 
 ### 5.11 Durable in-progress and completion accounting for all seven — R3-2
@@ -1737,10 +1944,11 @@ with `EPERM` before anything is published **[D]**:
 * with `/proc/sys/fs/protected_hardlinks` set to `1`, `proc_sys_fs(5)` permits a
   link only when the caller holds `CAP_FOWNER`, or its filesystem UID owns the
   file, or the file is a regular, non-set-user-ID file the caller may read and
-  write. T1, T6 and §2.3.3 link a temporary their own writer created. **P2 changes
-  the temporary's owner and sets mode `0555` before linking**, so the owner
-  condition holds while that owner is the executor's filesystem UID, and any
-  other owner needs `CAP_FOWNER`.
+  write. T1, T6 and §2.3.3 link a temporary their own writer created. **P2 sets
+  the temporary to `root:root 0555` before linking and runs under the reviewed
+  root filesystem identity**, so it relies on the same owner condition. P2 has
+  no `CAP_FOWNER` dependency. Its actual capability masks are still observed,
+  and `CapBnd` is never substituted for `CapEff`.
 
 The target's filesystems and its hard-link policy are unconfirmed, so preflight
 item **V6** is re-scoped to observe them, read-only (§7).
@@ -1756,6 +1964,20 @@ elsewhere. The substitute is `linkat(dirfd, tmp, dirfd, name, 0)` followed by
 name is claimed exclusively by the kernel rather than by a check the caller
 performs, and there is no window in which the final name resolves to an object
 this run did not write.
+
+**One `linkat`, factored rather than duplicated — *amended 2026-09-19,
+C-P5.0-LAB-I3-R2*.** The exclusive claim is `PosixFilesystem.linkat`, and
+`renameat(noreplace=True)` is that call followed by the `unlinkat` of the
+temporary; T1, T6, §2.3.3 and P2 still reach the link through the fused call,
+unchanged. **Why reuse was unsafe for I3:** the fused call removed the temporary
+before it returned, so the second interruption state below — both names, one
+inode, link count two — could not be observed through it, and a second `os.link`
+in the verifier would have been a divergent implementation of the same
+exclusive, no-follow guarantee. `descriptors.EXCLUSIVE_LINK_PRIMITIVE` states
+this, and §9.2 row 105 asserts that `descriptors.py` holds the package's only
+`os.link`. `release()` beside it reports a failed `close()` instead of
+swallowing it, and `DescriptorInventory.release_all()` names each role whose
+release failed; `close()` on both is unchanged for every existing caller.
 
 **The three interruption states — corrected 2026-09-15, D1.** The first
 application of this amendment said a stop between the two calls leaves "the
@@ -1785,16 +2007,30 @@ not reach. What each reader then does:
 
 | Exclusive publication | Reader that meets the second state | Result | Operator recovery | Evidence for the result |
 |---|---|---|---|---|
-| T1 first-use record, §5.10 | initialization, which checks the temporary before the final name; the record's next publication | `interrupted_initialization`; T7's `admitted` refuses `interrupted_publication` | remove only the temporary; do **not** repeat initialization; the next re-seal (T3) makes the record durable | §9.2 row 70 |
-| T6 `participant_started`, §5.11 | the ledger survey; the writer's own retry | the survey counts the temporary unreadable and all seven participants refuse; a retry refuses `interrupted_publication` | remove the temporary; the run is then visible as started and unsettled, and T16's attributed recovery settles it | row 71 |
+| T1 first-use record, §5.10 | **the admission of all seven, at T4 (*D1 remediation*)**; initialization, which checks the temporary before the final name; the record's next publication | **every participant refuses before its work is called**, naming which of the three states it met; `interrupted_initialization`; T7's `admitted` refuses `interrupted_publication` | remove only the temporary, **after the immediately preceding `(st_dev, st_ino)` comparison**; do **not** repeat initialization; the next re-seal (T3) makes the record durable | §9.2 rows 70, 74–78 |
+| T6 `participant_started`, §5.11 | the ledger survey; the writer's own retry | the survey counts the temporary unreadable and all seven participants refuse; a retry refuses `interrupted_publication` | remove the temporary, **on the same required comparison**; the run is then visible as started and unsettled, **it still blocks**, and T16's attributed recovery settles it | rows 71, 79 |
 | §2.3.3 copy or record | the publication; restart discovery | the publication refuses before M1, so no configuration mutation happens; discovery reports the basis unusable for its leftover temporary | §2.5's operator disposal, naming the run id | row 72 |
 | P2 case program, §1.4.2 | the executor | installation raises and records no identity for either name; §1.4.5's removal refuses both names; a second installation refuses `EEXIST` on the temporary | remove both names by absolute path, as residue under `R` | row 73 |
 
-**[P]** for every operator recovery in this table: no test performs an
-operator's removal.
+**The operator's removal is no longer [P] — *amended 2026-09-15, D1
+remediation*.** It was prose, and prose cannot require a step. The recovery for
+T1 and T6 is now one guarded operation over the same publication path both
+objects share, `DurableRecordStore.remove_publication_temporary`, and **the
+comparison is its argument**: a removal that compared nothing refuses
+`no_observed_comparison`, one whose comparison does not show two names on one
+inode refuses `identity_mismatch`, one whose comparison no longer holds at the
+moment of the call refuses `stale_comparison`, one presenting another record's
+comparison refuses `foreign_comparison`, and an unattributed one refuses
+`unattributed`. Rows 75–79 exercise all five. It removes **exactly the
+temporary**: never the record, never a republication, never a repeated
+initialization, and it settles no run. The three recoveries the table's *other*
+rows name — §2.5's disposal and P2's residue removal — remain **[P]**, and no
+test performs either.
 
-**The temporary is preserved and never cleaned by a retry.** A retry over an
-unexplained temporary is a write into a state nobody has established.
+**The temporary is preserved and never cleaned by a retry, and never by a
+participant.** A retry over an unexplained temporary is a write into a state
+nobody has established, and an admission that stepped over one is
+PR-20260915-LAB-D12-1.
 
 ### 6.3 Descriptor transfer
 
@@ -1812,15 +2048,32 @@ any transferred set**.
 | `case_program.BOOTSTRAP_VERBS` | 2 | **2, unchanged** |
 | `executor.PERMITTED_RUN_AS` | the identity contract | **unchanged** |
 | `sudoers.EXPECTED_COMMANDS` | 2 `Cmnd_Alias` targets | **unchanged** |
-| The one `ctypes` exception | `case_program._prctl_get_securebits` | **unchanged.** The two ioctls are reached through `fcntl.ioctl`, as implemented. `renameat2` is not reached at all (§6.2, D1). **How X1's `execveat(…, AT_EMPTY_PATH)` is reached without `ctypes` is not yet established:** Python 3.12's `os` has no `execveat`; the candidate is `os.execve` on a descriptor, whose `fexecve(3)` uses `execveat(2)` since glibc 2.27 where the kernel provides it, and otherwise `/proc` **[D]**. X1 is unimplemented, so this is an open implementation item, not a claim. *Corrected 2026-09-15* |
+| The one `ctypes` exception | `case_program._prctl_get_securebits` | **unchanged.** The two ioctls are reached through `fcntl.ioctl`, as implemented. `renameat2` is not reached at all (§6.2, D1). **How X1's `execveat(…, AT_EMPTY_PATH)` is reached without `ctypes` is not yet established:** Python 3.12's `os` has no `execveat`; the candidate is `os.execve` on a descriptor, whose `fexecve(3)` uses `execveat(2)` since glibc 2.27 where the kernel provides it, and otherwise `/proc` **[D]**. X1 is unimplemented, so this is an open implementation item, not a claim. *Corrected 2026-09-15*; given an owner, its required evidence and its execution stop condition below, *amended 2026-09-15, D1 remediation* |
 | Descriptors opened per run | the chain, one mode | the chain in two modes, **plus one `O_RDONLY` directory descriptor per participant per run for the re-seal**, and — *amended 2026-09-15, D2* — **one short-lived `O_RDONLY` directory descriptor (D20) per listing, closed before the listing returns**. No new privilege, no new path, no retained descriptor |
-| New privileged writer | — | **none** |
+| New privileged writer | — | **none** in the laboratory mechanism. *Amended 2026-09-19, C-P5.0-LAB-I3-R2:* the separately armed I3 verifier of §7.4 is a root-run writer outside it, authorized by C-P5.0-LAB-I3-D1 for transient objects only — one payload per publication context and the transient `R`/`R/bin` — all removed through identity guards before success. It adds no persistent object, capability, unit, group or identity |
 | New system group | — | **`freedomlab`**, with `ubuntu` as a member |
-| New provisioned paths | — | `/run/freedom-blades` (`0750`), `/run/freedom-blades/laboratory.lock` (`0660`), `/var/lib/freedom-blades/laboratory` (`0750`), `/var/lib/freedom-blades/recovery` (`0700 root:root`), **`/var/lib/freedom-blades/laboratory/runs` (`3770`) — new in r4** |
+| New provisioned paths — *amended 2026-09-17, C-P5.0-LAB-V6-D* | — | **`/var/lib/freedom-blades` (`0755 root:root`) — V12, new 2026-09-17**, `/run/freedom-blades` (`0750`), `/run/freedom-blades/laboratory.lock` (`0660`), `/var/lib/freedom-blades/laboratory` (`0750`), `/var/lib/freedom-blades/recovery` (`0700 root:root`), and **`/var/lib/freedom-blades/laboratory/runs` (`3770`) — new in r4**. **`/opt/freedom-blades/evidence` is withdrawn with V11** and nothing is provisioned under `/opt`. V12 adds no access to any existing object: it creates the parent §2.2 already stated and §7 had left without an item, at the mode §2.2 already gave it |
 | New provisioned object | — | `/var/lib/freedom-blades/laboratory/lifecycle.json` (`0640`) |
 | New systemd artifact | — | one `systemd-tmpfiles` fragment for the two `/run` entries |
 | **New write permission for ordinary participants** | — | **one directory only**: the run ledger. **The reservation record stays root-written, and the re-seal needs no write permission at all** |
 | New capability or unit | — | **none** |
+
+**X1's `execveat` route — owner, evidence and stop condition. *Added
+2026-09-15, D1 remediation*, on Codex's disposition that the unresolved route
+*"needs an explicit owner and execution stop condition before execution
+readiness"*. No route is chosen here and none is implemented: C-P5.0-LAB-D12-R1
+forbids choosing one, and the point of writing this down is that an
+unimplemented step with no owner is a step that gets implemented by whoever
+reaches it first, at the moment of execution, under pressure.**
+
+| | |
+|---|---|
+| **Item** | §1.4.4 X1's `execveat(D7, "", argv, envp, AT_EMPTY_PATH)`. Python 3.12's `os` has no `execveat`; the candidate is `os.execve` on a descriptor, whose `fexecve(3)` uses `execveat(2)` since glibc 2.27 where the kernel provides it and otherwise falls back to `/proc` **[D]** |
+| **Owner** | the implementing agent Peter designates as Package 5.0's working Technical Lead, under implementation-plan §0.3. Not the Independent Reviewer's, and not closed on the implementer's own recommendation |
+| **Required evidence, all of it** | which call is issued and from where; whether the one `ctypes` exception (`case_program._prctl_get_securebits`) would be widened, which is a **separate approval** and not part of this item; that the `/proc` fallback is either reached deliberately or refused rather than reached silently — a `/proc`-mediated execution re-resolves a pathname and gives up exactly the descriptor binding X1 exists for (§1.4.4); and §9.3's **I7**, that the reviewed payload executes under every disposable identity |
+| **Execution stop condition** | while the item is open, **X1 is not executed**. `plan.is_executable` stays `False`, `reservation.REAL_EXECUTION_REFUSAL` stands unconditionally, and no `--execute` run is taken on the grounds that the remaining route is obvious. Choosing the route is a separate authorized pass |
+| **Where it is stated in code** | `execution.descriptors.UNIMPLEMENTED_EXECUTION_ROUTE`, asserted by `test_lab_implementation.py::test_the_unimplemented_execveat_route_has_an_owner_and_a_stop_condition` |
+| **Status** | **open**. RAID item **LAB-X1** |
 
 **The delta grew from eight items to ten in r4**, and the reason was worth
 stating because it had happened three revisions running: specifying the
@@ -1828,8 +2081,25 @@ descriptors revealed `OPEN_MODE`; specifying the storage revealed the initial
 record and the directory-barrier preflight; specifying the reading revealed the
 ledger directory and the identity question.
 
-**In r5 it did not grow. In r6 it does not grow either. The proposed permission
-delta is unchanged, at the same ten items.** All three R4 corrections were pure
+**In r5 it did not grow. In r6 as submitted it did not grow either. On
+2026-09-16 it grew by exactly one item, to eleven, and on 2026-09-17 that
+eleventh item was replaced — *amended 2026-09-17, C-P5.0-LAB-V6-D*.**
+Specifying the provisioning revealed that §1.3.3's **D1** had a descriptor, a
+role name and a set of permitted uses, and no owner, group or mode anywhere.
+V11 stated them and §7.2 derived them. The maintainer then **withdrew the
+location**: `R` is `/var/lib/fb-evidence-p5-0`, the approved target's root,
+created by the reviewed concrete plan and not by prerequisite provisioning, and
+`/opt/freedom-blades/evidence` is gone with V11. In its place **V12** states the
+persistent parent `/var/lib/freedom-blades` that V4 and V5 hang from.
+
+**The count is unchanged at eleven and the delta is narrower than it was.** V12
+widens nothing — no new path an identity may reach, no new capability, unit,
+group, identity or descriptor, no access to an object that already exists — and
+withdrawing V11 removes a proposed path under `/opt` rather than adding one.
+Everything below about the r5/r6 delta stands unchanged.
+
+**The proposed permission delta was unchanged at ten items through r5 and r6's
+submission.** All three R4 corrections were pure
 validation and ordering over records the protocol already stores, and R5-1's is
 one additional field in a file the harness already writes, one comparison against
 bytes it already reads, and one check moved ahead of a decision it already took.
@@ -1845,9 +2115,45 @@ its own item and left unapproved.
 
 ## 7. Provisioning and permission changes — required, and unapproved
 
-**Dated maintainer direction, 2026-09-12:** the ten-item set below is accepted
-as the proposed lab design, and the identity decision is shared `ubuntu` for all
-seven participants. This supersedes the proposal's unanswered design question,
+**Dated maintainer direction, 2026-09-17 — C-P5.0-LAB-V6-D. This supersedes the
+2026-09-16 direction below.** Peter approves the **prerequisite subset** V1, V2,
+V3, **V12**, V4, V9 and V5, in that order, subject to independent Codex
+technical and security acceptance of the remediation that records it. **V11 is
+withdrawn** with `/opt/freedom-blades/evidence`; no ownership change to
+`/opt/freedom-blades` is made. **V7 remains excluded from that release** — §7.1
+states the exclusion and its stop condition — and V6, V8 and V10 remain
+observations. The approval is not applied by this document and was not applied
+by the remediation: no object was created on any host.
+
+**Dated maintainer direction, 2026-09-16 — C-P5.0-LAB-V6-R1, superseded above.**
+Peter approved the prerequisite subset V1, V2, V3, **V11**, V4, V9 and V5. That
+subset is no longer the released one; the row order and V11's membership are
+what the 2026-09-17 direction changed.
+
+**The set is eleven items. It grew to eleven on 2026-09-16 and its eleventh
+changed identity on 2026-09-17 — *amended 2026-09-17, C-P5.0-LAB-V6-D*.** The
+released V6 survey of 2026-09-16 found `/opt/freedom-blades/evidence` **absent**
+and this section had described it only as *"root-only [A]"* — an assumption,
+with no owner, group, numeric mode, creation mechanism, persistence behaviour or
+item. V11 stated it, and §7.2 derived its mode. **The maintainer then withdrew
+that location rather than widening the parent rule it broke**: V6 observed
+`/opt/freedom-blades` as `1001:1001 0755`, writable by the identity every
+participant runs as, so a root-only object under it would have sat behind an
+entry `ubuntu` could rename. The sole canonical `R` is the already approved
+`/var/lib/fb-evidence-p5-0`, created by the reviewed concrete plan and not by
+prerequisite provisioning.
+
+**V12 is the eleventh item.** It states the persistent parent `/var/lib/freedom-blades`
+that V4 and V5 hang from, at `root:root 0755` — the value §2.2 already stated —
+and it is applied **before** both of them. §7.3 was the section that raised that
+parent as undefined; the disposition closes it.
+`provisioning.PROVISIONING_ITEMS` carries the set and
+`provisioning.delta_item_count()` derives the total, so the number is not a
+literal in six places.
+
+**Dated maintainer direction, 2026-09-12:** the then ten-item set below is
+accepted as the proposed lab design, and the identity decision is shared
+`ubuntu` for all seven participants. This supersedes the proposal's unanswered design question,
 but does not rewrite its historical approval column or authorize applying any
 item. Actual identity confirmation (V10), filesystem checks (V6/V8), and all
 provisioning remain unperformed and separately gated. See the
@@ -1857,12 +2163,20 @@ provisioning remain unperformed and separately gated. See the
 approves none of them. They are listed so a maintainer can approve or refuse
 them as a set.
 
-**The set is unchanged in r6, as it was in r5.** No item is added, removed or
-widened; the three R4 corrections and R5-1's binding need no permission r4 did
+**The set was unchanged in r6 as submitted, as it was in r5; it grew by exactly
+one item on 2026-09-16, and on 2026-09-17 that item was replaced by another —
+*amended 2026-09-17, C-P5.0-LAB-V6-D*.** V11 is **removed**, and removing it
+withdraws access rather than granting any. V12 grants no access to an existing
+object and no capability, unit, identity or group either: it creates one new
+directory, `root:root 0755`, at a path §2.2 already stated and V6 observed
+absent. The three R4 corrections and R5-1's binding need no permission r4 did
 not already need. At submission on 2026-09-11, the two preflight items and the
 identity choice were unperformed and undecided. The identity choice is
-superseded by the dated maintainer direction above; both preflight observations
-remain unperformed.
+superseded by the dated maintainer direction above. **Of the two observations,
+V6 was performed on 2026-09-16 as the approved read-only survey, repeated as
+I12 after provisioning, and **closed by Peter on 2026-09-19**; V8 remains
+unperformed** — *amended 2026-09-17, C-P5.0-LAB-V6-D-R1; status updated
+2026-09-19, C-P5.0-LAB-V6-C*.
 
 | # | Change | Why | Approved? |
 |---|---|---|---|
@@ -1871,9 +2185,11 @@ remain unperformed.
 | V3 | `systemd-tmpfiles` fragment creating `/run/freedom-blades` `0750 root:freedomlab` and `laboratory.lock` `0660 root:freedomlab` | `/run` is tmpfs; the lock must exist before any participant runs | **no** |
 | V4 | create `/var/lib/freedom-blades/laboratory` `0750 root:freedomlab` | the durable reservation record must survive reboot | **no** |
 | V5 | create `/var/lib/freedom-blades/recovery` `0700 root:root` | the independent recovery store of §2.2 | **no** |
-| V7 | initialize `lifecycle.json` `0640 root:freedomlab` with a verified-first-use record, exclusively, durably, bound to host **and approved target**, on a named operator attestation | §5.10. Without it the fresh-install path cannot reach its successful control | **no** |
+| ~~V11~~ | ~~create `/opt/freedom-blades/evidence` `0700 root:root`~~ | **Withdrawn 2026-09-17, C-P5.0-LAB-V6-D.** The maintainer withdrew the location rather than widening §1.4.1's root-only parent rule to fit the `1001:1001 0755` parent V6 observed. `R` is `/var/lib/fb-evidence-p5-0`, created by the reviewed concrete plan, not by prerequisite provisioning. §7.2's derivation is retained as the design evidence behind that decision. `provisioning.PROVISIONING_ITEMS` does not carry it | **withdrawn — not an item** |
+| **V12** | **create `/var/lib/freedom-blades` `0755 root:root`, before V4 and V5** | **§2.2 already stated this path and this mode, and no §7 item created it — §7.3 raised it as the parent the delta did not define. V4's laboratory directory and V5's independent recovery directory are both created beneath it, so without an item for it each child applier would resolve its `dirfd` from an object nobody approved. V6 observed it absent. It is the persistent parent; it is **not** the disposable run root `R`. New 2026-09-17, C-P5.0-LAB-V6-D** | **no** |
+| V7 | initialize `lifecycle.json` `0640 root:freedomlab` with a verified-first-use record, exclusively, durably, bound to host **and approved target**, on a named operator attestation | §5.10. Without it the fresh-install path cannot reach its successful control | **no; and explicitly excluded from the 2026-09-16 release — §7.1** |
 | **V9** | **create `/var/lib/freedom-blades/laboratory/runs` `3770 root:freedomlab` — setgid and sticky** | **§5.11. Every participant must be able to publish its own in-progress and completion state, and the reservation record must not become group-writable to allow it. New in r4** | **no** |
-| V6 | *re-scoped 2026-09-15, D1:* observe, read-only, the filesystem type under each directory that holds an exclusive publication — `/opt/freedom-blades/evidence`, and the filesystem `/var/lib/freedom-blades/laboratory`, its `runs` directory and `/var/lib/freedom-blades/recovery` would be created on — and the value of `/proc/sys/fs/protected_hardlinks`. Hard-link support is read from the filesystem type; a type whose support is not established leaves V6 unconfirmed. **No link is created**: a write probe is not read-only and is not part of V6 | §6.2; one of the twelve unconfirmed facts | **preflight**, unperformed |
+| V6 | *re-scoped 2026-09-15, D1; **approved 2026-09-15 as a read-only prerequisite survey**, D1 remediation; **observed set corrected and status stated 2026-09-17, C-P5.0-LAB-V6-D-R1, on Blocking PR-20260917-LAB-V6D-R1-1***: observe, read-only, the **filesystem and mount type** under each directory that holds an exclusive publication — the filesystem `R` (`/var/lib/fb-evidence-p5-0`, created by the reviewed concrete plan) is created on, and the one `/var/lib/freedom-blades` (V12), `/var/lib/freedom-blades/laboratory` (V4), its `runs` child (V9) and `/var/lib/freedom-blades/recovery` (V5) would be created on — the value of `/proc/sys/fs/protected_hardlinks`, the **execution identity**, the **file ownership and mode assumptions**, and the **relevant capability state**. **The withdrawn `/opt/freedom-blades/evidence` is not among them**: V11 is withdrawn, nothing is provisioned under `/opt`, and no observation of that path is directed or expected (§7.3, decisions A and B). Hard-link support is read from the filesystem type; a type whose support is not established leaves V6 unconfirmed. **No link is created**: a write probe is not read-only and is not part of V6. **It does not prove that the real `linkat` publication succeeds and it does not close I3**; a controlled write verification requires separate authorization before execution | §6.2; one of the twelve unconfirmed facts | **approved as a read-only survey**; **performed 2026-09-16, not closed**. The survey found both then-candidate location families on the same ext4 root mount and `fs.protected_hardlinks=1`, and found every exact publication directory and the `freedomlab` group **absent**, so their required ownership and mode assumptions could not be confirmed on the target. It stays **performed-but-not-closed** until the accepted provisioning is applied and the read-only survey is repeated — that repetition is **I12** and `provisioning.VERIFICATION_PROCEDURE`, it is unperformed and separately authorized, and neither it nor V6 is the controlled write verification that would close I3 |
 | V8 | confirm that `fsync` on an `O_RDONLY` directory descriptor behaves as the containing-entry barrier on the target's filesystem | §2.3 and **§5.6, which now depends on it for every participant rather than only the executor** | **preflight**, unperformed |
 | **V10** | **confirm that all seven participants really run as `ubuntu`** | **§5.2 and §5.4. The identity is an [A] that the whole ledger's attribution rests on. The shared identity means file modes are accident guards, not barriers between participants. New in r4** | **preflight**, unperformed; shared identity choice recorded 2026-09-12 |
 
@@ -1883,18 +2199,487 @@ needed. The preflight must still confirm that all seven really run as `ubuntu`.
 The honest statement in §5.2 remains: the modes guard against accidents and not
 against the participants.
 
-**V6 is re-scoped and does not close — corrected 2026-09-15, D1.** No
+**V6 re-scoped 2026-09-15 and closed 2026-09-19 after I12.** No
 publication path in this design depends on `RENAME_NOREPLACE` after the §6.2
 amendment: the exclusive publications use `linkat`/`unlinkat` and the
 non-exclusive ones use `renameat`. The first application said no other item
 waits on V6. The dependency moved rather than disappeared — §6.2 names what
 `linkat` needs from the target — so V6 now observes that instead. Both
 dependencies refuse with `EPERM` before anything is published, so V6 is an
-operational prerequisite rather than a safety one. V6 remains an unperformed
-preflight observation and one of the twelve unconfirmed target facts. **This
-re-scoping changes what the authorized read-only preflight observes, and it is
-put to the reviewer and the maintainer as a question rather than taken as
-settled.**
+operational prerequisite rather than a safety one. V6 was first performed on
+2026-09-16 but remained open because the objects whose ownership and mode it
+had to confirm were absent. After provisioning, I12 repeated the complete
+read-only observation and every row matched the reviewed definition. Peter
+accepted the independent evidence review and **closed V6 on 2026-09-19**
+through C-P5.0-LAB-V6-C. Closure confirms only this read-only prerequisite
+survey: I3 remains unconfirmed and separately authorized; V7 remains excluded;
+V8 and V10 remain unperformed; `plan.is_executable` remains false; and Package
+5.0 remains not ready. [Independent review](project-review-2026-09-19-reserved-laboratory-i12-v6-closure.md).
+
+**Peter's disposition, 2026-09-15, on Codex's recommendation — *D1
+remediation*.** The question the correction handback put is answered: **V6 is
+approved as a read-only prerequisite survey.** It may record the filesystem and
+mount type, `fs.protected_hardlinks`, the execution identity, the file ownership
+and mode assumptions, and the relevant capability state. It does **not** prove
+that the real `linkat` publication succeeds and **it does not close I3**. A
+controlled write verification requires **separate authorization before
+execution**. The preflight in which V6 would be observed remains authorized and
+queued; approving what V6 observes is not releasing it.
+
+
+### 7.1 The released subset, and why V7 is not in it
+
+**Added 2026-09-16, C-P5.0-LAB-V6-R1; *amended 2026-09-17, C-P5.0-LAB-V6-D* —
+V11 withdrawn, V12 added ahead of V4 and V5.**
+
+| | |
+|---|---|
+| **Released prerequisite subset, in application order** | V1, V2, V3, **V12**, V4, V9, V5 — `provisioning.RELEASED_PREREQUISITE_SUBSET` |
+| Applied by an operator, out of band | V1 `groupadd`, V2 `usermod --append`, V3 the fragment and `systemd-tmpfiles`. Each item's `creation` field carries the exact command; **this repository performs none of them** |
+| Applied by a repository artifact | **V12**, V4, V9, V5 — the four directory items, through `execution/provisioner.py` — `provisioning.APPLIED_DIRECTORY_ITEMS`. Exclusive `mkdirat`, `fchown` and `fchmod` on the descriptor the creation opened, then the parent's containing-entry barrier. **The order is parent before child**: V12 before both of its children, V4 before its `runs` child. **Every failure after the `mkdirat` succeeds is a closed refusal carrying the object it left, and so is a failure to release any descriptor the application held** — `provisioner.POST_CREATION_REFUSALS`, *amended 2026-09-16, V6-R2 remediation; extended 2026-09-16, V6-R3 remediation*; see below |
+| **V12's location is derived from both of its children** — *added 2026-09-17, C-P5.0-LAB-V6-D review* | `provisioner.directory_targets` reads the laboratory **and** the recovery directory, refuses `creation-refused` for V12 if they do not share one parent, and verifies V12 against **their** names rather than two literals. Deriving the parent from one child would build a V12 that is not the other's parent and declare children it does not have — the implicit parent this item exists to prevent, one level down |
+| **Excluded** | **V7**, and V7 alone — `provisioning.excluded_item_ids()` |
+| Still observations | V6, V8, V10 |
+
+**Why V7 is excluded.** §5.10's first use is an exclusive publication:
+`O_CREAT|O_EXCL` on the temporary, the bytes synchronized, `linkat` of the final
+name, `unlinkat` of the temporary, then the containing entry's barrier. That
+`linkat` is the **first real exclusive publication on the target**, and whether
+it succeeds there is implementation check **I3**. The released V6 survey
+observed the prerequisites and, as its own approved contract states, does not
+close I3; a controlled write verification needs separate authorization before
+execution. Initializing the record would perform that verification under
+another name.
+
+**Consumed authorization, 2026-09-19 — C-P5.0-LAB-I3.** Peter authorized one
+bounded controlled-write verification of I3 using the reviewed
+`linkat`/`unlinkat` sequence in the exact target filesystem. The operation is
+limited to one uniquely named temporary object and hard link, byte and shared
+`(st_dev, st_ino)` verification, removal of both names, the containing-entry
+barrier and proof of no residue. It stops on discrepancy or cleanup failure and
+does not initialize V7, invoke a participant or harness, access the database,
+run a generated vector or use `--execute`. Success confirms I3 only. Codex
+remains Independent Reviewer. The assigned pass stopped before implementation
+because the P2 contract was contradictory; it grants no remaining host action.
+
+**Current decision, 2026-09-20 — C-P5.0-LAB-I3-R3.** Peter accepted the
+independent C-P5.0-LAB-I3-R2 review with no Blocking or Important finding and
+ruled on the two contract discrepancies it reported, in favour of this contract
+in both cases. **Canonical `R` is created `root:root 0700`** — §1.4.1's C1 row
+and §7.2's derivation, not the `0755` the concrete plan carried — and **P2
+alone creates its exclusive publication temporary `0500`**, §6.2's P2 row. The
+already-open writable descriptor remains the authority for completing and
+synchronizing P2's write despite the temporary's pathname mode, and P2 applies
+and reads back the final `root:root 0555` on that descriptor before exclusive
+publication; the creation mode never becomes the published mode. T1, T6 and
+§2.3.3 retain the shared `0600` exclusive-creation default, which is why the
+`0500` is an explicit input passed at P2's call rather than a change to
+`descriptors.EXCLUSIVE_CREATION_MODE`. Source, tests, this contract and the
+generated artifacts were reconciled in one bounded repository-only pass;
+manifest version moves to **16**. Nothing operational is released: I3 remains
+unconfirmed, V7 excluded, V8 and V10 unperformed, `is_executable=False`, and
+Package 5.0 not ready.
+
+**Superseded decision, 2026-09-19 — C-P5.0-LAB-I3-D1.** P2 is `root:root 0555`
+and relies on the filesystem-UID owner condition. The `CAP_FOWNER` dependency
+is withdrawn. The armed verifier may temporarily create canonical `R` and
+`R/bin`, then must remove both directories through identity guards before
+success. Contract/code/test reconciliation and independent review are required
+before a new operational release.
+
+**The stop condition, and what an absent record leaves** — *amended 2026-09-17,
+C-P5.0-LAB-V6-D*. With V1–V5, V9 and **V12** applied and V7 absent, the host is
+provisioned and **closed**:
+
+* §5.9's *record absent or unreadable* refuses, and it refuses **all seven**.
+  `lifecycle_storage.read_and_admit` is the one admission path,
+  `host_lock.LaboratorySession.admit` is its only caller, and
+  `execution/participants.py` returns before any participant's work is called.
+  §9.2 row **80** drives all seven over a really-provisioned model host and
+  asserts exactly that;
+* §5.10 states that initialization is the only way out of absent, that it is
+  the **operator's** act, out of band, on a named attestation, and never the
+  harness's or a participant's. So the absence is not a gap the next run fills;
+* `plan.is_executable` stays `False` and `reservation.REAL_EXECUTION_REFUSAL`
+  stands unconditionally. **A provisioned host is a host on which the refusals
+  can finally be reached honestly. It is not a host that may run anything.**
+
+`execution/provisioner.py` refuses V7 by name — classification
+`item-not-in-this-release` — and refuses V1, V2 and V3 as
+`item-not-applied-by-this-tool`. Neither refusal is a policy a caller can pass
+an argument to.
+
+**What a partial application returns — *added 2026-09-16, V6-R2 remediation;
+extended 2026-09-16, V6-R3 remediation*.** The `mkdirat` is the line either side
+of which a failure is a different fact. Before it, nothing exists and
+`creation-refused` is the whole story. After it, a directory is at a provisioned
+name, and three rules hold for every one of the six failure points — opening the
+created directory, `fchown`, `fchmod`, the read-back's own `fstat`, a read-back
+that disagrees, and the parent's barrier — **and for the release of the
+descriptor each of them was issued through**, which is the seventh and is
+described after them:
+
+1. **the failure is classified, not raised.** Each becomes one of
+   `provisioner.POST_CREATION_REFUSALS`, which names no path, no directory
+   content and no operating-system message, so a refusal stays safe to put in an
+   operator-facing artifact. A raw `OSError` reaching a caller would be a
+   refusal nobody classified about an object nobody recorded;
+2. **the object is in the returned result.** `ProvisioningRun.applied` holds it
+   beside the items that completed, because `applied` answers *what is on disk*;
+   the refusal is what says it is unfinished, and `not_attempted` names every
+   later item. A live provisioner's private state is not evidence an operator
+   can read; and
+3. **identity is preserved where the object can still be observed, and claimed
+   nowhere else.** Every failure after the open still holds the descriptor the
+   creation opened, so `(st_dev, st_ino)` comes from the object itself and the
+   guarded reversal of each item's `rollback` field remains available. If the
+   open is what failed there is no such descriptor, and resolving the name again
+   would record an identity this application cannot attribute to its own
+   `mkdirat` — the substitution the guard exists to catch. That object is
+   reported as residue with no identity, and `rollback()` refuses the **whole**
+   reversal while one is present rather than removing what it can and stopping.
+
+**Releasing the descriptor is the seventh failure point — *added 2026-09-16,
+V6-R3 remediation*.** Each of the six above is issued through a descriptor, and
+releasing it can fail on its own. Three are released on the application path:
+the one opened on the created object, and the parent's synchronizable and
+traversal descriptors. A `close()` that reports failure used to escape raw and
+to **replace** whatever refusal was unwinding through the same `finally`, which
+is Codex Blocking PR-20260916-LAB-V6R2-1. Two rules close it:
+
+4. **the first causal refusal wins.** A release that fails while an ownership,
+   mode, read-back, barrier or parent refusal is in flight is subordinate to it
+   and does not replace it: the operator is told about their object, not about a
+   descriptor. Every descriptor is still released whichever one reports first,
+   so a failure on one does not leak the next; and
+5. **a release failure with nothing else in flight is its own refusal.**
+   `descriptor-not-released`, the seventh member of
+   `provisioner.POST_CREATION_REFUSALS`, carrying the result the item had
+   already reached — **never a second `AppliedItem` for the same object**, so
+   the returned run and the provisioner's own account of what it created still
+   agree. A created object keeps the `(st_dev, st_ino)` its read-back
+   established, so the guarded reversal survives; where the failure is on the
+   created object's own descriptor the barrier is **not** issued afterwards, and
+   the refusal says so. It is the one member not tied to a `mkdirat`: `ensure`
+   releases the same two parent descriptors after verifying an
+   already-provisioned object, and there the refusal carries that verification's
+   item and `created` stays empty.
+
+**An ambiguous close is treated as ambiguous.** The descriptor is not reused and
+`close()` is not retried on it — a second `close()` of a number the kernel has
+already released can close a descriptor something else has since been handed.
+Nothing establishes that the descriptor leaked and nothing establishes that it
+did not; what is refused on is the application's inability to say the step
+finished cleanly.
+
+**Verification and reversal release their descriptors under the same rule —
+*added 2026-09-16, V6-R4 remediation*.** The five rules above cover the three
+descriptors the application path holds. `_verify_one`, which `verify()` and the
+already-provisioned path use, and `_remove`, which guarded rollback uses, hold
+two each, and until this remediation both released them with a bare `os.close`
+that still raised — Codex Blocking **PR-20260916-LAB-V6R3-1**. Three further
+rules close it, and none of them widens what is provisioned:
+
+6. **the read-only re-observation stays complete.** `verify()` returns one
+   observation for every target it is given. A descriptor it cannot release is
+   a finding about the observation, **appended** to that item's
+   `discrepancies` as `descriptor-not-released` and never displacing the owner,
+   group, mode, link count or content it already read — and never an exception,
+   which would abandon every later target unobserved over a descriptor rather
+   than over anything about an object. `provisioner.OBSERVATION_DISCREPANCIES`
+   is that closed vocabulary. The same condition reached through `_existing()`
+   inside `ensure()` is the closed refusal `descriptor-not-released`, carrying
+   the `already-provisioned` result the verification reached, once, with
+   `created` still empty because nothing was created. Where the object itself
+   also disagrees with its definition, **that disagreement is the refusal** and
+   the release is subordinate to it;
+7. **a reversal refuses before an effect, and the `rmdir` is the line.** A
+   release failure while an identity-mismatch or not-empty refusal is unwinding
+   is subordinate to it, exactly as on the application path. A failure to
+   release the descriptor the object was *identified* through, with nothing else
+   in flight, means the `rmdir` is **not issued**:
+   `rollback-descriptor-not-released-nothing-removed`, the object is exactly
+   where it was, and it is still this application's to reverse; and
+8. **a reversal's account of what it removed is truthful.** Where `rmdir`
+   returned success and the parent descriptor then failed to release, the object
+   **is** gone: `rollback-descriptor-not-released-object-removed` says so, the
+   object is in the refusal's `removed` account, `DirectoryProvisioner.created`
+   no longer holds it, and a second reversal cannot aim at it. Every reversal
+   refusal now carries what it had already removed, and each removal leaves the
+   live account as it goes rather than at the end of the loop — so a reversal
+   that stops part-way no longer names objects that are not there.
+   `provisioner.ROLLBACK_REFUSALS` is the closed vocabulary and
+   `RollbackRefused` makes the combination that would lie about an effect —
+   *removed*, with the object absent from the account, or *not removed*, with it
+   present — unconstructible.
+
+Nothing here adds automatic rollback to an application. Reversing a partly
+provisioned host remains the operator's decision, on the per-item `rollback`
+field, and **an unidentified residue is an operator's object to inspect by
+hand.**
+
+### 7.2 V11's mode, derived — the identity and descriptor trace *(historical)*
+
+**Added 2026-09-16, C-P5.0-LAB-V6-R1**, because `"root-only [A]"` is an
+assumption and a provisioning item needs a number.
+
+**Withdrawn as an operative section, 2026-09-17 — C-P5.0-LAB-V6-D.** V11 is
+withdrawn, so nothing below defines an item any more. **The section is retained
+because it is the evidence the maintainer decided on**: step 4 is what made the
+root-only claim depend on the parent, and §7.3's first row is what showed the
+observed parent could not carry it. Step 6's former `CAP_FOWNER` conclusion is
+also historical and was superseded by C-P5.0-LAB-I3-D1 on 2026-09-19.
+`provisioning.EVIDENCE_ROOT_TRACE` no
+longer carries this derivation; it records the disposition instead, and the
+derivation lives here.
+
+1. **Who opens D1.** `DescriptorInventory.open_provisioned_root` is the only
+   way a directory the run did not create enters the inventory, and §1.3.3 gives
+   D1 to the executor alone. The open is issued **in the executor's own
+   process**, not through the process boundary, so the real, effective and
+   filesystem identity of that `openat` is the executor process's own.
+2. **Which identity that is.** Every reviewed effect step is `run_as="root"` —
+   all 34 of them in the current concrete plan — and `boundary.ProcessBoundary`
+   refuses a root step from a launcher that is not already effective UID **and**
+   GID 0, classifying it `root-identity-unavailable` before any process exists.
+   An executor that is not root reaches no effect at all, so the process holding
+   D1 is root whenever D1 is used for anything.
+3. **Who creates each `R`.** The same process. §1.4.1's C1 is
+   `mkdirat(D1, "<run>", 0700)` issued in-process by
+   `executor.DescriptorBoundEffects`, exclusively, `EEXIST` refusing; C2 records
+   `(st_dev, st_ino)` from the descriptor opened on the result. **No other
+   participant calls either.** The six ordinary participants reach only the
+   lock, the laboratory directory and its `runs` child.
+4. **Therefore `root:root 0700`.** Owner `rwx` is exactly what `mkdirat` and
+   `fstatat` need from this directory for the one identity that issues them. No
+   group or other bit has a consumer: every object under `R` is reached by an
+   **inherited descriptor**, and §1.3.3 states that a step needing a descriptor
+   it was not given **refuses** rather than opening a path. The zero bits are
+   also what make §1.4.1's own argument true rather than assumed — §1.4.1
+   concedes that `R`'s *name* can be replaced and is only ever detected, and
+   rests the exposure on this directory being root-only.
+5. **`fs.protected_hardlinks=1` does not bear on this item.** **No exclusive
+   publication happens in this directory.** D1's permitted uses are C1's
+   `mkdirat` and §1.4.1's by-name `fstatat`, and neither is a `linkat`. §6.2's
+   four exclusive publications are T1 under V4, T6 under V9, §2.3.3's capture
+   under V5 and P2 under `R/bin`. V11's mode is decided by what `mkdirat` needs
+   from a directory and by nothing the hard-link policy says.
+6. **Historical conclusion, superseded 2026-09-19.** V6 found zero inheritable, permitted, effective and
+   ambient capabilities **for a process running as `ubuntu`**. That is the right
+   observation for T6, whose linked temporary `ubuntu` created, so
+   `proc_sys_fs(5)`'s owner condition holds with no capability. It is **not** an
+   observation about a root process, and none is drawn here. The later ruling
+   fixes P2 at `root:root 0555`; its reviewed root filesystem identity therefore
+   satisfies the owner condition. P2 has no `CAP_FOWNER` dependency. Actual
+   operation-time capability masks must nevertheless be observed without
+   treating `CapBnd` as proof of `CapEff`.
+
+### 7.3 The four things the delta did not define — how each was disposed of
+
+**Added 2026-09-16, C-P5.0-LAB-V6-R1, as four open items. *Resolved
+2026-09-17, C-P5.0-LAB-V6-D*:** Peter's decisions A–D dispose of all four.
+`provisioning.PREREQUISITE_PARENTS` and
+`provisioning.UNRECONCILED_CONTRACT_DISCREPANCIES` are now both empty, and that
+emptiness is the claim this section makes — **no parent of an applied item is
+undefined**. The rows are kept so the disposition is readable against what it
+disposed of.
+
+| What was raised | V6 found | Disposition, 2026-09-17 |
+|---|---|---|
+| `/opt/freedom-blades`, as V11's parent | present, **`1001:1001 0755`** | uid 1001 is `ubuntu`. This parent's mode governs who may rename or unlink the **`evidence` entry**, whatever mode V11 put on the directory, so on the observed target `ubuntu` could replace `/opt/freedom-blades/evidence` — **contradicting §1.4.1's root-only [A] and the exposure argument built on it**. **Decision A: the location is withdrawn, not repaired.** `chown root:root /opt/freedom-blades` is not made; it is a permission change to a path holding the repository worktree and it is not needed once nothing is provisioned beneath it. No applied item has a parent under `/opt` any more. |
+| `/var/lib/freedom-blades`, as V4's and V5's parent | **absent** | V4 and V5 are created beneath it and §2.2 states it as `root:root 0755`, but no §7 item created it. **Decision C: it becomes item V12**, applied before both children by the same exclusive `mkdirat`, descriptor `fchown`/`fchmod`, read-back and parent-barrier sequence. The applier no longer refuses `parent-absent` for V4 and V5 on a correctly ordered application; V12's own parent `/var/lib` is not an item and an absent or unsafe one there still refuses. |
+| **`R`'s location** | — | §1.3.3 wrote `R = /opt/freedom-blades/evidence/<run>` while `approved_target.APPROVED_TARGET.root_path` is `/var/lib/fb-evidence-p5-0`, the concrete plan's `mkroot` step creates exactly that, and `targets.validate_mutation_root` **would refuse** `/opt/freedom-blades/evidence/<run>` — its last component does not begin with `fb-evidence-`. Both could not be `R`. **Decision B: `/var/lib/fb-evidence-p5-0` is the sole canonical `R`**, normally created by the reviewed concrete plan rather than by prerequisite provisioning. **Amended 2026-09-19, C-P5.0-LAB-I3-D1:** the separately armed I3 verifier is the only second creator; it may create temporary canonical `R` and `R/bin` solely for I3 and must identity-guardedly remove both before success. `provisioning.EVIDENCE_ROOT` reads the location from the approved target rather than restating it. **Corrected in place 2026-09-17, C-P5.0-LAB-V6-D-R1**, on Codex Blocking PR-20260917-LAB-V6D-R1-1: §1.3.3's inventory preamble still opened with the `/opt` form as the current definition, and a head banner is not a correction of a normative row. §1.3.3 now defines `R = /var/lib/fb-evidence-p5-0` and D1 on its parent `/var/lib`; the `/opt` form survives only in the dated historical passages of §1.4.1, §7.2 and this section. |
+| **`plan.EVIDENCE_ROLE` has no production caller** | — | The role is defined and re-exported and **nothing in the package registers a directory under it**: the only `open_provisioned_root("evidence", …)` calls in the repository are in the suite, over a temporary directory. **Decision D: registration stays deferred** until a real consumer receives separate implementation and review authority. It is **not** resolved by provisioning a directory, and §9.2 row **86** asserts mechanically that no production caller appeared. |
+
+### 7.4 The I3 controlled-write verifier — the complete procedure
+
+**Added 2026-09-19, C-P5.0-LAB-I3-R2, implementing C-P5.0-LAB-I3-D1.** This is
+the reviewed route to §9.3's **I3** that C-P5.0-LAB-I3 found missing. It is
+**implemented and unperformed**: nothing below has run on `oracle-test`, no
+digest is approved and no host action is released. A verified invocation is
+evidence for a maintainer decision on I3; it closes nothing itself.
+
+**Where it is.** Mechanism `execution/i3_verifier.py`; its only operator entry
+point `execution/i3_verifier_cli.py`. Neither imports `cli.py`, the executor, the
+materializer, the case program, the lifecycle record, the ledger, the lock or any
+participant. The entry point takes `boundary.SystemIdentityLookup` — the one
+reader of the host's accounts — and nothing else from the execution tier.
+
+#### 7.4.1 Authority, gates and identities
+
+| | |
+|---|---|
+| **Authority** | C-P5.0-LAB-I3-D1: P2 is `root:root 0555` under the filesystem-UID owner condition; decision B's narrow exception lets this verifier, and nothing else outside the concrete plan, temporarily create canonical `R` and `R/bin` solely for I3 |
+| **Default** | non-effecting. Without `--arm-i3-controlled-write` the entry point returns before it constructs a lookup, a probe or a verifier, and reads neither the account database nor the filesystem — exit `3` |
+| **First gate** | the command-line flag, passed as the verifier's `armed` and as nothing else |
+| **Second gate** | `I3ControlledWriteVerifier.armed` must be exactly `True`; `run()` refuses `verifier-not-armed` before its first read, and every creating effect — `mkdirat` of `R`/`R/bin` and the exclusive open of every temporary — re-checks it. Deleting either gate leaves the other (§9.2 row 91) |
+| **Identities** | two separate invocations, and **no identity or capability change by the program**. `--identity root` runs T1 under V4, §2.3.3 under V5 and P2 under canonical `R/bin`, in that order; `--identity ubuntu` runs T6 under V9. The operator runs each invocation as the identity it names |
+
+#### 7.4.2 Admission — every observation before the first write
+
+In order; the first mismatch refuses with its own member of
+`i3_verifier.ADMISSION_REFUSALS` and **nothing is written**:
+
+1. the fixed payload hashes to its pinned SHA-256;
+2. `uname(2)` reports the approved target's **kernel nodename**, active kernel
+   and architecture (`APPROVED_TARGET_FACTS.kernel_nodename`, `.active_kernel`,
+   `.architecture`, read, not restated). The nodename is `Test`; it is a
+   separate approved fact from `host`, the runbook §2 SSH alias `oracle-test`,
+   which `uname(2)` cannot observe and which admission never compares.
+   *Corrected 2026-09-20, C-P5.0-LAB-I3-R5, on Peter's Option A decision for
+   LAB-I3-TARGET-1: r6 previously said `host` here, and the verifier compared
+   it, which refused the C-P5.0-LAB-I3-R4 pass with `target-mismatch` before its
+   first controlled write;*
+3. every reviewed account and group — the invocation's, `root`, `freedomlab`,
+   P2's owner and group — resolves through the lookup;
+4. `/proc/self/status` reports the invocation's uid and primary gid in **all four**
+   fields — real, effective, saved and **filesystem** — and `getresuid`/
+   `getresgid` agree; the participant invocation already holds `freedomlab`;
+5. `CapInh`, `CapPrm`, `CapEff`, `CapBnd`, `CapAmb` and `NoNewPrivs` are each
+   present exactly once in kernel form, and `CapEff ⊆ CapPrm` and
+   `CapAmb ⊆ CapPrm ∩ CapInh` hold;
+6. `fs.protected_hardlinks` is exactly `1`;
+7. `/proc/self/mountinfo` parses;
+8. `R`'s parent (`/var/lib`) is opened `O_PATH|O_NOFOLLOW|O_DIRECTORY` by
+   pathname — the only pathname the verifier opens — and is a directory owned by
+   `root` with no group- or other-write bit; V12, V4 and V5 (root) or V12, V4 and
+   V9 (participant) are then held one no-follow component at a time and each is
+   exactly its §7 item's type, owner, group and numeric mode;
+9. every held directory's device is mounted only as the approved filesystem type
+   and device, read-write;
+10. each publication directory's synchronizable descriptor binds by comparison
+    (§1.3.2), and so does `R`'s parent for the root invocation;
+11. canonical `R` is absent (root invocation); no name beginning
+    `.fb-i3-verify-` is present in any publication directory;
+12. each context's 16-byte nonce yields a temporary `.fb-i3-verify-<32 hex>-staged`
+    and a final `.fb-i3-verify-<32 hex>-linked`, both outside the run-identifier,
+    lifecycle, ledger, recovery and case-program grammars and both unoccupied;
+13. every file the invocation will link is owned by exactly the observed
+    filesystem uid — the owner condition, stated before it is exercised.
+
+The capability masks are **evidence**, not an admission value. No reviewed
+exact mask exists for either identity — `capability.E7_TARGET_FACTS` are
+unconfirmed, and V6/I12 recorded `ubuntu`'s masks as an observation — so
+admission requires them observable, well-formed and internally consistent, and
+records them. `securebits` is not observed: it is readable only through
+`prctl(2)`, and the one `ctypes` exception belongs to the case program.
+
+#### 7.4.3 The four contexts
+
+| Context | Directory | Identity | Temporary created | File immediately before `linkat` | Source of the value |
+|---|---|---|---|---|---|
+| T1 | V4 | root | `0600` | creator-owned, `0600` | `descriptors.EXCLUSIVE_CREATION_MODE`; the lifecycle record applies no other |
+| §2.3.3 | V5 | root | `0600` | creator-owned, `0400` | creation `descriptors.EXCLUSIVE_CREATION_MODE`; final `recovery_store.STORED_OBJECT_MODE` |
+| T6 | V9 | `ubuntu` | `0600` | creator-owned, group `freedomlab` by V9's setgid bit, `0600` | as T1 |
+| P2 | canonical `R/bin` | root | **`0500`** | `root:root 0555`, `fchown` and `fchmod` on the descriptor | creation `case_runtime.CASE_PROGRAM_TEMPORARY_MODE`; final `case_runtime.CASE_PROGRAM_OWNER/GROUP/MODE` |
+
+**The two mode columns are different modes — C-P5.0-LAB-I3-R3, 2026-09-20.**
+The *creation* column is the mode the exclusive `openat` of step 1 below gives
+the temporary **pathname**; the *final* column is the mode step 4 applies to the
+descriptor and steps 5 and 9 read back. Only P2 distinguishes them. P2's `0500`
+constrains nothing in the sequence, because every step between creation and
+publication acts on the writable descriptor `openat` returned rather than on the
+name: the payload is written to it, `fsync`ed on it, and `fchown`ed and
+`fchmod`ed on it. `descriptors.PosixFilesystem.create_file` therefore takes an
+explicit creation mode whose default is the unchanged `EXCLUSIVE_CREATION_MODE`,
+and only P2's call passes a value. A `0500` observed on a *published* name would
+be a mismatch, not a pass.
+
+For P2 the verifier first creates `R` (`root:root 0700`) under `R`'s parent and
+`R/bin` (`root:root 0755`) under `R`: exclusive `mkdirat`, an `O_RDONLY|O_NOFOLLOW`
+descriptor compared with the recorded `(st_dev, st_ino)`, `fchown`, `fchmod`, a
+read-back of type, owner, group, mode and link count, the parent's barrier, and
+the mount re-observed for both.
+
+#### 7.4.4 The publication, observation and removal, per context
+
+1. exclusive `openat(O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW, <creation mode>)` of
+   the temporary, at §7.4.3's creation mode for the context — `0600` for T1,
+   §2.3.3 and T6, `0500` for P2; its `(st_dev, st_ino)` is recorded from the
+   descriptor;
+2. the complete payload written;
+3. `fsync` on the write descriptor — the data barrier;
+4. P2 only, `fchown`; every context, `fchmod` — on the descriptor;
+5. read-back on the descriptor: regular file, the recorded identity, owner,
+   group, mode, link count one, size — and the file's owner equal to the
+   observed filesystem uid (**the owner condition, observed**);
+6. the write descriptor released; a release that reports failure stops the
+   context before `linkat`;
+7. `/proc/self/status` read again and required equal to admission's; its masks
+   are recorded as the **operation-time** capability evidence;
+8. `PosixFilesystem.linkat(dir, temporary, dir, final)` — the one reviewed
+   primitive (§6.2); `EEXIST` means the name is occupied and nothing there is
+   touched;
+9. **both names observed**: each `fstatat(AT_SYMLINK_NOFOLLOW)` resolves to the
+   recorded identity as a regular file with link count **two** and the reviewed
+   owner, group and mode; each is opened `O_RDONLY|O_NOFOLLOW`, its descriptor
+   compared with the identity, and read back as exactly the payload with the
+   pinned digest;
+10. the temporary removed after an immediately preceding identity comparison,
+    then the final name observed with link count one — the state a completed
+    publication leaves — then removed after its own comparison;
+11. the containing directory's barrier; both names observed absent.
+
+P2 then removes `R/bin` and `R`, each after an immediately preceding identity
+comparison **and** an emptiness check, each followed by its parent's barrier,
+and observes `R` absent.
+
+**The post-removal observation is an absence check and nothing more** (§1.4.5).
+
+#### 7.4.5 Partial states, cleanup and the final survey
+
+Every created object is tracked from the moment it exists, with the identity
+its creating descriptor recorded or with none. The first causal failure is
+recorded as `(stage, classification)` from closed vocabularies, and later
+contexts are `not-attempted`. Cleanup then walks the context's objects in
+reverse: an object with an identity that still resolves to it — and, for a
+directory, is empty — is removed and its parent barriered. Everything else is
+**never removed** and is reported by fate:
+
+| Fate | Meaning |
+|---|---|
+| `removed` | removed after a matching comparison; absence observed |
+| `residue-identity-never-established` | created, identity never recorded |
+| `residue-name-resolves-to-another-object` | the name now holds a foreign or replacement object |
+| `name-absent-before-removal` | the recorded object was gone before the removal |
+| `residue-directory-not-empty` | a directory that holds something |
+| `residue-removal-failed` / `residue-removal-not-confirmed` | the removal or its absence check failed |
+
+A foreign object at an occupied name is never tracked. The final survey lists
+each held publication directory once (bounded at 4096 entries) and checks `R`,
+and counts any `.fb-i3-verify-` name or a present `R` as a finding. All
+inventory descriptors are then released; a failed release is counted and never
+retried.
+
+#### 7.4.6 Result, output and exit status
+
+| Status | Exit | When |
+|---|---|---|
+| `verified` | `0` | every context verified, every object `removed`, no barrier, descriptor or survey finding |
+| `not-armed` | `3` | no arm; nothing read or written |
+| `refused-before-write` | `4` | an admission refusal; nothing written |
+| `failed-no-residue` | `5` | a failure after which every object was removed through its guard, every barrier and descriptor finished, the survey is clean, no foreign object was met and no removal barrier failed |
+| — | `6` | an exception the verifier did not classify; nothing about it is printed |
+| `failed-operator-attention` | `7` | anything else: residue, a foreign or replaced object, an occupied name, a failed removal barrier, a cleanup-barrier, descriptor or survey failure |
+
+Every printed field is an enumeration value admitted by membership, an integer
+rebuilt from its value, a mask rebuilt as sixteen hexadecimal digits, a nonce
+admitted by shape, or one of the two fixed statements `NOT_ATTRIBUTION` and
+`SECUREBITS_NOT_OBSERVED`. No path, host account name or number, listing,
+environment value or exception text is printed.
+
+**Capability evidence semantics.** The rendering shows each of the five masks
+and, for `CAP_DAC_OVERRIDE`, `CAP_DAC_READ_SEARCH` and `CAP_FOWNER`,
+membership in each mask separately. `CapBnd` is never read as `CapEff`. **The
+verifier does not isolate, require or prove `CAP_FOWNER`**: a root process with
+effective `CAP_DAC_OVERRIDE` also satisfies the read-and-write branch, so a root
+link that succeeds cannot show which branch the kernel took. What it shows is
+that the owner condition held.
+
+**What it does not establish.** Nothing about V8 or I2 — its barriers are issued,
+not verified; nothing about V10; nothing about the concrete plan's own P2, which
+it does not run. It creates no V7 record, invokes no participant or harness,
+runs no generated vector and uses no `--execute`.
 
 ---
 
@@ -2148,6 +2933,65 @@ post-check and the descriptor modes, and their negative controls (3, 8b, 11b,
 | **71** | **the same state at T6** | `begin` does not report publication; a retry refuses `interrupted_publication`; the survey counts the temporary unreadable; all seven participants refuse admission; the temporary remains | that a started run can hide behind its own temporary | `…::test_d1_a_run_start_stopped_between_link_and_unlink_blocks_every_successor` |
 | **72** | **the same state in §2.3.3's capture publication** | the publication refuses and permits no mutation; restart discovery reports the basis unusable with its leftover temporary; the temporary remains | that M1 can follow a half-finished publication | `…::test_d1_a_capture_stopped_between_link_and_unlink_permits_no_mutation` |
 | **73** | **the same state at P2** | installation raises; neither name is recorded; removal refuses both names; a second installation refuses `EEXIST`; the temporary remains | that cleanup or a retry removes an object this run did not record | `…::test_d1_a_payload_stopped_between_link_and_unlink_is_neither_recorded_nor_removed` |
+| **74** | **PR-20260915-LAB-D12-1**: D1's second interruption state at T1, then **all seven participants' real integration points** driven over it | every participant refuses at T4 **before its work is called**; the refusal is the `SuccessorAdmission` the one admission path produced and carries its `(st_dev, st_ino)` comparison; the re-seal still precedes the read; both names, the record's bytes and the ledger are byte-identical afterwards | **that a valid final record admits while its publication is unresolved** — which is exactly what six of the seven did before this row | `test_lab_implementation.py::test_d1_a_record_publication_temporary_refuses_all_seven_before_their_work` |
+| **75** | **the successful control for row 74**: the same seven passes over a record published without interruption | all seven admit, reach their work once and settle; the comparison reports no temporary | **that the new check refuses everything**, which is how a refusal passes for a rule | `…::test_d1_a_clean_record_with_no_temporary_still_admits_all_seven_control` |
+| **76** | **a temporary whose inode differs from the final record** | all seven refuse; the refusal says the two names are different objects; **nothing removes it**, and both objects' bytes are unchanged | that an unexplained object beside the record is cleaned by the next run | `…::test_d1_a_temporary_that_is_not_the_record_refuses_and_is_never_removed` |
+| **77** | **the temporary's `fstatat` refuses** | the participant refuses, naming a failed observation and not an absent temporary | that a name whose resolution is unknown reads as absent — §5.9's rule for the lock, applied here | `…::test_d1_a_temporary_whose_resolution_is_unknown_is_not_an_absent_one` |
+| **78** | **T1's operator recovery, its five refusals and its one admitting branch**: identity match; mismatch; no comparison at all; another record's comparison; an unattributed removal; a comparison that no longer holds | the match removes **only** the temporary, leaves the record byte-identical at `st_nlink` 1 and readmits all seven; each of the other five refuses and removes nothing | **that the required comparison is prose an operator can skip** | `…::test_d1_the_t1_recovery_removes_the_temporary_only_on_an_identity_match`, `…_refuses_a_mismatch_and_removes_nothing`, `…_refuses_an_unobserved_comparison`, `…_refuses_a_comparison_that_no_longer_holds` |
+| **79** | **T6's operator recovery on the same guard** | the unobserved removal refuses; the matched one removes the temporary; the run is then `unsettled`, not settled, and **every participant still refuses** | that removing a temporary settles the run it belonged to | `…::test_d1_the_t6_recovery_uses_the_same_guard_and_settles_nothing` |
+| **80** | **the V7 stop, end to end**: the four directory items applied by the real applier over a model host, the lock inode present, `lifecycle.json` **absent** because V7 is excluded, and all seven participants' admission driven over it | every participant refuses, naming the record it could not read; nothing is created — no record, no temporary, no run entry; the laboratory directory still holds only `runs` | **that provisioning a host opens it.** A provisioned host with no first-use record is fail-closed, and the absence is the state rather than a gap the next run fills | **[M]** `test_v6_provisioning.py::test_a_provisioned_host_without_v7_refuses_all_seven_participants` |
+| **81** | **clean application of V12, V4, V9 and V5** over a model host whose parent exists and belongs to the applying identity — *amended 2026-09-17, C-P5.0-LAB-V6-D* | all four created, each with its reviewed owner, group and numeric mode; V9 carries **both** the setgid and the sticky bit | that a provisioning tool can report success for objects it did not verify | **[M]** `…::test_a_clean_application_creates_all_four_exactly` |
+| **81a** | **V12's location is derived from both of its children** — *added 2026-09-17, C-P5.0-LAB-V6-D review*. A layout whose laboratory and recovery directories have different basenames, a layout that puts them under **different parents**, a layout that gives them one name, and a laboratory path with no parent-and-name reading | V12's `expected_children` are the two children's **own** basenames; the divergent-parent, shared-name and malformed-path layouts each refuse `creation-refused` for item V12 before anything is created | **that a derived parent may be read off one child.** Reading `laboratory_directory` alone builds a V12 that is not V5's parent, reports it created, and declares two children it does not have — and `expected_children` is the gate `object-unexpected-content` refuses on, so an idempotent re-application would refuse against objects the delta itself created. It is the implicit parent V12 exists to prevent, one level down; 124 focused tests passed while it stood | **[M]** `…::test_v12_is_the_parent_of_v4_and_v5_and_names_their_real_children`, `…::test_v12s_expected_children_follow_the_layout_rather_than_two_literals`, `…::test_children_under_two_different_parents_refuse_rather_than_picking_one`, `…::test_one_name_for_both_children_refuses`, `…::test_a_layout_path_with_no_parent_and_name_reading_refuses` (three forms) |
+| **82** | **an idempotent re-run** over the same host | all four report `already-provisioned`; **every inode and every `st_ctime_ns` is unchanged**; nothing is removable by the second application | **that idempotence may be a swallowed `EEXIST`** — which is what `install --directory` does, and what §1.4.2 replaced with an exclusive `mkdirat` | **[M]** `…::test_a_re_run_is_idempotent_and_writes_nothing` |
+| **83** | **every wrong-object refusal**: a regular file and a symbolic link at the name; the wrong owner; the wrong group; the wrong mode; an unexpected file; an unexpected subdirectory | each refuses with its own classification, **nothing is repaired or replaced**, and the object is byte- and inode-identical afterwards. The subdirectory case refuses on content **and** link count; the file case on content alone, which is the control that keeps them apart | that an unexplained object at a provisioned name may be adopted, corrected or overwritten | **[M]** `…::test_an_object_of_the_wrong_type_refuses_and_is_left_alone` and the five beside it |
+| **84** | **the parent refusals**: an absent parent, a parent an identity other than the applying one may write, a parent that is not a directory, and a run started as an identity the items do not declare | each refuses **before anything is created**, and the parent is never created. The second is `/opt/freedom-blades`'s observed shape and it is not worked around by widening the entry | **that a provisioning tool creates whatever it needs.** An object no reviewed item describes is not one a run may invent | **[M]** `…::test_an_absent_parent_refuses_rather_than_being_created`, `…::test_a_parent_the_provisioning_identity_does_not_own_exclusively_refuses`, `…::test_a_run_that_is_not_the_declared_owner_refuses_before_it_creates` |
+| **85** | **a partial application and its rollback boundaries**: a refusal part-way; then a reversal over a not-empty directory, over an object that is no longer the one created, and over an item the application only verified | the partial run names what exists, what refused and what was never attempted; the reversal removes **only** what this application created, in reverse order, on a re-observed `(st_dev, st_ino)`, and each of the three boundaries refuses and removes nothing | that a reversal may remove an object it did not create, one that has been replaced, or one that still holds somebody's state | **[M]** `…::test_a_partial_application_reports_what_exists_and_what_was_never_tried`, `…::test_a_rollback_removes_exactly_what_this_application_created` and the four refusal rows |
+| **86** | **the trace's two structural claims**: every reviewed effect step's identity, and whether anything registers the evidence role | all 34 effect steps are `run_as="root"`; **no production caller registers the evidence role at all**, and the evidence root's literal appears in exactly one module | **that D1 is opened by something today.** It is specified, named and unbuilt, and a provisioned directory is not evidence that anything opens it | **[M]** `…::test_every_reviewed_effect_step_runs_as_root`, `…::test_no_production_caller_registers_the_evidence_role`, `…::test_no_module_that_publishes_exclusively_names_the_evidence_root` |
+| **87** | **a failure at each of the six points after a successful `mkdirat`** — the open of the created directory, `fchown`, `fchmod`, the read-back's `fstat`, the read-back's listing and the parent's `fsync` — each injected at the real syscall over real temporary-directory objects, plus one injected part-way through the sequence and the four reversal boundaries over the residue | no raw `OSError` escapes; each refuses with its own member of `POST_CREATION_REFUSALS`, carrying no path and no operating-system message; the directory that now exists is in the returned `applied` and `created` beside the items completed before it, and every later item is `not_attempted`; the identity is recorded for the five failures that still hold the created descriptor and declared **unknown** for the open failure; guarded rollback removes a residue whose identity still matches, and refuses — removing **nothing**, including the identified objects — when the identity is unknown, changed, or the directory is not empty | **that a provisioning tool may report `applied == ()` while a root-owned directory it created sits at the target**, or let an ordinary `OSError` out of the window between the creation and the barrier. Codex Blocking PR-20260916-LAB-V6R1-1: both were reproduced, and 45 focused tests passed while they stood, because none injected inside creation | **[M]** `…::test_a_failure_after_creation_is_closed_and_reports_the_residue` (six rows), `…::test_the_two_reviewer_reproductions_are_closed`, `…::test_a_post_creation_failure_reports_the_objects_completed_before_it`, `…::test_a_rollback_removes_a_residue_whose_identity_is_known`, `…::test_a_rollback_refuses_a_residue_whose_identity_was_never_established`, `…::test_an_unidentified_residue_stops_the_whole_reversal`, `…::test_a_rollback_of_a_residue_refuses_an_object_that_has_been_replaced`, `…::test_a_rollback_of_a_residue_refuses_a_directory_that_is_not_empty`, `…::test_an_applied_item_cannot_pair_an_outcome_with_the_wrong_identity`, `…::test_every_post_creation_failure_point_has_its_own_closed_classification` — *new 2026-09-16, V6-R2 remediation* |
+| **88** | **a failure to release each of the three descriptors the application path holds** — the created object's, and the parent's synchronizable and traversal descriptors — injected at the real `os.close` over real temporary-directory objects, in **both** orders a `close()` can fail in: releasing the descriptor and then reporting failure, and reporting failure having released nothing. Each is also run **against every one of the six refusals of row 87**, and against a parent refusal and a wrong-object refusal raised before any creation | no raw `OSError` escapes; a release failure with nothing else in flight refuses `descriptor-not-released` carrying the object **exactly once** in `applied` and `created`, with the identity its read-back established, every later item `not_attempted` and the provisioner's private account agreeing with the returned run; a release failure **while a refusal is unwinding never replaces it**, in all eight pairings; every descriptor after a failing one is still released; no descriptor is passed to `os.close` twice; the barrier is not issued after the decision to refuse; and an already-provisioned item refuses while `created` stays empty and nothing is written | **that a `finally: os.close(fd)` is cleanup rather than an operation.** It can fail, and when it does it either escapes unclassified or silently overwrites the refusal it was unwinding — turning a fact about an operator's object into an unclassified error about a descriptor. Codex Blocking PR-20260916-LAB-V6R2-1: the first was reproduced with V11 on disk, `provisioner.created == ()` and no `ProvisioningRun` returned, and 60 focused tests passed while it stood, because none injected into a release | **[M]** `…::test_a_close_failure_at_each_descriptor_is_closed_and_accounts_for_the_object` (three descriptors x two orders), `…::test_the_reviewer_reproduction_is_closed`, `…::test_a_failure_to_release_the_created_descriptor_refuses_before_the_barrier`, `…::test_a_close_failure_reports_the_objects_completed_before_it`, `…::test_a_cascading_close_failure_still_releases_the_descriptor_after_it`, `…::test_a_descriptor_whose_release_failed_is_never_closed_again`, `…::test_a_close_failure_never_replaces_an_established_refusal` (six refusals x two orders), `…::test_a_close_failure_never_replaces_a_refusal_raised_before_any_creation`, `…::test_a_close_failure_after_identity_is_established_keeps_guarded_rollback`, `…::test_an_already_provisioned_item_whose_descriptor_will_not_release_refuses`, `…::test_the_application_path_releases_every_descriptor_through_one_helper` — *new 2026-09-16, V6-R3 remediation* |
+| **89** | **a failure to release each of the four descriptors `verify()` and guarded `rollback()` hold** — the observed object's and its parent's in `_verify_one`, and the same pair in `_remove` — injected at the real `os.close` over real temporary-directory objects, in **both** orders a `close()` can fail in, and each run against the reversal's own identity-mismatch, not-empty and `rmdir` refusals and against a wrong-object refusal reached through `ensure()` | no raw `OSError` escapes; `verify()` returns **one observation per target** with the release reported as an appended `descriptor-not-released` discrepancy and every later target still observed, writing nothing — no inode and no `st_ctime_ns` moves; the same condition through `_existing()` refuses `descriptor-not-released` with the item represented **exactly once** as `already-provisioned`, `created` empty and every later item `not_attempted`; a release failure never replaces an object's own finding or a reversal's identity, emptiness or `rmdir` refusal; a failure on the object's descriptor **before** the `rmdir` removes nothing and leaves the live created account unchanged; a parent-release failure **after** a successful `rmdir` reports the removal, drops the object from `created` exactly once and cannot be retried against it; every descriptor after a failing release is still attempted and none is passed to `os.close` twice | **that `verify()` may abandon the re-observation, and that a reversal may report an effect it did not have.** The read-only V6 re-observation of §9.3 **I12** promises every finding; raising over a descriptor returned none of them, including for the targets the failure says nothing about. And a `close()` after a successful `rmdir` raised before `rollback()` updated its account, so the live provisioner went on naming an object it had just removed and offered it for a second reversal. Codex Blocking PR-20260916-LAB-V6R3-1: all four sites were reproduced, and 88 focused tests passed while they stood, because none injected into these four | **[M]** `…::test_the_verification_returns_every_observation_when_a_release_fails` (two descriptors x two orders), `…::test_a_verification_release_failure_does_not_stop_the_later_targets`, `…::test_a_verification_release_failure_never_replaces_the_objects_findings`, `…::test_an_already_provisioned_apply_whose_verification_cannot_release_refuses`, `…::test_a_verification_release_failure_never_replaces_an_apply_refusal`, `…::test_a_reversal_release_failure_never_replaces_the_causal_refusal` (three refusals x two orders), `…::test_a_release_failure_before_the_rmdir_removes_nothing`, `…::test_a_release_failure_after_the_rmdir_reports_the_removal`, `…::test_a_reversal_that_refuses_part_way_reports_what_it_already_removed`, `…::test_every_verification_descriptor_after_a_failing_release_is_still_attempted`, `…::test_a_reversals_parent_descriptor_is_released_after_its_object_descriptor_fails`, `…::test_the_four_reported_release_sites_no_longer_raise`, `…::test_no_release_anywhere_in_the_module_is_a_bare_close`, `…::test_a_reversal_refusal_cannot_disagree_with_what_it_removed`, `…::test_an_observation_reports_only_findings_from_the_closed_vocabulary`, `…::test_a_removal_effect_exists_only_where_the_object_is_gone` — *new 2026-09-16, V6-R4 remediation* |
+| **90** | **no arm** — C-P5.0-LAB-I3-R2, §7.4. The entry point without `--arm-i3-controlled-write`, with it but no `--identity`, and the verifier constructed unarmed or with a truthy stand-in for `True` | the entry point constructs no lookup, probe or verifier and exits `3` (`4` without an identity); the unarmed verifier returns `not-armed` before its first read — no account lookup, no `/proc` read — and nothing is written | that an operator entry point may observe or write before it is armed | **[M]** `test_i3_verifier.py::test_no_arm_reads_nothing_and_writes_nothing`, `…::test_armed_without_an_identity_reads_nothing`, `…::test_an_unarmed_verifier_reads_nothing_and_writes_nothing`, `…::test_the_in_code_gate_admits_only_true_itself` |
+| **91** | **the two gates, each reversed alone**: the command-line check deleted from the entry point's syntax tree; the in-code gate's body deleted from the verifier's | with the command-line check gone the verifier is armed from the absent flag and refuses before any read; with the in-code gate gone the entry point still returns before constructing anything. **Negative control:** the unarmed verifier with its gate deleted does write, so the gate is load-bearing | that one gate is the whole defence | **[M]** `…::test_the_arm_is_the_flag_itself_and_the_route_follows_the_check`, `…::test_reversal_the_command_line_arm_removed_still_writes_nothing`, `…::test_reversal_the_in_code_gate_removed_is_stopped_by_the_arm` |
+| **92** | **every admission mismatch**: approved host, kernel or architecture; payload digest; any reviewed account unresolved; any of the four uid or gid fields; `getresuid`/`getresgid` disagreeing with status; the participant without `freedomlab`; an absent, repeated or malformed status field or mask; `CapEff ⊄ CapPrm`; `CapAmb ⊄ CapPrm ∩ CapInh`; `fs.protected_hardlinks` `0`, other or unreadable; a mount of another type, device, read-only or unparseable; a directory absent, a symbolic link, a file, of the wrong owner, group or mode; a group- or other-writable state parent; canonical `R` present; an earlier verifier name; an unavailable nonce; an occupied name; an unrecognized invocation; an underivable layout | each refuses with its own member of `ADMISSION_REFUSALS` **before the first write**: no stage completes and the model host is inode-for-inode unchanged. **Negative control:** with the policy parse reversed, a policy-`0` host is written to | that a precondition may be established after the first write, or not at all | **[M]** `…::test_every_status_mismatch_refuses_before_the_first_write` (13 cases), `…::test_malformed_status_bytes_refuse`, `…::test_an_unreadable_status_refuses`, `…::test_process_ids_that_disagree_with_status_refuse`, `…::test_the_participant_must_already_hold_the_laboratory_group`, `…::test_the_hardlink_policy_must_be_exactly_one`, `…::test_the_mount_must_be_the_approved_filesystem`, `…::test_every_directory_mismatch_refuses_before_the_first_write` (13 cases), `…::test_account_and_ownership_mismatches_refuse`, `…::test_a_directory_owned_by_another_account_refuses`, `…::test_a_participant_that_is_not_the_named_identity_refuses`, `…::test_an_unavailable_nonce_refuses`, `…::test_an_occupied_name_refuses_when_the_residue_listing_missed_it`, `…::test_only_the_approved_target_is_admitted`, `…::test_a_changed_payload_refuses_before_the_first_write`, `…::test_an_unrecognized_invocation_refuses`, `…::test_the_layout_is_derived_or_refused`, `…::test_reversal_the_policy_admission_removed_writes` |
+| **93** | **all four contexts under both reviewed identities**: root runs T1 under V4, §2.3.3 under V5 and P2 under canonical `R/bin`; the participant runs T6 under V9 | each context verifies: the owner condition observed, link count two with both names and one after the temporary is removed, the pinned bytes through both names, every object removed, a clean survey, every descriptor released, and the model host unchanged afterwards | that I3 may be closed on fewer than the four publication contexts | **[M]** `…::test_the_four_contexts_and_two_identities_are_the_reviewed_ones`, `…::test_both_invocations_verify_all_four_contexts_and_leave_nothing`, `…::test_the_production_layout_is_read_from_the_reviewed_definitions` |
+| **94** | **P2 is `root:root 0555` under the owner condition — C-P5.0-LAB-I3-D1** — and decision B's exception: `R` `0700` and `R/bin` `0755`, both `root:root` | the P2 file is `fchown`ed to the reviewed root owner and group and `fchmod`ed `0555` on its descriptor before `linkat`, and both names are observed at that mode; `R` and `R/bin` are created, moded, recorded and removed; `case_runtime`, P2's effect row and `P-04` all carry `0555` | that P2's installed mode may differ from the contract, or that the verifier may leave `R` behind | **[M]** `…::test_p2_is_root_root_0555_published_under_the_owner_condition`, `…::test_p2_and_p04_now_install_and_assert_root_root_0555`, `test_r13_remediation.py::test_a_compliant_observation_from_real_output_satisfies_its_contract[P-04-0 0 555 regular file]` |
+| **95** | **capability evidence at the operation**: the five masks and `NoNewPrivs` read at admission and again immediately before each `linkat`; a state that changes between the two | each mask is classified from its own field; `CAP_DAC_OVERRIDE`, `CAP_DAC_READ_SEARCH` and `CAP_FOWNER` are reported per mask; a changed state fails the context before `linkat` and is cleaned up | that the admission-time state may stand in for the state at the operation | **[M]** `…::test_capability_evidence_keeps_permitted_effective_and_bounding_apart`, `…::test_capability_state_is_observed_again_at_every_link`, `…::test_a_process_state_change_before_the_link_fails_and_cleans_up` |
+| **96** | **only `CapBnd` changes** | the reported effective set is unchanged. **Negative control:** with `CapEff` read from `CapBnd` in the classification's syntax tree, an effective capability the process does not hold is reported | PR-20260919-LAB-I3R1-1 — that `CapBnd` is evidence of `CapEff` | **[M]** `…::test_changing_only_capbnd_never_changes_what_is_reported_effective` (3 cases), `…::test_reversal_reading_capbnd_as_capeff_is_caught` |
+| **97** | **no `CAP_FOWNER` claim** | the only sentence about `CAP_FOWNER` in any rendering is `NOT_ATTRIBUTION`, which disclaims; no operative source still says P2 depends on it | that the verifier isolates, requires or proves `CAP_FOWNER` | **[M]** `…::test_no_result_claims_that_p2_required_or_proved_cap_fowner`, `…::test_no_operative_source_keeps_p2s_cap_fowner_dependency` |
+| **98** | **an occupied name**: a foreign object appears at the final name between admission and `linkat`, or at the temporary name before the exclusive open | `linkat`'s `EEXIST` (or `O_EXCL`'s) refuses; the foreign object keeps its bytes and is never tracked or removed; the verifier's own temporary is removed through its guard; the run needs an operator. **Negative control:** with the exclusive claim reversed to a rename onto the name, the occupant's bytes are destroyed | that a publication may overwrite what it did not create | **[M]** `…::test_an_occupied_destination_is_never_overwritten`, `…::test_reversal_a_non_exclusive_link_overwrites_the_occupant`, `…::test_a_foreign_temporary_name_is_never_touched` |
+| **99** | **the two-name observation** | at the first removal both names already resolved to one regular file, link count two, with the pinned bytes, and the verifier had recorded `two-name-observation` immediately after `exclusive-link` | that the second interruption state of §6.2 is unobservable, or that removal may precede observation | **[M]** `…::test_both_names_are_one_inode_with_link_count_two_and_exact_bytes_before_removal` |
+| **100** | **success** | the temporary is removed, then the published name, then the containing directory is barriered; no verifier name remains and the survey is clean | that success may leave residue or skip the barrier | **[M]** `…::test_success_removes_both_names_barriers_the_parent_and_leaves_no_residue` |
+| **101** | **every state boundary, injected at the real syscall** — the exclusive open, the write, the data barrier, `fchmod`, P2's `fchown`, `linkat` in T1, §2.3.3, P2 and T6, the two-name `fstatat` and read, both unlinks, the entry barrier, `mkdirat`, `fchmod` and the barrier of `R` and `R/bin`, and both `rmdir`s — plus an open that created its name and then reported failure | never `verified`; the failing context records its stage and a member of `STAGE_FAILURES`; later contexts are `not-attempted`; every tracked fate agrees with the disk; a failure whose objects were all removed through their guards, with every barrier and descriptor finished, is `failed-no-residue` and leaves the host unchanged; residue, a failed removal barrier or an unidentified object is `failed-operator-attention`; an object whose identity was never established is never removed | that a partial state may be unaccounted or reported as success | **[M]** `…::test_every_injected_boundary_failure_is_accounted_and_never_success` (20 cases), `…::test_the_participant_invocation_is_accounted_the_same_way`, `…::test_a_temporary_whose_creation_outcome_is_unknown_is_never_removed` |
+| **102** | **foreign or replaced objects**: the published name replaced after `linkat`; `R/bin` replaced before its removal; `R` replaced before its removal | the replaced name is never removed and is reported `residue-name-resolves-to-another-object`; a directory holding one is `residue-directory-not-empty`; the run needs an operator. **Negative control:** with the identity comparison reversed to accept any object, the foreign file is removed | that a removal may take an object the verifier did not identify | **[M]** `…::test_a_replaced_published_name_is_left_alone`, `…::test_reversal_without_the_identity_comparison_the_foreign_object_is_removed`, `…::test_a_replaced_bin_directory_is_not_removed`, `…::test_a_replaced_canonical_root_is_not_removed` |
+| **103** | **cleanup, descriptor-finalization and barrier failures**: a cleanup barrier; a write descriptor that is released and then reports failure; a directory descriptor at finalization; each accounting condition of `final_status` | each is non-success with the failure counted, never retried; only a fully clean account is `verified`. **Negative control:** with `final_status` reversed to ignore accounting, a run with residue reports `failed-no-residue` | that cleanup, finalization or a barrier may fail silently | **[M]** `…::test_a_cleanup_barrier_failure_is_non_success`, `…::test_a_write_descriptor_that_is_not_released_is_non_success`, `…::test_a_directory_descriptor_that_is_not_released_at_the_end_is_non_success`, `…::test_the_final_status_needs_every_object_removed_and_a_clean_survey`, `…::test_reversal_ignoring_residue_would_report_a_clean_failure` |
+| **104** | **safe output**: secret-looking status lines, masks, account-lookup text, mount lines and operating-system messages injected; hostile values placed directly in a run; an exception escaping the verifier | no injected text, path, traceback or `errno` reaches either stream; values outside a vocabulary render as `unrecognized`; an escaping exception exits `6` and prints nothing about itself; the six exit statuses are distinct and only `verified` is `0` | that host data or exception text may reach an operator surface | **[M]** `…::test_malformed_host_data_and_exception_text_never_reach_the_output`, `…::test_values_outside_the_vocabulary_render_as_unrecognized`, `…::test_the_refusal_field_is_admitted_by_membership`, `…::test_an_unclassified_exception_prints_nothing_about_itself`, `…::test_the_exit_codes_are_distinct_and_only_verified_is_zero`, `…::test_the_cli_exit_status_follows_the_run` |
+| **105** | **structure**: the names; the payload; the one `linkat`; the imports | both names are outside the run-identifier, lifecycle, ledger, recovery and case-program grammars; the payload hashes to its pin; `descriptors.py` holds the package's only `os.link` and `renameat(noreplace=True)` calls `linkat`; the verifier imports no participant, harness, executor, materializer, case program, ledger or lock, registers no `EVIDENCE_ROLE` and reads no environment; `is_executable` stays `False` | that the verifier is a second implementation of the primitive, or a route to anything else | **[M]** `…::test_names_are_outside_every_lifecycle_ledger_recovery_and_case_program_grammar`, `…::test_the_payload_is_fixed_harmless_and_pinned`, `…::test_there_is_one_exclusive_link_and_the_fused_publication_uses_it`, `…::test_the_verifier_reaches_no_participant_harness_or_executor`, `…::test_the_standing_gates_are_unchanged` |
+| **106** | **the two ruled creation modes — C-P5.0-LAB-I3-R3** | `case_program.ROOT_DIRECTORY_MODE` and the verifier's `CANONICAL_ROOT_MODE` are both `0700` and `B3-02` compares `700`, so canonical `R` is created at §1.4.1 C1's mode; `R/bin` stays `0755`; `case_runtime.CASE_PROGRAM_TEMPORARY_MODE` is `0500` and exactly one exclusive file creation in the root invocation uses it | that `R` may be created `0755`, or that P2's temporary mode is the shared default | **[M]** `…::test_mkroot_creates_canonical_r_as_0700_not_0755`, `…::test_p2_alone_creates_its_temporary_0500` |
+| **107** | **the `0600` default is unchanged, and the `0500` never publishes** | T1, §2.3.3 and T6 pass no creation mode and every creation they make is `EXCLUSIVE_CREATION_MODE`; the root invocation's creations are exactly `0500, 0600, 0600` and the `ubuntu` invocation's is `0600`; P2's descriptor carries `fchown` then `fchmod 0555` before its `linkat`, and every mode observed at a link is a context's **final** mode, never `0500`; P2's real installation path publishes `0555` from a `0500` temporary | that P2's creation mode reaches a published name, or that the ruling moved the shared default | **[M]** `…::test_t1_capture_and_t6_keep_the_shared_0600_default`, `…::test_p2_is_root_root_0555_on_the_descriptor_before_linkat`, `test_lab_implementation.py::test_p2_creates_its_temporary_0500_and_publishes_0555` |
+
+**Rows 74–79 were added on 2026-09-15 by the C-P5.0-LAB-D12-R1 remediation, and
+they are not [M] either.** They drive the real writers, the real admission and
+the seven real integration points over real files under a temporary directory on
+this workstation. Row 74 is the finding's own reproduction: it **fails against
+the submitted tree**, where all seven admit. **The single-point reversal that
+catches it is RV-admit-temporary** — deleting
+`refusals.extend(interruption.refusals())` from `lifecycle_storage.read_and_admit`
+— and it also catches rows 76 and 77. Five further reversals, one per added
+conjunct, catch rows 77, 78 and 79; all six are recorded in the
+[remediation handback](phase-5-0-reserved-laboratory-d12-r1-remediation-handback.md).
+**Row 75 is caught by no reversal and must not be**: it is the successful
+control, and a control that failed when a refusal was removed would be testing
+the refusal rather than controlling for it.
+
+**Rows 80–86 were added on 2026-09-16 by the V6 provisioning remediation,
+C-P5.0-LAB-V6-R1, and all seven are [M].** They drive the real applier and the
+real admission path over a **model host under a temporary directory** — two
+parent directories, four provisioned directories, a lock inode and no
+`lifecycle.json` — with an injected account database that resolves the declared
+owner to the running process's own ids. **That establishes the mechanism's
+behaviour there and nothing about `oracle-test`**, where not one of the eleven
+items has been applied. No test creates a link, so none of them bears on
+**I3**; none needs privilege; and none reads the host's account database.
 
 **Rows 70–73 were added on 2026-09-15 by the D1 correction, and they are not
 [M].** They drive the real writers over real files under a temporary directory
@@ -2201,7 +3045,7 @@ separately authorized target work.
 |---|---|---|
 | I1 | that an `O_PATH` descriptor really refuses `fsync` with `EBADF`, and the separately opened `O_RDONLY` directory descriptor really accepts it | the model refuses by construction. The kernel is the authority |
 | I2 | that the target filesystem implements `fsync` on a directory as the containing-entry barrier | filesystem behaviour; preflight **V8** |
-| I3 | that exclusive publication's `linkat` succeeds on the target's filesystems under their hard-link policy — *re-scoped 2026-09-15, D1* | filesystem behaviour and a kernel policy; preflight **V6** observes the prerequisites read-only |
+| I3 | that exclusive publication's `linkat` succeeds on the target's filesystems under their hard-link policy — *re-scoped 2026-09-15, D1; amended 2026-09-19, C-P5.0-LAB-I3-D1* | filesystem behaviour and a kernel policy; preflight **V6** observes prerequisites and **does not close this check**. Closing it needs a separately released controlled write verification. P2 is `root:root 0555` and relies on the filesystem-UID owner condition, like the other owner-condition publications; it has no `CAP_FOWNER` dependency. The verifier must still observe actual operation-time capability masks and must not equate `CapBnd` with `CapEff`. V7 remains excluded until I3 closes. **§7.4 is the reviewed route to that verification** — implemented 2026-09-19 under C-P5.0-LAB-I3-R2, traced by §9.2 rows 90–105, and **unperformed**; a verified invocation is evidence for the maintainer's decision and closes nothing itself. |
 | I4 | that a real power loss after a successful publication leaves the parent listing the entry | a modelled crash is an assignment |
 | I5 | that a real restoration interrupted between rename and barrier leaves the destination at its previous content | same |
 | I6 | that the inherited descriptor table contains exactly the declared entries with the declared modes | the model hands out indices |
@@ -2210,6 +3054,7 @@ separately authorized target work.
 | **I9** | **that each participant's completion condition is observable at all** — a backend attributable to one run, a whole-tree consistency check, a half-unpacked distribution, a post-reset baseline | **§5.11 names five of these and none is confirmed. A completion condition nobody can observe is a run that never settles** |
 | **I10** | **that all seven participants run as `ubuntu`** | preflight **V10**. The ledger's attribution rests on it |
 | **I11** | **that a reservation identity is unique over the laboratory's whole lifetime on the target**, not merely within one record's history | the model refuses a readmitted identity inside one history it can read. Nothing here establishes that an operator or a future tool cannot mint the same identity against a re-initialized record, and the binding's value depends on it |
+| **I12** | **that the provisioned objects on the target really are what §7 defines** — the released subset V1, V2, V3, V12, V4, V9 and V5 — *new 2026-09-16, V6 remediation; **evidence-entry clause withdrawn 2026-09-17, C-P5.0-LAB-V6-D-R1*** | §7's verification fields and `provisioning.VERIFICATION_PROCEDURE` say what to observe; the applier's `verify()` performs the type/owner/group/mode half over real objects. **Nothing has been applied to `oracle-test`**, so this is unperformed. The `evidence` entry this row also named is gone with V11: §7.3's first row is **decided**, not open — the maintainer withdrew the location (decision A), nothing is provisioned under `/opt`, and no entry there is observed or expected to fail. This check is the post-provision repetition of the read-only survey, so **V6 stays performed-but-not-closed until it is separately authorized and performed** |
 
 ### 9.4 Dated erratum — the superseded successful-trace claim
 
@@ -2242,12 +3087,21 @@ evidence and the reviewer's own reproduction among them.
 
 **Every [A] in one place.** `oracle-test`'s participants all run as `ubuntu` —
 now preflight item **V10** rather than a carried assumption; `ubuntu` holds
-passwordless `sudo`; `/run` is a tmpfs; `/opt/freedom-blades/evidence`,
-`/var/lib/freedom-blades/recovery` and `/etc/postgresql/16/main` are root-only;
+passwordless `sudo`; `/run` is a tmpfs; `/var/lib/freedom-blades/recovery` and
+`/etc/postgresql/16/main` are root-only — **and `/opt/freedom-blades/evidence`
+is no longer an [A] because it is no longer anything**, *amended 2026-09-17,
+C-P5.0-LAB-V6-D*: §7.3's first row observed its **parent** as `1001:1001 0755`,
+which defeated the root-only claim for the entry, and the maintainer withdrew
+the location rather than widening the rule. `R` is `/var/lib/fb-evidence-p5-0`,
+whose parent `/var/lib` is root-owned and not group- or other-writable, and
+nothing is provisioned under `/opt`;
 host administrators are trusted to obey the reservation and are **not prevented
 from ignoring it, and are not claimed to be**; the filesystem under `R` is
 unconfirmed, with its hard-link support and hard-link policy (V6, re-scoped from
-`RENAME_NOREPLACE` by D1) and the directory-barrier semantics with it; **that each participant's completion condition is observable**, which
+`RENAME_NOREPLACE` by D1 and approved 2026-09-15 as a **read-only prerequisite
+survey** that does not prove real `linkat` viability and does not close I3 — a
+controlled write verification needs separate authorization before execution) and
+the directory-barrier semantics with it; **that each participant's completion condition is observable**, which
 §5.11 names per participant and I9 collects; and — **new in r6** — **that a
 reservation identity is never minted twice over the laboratory's lifetime**,
 which is I11 and on which the stored binding's value depends. None was verified on
@@ -2263,14 +3117,22 @@ model and it disagree.
 
 **It accepts nothing.** It approves no digest, populates none of the twelve
 unconfirmed target facts, authorizes no host action, no SSH, no synchronization,
-no provisioning, no database operation and no execution. It does not clear the
+no provisioning, no database operation and no execution. **The 2026-09-16 V6
+remediation and the 2026-09-17 topology disposition change none of that** —
+*amended 2026-09-17, C-P5.0-LAB-V6-D*: V12 is a definition, V11 is withdrawn,
+`execution/provisioner.py` is an artifact for review, **nothing was applied to
+any host**, V6 remains performed-but-not-closed, and V7 is excluded from the
+release it completes. It does not clear the
 operational-ineligibility control, does not move `is_executable`, and does not
 reduce the three C-7 cases' unresolved status.
 
 EH-R16-1, PR-20260910-1/2/3, the September 10 findings, the six September 11
 findings, the four September 11 re-review findings, the three R3 findings, the
 three R4 findings and **PR-20260911-R5-1** remain **Open** until a reviewer says
-otherwise. **R4-1 carries a positive technical recommendation from the R5
+otherwise. **PR-20260915-LAB-D12-1 is remediated and not closed**: the repair and
+its evidence are §§5.6, 5.9, 6.2 and rows 74–79, and the finding stays Open until
+an independent Codex re-review accepts them. **LAB-X1 is a new open item**, with
+the owner, evidence and execution stop condition §6.4 records. **R4-1 carries a positive technical recommendation from the R5
 re-review and is still not closed here**; R4-2 and R4-3 remain open pending this
 binding. **No finding is closed on the implementer's authority.** LAB-1 remains
 **Important and unrepaired**, and its labelled reproduction is unchanged. Package

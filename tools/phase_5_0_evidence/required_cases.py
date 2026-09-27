@@ -136,6 +136,20 @@ REQUIRED_CASES: tuple[RequiredCase, ...] = (
         "next-run behaviour and the named operator recovery.",
         "package plan §2.13.2b and acceptance row 19; §2.13.8 JNL-47",
     ),
+    # **C-P5.0-R5-R3.** S4-3 alone, not every Stage 1–4 case. It is the one
+    # probe case whose producer is known to be missing (C-S4-3), so it is the one
+    # a deletion of both its unresolved declaration and its step attribution
+    # could otherwise remove from the plan without `check_case_coverage` seeing.
+    RequiredCase(
+        "S4-3",
+        "filesystem",
+        "The applied property set of the transient unit S4-1 and S4-2 ran in, "
+        "captured by `systemctl show`, compared under §2.13.2a's four "
+        "conditions with the deployed `freedom-sheet-writer.service` and its "
+        "allowed drop-ins, and bound to the systemd identity it was made under. "
+        "Without it S4-1 and S4-2 attest nothing about the writer's sandbox.",
+        "package plan §2.13.2a S4-3 and conditions 1–4; §2.13.6 J-25",
+    ),
 )
 
 

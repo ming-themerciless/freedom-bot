@@ -20,7 +20,8 @@ destructive operation may ever touch live evidence."*
   — so an `EROFS` elsewhere is not the mount.
 * **Stage 4 — sandbox attribution.** `S4-0` proves the exact target writable with
   the sandbox removed; `S4-1` and `S4-2` run inside the transient unit; `S4-3`
-  compares the applied directive set with the deployed unit's. **`S4-0` precedes
+  compares the complete normalized applied property set with the deployed
+  unit's, in `unit_sandbox.py`, which is the only way S4-3 is classified. **`S4-0` precedes
   `S4-2` in every execution**, and a Stage-4 report in which `S4-2` passes while
   `S4-0` is not present-and-passing is refused.
 
@@ -178,12 +179,14 @@ STAGE_4: tuple[ProbeCase, ...] = (
               role=CaseRole.DEPENDENT),
     ProbeCase("S4-3", 4,
               "systemctl show on the transient unit, compared with the deployed "
-              "unit file",
-              Outcome.read("directive set equals the deployed unit's, except the "
-                           "single recorded ReadWritePaths= substitution"), None,
+              "unit file and its drop-ins under a closed directive allowlist",
+              Outcome.read("the complete normalized applied property set equals the "
+                           "deployed unit's, except the single ReadWritePaths= "
+                           "substitution to the canonical probe path, under the "
+                           "recorded systemd identity"), None,
               "A mismatch is inconclusive: the transient unit did not exercise the "
               "sandbox the writer will run under, so S4-1 and S4-2 attest nothing "
-              "about it."),
+              "about it. Classified only by unit_sandbox.classify_sandbox_attestation."),
 )
 
 ALL_CASES: Mapping[str, ProbeCase] = {
@@ -321,6 +324,16 @@ def classify_probe_case(
     case = ALL_CASES.get(case_id)
     if case is None:
         raise ObservationRefused(f"{case_id!r} is not a §2.13.2a case.")
+    if case_id == "S4-3":
+        # C-P5.0-R5-R1: S4-3's result is a comparison of typed inputs, not a
+        # supplied outcome string. Accepting one here let a caller state the
+        # expected text and receive a pass.
+        raise ObservationRefused(
+            "S4-3 is classified only by "
+            "unit_sandbox.classify_sandbox_attestation(), from the deployed unit, "
+            "its recorded digest, the applied property set and the systemd "
+            "identity. A supplied outcome is not S4-3 evidence."
+        )
     if case.control_case_id is not None and control is None:
         raise ObservationRefused(
             f"Case {case_id!r} names control {case.control_case_id!r}; that "

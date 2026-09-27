@@ -332,7 +332,7 @@ def test_a_quarantined_host_is_never_admitted():
             host=TARGET,
             reservation_id="RES-1",
             reason="cleanup did not complete.",
-            residue=("/opt/freedom-blades/evidence/probe",),
+            residue=("/var/lib/fb-evidence-p5-0/probe",),
         ),
     )
 
@@ -461,13 +461,13 @@ def test_residue_quarantines_and_is_never_cleaned_here():
         request=_request(),
         current_state=ReservationState.RUNNING,
         evidence=_evidence(residue=ResidueObservation.found(
-            ("/opt/freedom-blades/evidence/probe",), observed_by="executor"
+            ("/var/lib/fb-evidence-p5-0/probe",), observed_by="executor"
         )),
     )
 
     assert outcome.state is ReservationState.QUARANTINED
     assert outcome.quarantine is not None
-    assert outcome.quarantine.residue == ("/opt/freedom-blades/evidence/probe",)
+    assert outcome.quarantine.residue == ("/var/lib/fb-evidence-p5-0/probe",)
 
 
 def test_a_release_naming_another_reservation_quarantines():
@@ -669,7 +669,7 @@ def test_a_complete_attestation_does_not_excuse_remaining_residue():
             restoration_verified_or_rebuilt=True,
         ),
         evidence=_evidence(residue=ResidueObservation.found(
-            ("/opt/freedom-blades/evidence/probe",), observed_by="executor"
+            ("/var/lib/fb-evidence-p5-0/probe",), observed_by="executor"
         )),
     )
 
@@ -1047,14 +1047,14 @@ def test_observed_present_residue_quarantines_and_names_the_paths():
         current_state=ReservationState.RUNNING,
         evidence=_evidence(
             residue=ResidueObservation.found(
-                ("/opt/freedom-blades/evidence/probe",), observed_by="executor"
+                ("/var/lib/fb-evidence-p5-0/probe",), observed_by="executor"
             )
         ),
     )
 
     assert outcome.state is ReservationState.QUARANTINED
     assert outcome.quarantine is not None
-    assert outcome.quarantine.residue == ("/opt/freedom-blades/evidence/probe",)
+    assert outcome.quarantine.residue == ("/var/lib/fb-evidence-p5-0/probe",)
 
 
 def test_an_incomplete_residue_search_is_not_an_observed_empty_one():

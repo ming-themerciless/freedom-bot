@@ -7,6 +7,17 @@ makes the whole executor testable without a privileged host, and it is what make
 *"the harness cannot run what it plans"* still true of every module outside this
 one.
 
+## RP-11's capture launcher lives here too
+
+`StreamCaptureLauncher`, at the end of this module, is RP-11's client-side
+process starter (C-P5.0-R5-RP11-I1). It is here because this is the one module
+permitted to import `subprocess`, and that assignment changes no guard. It runs
+one exact argument vector with no shell as the operator on the repository host,
+and copies stdout and stderr separately into two sinks the capture store
+supplies. It builds no credential, runs no harness step and is unarmed by
+default. Nothing constructs an armed one outside `tests/`, and no entry point
+wires it to a command.
+
 ## Why raw output does not leave this module
 
 `run()` returns a `CommandResult` whose only textual content is the **sanitized
@@ -142,6 +153,7 @@ import os
 import pwd
 import stat
 import subprocess  # noqa: S404 - the single, declared process boundary
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Mapping, Protocol, Sequence, TypeVar
@@ -1066,7 +1078,226 @@ class RecordingBoundary:
         return CommandResult(exit_status=self.exit_status, timed_out=False)
 
 
+# ---------------------------------------------------------------------------
+# RP-11 — the client-side capture launcher (C-P5.0-R5-RP11-I1)
+# ---------------------------------------------------------------------------
+#
+# This is the second process starter in this module and it is here, rather than
+# in a module of its own, because `test_no_execution` names exactly one module
+# that may import `subprocess` and this assignment changes no guard. It shares
+# nothing with `SubprocessBoundary`: it runs no reviewed harness step, builds no
+# credential and knows no target. It runs one exact argument vector as the
+# operator on the repository host and copies the child's two output channels,
+# byte for byte and separately, into two sinks its caller supplies.
+#
+# **Raw output still does not leave this module as an object.** The bytes a
+# child writes are read in chunks and handed straight to the caller's sinks —
+# RP-11's exclusively created stream files — and `StreamCaptureResult` carries
+# counts and flags only. The rule the module docstring states for
+# `SubprocessBoundary` is kept for this launcher in the only form RP-11 allows:
+# the streams are retained, in files, because retaining them is RP-11's purpose.
+
+#: After the child exits, how long both channels have to reach end-of-file. A
+#: descendant that keeps a channel open past this is a stream that did not
+#: complete (C-2), not a stream that is waited for indefinitely.
+CAPTURE_DRAIN_SECONDS = 5.0
+#: How long the copy loop sleeps when neither channel had data.
+CAPTURE_POLL_SECONDS = 0.005
+CAPTURE_READ_CHUNK = 65536
+
+#: The launcher's refusals and failures. A closed vocabulary like
+#: `LAUNCH_FAILURES`, and deliberately not part of it: these never reach a
+#: `CommandResult`.
+CAPTURE_NOT_ARMED = "capture-launcher-not-armed"
+CAPTURE_ARGV_REFUSED = "capture-argv-refused"
+CAPTURE_ENVIRONMENT_REFUSED = "capture-environment-refused"
+CAPTURE_START_FAILED = "capture-start-failed"
+CAPTURE_FAILURES: frozenset[str] = frozenset(
+    {
+        CAPTURE_NOT_ARMED,
+        CAPTURE_ARGV_REFUSED,
+        CAPTURE_ENVIRONMENT_REFUSED,
+        CAPTURE_START_FAILED,
+    }
+)
+
+
+class StreamSink(Protocol):
+    """Where one output channel's bytes go. Raising stops the capture."""
+
+    def write(self, data: bytes) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class StreamCaptureResult:
+    """What happened to one launched vector. No byte of either stream.
+
+    `returncode` follows `Popen`: negative is the terminating signal.
+    `streams_complete` is true only when **both** channels reached end-of-file.
+    `bound_exceeded` is true when either channel delivered more bytes than the
+    declared bound; every byte delivered was still passed to its sink, so the
+    sink holds the stream untruncated, and the act is not admissible.
+    """
+
+    started: bool
+    failure: str
+    returncode: int | None
+    stdout_bytes: int
+    stderr_bytes: int
+    bound_exceeded: bool
+    streams_complete: bool
+
+
+def _capture_refusal(classification: str) -> StreamCaptureResult:
+    return StreamCaptureResult(
+        started=False,
+        failure=classification,
+        returncode=None,
+        stdout_bytes=0,
+        stderr_bytes=0,
+        bound_exceeded=False,
+        streams_complete=False,
+    )
+
+
+@dataclass
+class StreamCaptureLauncher:
+    """Run one exact argv with no shell, copying stdout and stderr separately.
+
+    * **No shell, ever.** `shell=False` is a literal at the call site; `argv` is
+      an explicit sequence whose first element is an absolute path, so neither a
+      shell nor a `PATH` lookup takes part.
+    * **Two channels, two sinks.** stdout and stderr are separate pipes read
+      separately, so nothing is merged or interleaved; each chunk is passed to
+      its own sink as raw bytes, never decoded.
+    * **Bounded without truncation.** When a channel exceeds the declared bound
+      the child is killed and both channels are still drained into their sinks
+      until end-of-file or the drain limit. Nothing is dropped; the result says
+      the bound was exceeded.
+    * **`stdin` is `/dev/null`** and the working directory is `/`.
+    * **An explicit environment.** The caller passes the exact mapping; nothing
+      is inherited, and there is no default.
+    * **Unarmed by default**, like `SubprocessBoundary`.
+
+    A sink that raises stops the copy: the child is killed, the channels are
+    closed and the exception propagates to the caller, which treats it as a
+    capture failure.
+    """
+
+    armed: bool = False
+    poll_seconds: float = CAPTURE_POLL_SECONDS
+
+    def launch(
+        self,
+        argv: Sequence[str],
+        *,
+        environment: Mapping[str, str],
+        stdout: StreamSink,
+        stderr: StreamSink,
+        stream_bound_bytes: int,
+        drain_seconds: float = CAPTURE_DRAIN_SECONDS,
+    ) -> StreamCaptureResult:
+        if not self.armed:
+            return _capture_refusal(CAPTURE_NOT_ARMED)
+        if (
+            not isinstance(argv, (tuple, list))
+            or not argv
+            or not all(isinstance(item, str) and "\0" not in item for item in argv)
+            or not argv[0].startswith("/")
+            or not isinstance(stream_bound_bytes, int)
+            or stream_bound_bytes <= 0
+        ):
+            return _capture_refusal(CAPTURE_ARGV_REFUSED)
+        if not all(
+            isinstance(key, str)
+            and isinstance(value, str)
+            and key
+            and "=" not in key
+            and "\0" not in key
+            and "\0" not in value
+            for key, value in environment.items()
+        ):
+            return _capture_refusal(CAPTURE_ENVIRONMENT_REFUSED)
+        try:
+            child = subprocess.Popen(  # noqa: S603 - argv only, shell=False
+                list(argv),
+                shell=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=dict(environment),
+                cwd="/",
+                close_fds=True,
+                bufsize=0,
+            )
+        except (OSError, ValueError):
+            return _capture_refusal(CAPTURE_START_FAILED)
+        channels = {
+            child.stdout.fileno(): stdout,  # type: ignore[union-attr]
+            child.stderr.fileno(): stderr,  # type: ignore[union-attr]
+        }
+        out_fd = child.stdout.fileno()  # type: ignore[union-attr]
+        counts = {fd: 0 for fd in channels}
+        exceeded = False
+        exited_at: float | None = None
+        try:
+            for fd in channels:
+                os.set_blocking(fd, False)
+            open_channels = dict(channels)
+            while open_channels:
+                progressed = False
+                for fd, sink in list(open_channels.items()):
+                    try:
+                        chunk = os.read(fd, CAPTURE_READ_CHUNK)
+                    except BlockingIOError:
+                        continue
+                    progressed = True
+                    if not chunk:
+                        del open_channels[fd]
+                        continue
+                    sink.write(chunk)
+                    counts[fd] += len(chunk)
+                    if counts[fd] > stream_bound_bytes and not exceeded:
+                        exceeded = True
+                        if child.poll() is None:
+                            child.kill()
+                if exited_at is None and child.poll() is not None:
+                    exited_at = time.monotonic()
+                if exited_at is not None and time.monotonic() - exited_at > drain_seconds:
+                    break
+                if not progressed:
+                    time.sleep(self.poll_seconds)
+            child.wait()
+        except BaseException:
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+            raise
+        finally:
+            child.stdout.close()  # type: ignore[union-attr]
+            child.stderr.close()  # type: ignore[union-attr]
+        err_fd = next(fd for fd in channels if fd != out_fd)
+        return StreamCaptureResult(
+            started=True,
+            failure="",
+            returncode=child.returncode,
+            stdout_bytes=counts[out_fd],
+            stderr_bytes=counts[err_fd],
+            bound_exceeded=exceeded,
+            streams_complete=not open_channels,
+        )
+
+
 __all__ = [
+    "CAPTURE_ARGV_REFUSED",
+    "CAPTURE_DRAIN_SECONDS",
+    "CAPTURE_ENVIRONMENT_REFUSED",
+    "CAPTURE_FAILURES",
+    "CAPTURE_NOT_ARMED",
+    "CAPTURE_START_FAILED",
+    "StreamCaptureLauncher",
+    "StreamCaptureResult",
+    "StreamSink",
     "AccountDatabase",
     "CommandResult",
     "DEFAULT_TIMEOUT_SECONDS",

@@ -37,6 +37,7 @@ acceptance criteria is *"maintainer approves architecture ADRs"* (plan §12).
 | [0008](0008-profile-driven-character-state.md) | Profile-driven storage for database-managed character state | **Rejected 2026-08-02** |
 | [0009](0009-snapshot-submission-http-boundary.md) | The snapshot submission HTTP boundary | **Accepted 2026-08-04** |
 | [0010](0010-provider-neutral-identity-and-emergency-administration.md) | Provider-neutral platform identity and Discord-independent emergency administration | **Accepted 2026-08-13 at P3.G0** after remediation and independent architecture/security re-review |
+| [0011](0011-disposable-vm-evidence-boundary.md) | One disposable VM per privileged evidence run | **Proposed, reviewed with changes requested, deferred 2026-09-10** |
 
 ## Maintainer approval checklist (Phase 0 gate)
 
@@ -120,13 +121,16 @@ easy to read as more than it is:
 
 ## Format
 
-**Proposed addition, 2026-09-10.**
+**Proposed addition, reviewed and deferred 2026-09-10.**
 [0011 — One disposable VM per privileged evidence run](0011-disposable-vm-evidence-boundary.md)
-is submitted by Codex following the maintainer's request for a simpler evidence
-harness design. It is not accepted or implemented; Claude's independent review
-is assigned in [Handover information](../review/Handover%20information).
-It changes no production architecture or package
-gate by being listed here.
+was submitted by Codex following the maintainer's request for a simpler evidence
+harness design. Claude's independent review returned changes requested, and
+C-P5.0-LAB-1 deferred the proposal from Package 5.0's critical path. It remains
+unaccepted and unimplemented; the current assignment is in
+[Handover information](../review/Handover%20information), while the delivered
+[VM independent review](../review/phase-5-0-evidence-vm-independent-review.md)
+is the durable review record. Listing it here changes no production
+architecture or package gate.
 
 Context → Decision → Consequences → Alternatives considered. Keep them short;
 the reasoning matters more than the prose.
