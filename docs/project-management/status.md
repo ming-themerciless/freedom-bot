@@ -1,8 +1,8 @@
 # Project status
 
 This is the concise current operational-status entry point. The complete
-pre-decision state is preserved verbatim in
-[`status-through-2026-09-29-r4-d2-r1-return.md`](status-through-2026-09-29-r4-d2-r1-return.md).
+pre-cleanup state is preserved verbatim in
+[`status-through-2026-10-01-d2-r2-acceptance.md`](status-through-2026-10-01-d2-r2-acceptance.md).
 
 ## Current status — D2-R2 design and LD-9 option (i) accepted — 2026-10-01
 
@@ -24,30 +24,7 @@ PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
 `plan.is_executable=False`; P5.0-R5 remains Blocking; OD-62 G-A remains
 conditional; and Package 5.0 remains not ready.
 
-## Superseded current status — zero-ret and independent-decoding remediation required — 2026-09-30
-
-Peter Duscha accepted Codex's D2-R1 recommendations. LD-7 requires a zero-`ret`
-image from the first build. LD-8 accepts the bound build root plus HA-1 … HA-5
-subject to IC-1, an R-5 run that actually varies at least one of HA-1 … HA-3,
-recorded variation, and a hard stop on unexplained differences.
-
-The original three D2 findings are remediated as framed. New Blocking finding
-`R4-D2-R1-1` remains Open: T-L7 and T-L10 consume the pinned disassembler's
-instruction boundaries without independently decoding `.text`, contrary to
-the claim that toolchain correctness is not trusted. D2-R2 must make zero-`ret`
-normative and require an independent decoder to agree exactly with the listing,
-then return for independent Codex re-review.
-
-- [Independent review and decisions](../review/project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md)
-- [D2-R1 proposal](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
-- [D2-R1 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r1-static-launcher-design-remediation-handback.md)
-
-No implementation, compilation, build, toolchain, host or operational
-authority exists. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
-`plan.is_executable=False`; P5.0-R5 remains Blocking; OD-62 G-A remains
-conditional; and Package 5.0 remains not ready.
-
 ## Records and archives
 
-- [D2-R1 return status snapshot](status-through-2026-09-29-r4-d2-r1-return.md)
+- [Pre-cleanup status snapshot](status-through-2026-10-01-d2-r2-acceptance.md)
 - [Status archive index](status-archive/README.md)

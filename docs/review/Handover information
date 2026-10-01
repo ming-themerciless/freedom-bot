@@ -1,8 +1,8 @@
 # Active handover — D2-R2 design accepted; implementation authority pending — 2026-10-01
 
 This is the concise active assignment and restriction entry point. The complete
-pre-decision state is preserved verbatim in
-[`Handover-information-through-2026-09-29-r4-d2-r1-return.md`](Handover-information-through-2026-09-29-r4-d2-r1-return.md).
+pre-cleanup state is preserved verbatim in
+[`Handover-information-through-2026-10-01-d2-r2-acceptance.md`](Handover-information-through-2026-10-01-d2-r2-acceptance.md).
 
 ## Accepted decisions
 
@@ -22,50 +22,22 @@ Peter Duscha accepted Codex's D2-R1 recommendations:
 - [Independent review and decision record](project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md)
 - [D2-R2 acceptance and LD-9 decision](project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)
 
-## Completed assignment
+## Current state and next step
 
-Claude is assigned a bounded, documentation-only D2-R2 remediation. Amend the
-D2 proposal so LD-7's zero-`ret` form is normative from the first build, remove
-the conditional recommendation to permit `ret`, and add an independent
-machine-code decoder whose result must agree exactly with the committed
-listing before T-L10 evidence is accepted. Trace the affected BI, RI, P, D9,
-T-L and trust statements together. Create a remediation handback and stop for
-independent Codex re-review.
+The D2-R2 design is accepted. `R4-D2-R1-1` is Closed as remediated at the
+design level. PO-9 and PO-14 remain open, and the launcher, XD, T-L11, T-L12
+and D9-2 evidence remain unimplemented and unperformed.
 
-- [D2-R2 remediation assignment](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-claude-prompt.md)
+The next permissible step is a separately approved M-14/I-7 implementation
+assignment. No such assignment currently exists.
 
-The assignment is complete and accepted at the design level. Do not implement
-the launcher or decoder. Do not build, compile, inspect a
-binary, acquire a toolchain, run a verifier or test, regenerate a manifest or
-artifact, or amend prior assignments, handbacks, reviews, decisions, snapshots
-or archives.
-
-## Return state
-
-Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D2-R2` documentation-only and has
-stopped. The D2 proposal is amended in place with a dated §0-D2R2 note and
-Appendix D:
-
-* the zero-`ret` form is the selected design: two functions, `_start`
-  entering `rp11_main` by one `jmp`, no `call` and no `ret`, the selection
-  functions inlined from `select.h`, and T-L8 narrowed as LD-7 accepts;
-* a second, independently implemented decoder, XD (§5.15, XD-1 … XD-11),
-  decodes `.text` from the image bytes and must agree exactly with the
-  listing (T-L11) before any T-L10 result is accepted; Codex independently
-  decodes the actual `.text` at D9-2; and
-* LD-8's conditions are normative, and reproducibility is not claimed to show
-  decoder correctness.
-
-Codex independently re-reviewed the remediation with no new Blocking or
-Important issue. Peter accepted it and decided LD-9 option (i).
-
-- [Amended D2 proposal](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
-- [D2-R2 remediation handback](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md)
+- [Accepted D2 proposal](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
+- [D2-R2 handback](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md)
+- [Acceptance and LD-9 decision](project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)
 
 ## Return gate and restrictions
 
-`R4-D2-R1-1` is Closed as remediated at the design level. A separate M-14/I-7
-assignment is required before implementation. PO-9 and PO-14 remain open.
+A separate M-14/I-7 assignment is required before implementation.
 
 **Documentation and repository reads only. No source, build, test, dependency,
 binary, manifest, generated artifact, configuration, host or operational
@@ -81,5 +53,5 @@ conditional; and Package 5.0 remains not ready.
 
 ## Archives
 
-- [D2-R1 return snapshot](Handover-information-through-2026-09-29-r4-d2-r1-return.md)
+- [Pre-cleanup handover snapshot](Handover-information-through-2026-10-01-d2-r2-acceptance.md)
 - [Handover archive index](handover-archive/README.md)
