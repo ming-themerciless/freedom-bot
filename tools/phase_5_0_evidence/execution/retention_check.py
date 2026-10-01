@@ -16,7 +16,9 @@ Two entry points share one verifier:
 
 It lists names and object types, and it reads and digests the bytes of
 **admitted** objects only: the final state, its chain, the listed records and
-the stream files they bind. `ReadOnlyFilesystem` is the whole of its access,
+the stream files they bind. An admitted record or index state is read through
+its **final** name; its staging name is proved to be the same inode by `lstat`
+metadata, which proves the same bytes without a second read. `ReadOnlyFilesystem` is the whole of its access,
 and it has no operation that writes, creates, renames, links, truncates,
 removes or changes a mode, owner or timestamp; `PosixReadOnlyFilesystem` opens
 every file and directory `O_RDONLY`. For an unadmitted object and for a
@@ -44,8 +46,21 @@ enumerated identity. No lexical normalization and no `resolve()` is involved.
 * a symbolic link, FIFO, socket, device or any type no category expects — they
   are recorded by type and never followed or opened, and condition 5 then finds
   them unaccounted or mismatched;
-* a regular file with a link count other than one, or two entries with one
-  identity, or a directory whose identity was already seen: a **path alias**;
+* a **path alias**, with exactly one narrow exception (C-P5.0-R5-RP11-I1-R3).
+  A regular file may have link count two, and share its inode with one other
+  entry, **only** when the two entries are the recorded staging and final name
+  of one object. For an **admitted** pair X-4 then requires both names present,
+  one inode equal to the recorded `(st_dev, st_ino)`, regular, owned by the
+  recorded `owner_uid`, mode `0600`, link count two and — through the final
+  name — the recorded digest (`pair-*` reasons). For a pair *F* records as
+  **unadmitted** (maintainer Option-1 decision
+  `C-P5.0-R5-RP11-I1-R3-D2`, 2026-09-28) only metadata is compared:
+  both recorded names present, regular, one inode between them, link count two,
+  shared with no other name; nothing is opened, read or digested, and no
+  identity is compared, because none is recorded. Everything else — a third
+  link, a link count above two, a cross-object alias, one pair member's inode
+  shared with anything but its partner, an unrecorded name at link count two,
+  a directory whose identity was already seen — is `path-alias`;
 * an entry on another device: the root was **escaped** through a mount;
 * a name component that is empty, `.`, `..`, or contains `/` or NUL, or a
   listing that names one entry twice: an **ambiguous name**;
@@ -81,10 +96,12 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from ..capture_contract import (
+    FILE_MODE,
     FINAL,
     OPEN,
     X3_SUCCEEDED,
     X4_VALID,
+    AccountedObject,
     CaptureContractRefused,
     CaptureRecord,
     IndexState,
@@ -115,7 +132,9 @@ CONDITION_NAME_AGREEMENT = 5
 #: Stated on every result, passed or failed.
 EVIDENTIARY_LIMIT = (
     "For each listed record, bound stream file and index state, the bytes were "
-    "re-digested. For an unadmitted object and a recorded subdirectory, only "
+    "re-digested through its final name, and its staging name was proved to be "
+    "the same recorded inode by metadata. For an unadmitted object and a "
+    "recorded subdirectory, only "
     "presence at the recorded relative name with the recorded object type was "
     "established; no unadmitted object was opened, read or digested, and its "
     "bytes and metadata are not established. Retention is established at the "
@@ -218,6 +237,8 @@ class _Facts:
     size: int
     mtime_ns: int
     ctime_ns: int
+    owner: int
+    permissions: int
 
     @classmethod
     def of(cls, facts: os.stat_result) -> "_Facts":
@@ -229,6 +250,8 @@ class _Facts:
             size=facts.st_size,
             mtime_ns=facts.st_mtime_ns,
             ctime_ns=facts.st_ctime_ns,
+            owner=facts.st_uid,
+            permissions=stat.S_IMODE(facts.st_mode),
         )
 
     @property
@@ -318,7 +341,7 @@ class _Verifier:
         root_facts = self._root_facts
         entries: dict[RelativeName, _Facts] = {}
         seen_directories = {root_facts.identity}
-        seen_identities: dict[tuple[int, int], RelativeName] = {}
+        seen_identities: dict[tuple[int, int], list[RelativeName]] = {}
         pending: list[tuple[int, RelativeName | None, _Facts, bool]] = [
             (self._root_fd, None, root_facts, False)
         ]
@@ -345,11 +368,18 @@ class _Verifier:
                     facts = _Facts.of(self._fs.lstat_at(fd, component))
                     if facts.device != root_facts.device:
                         raise _Stop(CONDITION_NAME_AGREEMENT, "escapes-the-root")
-                    if facts.identity in seen_identities or facts.identity in seen_directories:
+                    if facts.identity in seen_directories:
                         raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
-                    if facts.object_type is ObjectType.REGULAR and facts.links != 1:
+                    if facts.object_type is ObjectType.REGULAR:
+                        # One or two names only. Whether a second name is the
+                        # recorded partner is decided against R, by `_aliases`.
+                        if facts.links not in (1, 2):
+                            raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
+                        if len(seen_identities.get(facts.identity, ())) >= facts.links:
+                            raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
+                    elif facts.identity in seen_identities:
                         raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
-                    seen_identities[facts.identity] = name
+                    seen_identities.setdefault(facts.identity, []).append(name)
                     entries[name] = facts
                     if facts.object_type is ObjectType.DIRECTORY:
                         child = self._fs.open_directory(fd, component)
@@ -449,6 +479,7 @@ class _Verifier:
             raise _Stop(CONDITION_X4, "final-state-does-not-match-its-binding")
 
         expected_digest = final.previous_state_sha256
+        chain: list[IndexState] = []
         for number in reversed(range(final.state_number)):
             state_name = RelativeName.created(open_state_name(number))
             if state_name not in first:
@@ -466,9 +497,11 @@ class _Verifier:
                 or state.pass_id != final.pass_id
                 or state.capture_root != final.capture_root
                 or state.tool_sha256 != final.tool_sha256
+                or state.owner_uid != final.owner_uid
                 or state.records != final.records[:number]
             ):
                 raise _Stop(CONDITION_X4, "chain-inconsistent")
+            chain.insert(0, state)
             expected_digest = state.previous_state_sha256
 
         records: list[CaptureRecord] = []
@@ -495,9 +528,10 @@ class _Verifier:
             records.append(record)
 
         try:
-            accounted = accounted_objects(final, records)
+            accounted = accounted_objects(final, chain, records)
         except CaptureContractRefused:
             raise _Stop(CONDITION_NAME_AGREEMENT, "duplicate-accounted-name") from None
+        self._admitted_pairs(first, accounted, final.owner_uid)
         unaccounted_records = sorted(
             name.display for name in first if is_record_name(name) and name not in accounted
         )
@@ -507,6 +541,9 @@ class _Verifier:
                 "published-record-not-accounted",
                 observed_not_recorded=tuple(unaccounted_records),
             )
+
+        self._condition = CONDITION_NAME_AGREEMENT
+        _aliases(first, accounted)
 
         if bidirectional:
             self._condition = CONDITION_NAME_AGREEMENT
@@ -547,11 +584,74 @@ class _Verifier:
         finally:
             self._close_quietly(again)
 
+    def _admitted_pairs(
+        self,
+        first: dict[RelativeName, _Facts],
+        accounted: dict[RelativeName, AccountedObject],
+        owner_uid: int,
+    ) -> None:
+        """X-4 for every admitted pair: both names, the recorded inode, link
+        count two, regular, the recorded owner and `0600`. The bytes were
+        already digested through the final name, and one inode is one content."""
+        self._condition = CONDITION_X4
+        for name, item in sorted(accounted.items()):
+            if not item.admitted_pair:
+                continue
+            facts = first.get(name)
+            if facts is None:
+                raise _Stop(CONDITION_X4, "pair-member-absent", recorded_not_observed=(name.display,))
+            if facts.object_type is not ObjectType.REGULAR:
+                raise _Stop(CONDITION_X4, "pair-member-not-regular")
+            if facts.identity != item.identity:
+                raise _Stop(CONDITION_X4, "pair-identity-mismatch")
+            if facts.links != 2:
+                raise _Stop(CONDITION_X4, "pair-link-count")
+            if facts.owner != owner_uid or facts.permissions != FILE_MODE:
+                raise _Stop(CONDITION_X4, "pair-owner-or-mode")
+
     def _close_quietly(self, fd: int) -> None:
         try:
             self._fs.close(fd)
         except (OSError, ValueError):
             pass
+
+
+def _aliases(
+    first: dict[RelativeName, _Facts], accounted: dict[RelativeName, AccountedObject]
+) -> None:
+    """The one alias exception, and nothing wider.
+
+    Every regular file's inode is reached by one name at link count one, or by
+    exactly two names at link count two that are one another's recorded
+    partners in *R*. An accounted pair whose two names are both present must
+    share one inode — for an unadmitted pair this is metadata only: nothing is
+    opened, read or digested.
+    """
+    groups: dict[tuple[int, int], list[RelativeName]] = {}
+    for name, facts in first.items():
+        if facts.object_type is ObjectType.REGULAR:
+            groups.setdefault(facts.identity, []).append(name)
+    for identity, names in groups.items():
+        links = first[names[0]].links
+        if len(names) == 1:
+            if links != 1:
+                raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
+            continue
+        a, b = names
+        if (
+            links != 2
+            or first[b].links != 2
+            or a not in accounted
+            or b not in accounted
+            or accounted[a].partner != b  # partnership is symmetric by construction
+        ):
+            raise _Stop(CONDITION_NAME_AGREEMENT, "path-alias")
+    for name, item in accounted.items():
+        partner = item.partner
+        if partner is None or name not in first or partner not in first:
+            continue
+        if first[name].identity != first[partner].identity:
+            raise _Stop(CONDITION_NAME_AGREEMENT, "pair-divergent")
 
 
 def _run_verifier(
@@ -599,8 +699,10 @@ def verify_final_state(
     re-observed here. Everything else X-4 requires is checked against the bytes
     on disk: *F* is the only final state, its chain is intact back to *I*-0, its
     record list equals the last open state's, every listed record and bound
-    stream file exists with its digest, and every published record under the
-    root is listed in *F* or named in it as unadmitted.
+    stream file exists with its digest, every published record under the
+    root is listed in *F* or named in it as unadmitted, and every admitted
+    record and state is its recorded staging/final pair on the recorded inode,
+    with no alias beyond the one exception the module docstring states.
     """
     return _run_verifier(
         filesystem,

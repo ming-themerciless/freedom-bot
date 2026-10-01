@@ -223,8 +223,9 @@ EXECUTION_TIER_NAMES = {
     "capture_mechanism",
     # **C-P5.0-R5-RP11-I1.** RP-11's durable storage: exclusive creation of the
     # capture root, its subdirectories and stream files, their barriers, and the
-    # unnamed-file publication of records and index states. It starts no
-    # process, and every root it creates is a path a caller hands it.
+    # retained staging/final-alias publication of records and index states
+    # (C-P5.0-R5-RP11-I1-R3). It starts no process, and every root it creates
+    # is a path a caller hands it.
     "capture_store",
     "case_program",
     "cli",

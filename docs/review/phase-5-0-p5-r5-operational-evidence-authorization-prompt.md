@@ -46,8 +46,67 @@
 > (**C-P5.0-R5-OP1-R5**), a requirements-only correction; the changes are
 > listed in the
 > [R5 handback](phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-handback.md).
-> **These R5-amended bytes have not been reviewed, and the draft remains
-> unaccepted and unauthorized.**
+> Codex reviewed those R5 bytes (`5e06a388…`) with no findings, and Peter
+> Duscha accepted that requirements correction on 2026-09-27
+> ([R5 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5.md);
+> [acceptance](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5-acceptance.md)).
+> Codex then reviewed the returned RP-11 implementation and requested changes
+> ([RP-11 review](project-review-2026-09-28-p5-r5-rp11-capture-mechanism.md),
+> findings RP11-I1-1, publication by an unnamed inode and an exclusive link
+> rather than the accepted temporary name and rename, and RP11-I1-2, the
+> publication route did not reproduce on the review host). Claude amended this
+> file in place on 2026-09-28 under
+> [`phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-claude-prompt.md`](phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-claude-prompt.md)
+> (**C-P5.0-R5-RP11-I1-R1**), a requirements-only proposal; the changes are
+> listed in the
+> [I1-R1 handback](phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-handback.md).
+> Codex reviewed the I1-R1 bytes (`186ff546…`) and an I1-R2 diagnostic
+> correction and requested changes
+> ([I1-R1 review](project-review-2026-09-28-p5-r5-rp11-i1-r1.md);
+> [I1-R2 review](project-review-2026-09-28-p5-r5-rp11-i1-r2.md)). Peter Duscha
+> then accepted a change of publication design
+> ([I1-R3 proposal](phase-5-0-p5-r5-rp11-i1-r3-publication-redesign-proposal.md);
+> [acceptance](project-review-2026-09-28-p5-r5-rp11-i1-r3-redesign-acceptance.md)).
+> Claude amended this file in place again on 2026-09-28 under
+> [`phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-claude-prompt.md`](phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-claude-prompt.md)
+> (**C-P5.0-R5-RP11-I1-R3-I1**), together with the unwired RP-11 source; the
+> changes are listed in the
+> [I1-R3 handback](phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-handback.md).
+> **The I1-R3 amendment supersedes only the I1-R1 publication amendment**: the
+> unnamed-inode route through `/proc/self/fd` and the mutating §9.5.4 capability
+> probe are replaced by an exclusively created staging name, one non-replacing
+> descriptor-relative hard link to the final name, and retention and indexing
+> of both names, with no automatic unlink, rename, repair or alias cleanup
+> (§9.5.1). It reopens no accepted R5 retention requirement.
+> Claude corrected state wording only, on 2026-09-28, under
+> [`phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-claude-prompt.md`](phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-claude-prompt.md)
+> (**C-P5.0-R5-RP11-I1-R3-R1**, finding RP11-I1-R3-3): statements that no RP-11
+> mechanism exists now state that unwired, unaccepted repository source and
+> focused tests exist and that RP-11 remains unmet, and the unadmitted-pair
+> rule is marked as awaiting a decision of record (finding RP11-I1-R3-1). No
+> requirement is added, removed or changed by that correction.
+> Peter Duscha then accepted **Option 1** for that rule
+> (**C-P5.0-R5-RP11-I1-R3-D2**, 2026-09-28), after Codex re-reviewed the R2
+> descriptor-release remediation and found no new Blocking or Important
+> finding. RP11-I1-R3-1 is Closed by that decision; RP11-I1-R3-2 and
+> RP11-I1-R3-3 are Closed as remediated. The
+> [decision and review record](project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md)
+> records all three dispositions. Codex amended this file in place on
+> 2026-09-28 under **C-P5.0-R5-RP11-I1-R3-D2-DOC1**
+> ([handback](phase-5-0-p5-r5-rp11-i1-r3-d2-option-1-documentation-alignment-handback.md)),
+> replacing the pending-decision markers in RP-11 row (e), §7.1 B0-RA and
+> §9.5.2 X-4 with that decision. Claude corrected its wording on 2026-09-28
+> under **C-P5.0-R5-RP11-I1-R3-D2-DOC1-R1**
+> ([handback](phase-5-0-p5-r5-rp11-i1-r3-d2-doc1-r1-alignment-review-remediation-handback.md)):
+> this attribution, §4.3's list of stale manifest versions and B0-RA's
+> unresolved clause. The Option-1 rule adds no requirement beyond the
+> metadata-only pair exception already stated, and RP-11 remains unwired and
+> unmet.
+> **These amended bytes have not been reviewed or accepted.** Until Codex
+> independently reviews them and Peter Duscha accepts these exact bytes, the
+> accepted R5 bytes (`5e06a388…`) remain the requirements baseline, and no
+> implementation may claim to satisfy this amendment. The draft remains
+> unaccepted and unauthorized.
 >
 > It grants **no** authority. It authorizes no SSH, synchronization,
 > inspection, `sudo`, database access, provisioning, controlled write, verifier
@@ -67,8 +126,10 @@
 >   read-only host preflight**) is **not admissible**. Its one planned target
 >   mutation is the `rsync --delete` of §5. It needs **RP-11**, a reviewed
 >   client-side evidence-capture mechanism with a crash-consistent publication
->   sequence for stream files, per-act records and the capture index (§9.5),
->   which does not exist, and
+>   sequence for stream files, per-act records and the capture index (§9.5).
+>   RP-11 is unmet: repository source and focused tests for a candidate
+>   mechanism exist, but that implementation is unreviewed, unaccepted, not
+>   pinned and wired to no operational command. Pass A also needs
 >   the maintainer inputs `MI.pinned_commit`, Pass A's own capture root
 >   `MI.capture_root_A` and the MD-5 independent acceptance (A-6), none of
 >   which exists. Its corroborative target-fact steps (A1-C) additionally need
@@ -103,7 +164,7 @@
 | §6 | **Pass A**: Band A0 (local admission) and Band A1 (synchronization plus read-only host preflight), with exact commands |
 | §7 | **Pass B**: Bands B0 through B7 (local re-admission, synchronization and read-only re-preflight, harness provisioning and controlled mutation, database evidence, remaining facsimile producers including `fsync` failure injection, recovery rehearsals, supervised reboot, cleanup and clean-state survey) |
 | §8 | Case-to-requirement matrix |
-| §9 | Expected outputs, artifact locations, ownership and modes, evidence-manifest fields, and the client-side capture contract (§9.5) |
+| §9 | Expected outputs, artifact locations, ownership and modes, evidence-manifest fields, and the client-side capture contract (§9.5), including the retained-alias publication route (§9.5.1) and its capability test, the first real X-1 publication (§9.5.4) |
 | §10 | Rollback and cleanup |
 | §11 | Stop conditions, the global stop-on-refusal rule and the no-retry rule |
 | §12 | Secrets, credentials and protected historical `/tmp` artifacts |
@@ -116,7 +177,7 @@ Placeholders take one of four typed forms, and each form fails closed:
 * `⟨PIN.name⟩` is a value fixed by the reviewed repository state. It is resolved
   in this draft wherever the repository fixes it (§4.3). Where it is not yet
   resolvable, the admission check refuses.
-* `⟨RP-n⟩` is a repository prerequisite that does not exist yet (§4.4). Any band
+* `⟨RP-n⟩` is a repository prerequisite that is not yet met (§4.4). Any band
   that depends on one is not admissible.
 * `⟨MI.name⟩` is a maintainer input, supplied in the written authorization
   (§4.5). A band that needs a missing input does not start.
@@ -242,7 +303,18 @@ and a granted row does not substitute for it.
 
 These are the values the drafting pass observed. **None of the
 C-P5.0-R5-OP1-R1, C-P5.0-R5-OP1-R2, C-P5.0-R5-OP1-R3, C-P5.0-R5-OP1-R4 and
-C-P5.0-R5-OP1-R5 remediations re-derived them**; each changed documentation only. They are
+C-P5.0-R5-OP1-R5 and C-P5.0-R5-RP11-I1-R1 remediations re-derived them**; each changed documentation only (I1-R1 also added one diagnostic test module, which is not a covered source). **Four later repository passes changed covered sources and so made
+`PIN.manifest_version`, `PIN.reviewed_digest`, `PIN.manifest_json_sha256`,
+`PIN.concrete_plan_sha256` and `PIN.covered_sources` stale:** C-P5.0-R5-RP11-I1
+(manifest version 22, review-input digest `adeabe17…`),
+C-P5.0-R5-RP11-I1-R3-I1 (manifest version 23, review-input digest
+`264674daf8ac4f6a385e3c056510d213321c767b1d482a143b18a139b108df1e`),
+C-P5.0-R5-RP11-I1-R3-R2 (manifest version 24, review-input digest
+`bccd26e59aa94a64dc8888eb6265c68da7d4c8c7d1705d85932e5ebad01a05d7`) and
+C-P5.0-R5-RP11-I1-R3-D2-DOC1 (manifest version 25, review-input digest
+`f63cf3596a95701e3c24813f5362955dcdb5524e7b4fcaf749159db66f91cdb8`). None
+re-pins anything here; each is review input only, and a later amended draft
+must re-pin the values from a clean, reviewed commit. They are
 review inputs, not approvals. The Codex review re-derives each one. The operator
 re-checks each one in Band A0 or B0, and **any difference refuses admission**.
 Any prerequisite satisfied by changing a covered source (at least RP-1, and
@@ -256,7 +328,7 @@ Codex's re-review.
 | `PIN.worktree` | **unresolved: the tree is uncommitted.** `git status --porcelain=v1` lists 140 entries, including every Package 5.0 harness change since `HEAD` | **`⟨MI.pinned_commit⟩` is required.** The maintainer commits, or directs a commit of, the exact reviewed tree on a non-default branch, and Codex reviews that commit. A0-02 then requires `HEAD == ⟨MI.pinned_commit⟩` and a porcelain status that is empty. This pass never synchronizes an unpinned working tree |
 | `PIN.manifest_version` | `21` | `tools/phase_5_0_evidence/review_manifest.py` |
 | `PIN.reviewed_digest` | `ac5ffb3cc1a077618d8fc0590a803ec42282a3a1011d4edfc9ff1eafb5137dad` | Review input only, **not approved**. Pass A pins `⟨PIN.reviewed_digest_A⟩`, which equals this value **only if** the satisfied RP-11 changes no covered source; otherwise it is the new reviewed digest. Pass B needs a new digest (RP-1 changes covered source), so Pass B pins `⟨PIN.reviewed_digest_B⟩` |
-| `PIN.capture_tool_sha256` | **unresolved: RP-11 does not exist** | the reviewed capture mechanism's source digest(s) and its pinned invocation (§9.5). A0-08 |
+| `PIN.capture_tool_sha256` | **unresolved: no reviewed RP-11 mechanism exists.** The returned, unaccepted implementation computes a candidate value; it is review input only and is not pinned here | **Scope (proposed by C-P5.0-R5-RP11-I1-R1 for review; unchanged by I1-R3).** The digest covers exactly these seven complete source files, as whole files and in this order: `tools/phase_5_0_evidence/capture_contract.py`, `errors.py`, `execution/boundary.py`, `execution/capture_mechanism.py`, `execution/capture_store.py`, `execution/descriptors.py` and `execution/retention_check.py`. Its construction is the one the returned source defines as schema `rp11-capture-tool/1`: the SHA-256 of the canonical JSON document `{"schema": "rp11-capture-tool/1", "sources": [[path, SHA-256 of that file's bytes], …]}` in that fixed order. **Why whole modules:** the mechanism's process start lives in `boundary.py` and its one link call site lives in `descriptors.py`, and both modules also carry reviewed code for other harness callers. No reviewed canonical construction exists for a digest over part of a module, and none is invented here. **Consequence, stated plainly:** any change to any byte of any of the seven files — including a change to `boundary.py` or `descriptors.py` that is unrelated to RP-11 — produces a different digest and invalidates the pin, and requires a new review before either pass can use it. A0-08, B0-08 |
 | `PIN.manifest_json_sha256` | `ea5d22c1bf6826f0296d5c2ee4b2295331d612eab6d250c0772fdf1068b6cd66` | `docs/review/phase-5-0-evidence-harness-review-manifest.json` |
 | `PIN.concrete_plan_sha256` | `5437147546f268e3d1b81c84270ff9a7255d2a079a9534da775dd5a478840cfd` | `docs/review/phase-5-0-evidence-harness-concrete-plan.md` |
 | `PIN.covered_sources` | 48 covered sources. All 48 match the manifest's `source_digests` byte for byte | checked by a read-only script at drafting |
@@ -290,7 +362,7 @@ prerequisite**, and none is reduced or waived to make a pass appear executable.
 | **RP-8** | Laboratory prerequisites for reservation admission: `V7_EXCLUSION` lifted in source and V7 initialized (AUTH-V7); **V8** (directory `fsync` as the containing-entry barrier) and **V10** (all seven participants run as `ubuntu`) confirmed by the method the maintainer approves; the host inventory complete | admission refuses an incomplete inventory, and the lifecycle record is absent by contract | B1, B2 |
 | **RP-9** | Open design rulings recorded rather than guessed: `unit_sandbox.SUPPORTED_DROP_INS` being empty (R1 §10 item 2); the J-12/J-17 unreadable-seal and J-02 → `J-20` coordinator readings (R1 §3); whether the systemd-identity availability cost is inside MD-4's acceptance of R-5.0-11/R-5.0-16 (open under the R3 acceptance and not addressed by MD-4's text); and the conflict between package plan §2.13.8 (*"the disposable `freedom_test` database"*) and concrete plan M-39 (*"never freedom_test … finding F-6"*). **This prompt follows the concrete plan and finding F-6** | a band built on an unruled reading would encode a choice the maintainer has not made | B2 … B5 |
 | **RP-10** | **A reviewed provenance and independent-verification method for owner-stated target facts** (§4.7). The governing sources require the twelve facts to be *stated* by the Operations Owner (or a maintainer) for `oracle-test` and *verified there* by an independent reviewer, and forbid learning them from the observations named in RP-1. **They do not say what non-observational basis a statement may rest on, or how the reviewer verifies it on the host without that verification becoming the source.** For E7 in particular, every obvious basis (the kernel's `CAP_LAST_CAP`, the `sudo` policy's effect on a root process, the launcher's bounding set) is itself a host observation. This draft does not choose a method. A later, separately assigned repository pass must propose one; Codex must review it for technical soundness; and the maintainer must accept it. If no sound method exists for some fact, the maintainer must decide that explicitly — this draft does not | RP-1 has no admissible input, so `ExecutingRunner` stays refused. The A1-C corroborative steps have no pinned statement to corroborate | RP-1 (so B2 … B4); A1-C |
-| **RP-11** | **A reviewed client-side evidence-capture mechanism** meeting every requirement of §9.5: exact argv, separate and complete stdout and stderr bytes with their SHA-256 digests, client UTC start and end, exit status, a per-act record bound to its command, a fixed, **pass-specific** capture root on the repository host outside the worktree (`⟨MI.capture_root_A⟩` for every act of Pass A and `⟨MI.capture_root_B⟩` for every act of Pass B, distinct and each with its own index chain; C-6, C-14), and fail-closed behaviour — **with no file created on `oracle-test`**. It must also implement the **crash-consistent publication contract** of §9.5.1 and §9.5.2 (C-13, C-14): both stream files completed, closed, file-synchronized and their directory entries made durable before the record that publishes their digests exists; each per-act record completed under a temporary name, file-synchronized, published by an atomic rename that replaces nothing, and followed by a successful synchronization of its containing directory before the next act begins; and one capture index per pass, under that pass's own capture root, created, advanced and finalized by the same barriers, with a defined final state whose SHA-256 the handback states. A failure of any file or directory barrier is an `inconclusive` stop under C-10 and §11.2, followed by the single ordered stop transition of §9.5.3. It must also provide the **read-only Pass A retention verification** that Pass B's admission step B0-RA performs (`⟨RP-11.retention_check⟩`, §7.1, C-8): before Pass B's X-1, it establishes that `⟨MI.capture_root_A⟩` is the root the Pass A handback records, that the root and the final index state the handback names still exist, that the re-derived SHA-256 of that state equals the handback's capture index SHA-256, that X-4 still holds for Pass A's retained chain, records and bound stream files, and that one complete recursive enumeration of the relative names under that root agrees **in both directions** with the names Pass A's final state accounts for, each at its exact relative name and expected object type (§7.1, B0-RA condition 5) — by listing names and object types, reading bytes and re-deriving digests only, and without writing, moving, renaming, truncating, completing, repairing, adopting, deleting or changing the permissions of anything under that root. For an unadmitted object, which has no recorded digest, it establishes presence, relative name and object type only, **never that its bytes or metadata are unchanged**. **Which interfaces achieve these semantics, and the proof that they do on the repository host's filesystem — including how the check safely resolves relative names and detects duplicate or ambiguous names, path aliases, traversal outside the root and unexpected object types, and the proof that the retention verification changes nothing under `⟨MI.capture_root_A⟩` — belong to RP-11's implementation and review; this draft names the required semantics only and does not claim RP-11 is satisfied.** No such mechanism exists in the repository. The harness's `capture.py` deliberately keeps no raw output (*"raw output has no representation that survives this module"*), and the client transcript is merged and may be truncated, so neither can establish separate byte-exact stream digests. RP-11 must also state, and Codex must review, how the §5 synchronization is captured **without changing the command `guard-secrets.py` inspects**; a capture method that hides the `rsync` from the guard is a bypass and is not acceptable | §9.3's per-act record cannot be produced, so no host command's evidence could be admitted; and Pass A's retention cannot be verified at Pass B admission | **A1**, **B0-RA** and every host command of **B1 … B7** |
+| **RP-11** | **A reviewed client-side evidence-capture mechanism** meeting every requirement of §9.5: exact argv, separate and complete stdout and stderr bytes with their SHA-256 digests, client UTC start and end, exit status, a per-act record bound to its command, a fixed, **pass-specific** capture root on the repository host outside the worktree (`⟨MI.capture_root_A⟩` for every act of Pass A and `⟨MI.capture_root_B⟩` for every act of Pass B, distinct and each with its own index chain; C-6, C-14), and fail-closed behaviour — **with no file created on `oracle-test`**. It must also implement the **crash-consistent publication contract** of §9.5.1 and §9.5.2 (C-13, C-14): both stream files completed, closed, file-synchronized and their directory entries made durable before the record that publishes their digests exists; each per-act record written under an exclusively created **staging name** in the directory that will hold it, checked and file-synchronized, given its final name by one non-replacing, no-follow, descriptor-relative **exclusive final link** of the same inode (§9.5.1), followed by a successful synchronization of its containing directory and verification of both names, and **admitted only by the next durable index state**, which records both names and their shared inode, before the next act begins — **with both names retained and no automatic unlink, rename, repair or alias cleanup**; and one capture index per pass, under that pass's own capture root, created, advanced and finalized by the same barriers, with a defined final state whose SHA-256 the handback states. A failure of any file or directory barrier is an `inconclusive` stop under C-10 and §11.2, followed by the single ordered stop transition of §9.5.3. It must also provide the **read-only Pass A retention verification** that Pass B's admission step B0-RA performs (`⟨RP-11.retention_check⟩`, §7.1, C-8): before Pass B's X-1, it establishes that `⟨MI.capture_root_A⟩` is the root the Pass A handback records, that the root and the final index state the handback names still exist, that the re-derived SHA-256 of that state equals the handback's capture index SHA-256, that X-4 still holds for Pass A's retained chain, records and bound stream files, and that one complete recursive enumeration of the relative names under that root agrees **in both directions** with the names Pass A's final state accounts for, each at its exact relative name and expected object type (§7.1, B0-RA condition 5) — by listing names and object types, reading bytes and re-deriving digests only, and without writing, moving, renaming, truncating, completing, repairing, adopting, deleting or changing the permissions of anything under that root. For an unadmitted object, which has no recorded digest, it establishes presence, relative name and object type only, **never that its bytes or metadata are unchanged**. **Which interfaces achieve these semantics, and the proof that they do on the repository host's filesystem — including how the check safely resolves relative names and detects duplicate or ambiguous names, path aliases, traversal outside the root and unexpected object types, and the proof that the retention verification changes nothing under `⟨MI.capture_root_A⟩` — belong to RP-11's implementation and review; this draft names the required semantics only and does not claim RP-11 is satisfied.** **State (corrected by C-P5.0-R5-RP11-I1-R3-R1):** repository source and focused tests for a candidate mechanism exist (`capture_contract.py`, `execution/capture_store.py`, `execution/capture_mechanism.py`, `execution/retention_check.py` and the RP-11 route in `execution/descriptors.py`); that implementation, this requirements amendment and the review-manifest digest over them are unreviewed and unaccepted; the mechanism is wired to no operational command; C-11 and the pinned launcher environment below remain unresolved; no real capture root and no Pass A handback exist; and RP-11 remains unmet. The harness's `capture.py` deliberately keeps no raw output (*"raw output has no representation that survives this module"*), and the client transcript is merged and may be truncated, so neither can establish separate byte-exact stream digests. RP-11 must also state, and Codex must review, how the §5 synchronization is captured **without changing the command `guard-secrets.py` inspects**; a capture method that hides the `rsync` from the guard is a bypass and is not acceptable. **Amended by C-P5.0-R5-RP11-I1-R1 and, for publication, by C-P5.0-R5-RP11-I1-R3 (proposed, unreviewed):** RP-11 must also provide (a) the **retained-alias publication** of §9.5.1, whose capability is tested, fail-closed, by the pass's first real publication — its X-1 genesis state — before any host command, with **no separate mutating probe** (§9.5.4); (b) the **one shared, no-follow link call site** of §9.5.1 serving exactly two reviewed named-source contracts, stated there; (c) the **behavioural terminal seal** of §9.5.3 step 4 as the meaning of *read-only*; (d) the fixed **`rp11-capture-binding/1` block** of §14, which is the only part of the Pass A handback B0-RA parses; and (e) the **one alias exception** of X-4 and B0-RA: a recorded staging/final pair of one object may share an inode, and nothing else may (§9.5.2 X-4, §7.1). **Two RP-11 blockers remain unresolved and are not decided by this amendment:** how the §5 synchronization is issued through the mechanism without changing what `guard-secrets.py` inspects (C-11), and the exact process environment the mechanism supplies to the `ssh` and `rsync` invocations it launches, which must be pinned in reviewed bytes before any wiring and is never inferred or inherited at execution time. No mechanism may be wired to an operational command while either is open | §9.3's per-act record cannot be produced, so no host command's evidence could be admitted; and Pass A's retention cannot be verified at Pass B admission | **A1**, **B0-RA** and every host command of **B1 … B7** |
 | **RP-12** | **A bounded, reviewed `fsync` fault-injection producer and its evidence contract** (reconciliation row 40, JNL-17/J-14, A-5.0-5(k)). No injection mechanism exists or is specified in the harness. Package plan §4 (estimate and capacity) names two candidates without choosing — *"a loopback device with `dm-error`, or a `LD_PRELOAD` interposer in the harness"* — and this draft chooses neither. The reviewed contract must at least fix: the mechanism; its exact scope (only objects the producer creates under `R`, affecting no other file, filesystem, device or process); the facsimile consumer whose `fsync` fails and what it must record (the failure observed, the facsimile generation treated as terminal, dispatch refused, non-zero exit); the pinned argv; its reviewed cleanup and a read-only survey proving nothing remains; and whether it needs any package, kernel module or device not already present — **which would need a separate maintainer decision and an amendment of §13.1** | row 40 is remaining **P5.0-R5 feasibility work** (§8) and has no producer. Only a new, explicit maintainer disposition naming the resulting residual may defer it; this draft makes no such disposition | **B4b**, and therefore P5.0-R5 feasibility closure |
 
 ### 4.5 Maintainer inputs — supplied in the A-2 authorization, never by the operator
@@ -306,9 +378,9 @@ prerequisite**, and none is reduced or waived to make a pass appear executable.
 | `MI.deadline` | UTC ISO 8601 `YYYY-MM-DDTHH:MM:SSZ` | B2 |
 | `MI.reservation_owner`, `MI.recovery_owner` | named person. The proposal is Peter Duscha for both | B2 |
 | `MI.run_record_path` | an absolute path, reviewed by Codex. It must lie **outside** `/tmp`, the synchronized worktree, `R`, V4, V9 and V5 unless runner contract r6 expressly permits the location. **Unresolved: a typed blocker.** No governing source fixes it and this draft does not invent one; B2 does not start without it | B2 |
-| `MI.capture_root_A` | **Pass A's own capture root**: an absolute path on the **repository host**, reviewed by Codex, that does not exist before Pass A, lies outside the Git worktree (so A0-02's empty status holds) and outside `/tmp`, on a filesystem whose file and directory synchronization semantics RP-11's review has accepted, and is created exclusively by the RP-11 mechanism in Pass A's X-1, with its own genesis state and index chain (§9.5, C-6, C-14). After Pass A it is **retained and unmodified, and never used as Pass B evidence** (C-8): it is never removed, renamed, reused or modified to make `⟨MI.capture_root_B⟩` absent. Pass B's only access to it is B0-RA's read-only retention verification (§7.1). **Unresolved: a typed blocker** | A0-08 and Pass A's X-1; every host command of A1; Pass A's X-2 … X-4 and handback; **B0-RA, read-only, as a retention check only. Never Pass B evidence** |
-| `MI.pass_a_handback` | the repository path of the Pass A handback (§9.1) and its SHA-256, supplied in Pass B's A-2 authorization. From those exact bytes B0-RA takes, **as recorded and never re-typed, inferred or supplied by the operator**: the capture root (the §14 *Capture root* line), the final index state's name and the capture index SHA-256 (§9.5 C-12), and the X-3 outcome and X-4 validity lines. **Unresolved: no Pass A handback exists** | B0-RA |
-| `MI.capture_root_B` | **Pass B's own capture root**: an absolute path on the repository host, reviewed by Codex, that **differs from `⟨MI.capture_root_A⟩`**, lies neither within it nor contains it, and **independently** meets every condition stated for `⟨MI.capture_root_A⟩`: absent before Pass B, outside the Git worktree and `/tmp`, on a filesystem RP-11's review has accepted, and created exclusively by the RP-11 mechanism in Pass B's X-1, with its own genesis state and index chain. It is never derived from, created inside or made available by changing Pass A's root. **Unresolved: a typed blocker** | B0-08, only after B0-RA has succeeded, and Pass B's X-1; every host command of B1 … B7; Pass B's X-2 … X-4 and handback |
+| `MI.capture_root_A` | **Pass A's own capture root**: an absolute path on the **repository host**, reviewed by Codex, that does not exist before Pass A, lies outside the Git worktree (so A0-02's empty status holds) and outside `/tmp`, on a filesystem whose file and directory synchronization semantics and same-directory hard links RP-11's review has accepted — and whose support for the §9.5.1 route is tested, fail-closed, by Pass A's own X-1 genesis publication (§9.5.4) — and is created exclusively by the RP-11 mechanism in Pass A's X-1, with its own genesis state and index chain (§9.5, C-6, C-14). After Pass A it is **retained and unmodified, and never used as Pass B evidence** (C-8): it is never removed, renamed, reused or modified to make `⟨MI.capture_root_B⟩` absent. Pass B's only access to it is B0-RA's read-only retention verification (§7.1). **Unresolved: a typed blocker** | A0-08 and Pass A's X-1; every host command of A1; Pass A's X-2 … X-4 and handback; **B0-RA, read-only, as a retention check only. Never Pass B evidence** |
+| `MI.pass_a_handback` | the repository path of the Pass A handback (§9.1) and its SHA-256, supplied in Pass B's A-2 authorization. From those exact bytes, after authenticating them by that SHA-256, B0-RA parses **only** the handback's one fixed `rp11-capture-binding/1` block (§14) and takes from it, **as recorded and never re-typed, inferred or supplied by the operator**: the pass ID, the capture root, the X-3 outcome, the X-4 validity, the final index state's name and the capture index SHA-256 (§9.5 C-12). No prose line of the handback is parsed. A handback without exactly one well-formed block is not admissible input, and B0-RA stops. **Unresolved: no Pass A handback exists** | B0-RA |
+| `MI.capture_root_B` | **Pass B's own capture root**: an absolute path on the repository host, reviewed by Codex, that **differs from `⟨MI.capture_root_A⟩`**, lies neither within it nor contains it, and **independently** meets every condition stated for `⟨MI.capture_root_A⟩`: absent before Pass B, outside the Git worktree and `/tmp`, on a filesystem RP-11's review has accepted, whose support for the §9.5.1 route is tested, fail-closed, by Pass B's own X-1 genesis publication (§9.5.4), and created exclusively by the RP-11 mechanism in Pass B's X-1, with its own genesis state and index chain. It is never derived from, created inside or made available by changing Pass A's root. **Unresolved: a typed blocker** | B0-08, only after B0-RA has succeeded, and Pass B's X-1; every host command of B1 … B7; Pass B's X-2 … X-4 and handback |
 | `MI.target_fact_statement` | a reference to the dated, digest-pinned record of the twelve owner-stated target facts and their provenance (§4.7), with the independent verification RP-10 requires. **Unresolved: blocked by RP-10** | RP-1; A1-C |
 | `MI.reboot_go` | Peter Duscha's live confirmation in the operating session, given after Band B6.1 has been reported to him, quoted verbatim | B6.3 |
 | `MI.producer_argv.*` | the pinned argv of every RP-3, RP-5, RP-6, RP-7 and RP-12 producer | B4a … B6 |
@@ -448,7 +520,7 @@ produce exactly the expected result, or the pass stops.
 | A0-05 | `env -u TEST_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 /opt/freedom-blades/runtime/venv-web/bin/python -m tools.phase_5_0_evidence.execution.cli` | `DRY RUN — nothing was executed.` with every `PIN.dry_run` figure, including `review manifest digest:` equal to `⟨PIN.reviewed_digest_A⟩` and `executable : False` |
 | A0-06 | `env -u TEST_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 /opt/freedom-blades/runtime/venv-web/bin/python -m pytest -q -rs -p no:cacheprovider tests/phase_5_0_evidence/test_r5_r1_journal_classifier.py tests/phase_5_0_evidence/test_r5_r1_stage4_s4_3.py` | 0 failed, **0 skipped**; the pass count recorded exactly. This is a **local MD-5 preflight only**. It shows the pinned classifier passes its own tests. It is **not** MD-5's independent acceptance (A-6), and it says nothing about any band |
 | A0-07 | no command. The operator states that `TEST_DATABASE_URL` is not exported in the operating shell. No environment is printed (§12) | statement recorded |
-| A0-08 | `⟨RP-11.admission_check⟩`: the reviewed check that the capture mechanism's bytes equal `⟨PIN.capture_tool_sha256⟩` and that `⟨MI.capture_root_A⟩` does not yet exist; then the mechanism creates `⟨MI.capture_root_A⟩` exclusively and publishes Pass A's durable genesis index state there (§9.5.2 X-1). **No host command is issued before X-1 succeeds** | as RP-11 fixes it. **Unresolved: RP-11 does not exist, so Pass A cannot be admitted** |
+| A0-08 | `⟨RP-11.admission_check⟩`: the reviewed check that the capture mechanism's bytes equal `⟨PIN.capture_tool_sha256⟩` and that `⟨MI.capture_root_A⟩` does not yet exist; then the mechanism creates `⟨MI.capture_root_A⟩` exclusively and publishes Pass A's genesis index state there by the §9.5.1 retained-alias sequence (§9.5.2 X-1). **That genesis publication is the fail-closed capability test of the route (§9.5.4); there is no separate probe.** If it does not reach verification of both of its names, the pass stops here, before any host command; no X-3 attempt is made; whatever X-1 created is retained unmodified and reported by exact relative name as bounded residue; and nothing is retried. **No host command is issued before X-1 succeeds** | as RP-11 fixes it. **Unresolved: RP-11 is unmet** — its repository implementation is unwired and unaccepted, no capture tool digest is pinned, C-11 and the pinned launcher environment are open, and no real capture root exists — **so A0-08 is unusable and Pass A cannot be admitted** |
 | A0-09 | no command. The operator confirms that A-6's independent acceptance record and, for A1-C, the digest-pinned `MI.target_fact_statement` with its RP-10 verification exist, and records their references | both referenced, or A1-C is recorded `not_run (RP-10 unmet)`. A missing A-6 record stops the pass |
 
 ### 6.2 Band A1 — synchronization plus read-only host preflight on `oracle-test`
@@ -569,8 +641,8 @@ equivalent of A0-08, act against `⟨MI.capture_root_B⟩`.
 
 | Step | Command | Expected |
 |---|---|---|
-| B0-RA | `⟨RP-11.retention_check⟩`: the reviewed, **non-mutating** Pass A retention verification, on the repository host with no host contact. It first re-derives the SHA-256 of `⟨MI.pass_a_handback⟩` and requires it to equal the supplied digest, and requires that handback to record an X-3 outcome of *succeeded at the finalization point*, X-4 validity *valid*, and a final index state name and capture index SHA-256 other than `none`. It then establishes all of the following: **(1)** `⟨MI.capture_root_A⟩` is exactly, byte for byte, the capture root recorded in the Pass A handback; **(2)** that root exists, and the final index state named by the Pass A handback (Pass A's *F*) exists under it under that final name; **(3)** the SHA-256 re-derived over the bytes of Pass A's *F* equals the Pass A handback's capture index SHA-256; **(4)** X-4 (§9.5.2) still succeeds for Pass A's retained evidence: Pass A's *F* is the only final state; its chain of preceding-state digests is intact back to Pass A's *I*-0; its record list is gap-free from 1 and equals that of the last durable open state; every listed record exists with its listed digest; and every stream file each listed record binds exists with its bound digest; and **(5)** **bidirectional retained-name agreement.** B0-RA takes one complete, recursive enumeration of every name under the root, at every depth and not only the root's immediate entries, as the set *O* of observed relative names, each with its observed object type. From Pass A's *F* and the fixed rules of §9.5.2 it forms the set *R* of accounted relative names, each with its expected object type: *F* itself, each state of *F*'s chain, each listed per-act record and each stream file a listed record binds (each a regular file, as §9.5 defines them); each subdirectory *F* records the mechanism as having created under the root (a directory, C-6); and each object *F* records as unadmitted, at the relative name and object type *F* records for it (X-3). Each accounted name belongs to exactly one of these categories. **Observed to recorded:** every name in *O* is in *R* with the same object type. **Recorded to observed:** every name in *R*, including every unadmitted name, is in *O* at that exact relative name with its expected object type. Names are compared exactly, in the one fixed representation RP-11 defines, and not after any normalization the comparison did not declare. X-4's barrier-success condition is a fact about Pass A's publication, not a property of the retained bytes; it is taken from the Pass A handback's X-3 and X-4 lines above and is not re-observed. **Evidentiary limit.** For each listed record, bound stream file and index state, conditions (3) and (4) re-derive digests and so establish its bytes. For an unadmitted object and for a recorded subdirectory, which have no recorded digest, condition (5) establishes **only** that the object is present at its recorded relative name with its recorded object type. It does **not** establish that an unadmitted object's bytes or metadata are unchanged, and no unadmitted object is digested, admitted or used as evidence by this check. The check **may only** list names and object types under `⟨MI.capture_root_A⟩`, read bytes and re-derive digests. It **must not** write, move, rename, truncate, complete, repair, adopt, delete or change the permissions of the root or anything beneath it; create anything under it; use any of it as Pass B evidence; or continue, copy or reuse Pass A's index chain. Its result is recorded in the Pass B handback as an admission result, not as a Pass B capture record: no Pass B capture root exists yet. It runs once and is never retried. **It establishes retention at the moment of the check only.** It does not monitor, protect or guarantee Pass A's root afterwards, and this prompt claims nothing about a change made after it | all five conditions hold. **Absence, a mismatch, an X-4 failure, a recorded name absent from *O* (including an absent unadmitted name), an observed name not in *R*, a name whose observed object type differs from its expected type, a duplicate or ambiguous name (a name accounted for twice or in two categories, or two entries the fixed representation cannot tell apart), a path alias (an entry that reaches an accounted object by a second name, or through a symbolic link), a name that resolves outside the root, an object type that no category expects, or inability to complete the enumeration or either direction of the comparison is a fail-closed B0 stop**: B0-08 does not run, **no `⟨MI.capture_root_B⟩` is created, no X-1 is performed and no Pass B host command is issued**, and nothing under either root is written. The stop is recorded in the Pass B handback and is not retried (§11.3). **Unresolved: RP-11 does not exist, and no Pass A handback exists** |
-| B0-08 | runs **only after B0-RA has succeeded**. `⟨RP-11.admission_check⟩`: the reviewed check that the capture mechanism's bytes equal `⟨PIN.capture_tool_sha256⟩`; that `⟨MI.capture_root_B⟩` differs from `⟨MI.capture_root_A⟩` and lies neither within it nor contains it; and that `⟨MI.capture_root_B⟩` does not yet exist. Then the mechanism creates `⟨MI.capture_root_B⟩` exclusively and publishes Pass B's own durable genesis index state there (§9.5.2 X-1). Nothing under `⟨MI.capture_root_A⟩` is written, moved, renamed or removed, and nothing of Pass A's root is used as Pass B evidence. **No host command is issued before X-1 succeeds** | as RP-11 fixes it. **Unresolved: RP-11 does not exist** |
+| B0-RA | `⟨RP-11.retention_check⟩`: the reviewed, **non-mutating** Pass A retention verification, on the repository host with no host contact. It first re-derives the SHA-256 of `⟨MI.pass_a_handback⟩` and requires it to equal the supplied digest; it then parses **only** that handback's one `rp11-capture-binding/1` block under the §14 rules, and requires that block to record the pass ID `C-P5.0-R5-OP1-A`, an X-3 outcome of *succeeded at the finalization point*, X-4 validity *valid*, and a final index state name and capture index SHA-256 other than `none`. It then establishes all of the following: **(1)** `⟨MI.capture_root_A⟩` is exactly, byte for byte, the capture root recorded in the Pass A handback's binding block; **(2)** that root exists, and the final index state named by the Pass A handback (Pass A's *F*) exists under it under that final name; **(3)** the SHA-256 re-derived over the bytes of Pass A's *F* equals the Pass A handback's capture index SHA-256; **(4)** X-4 (§9.5.2) still succeeds for Pass A's retained evidence: Pass A's *F* is the only final state; its chain of preceding-state digests is intact back to Pass A's *I*-0; its record list is gap-free from 1 and equals that of the last durable open state; every listed record exists with its listed digest; and every stream file each listed record binds exists with its bound digest; and **(5)** **bidirectional retained-name agreement.** B0-RA takes one complete, recursive enumeration of every name under the root, at every depth and not only the root's immediate entries, as the set *O* of observed relative names, each with its observed object type. From Pass A's *F* and the fixed rules of §9.5.2 it forms the set *R* of accounted relative names, each with its expected object type: *F* itself, each state of *F*'s chain, each listed per-act record and each stream file a listed record binds (each a regular file, as §9.5 defines them); each subdirectory *F* records the mechanism as having created under the root (a directory, C-6); and each object *F* records as unadmitted, at the relative name and object type *F* records for it (X-3). Each accounted name belongs to exactly one of these categories. **Observed to recorded:** every name in *O* is in *R* with the same object type. **Recorded to observed:** every name in *R*, including every unadmitted name, is in *O* at that exact relative name with its expected object type. Names are compared exactly, in the one fixed representation RP-11 defines, and not after any normalization the comparison did not declare. **The one alias exception (C-P5.0-R5-RP11-I1-R3).** Two names may reach one inode **only** when they are the staging name and final name of one object as Pass A's *F* records them (§9.5.1). For an **admitted** pair, both names, their roles, the object type, the owner *F* records, mode `0600`, the device and inode *F*'s chain records, link count two, and — through the final name, whose bytes conditions (3) and (4) digest — the size and digest must agree with that durable state (§9.5.2 X-4). For a pair *F* records as **unadmitted**, only metadata is compared: both recorded names present, regular, sharing one inode at link count two, shared with no other name; nothing is opened, read or digested. **This is Peter Duscha's accepted Option-1 decision** (`C-P5.0-R5-RP11-I1-R3-D2`, 2026-09-28; [decision record](project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md)); RP11-I1-R3-1 is Closed. A third link, a cross-object alias, a missing pair member, a pair whose members are different inodes, a name in two pairs, a wrong link count, an identity or type that differs from *F*'s record, or any other name reaching an accounted inode is a path alias and a fail-closed stop. X-4's barrier-success condition is a fact about Pass A's publication, not a property of the retained bytes; it is taken from the Pass A handback's X-3 and X-4 lines above and is not re-observed. **Evidentiary limit.** For each listed record, bound stream file and index state, conditions (3) and (4) re-derive digests and so establish its bytes. For an unadmitted object and for a recorded subdirectory, which have no recorded digest, condition (5) establishes **only** that the object is present at its recorded relative name with its recorded object type. It does **not** establish that an unadmitted object's bytes or metadata are unchanged, and no unadmitted object is digested, admitted or used as evidence by this check. The check **may only** list names and object types under `⟨MI.capture_root_A⟩`, read bytes and re-derive digests. It **must not** write, move, rename, truncate, complete, repair, adopt, delete or change the permissions of the root or anything beneath it; create anything under it; use any of it as Pass B evidence; or continue, copy or reuse Pass A's index chain. Its result is recorded in the Pass B handback as an admission result, not as a Pass B capture record: no Pass B capture root exists yet. It runs once and is never retried. **It establishes retention at the moment of the check only.** It does not monitor, protect or guarantee Pass A's root afterwards, and this prompt claims nothing about a change made after it | all five conditions hold. **Absence, a mismatch, an X-4 failure, a recorded name absent from *O* (including an absent unadmitted name), an observed name not in *R*, a name whose observed object type differs from its expected type, a duplicate or ambiguous name (a name accounted for twice, in two categories or in two pairs, or two entries the fixed representation cannot tell apart), a path alias (an entry that reaches an accounted object by a second name, or through a symbolic link) **other than the one exception below**, a name that resolves outside the root, an object type that no category expects, or inability to complete the enumeration or either direction of the comparison is a fail-closed B0 stop**: B0-08 does not run, **no `⟨MI.capture_root_B⟩` is created, no X-1 is performed and no Pass B host command is issued**, and nothing under either root is written. The stop is recorded in the Pass B handback and is not retried (§11.3). **Unresolved: RP-11 is unmet** — its repository implementation, including this retention check, is unwired and unaccepted — **and no real Pass A capture root and no Pass A handback exist, so B0-RA is unusable** |
+| B0-08 | runs **only after B0-RA has succeeded**. `⟨RP-11.admission_check⟩`: the reviewed check that the capture mechanism's bytes equal `⟨PIN.capture_tool_sha256⟩`; that `⟨MI.capture_root_B⟩` differs from `⟨MI.capture_root_A⟩` and lies neither within it nor contains it; and that `⟨MI.capture_root_B⟩` does not yet exist. Then the mechanism creates `⟨MI.capture_root_B⟩` exclusively and publishes Pass B's own genesis index state there by the §9.5.1 retained-alias sequence (§9.5.2 X-1). **That genesis publication is Pass B's own fail-closed capability test (§9.5.4)**; Pass A's result is never reused for Pass B. If it does not reach verification of both of its names, Pass B stops here, before any Pass B host command; no X-3 attempt is made; whatever X-1 created under `⟨MI.capture_root_B⟩` is retained and reported as bounded residue; and nothing is retried. Nothing under `⟨MI.capture_root_A⟩` is written, moved, renamed or removed, and nothing of Pass A's root is used as Pass B evidence. **No host command is issued before X-1 succeeds** | as RP-11 fixes it. **Unresolved: RP-11 is unmet** — its repository implementation is unwired and unaccepted, and C-11 and the pinned launcher environment are open — **and B0-RA cannot yet succeed, so B0-08 is unusable** |
 
 A0-05 must now show `unresolved conflicts : 0`,
 `unconfirmed facts : none` and `executable : True`. **If it does not, Pass B
@@ -846,8 +918,8 @@ else**, and only from a record that was durably published under §9.5.1 and is
 listed in the pass's durable final capture index state (§9.5.2). A field the
 capture record does not supply, or a record that is not so published and
 listed, is not filled from the transcript or from memory; the act is
-`inconclusive`. **Until RP-11 exists, these fields cannot be produced, so
-neither pass is executable.**
+`inconclusive`. **Until RP-11 is met — reviewed, accepted, pinned and wired
+— these fields cannot be produced, so neither pass is executable.**
 
 ### 9.4 Inputs for independent review
 
@@ -879,10 +951,16 @@ The retained stream files, per-act records and capture index are the pass's
 **primary evidence**, so each must survive a crash or restart of the
 repository host exactly as published, or be demonstrably absent. C-13 … C-15
 state the crash-consistent publication contract that makes that true. They
-name the required durability semantics only. **Which interfaces achieve them,
-and the evidence that they do on the filesystem holding each pass's capture
-root, are RP-11's implementation-and-review obligation.** Nothing in this
-section claims RP-11 is satisfied.
+name the required durability semantics. **One exception, proposed by
+C-P5.0-R5-RP11-I1-R3 in place of the I1-R1 route:** the publication route of
+P-5 … P-8 is named here exactly — an exclusively created staging name, one
+non-replacing, no-follow, descriptor-relative hard link of the same inode to
+the final name, and retention of both names as an indexed pair (§9.5.1) —
+because the retained alias it leaves is part of what X-4 and B0-RA verify, and
+because its capability is tested by the pass's first real publication
+(§9.5.4). **Every other interface, and the evidence that the barriers hold on
+the filesystem holding each pass's capture root, remain RP-11's
+implementation-and-review obligation.** Nothing in this section claims RP-11 is satisfied.
 
 Throughout §9.5, **the pass's capture root** means `⟨MI.capture_root_A⟩` for
 every act of Pass A and `⟨MI.capture_root_B⟩` for every act of Pass B (§4.5).
@@ -901,16 +979,16 @@ capture, is the object's exact relative name under that pass's capture root.
 | C-2 | **Separate, complete streams.** stdout and stderr are read through separate channels to end-of-file and written to two separate client-side files, each created exclusively under a name unique to its `capture_seq` and never reused. Nothing is merged, interleaved or truncated. A stream is **complete** only when the executed client process has ended, its channel has reached end-of-file and its file has been **closed to further writing**. No record is written for publication before both streams are complete and have passed their file and directory barriers (§9.5.1 P-2, P-3). A declared maximum size per stream is part of the reviewed contract; exceeding it makes the act `inconclusive` and stops the pass rather than truncating |
 | C-3 | **Digests.** `stdout_sha256` and `stderr_sha256` are computed over exactly the bytes of the completed stream file, and can be re-derived from the retained files. A digest is **published**, in a record, only after that stream file's file barrier and directory barrier have succeeded (§9.5.1). An empty stream is still a stream file, passes the same barriers, and has the digest of the empty string, recorded as such |
 | C-4 | **Time and status.** `started_utc` and `ended_utc` come from the client clock in `YYYY-MM-DDTHH:MM:SS.ffffffZ` form, with the clock source named; `exit_status` is the exact code, or the terminating signal |
-| C-5 | **One record per act.** Each act produces at most one published record carrying `pass_id`, `capture_seq` (strictly increasing from 1, no gaps), `step_or_case_id`, argv, the four C-3/C-4 values, and the **exact relative names (under the pass's capture root) and SHA-256 digests of its two already-durable stream files**. It is published by the ordered sequence P-1 … P-8 of §9.5.1, and the pass-level **capture index** is advanced under §9.5.2, before the next act starts. The capture index lists every admitted record's SHA-256 in `capture_seq` order. **A record is durable only when P-1 … P-8 have all succeeded**; a record that has been written, flushed and renamed but whose file or containing-directory barrier did not succeed is not durable and is not evidence |
+| C-5 | **One record per act.** Each act produces at most one published record carrying `pass_id`, `capture_seq` (strictly increasing from 1, no gaps), `step_or_case_id`, argv, the four C-3/C-4 values, and the **exact relative names (under the pass's capture root) and SHA-256 digests of its two already-durable stream files**. It is published by the ordered sequence P-1 … P-8 of §9.5.1, and the pass-level **capture index** is advanced under §9.5.2, before the next act starts. The capture index lists every admitted record's SHA-256 in `capture_seq` order. **A record is durable only when P-1 … P-8 have all succeeded, and admitted only when the next durable index state records both of its names and their shared inode (§9.5.2 X-2)**; a record whose staging name exists but whose final link was refused, reported as failed or not confirmed, or whose content check, file barrier, containing-directory barrier or pair verification did not succeed, or that no durable index state admits, is not evidence. Its names are retained, unadmitted (C-15) |
 | C-6 | **Location — one distinct root per pass.** Everything a pass captures is under **that pass's own capture root** on the repository host: `⟨MI.capture_root_A⟩` for Pass A only, `⟨MI.capture_root_B⟩` for Pass B only. The two are distinct absolute paths, and neither lies within the other. **Each independently** is outside the Git worktree (A0-02 must stay empty) and outside `/tmp`, on a filesystem RP-11's review has accepted (§4.5), and **absent before its own pass**; the mechanism creates it exclusively in that pass's X-1 (A0-08 for Pass A, B0-08 for Pass B). Its creation, and the creation of any subdirectory the mechanism makes, is made durable by a successful directory barrier on the directory that contains it, before that pass's genesis index state is published (§9.5.2 X-1). Pass A's root is never removed, renamed, reused or modified to make Pass B's root absent (C-8). This draft names no common parent directory. If the two roots have one, it already exists, is not created, cleaned up or otherwise written by the mechanism or the operator beyond each root's own entry, and holds no capture file itself; each root is still separately and exclusively created and independently durable. **No file is created on `oracle-test`**: the remote command never redirects, tees or writes a capture |
-| C-7 | **Ownership and mode; immutability.** Owned by the operator's repository-host account; the directory `0700`, every file `0600`. Stream files, records and index states are never modified, truncated, appended to, renamed or replaced after publication, and a published name is never reused. A file whose barrier failed is never afterwards published, and a file that reached its final name before a barrier failed is unadmitted (C-15) |
+| C-7 | **Ownership and mode; immutability.** Owned by the operator's repository-host account; the directory `0700`, every file `0600`. Stream files, records and index states are never modified, truncated, appended to, renamed or replaced after publication, and a published name is never reused. A file whose barrier failed is never afterwards published, and a staging name, or a staging/final pair, that no durable index state admits is unadmitted (C-15). **Each record and index state is exactly one inode with exactly two names — its staging name and its final name — and that pair is the only permitted hard-link alias** (§9.5.1). Neither name is ever unlinked, renamed, repaired or cleaned up, and no third name is ever given to it |
 | C-8 | **Retention.** Stream files, records, every index state and every unadmitted file (C-15) are retained unmodified until Codex's post-execution review and a maintainer disposition. Removal needs a later explicit maintainer decision. They are **never committed**: raw streams may carry host facts beyond what the handback may publish. In particular, `⟨MI.capture_root_A⟩` and everything under it stay retained and unmodified, and are never used as Pass B evidence, while Pass B is admitted and executed. Pass B's admission never depends on removing, renaming, reusing or modifying it. It depends instead on **B0-RA** (§7.1), which verifies read-only, before Pass B's X-1 and before any Pass B host command, that the root and the final index state the Pass A handback names still exist, that the final state's re-derived SHA-256 equals the handback's capture index SHA-256, that X-4 still holds for Pass A's retained chain, records and bound stream files, and that the complete recursive set of relative names under the root and the set Pass A's final state accounts for agree in both directions, with matching object types — so that an absent unadmitted file, like an absent record, stops Pass B. B0-RA only lists names and object types, reads bytes and re-derives digests; any failure is a fail-closed B0 stop. **Retention of an unadmitted file is required, but only its presence, relative name and object type are verified.** It has no recorded digest, so its unchanged content is not verified, and it is never digested afterwards to make it evidence: a file whose durability barrier failed is not promoted into evidence by hashing it later. B0-RA establishes retention at the moment of the check only, and is not a monitor or a guarantee against a later change |
 | C-9 | **Redaction boundary.** Raw stream files are the sealed record and are not published. The handback carries only argv, times, exit status, digests, `capture_seq`, record digests and **safe excerpts** chosen under §12: no contents of `pg_hba.conf`, `pg_ident.conf` or `/etc/machine-id`, no process argument vectors, no environment and no secret. If a stream unexpectedly contains a credential or secret-bearing value, the operator stops, does not reproduce it anywhere, and notifies the maintainer (AGENTS.md "Configuration and secrets") |
-| C-10 | **Failure behaviour.** If the mechanism cannot start the command; capture either stream in full or close it; compute a digest; complete a record; or obtain the success of **any file barrier or directory barrier** of §9.5.1 or §9.5.2 — on a stream file, a record, an index state, the capture root or a subdirectory — the act is `inconclusive` and the pass **stops** under §11.2. A failed barrier is **not retried**, and a later successful synchronization does not cure it: after a reported failure the stable state of the affected file or entry is unknown. The act is never rewritten, repaired, completed, renamed into place or reissued, and no record is published for it. If the remote command may have run but its evidence was not durably published, that is reported explicitly as a host act without admissible evidence. The stop transition of §9.5.3 then applies, in its order: command execution stops at once and no host command is issued, retried or reissued; if the capture mechanism and the repository host remain available, the **only** permitted write is one X-3 finalization attempt (§9.5.2), which records the stop; and the pass's capture root is read-only once that attempt reaches its outcome, or at once after an interruption (C-15) |
+| C-10 | **Failure behaviour.** If the mechanism cannot start the command; capture either stream in full or close it; compute a digest; complete a record; or obtain the success of **any file barrier or directory barrier** of §9.5.1 or §9.5.2 — on a stream file, a record, an index state, the capture root or a subdirectory — the act is `inconclusive` and the pass **stops** under §11.2. A failed barrier is **not retried**, and a later successful synchronization does not cure it: after a reported failure the stable state of the affected file or entry is unknown. The act is never rewritten, repaired, completed, linked or renamed into place, re-linked or reissued, no staging or final name is removed, and no record is published for it. If the remote command may have run but its evidence was not durably published, that is reported explicitly as a host act without admissible evidence. The stop transition of §9.5.3 then applies, in its order: command execution stops at once and no host command is issued, retried or reissued; if the capture mechanism and the repository host remain available, the **only** permitted write is one X-3 finalization attempt (§9.5.2), which records the stop; and the pass's capture root is read-only once that attempt reaches its outcome, or at once after an interruption (C-15) |
 | C-11 | **Guards.** The mechanism's invocation is reviewed against `guard-secrets.py` and `guard-git.py`. It must not become a way to issue a command a guard would refuse if issued directly — in particular it must not hide the §5 `rsync` from the secrets guard. Any refusal is a §11.1 stop, never a reason to reshape the invocation |
-| C-12 | **Binding in the handback.** Every measured-fact row names its `capture_seq` and `capture_record_sha256`, and that record must be listed in the pass's durable, valid final index state (§9.5.2 X-4). Each pass's handback states **its own** capture root (`⟨MI.capture_root_A⟩` in the Pass A handback, `⟨MI.capture_root_B⟩` in the Pass B handback), the outcome of its X-3 finalization attempt (§9.5.3), its final index state's name and SHA-256 (the **capture index SHA-256**), its terminal status, its X-4 validity, every subdirectory the mechanism created under its capture root, and every unadmitted file (C-15) by exact relative name and object type, or `none`, as its final state records them. The Pass A handback states its capture root exactly, byte for byte, because B0-RA verifies `⟨MI.capture_root_A⟩`, the final state's name and the capture index SHA-256 against those recorded values; a Pass A handback that records no admissible final state gives B0-RA nothing to verify, and Pass B is not admitted. A Pass B row is never bound to a record under Pass A's root, or the reverse. A row without such a record is not a measured fact |
-| C-13 | **Crash-consistent publication of streams and records.** Every act follows the ordered sequence P-1 … P-8 of §9.5.1: durable stream files first; then a complete record under a temporary name; then the record's file barrier; then atomic publication by rename; then the containing-directory barrier. The next act does not begin until P-8 and the index advance (§9.5.2 X-2) have succeeded |
-| C-14 | **Crash-consistent capture index.** One capture index per pass, under that pass's own capture root, created, advanced and finalized by X-1 … X-4 of §9.5.2 as a chain of separate, immutable index states, each published with the same file barrier, atomic rename and directory barrier. No published record is modified to maintain it. Pass B's chain begins at its own genesis state; it never continues, reuses or references Pass A's chain, and there is no index shared by the two passes. The final index state has one defined finalization point, and its SHA-256 is the digest the handback states |
+| C-12 | **Binding in the handback.** Every measured-fact row names its `capture_seq` and `capture_record_sha256`, and that record must be listed in the pass's durable, valid final index state (§9.5.2 X-4). Each pass's handback states **its own** capture root (`⟨MI.capture_root_A⟩` in the Pass A handback, `⟨MI.capture_root_B⟩` in the Pass B handback), the outcome of its X-3 finalization attempt (§9.5.3), its final index state's name and SHA-256 (the **capture index SHA-256**), its terminal status, its X-4 validity, every subdirectory the mechanism created under its capture root, and every unadmitted file (C-15) by exact relative name and object type, or `none`, as its final state records them. The Pass A handback states its capture root exactly, byte for byte, because B0-RA verifies `⟨MI.capture_root_A⟩`, the final state's name and the capture index SHA-256 against those recorded values; a Pass A handback that records no admissible final state gives B0-RA nothing to verify, and Pass B is not admitted. The capture root, the X-3 outcome, the X-4 validity, the final state's name and the capture index SHA-256 are stated **in the one fixed `rp11-capture-binding/1` block of §14**, which is the only part of a handback B0-RA parses; the prose lines repeat them for the reader and are never parsed. A Pass B row is never bound to a record under Pass A's root, or the reverse. A row without such a record is not a measured fact |
+| C-13 | **Crash-consistent publication of streams and records.** Every act follows the ordered sequence P-1 … P-8 of §9.5.1: durable stream files first; then a complete record under an exclusively created staging name in its destination directory, checked for size and digest; then that inode's file barrier; then publication by one exclusive final link of the same inode that replaces nothing; then the containing-directory barrier; then verification of both names. A publication has succeeded only when that verification has succeeded, and the record is admitted only by the next durable index state. The next act does not begin until P-8 and the index advance (§9.5.2 X-2) have succeeded |
+| C-14 | **Crash-consistent capture index.** One capture index per pass, under that pass's own capture root, created, advanced and finalized by X-1 … X-4 of §9.5.2 as a chain of separate, immutable index states, each published by the same retained-alias sequence: staging name, content check, file barrier, exclusive final link, directory barrier, verification of both names. Each state is admitted by its successor's record of its pair; *F* records its own. No published record is modified to maintain it. Pass B's chain begins at its own genesis state; it never continues, reuses or references Pass A's chain, and there is no index shared by the two passes. The final index state has one defined finalization point, and its SHA-256 is the digest the handback states |
 | C-15 | **Interruption and unadmitted files.** A crash, power loss or restart of the repository host, or termination of the mechanism, during a pass is a capture failure and ends it. No X-3 finalization attempt is made after recovery, and X-4 applies directly (§9.5.3). Files that are not admitted evidence are retained and reported, never completed or adopted (§9.5.3) |
 
 #### 9.5.1 Publication sequence for each act (C-13)
@@ -921,17 +999,59 @@ Terms, stated as required semantics, not as interfaces:
   to read those bytes back, are flushed from every buffer the mechanism
   controls and synchronized to stable storage, and the synchronization reports
   success.
-* **Directory barrier** — after an entry is created or renamed in a directory,
+* **Directory barrier** — after an entry is created in a directory (including
+  by the exclusive final link of P-7),
   that containing directory is synchronized to stable storage, and the
   synchronization reports success, so that the entry itself survives a crash.
-* **Temporary name** — a name that is distinguishable from every published name
-  by a fixed rule, so that no reader, verifier or reviewer can mistake it for a
-  published file.
-* **Atomic publication** — a rename, within the directory that will hold the
-  published file, from its temporary name to its final name, that either takes
-  effect completely or not at all, and that **never replaces an existing
-  entry**. An existing final name is a capture failure (C-10), never an
-  overwrite.
+* **Staging name** — one deterministic, object-specific name in the directory
+  that will hold the published file, derived by a fixed rule only from the
+  already-bound record or index identity: the final name followed by
+  `.staging` (for example `records/000007.json.staging`). It is one path
+  component, ASCII and byte-safe, and it is never the final name of any object.
+  It is created **exclusively**, relative to the destination directory's
+  descriptor, with `O_CREAT | O_EXCL | O_WRONLY | O_NOFOLLOW | O_CLOEXEC` and
+  mode `0600`. **An occupied staging name refuses**: it is not read, removed,
+  replaced or recorded as the mechanism's object, and it is a capture failure
+  (C-10). Once published it is **not a temporary**: it is the retained staging
+  alias of the object.
+* **Exclusive final link (atomic publication)** — **exactly one** call of the
+  package's shared, descriptor-relative, **no-follow** exclusive-link primitive,
+  from the staging name to the final name in the same directory. It either
+  gives the already-synchronized inode its final name or creates nothing, and it
+  **never replaces an existing entry**: an occupied final name is refused by
+  the kernel (`EEXIST`), which is the only non-replacement check — the final
+  name is **not** pre-checked in its place — and that refusal is a capture
+  failure, never an overwrite. **A final-name occupant is not the mechanism's
+  object** and is never recorded as one. No rename, no replacing call, no
+  followed source, no `O_TMPFILE`, no `/proc/self/fd` and no second link to the
+  same inode is part of this route.
+* **Retained alias pair** — after publication the object is **one inode with
+  exactly two names, link count two**: its staging name and its final name.
+  **Neither name is ever unlinked, renamed, repaired, adopted or cleaned up** by
+  the mechanism or the operator. Both names, their roles and the shared inode
+  identity (`st_dev`, `st_ino`) are recorded in the next durable index state
+  (§9.5.2), and only that state admits the object. This pair is the **only**
+  permitted hard-link alias under a capture root; X-4 and B0-RA refuse every
+  other (§9.5.2 X-4, §7.1).
+* **One shared link call site, two reviewed no-follow contracts.** The
+  package's single `os.link` call site (`descriptors._exclusive_link`) always
+  links a **name** relative to a directory descriptor with no-follow semantics;
+  it takes no follow argument. It serves exactly two callers: **(i)** the
+  existing I3 named-source caller, `PosixFilesystem.linkat`, whose behaviour,
+  flags and guarantee are those Codex previously reviewed for I3 and are
+  unchanged; and **(ii)** RP-11's `link_named_exclusive`, which links one
+  component to another relative to the capture root's directory descriptors.
+  **The I1-R1 contract amendment that gave RP-11 a follow-semantics caller
+  through `/proc/self/fd` is withdrawn**, with that caller
+  (`descriptors.EXCLUSIVE_LINK_PRIMITIVE`; see the I1-R3 handback for the exact
+  source and tests).
+* **Platform prerequisites of this route.** A capture-root filesystem that
+  supports hard links within one directory and the file and directory barriers
+  RP-11's review accepts, and an execution context that permits a no-follow,
+  descriptor-relative `linkat` of a file the operator's account owns. **No
+  procfs, no `O_TMPFILE` support and no followed link is required.** Neither
+  prerequisite is assumed: the pass's own X-1 genesis publication tests them,
+  fail-closed, before any host command (§9.5.4).
 
 For act *n* (`capture_seq` = *n*), in this order, each step only after the
 previous one has succeeded:
@@ -942,37 +1062,73 @@ previous one has succeeded:
 | P-2 | **Complete and synchronize the streams.** After the client process has ended and both channels have reached end-of-file, each stream file is closed to further writing and receives a file barrier |
 | P-3 | **Make the stream entries durable.** Each directory that holds a stream file of act *n* receives a directory barrier |
 | P-4 | **Digest.** `stdout_sha256` and `stderr_sha256` are computed over the completed files (C-3) |
-| P-5 | **Complete record under a temporary name.** The whole record (C-5), binding the exact names and digests of the two stream files that P-2 and P-3 made durable, is written under a temporary name in the directory where it will be published, and closed |
-| P-6 | **Record file barrier.** The temporary record file receives a file barrier |
-| P-7 | **Atomic publication.** The temporary record is renamed to its final name, unique to *n* |
-| P-8 | **Containing-directory barrier.** The directory holding the published record receives a directory barrier |
+| P-5 | **Complete record under its staging name.** The staging name is created exclusively (see *Staging name*); the bound inode is verified as a regular file owned by the operator's account, with exact mode `0600`, link count one, on the capture root's device. The whole record (C-5), binding the exact names and digests of the two stream files that P-2 and P-3 made durable, is written with a **checked loop** that either writes every byte or fails. The staging name is then reopened no-follow and read-only, and must be the bound inode with the exact size and SHA-256 of the record: a partial, zero-length or falsely reported write fails here |
+| P-6 | **Record file barrier.** The bound inode receives a file barrier while only its staging name exists |
+| P-7 | **Atomic publication.** Exactly one exclusive final link gives the same inode its final name, unique to *n*. It replaces nothing |
+| P-8 | **Containing-directory barrier, then verification.** The directory holding both names receives a directory barrier. Then **both names** are opened no-follow and read-only and each must be the bound inode: regular, operator-owned, mode `0600`, on the expected device, link count two, with the record's exact size and SHA-256. The descriptor is then closed. **The publication has succeeded only when this verification has succeeded**; the record is **admitted** only when the next durable index state records both of its names and their shared inode (§9.5.2 X-2) |
 
 Then the capture index is advanced (§9.5.2 X-2), and only after that has
 succeeded may act *n* + 1 begin. **A failure at any step is an `inconclusive`
 stop under C-10.** A stream file whose P-2 or P-3 barrier failed is never bound
-by a record. A record whose P-6 or P-8 barrier failed is not durable and is not
-admitted, even if a file with its final name later appears present.
+by a record. A record whose P-5 content check, P-6 barrier, P-7 link, P-8
+barrier or P-8 verification did not succeed is not durable and is never
+admitted, even if both of its names later appear present and correct.
+
+**Publication states, which apply equally to every index state (§9.5.2).** A
+publication is always in exactly one of these states, and the mechanism fails
+closed in each:
+
+| State | Names that exist | Meaning |
+|---|---|---|
+| no staging entry | none | the P-5 creation failed before an entry existed, or refused an occupied staging name. Nothing is the mechanism's, and nothing is recorded as unadmitted |
+| staging without a confirmed final link | the staging name | P-5's verification, write or content check, P-6, or the P-7 link failed or was refused (`EEXIST`). The staging name is unadmitted |
+| both names before the directory barrier | staging and final | the P-7 link was confirmed — by its success, or, where it was reported as failed, by one no-follow inspection showing the bound inode at the final name — but P-8's barrier did not succeed. Both are unadmitted |
+| both names after the barrier, unverified | staging and final | P-8's barrier succeeded but its verification of both names did not. Both are unadmitted |
+| both names verified, not index-admitted | staging and final | the publication succeeded, but no durable index state records it yet. Both are unadmitted |
+| both names admitted | staging and final | a durable index state records both names, their roles and the shared inode. Only this state is evidence |
+
+**Before admission, every staging name and every staging/final pair is
+unadmitted.** It is retained unmodified and reported by exact relative name and
+object type, and it is **never** completed, linked, re-linked, adopted,
+repaired, digested to make it evidence, admitted later or used as evidence. A
+failed or unconfirmed barrier is **never** retried, repeated or cured by a
+later synchronization. A final-name occupant that was not the mechanism's is
+never recorded as the mechanism's object; B0-RA later finds it unaccounted and
+stops, which is the fail-closed direction. **Every** failure is an
+`inconclusive` stop under C-10: no retry of any step, no repair, no clean-up,
+no republication under this or another name, and no further command. The
+§9.5.3 stop transition follows. After an interruption of the mechanism or the
+repository host, any later discovery of these names is read-only and no X-3
+attempt is made (C-15).
 
 #### 9.5.2 Capture index — creation, advance and finalization (C-14)
 
 Each pass has its own capture index: a chain of **index states**. Each state
 is a separate file under the pass's capture root, named uniquely by a fixed
-rule from its state number, published once by the same temporary name → file barrier → atomic
-publication → directory barrier sequence as P-5 … P-8, and never modified,
-replaced or renamed afterwards (C-7). Each state carries `pass_id`, the pass's
-capture root (`⟨MI.capture_root_A⟩` or `⟨MI.capture_root_B⟩`),
-`PIN.capture_tool_sha256`, its own state number, the SHA-256 of the state it
-follows (none for the genesis state), a status (`open` or `final`) and the
-ordered list of `(capture_seq, record relative name, record SHA-256)` for every
-admitted record: complete, strictly increasing from 1 and gap-free, as C-5 and
-C-12 require.
+rule from its state number, published once by the same retained-alias
+sequence as P-5 … P-8 (staging name → content check → file barrier → exclusive
+final link → directory barrier → verification of both names), with the same
+publication states (§9.5.1), and never modified, replaced or renamed
+afterwards, with neither of its names ever removed (C-7). Each state carries
+`pass_id`, the pass's capture root (`⟨MI.capture_root_A⟩` or
+`⟨MI.capture_root_B⟩`), `PIN.capture_tool_sha256`, the operator account's
+numeric owner (`owner_uid`), its own state number, a **predecessor link** (none
+for the genesis state) giving the preceding state's final name, staging name,
+SHA-256 and shared inode (`st_dev`, `st_ino`), a status (`open` or `final`) and
+the ordered list of admitted records — for each, its `capture_seq`, final name,
+staging name, SHA-256 and shared inode — complete, strictly increasing from 1
+and gap-free, as C-5 and C-12 require. **The predecessor link is what admits
+the preceding state; a record's entry is what admits the record.** *F*, which
+has no successor, additionally records **its own pair**: its final name,
+staging name and shared inode — known before a byte of it is written, because
+its staging name is created first — and never its own digest.
 
 | Step | Requirement |
 |---|---|
-| X-1 | **Create.** After the pass's admission check (A0-08 for Pass A; for Pass B, B0-RA's successful retention verification of Pass A's root and then B0-08) and **before the pass's first host command**, the mechanism creates the pass's capture root exclusively (C-6) and publishes that pass's genesis state *I*-0 (`open`, no records). A failure is an `inconclusive` stop before any host act; with no durable *I*-0, there is no chain to finalize, no X-3 attempt is made (§9.5.3), no final state can satisfy X-4, and none is constructed to make it do so |
-| X-2 | **Advance.** After act *n*'s P-8 has succeeded, the mechanism publishes state *I*-*n* (`open`), listing records 1 … *n* and the SHA-256 of *I*-(*n* − 1). Act *n* + 1 does not begin until *I*-*n*'s directory barrier has succeeded. A record is **admitted** only once a durable open state lists it. If *I*-*n* cannot be published durably, record *n* is **not admitted**, and the pass stops under C-10 |
-| X-3 | **Finalize — one attempt.** When the pass ends — completed, or stopped for any reason, including a §11.1 refusal, a §11.2 stop or a C-10 capture failure — the mechanism makes **exactly one finalization attempt**, where the stop transition of §9.5.3 permits one. The attempt publishes one final state *F* (`final`) by the temporary name → file barrier → atomic publication → directory barrier sequence. *F* lists exactly the records of the last durable open state, carries that state's SHA-256, a terminal status (`completed`, or `stopped` with the `capture_seq`, step and reason of the stop), the relative name of every subdirectory the mechanism created under the capture root (C-6), and every unadmitted file it knows of (C-15), each by its **exact relative name under the capture root and its object type**, recorded as stated facts and not left to be inferred. *F* records no content digest for an unadmitted file, and none is computed for it later. The attempt is a local repository-host act and, after a stop, the **only** permitted write: it issues no host command, creates nothing but *F* (its temporary file and its final name), does not write, rename, move or remove any stream file, per-act record, earlier index state or unadmitted file, and is neither a retry nor a repair. **The finalization point is the successful directory barrier after *F*'s atomic publication**; reaching it is the attempt's success. A step of the attempt that does not succeed, including a failed or unconfirmed barrier, is the attempt's failure, which is not retried or cured. **When the attempt reaches either outcome, the pass's capture root becomes read-only (§9.5.3).** No attempt is made after an interruption of the capture mechanism or repository host (C-15). **The capture index SHA-256 stated in the handback is the SHA-256 of *F*** |
-| X-4 | **Validity.** *F* is admissible only if: it exists under its final name and its barriers succeeded; it is the only final state; its chain of preceding-state digests is intact back to the same pass's *I*-0; its record list is gap-free from 1 and equals that of the last durable open state; every listed record exists with the listed digest, and every stream file each record binds exists with the bound digest; and every published record under the pass's capture root is either listed in *F* or named in it as unadmitted. **A missing, stale, non-durable or internally inconsistent final index state is an `inconclusive` stop**: no row of that pass is a measured fact, and *F* is **never** written, completed or reconstructed afterwards — not from the transcript, from memory, from the intermediate states or by hand. A failed X-3 attempt is not repeated, and the resulting final state is not repaired or completed. **Pass B's B0-RA re-applies this check to Pass A's retained evidence** (§7.1): read-only, before Pass B's X-1, with the barrier-success condition taken from the Pass A handback rather than re-observed. B0-RA adds a bidirectional comparison (B0-RA condition 5): every name observed anywhere under Pass A's root must be accounted for by Pass A's *F*, and every name *F* accounts for — including every unadmitted name — must be present at its exact relative name with its expected object type. Neither X-4 nor B0-RA establishes the content of an unadmitted file: it has no recorded digest, so only its presence, relative name and object type can be verified. That re-application is verification only; it never writes, completes, repairs, adopts or reconstructs anything, and a failure stops Pass B at B0 |
+| X-1 | **Create.** After the pass's admission check (A0-08 for Pass A; for Pass B, B0-RA's successful retention verification of Pass A's root and then B0-08), and **before the pass's first host command**, the mechanism creates the pass's capture root exclusively (C-6) and publishes that pass's genesis state *I*-0 (`open`, no records) by the §9.5.1 sequence. **This first real publication is the pass's fail-closed capability test (§9.5.4).** *I*-0 is durable when both of its names have been verified; it is admitted later, by its successor. A failure is an `inconclusive` stop before any host act; with no durable *I*-0, there is no chain to finalize, no X-3 attempt is made (§9.5.3), no final state can satisfy X-4, and none is constructed to make it do so. Whatever X-1 created is retained and reported by exact relative name |
+| X-2 | **Advance.** After act *n*'s P-8 has succeeded, the mechanism publishes state *I*-*n* (`open`), listing records 1 … *n* — record *n* with both of its names and its shared inode — and carrying the predecessor link to *I*-(*n* − 1). Act *n* + 1 does not begin until both of *I*-*n*'s names have been verified. Only then are record *n* and *I*-(*n* − 1) **admitted**. If *I*-*n* cannot be published durably, record *n* is **not admitted** and its names are retained as unadmitted, and the pass stops under C-10 |
+| X-3 | **Finalize — one attempt.** When the pass ends — completed, or stopped for any reason, including a §11.1 refusal, a §11.2 stop or a C-10 capture failure — the mechanism makes **exactly one finalization attempt**, where the stop transition of §9.5.3 permits one. The attempt publishes one final state *F* (`final`) by the §9.5.1 retained-alias sequence. *F* lists exactly the records of the last durable open state, carries the predecessor link to that state (which admits it) and *F*'s own pair, a terminal status (`completed`, or `stopped` with the `capture_seq`, step and reason of the stop), the relative name of every subdirectory the mechanism created under the capture root (C-6), and every unadmitted file it knows of (C-15) — including every staging name and every staging/final name that no durable state admits — each by its **exact relative name under the capture root and its object type**, recorded as stated facts and not left to be inferred. *F* records no content digest for an unadmitted file, and none is computed for it later. The attempt is a local repository-host act and, after a stop, the **only** permitted write: it issues no host command, creates nothing but *F*'s two names (its staging name and, through the one exclusive final link, its final name), does not write, rename, move or remove any stream file, per-act record, earlier index state, staging name or unadmitted file, and is neither a retry nor a repair. **The finalization point is the successful verification of both of *F*'s names after the directory barrier that follows *F*'s exclusive final link**; reaching it is the attempt's success. A step of the attempt that does not succeed, including a failed or unconfirmed barrier, is the attempt's failure, which is not retried or cured. **When the attempt reaches either outcome, the pass's capture root becomes read-only (§9.5.3).** No attempt is made after an interruption of the capture mechanism or repository host (C-15). **The capture index SHA-256 stated in the handback is the SHA-256 of *F*** |
+| X-4 | **Validity.** *F* is admissible only if: it exists under its final name and its barriers succeeded; it is the only final state; its chain of preceding-state digests is intact back to the same pass's *I*-0; its record list is gap-free from 1 and equals that of the last durable open state; every listed record exists with the listed digest, and every stream file each record binds exists with the bound digest; every published record under the pass's capture root is either listed in *F* or named in it as unadmitted; and **every admitted record and index state, *F* included, is exactly its recorded pair**: both names present, regular, one inode equal to the `st_dev` and `st_ino` its admitting state records, owned by the recorded `owner_uid`, mode `0600`, link count two, and — read through the final name — the recorded size and digest. **The one alias exception** is that pair, and — for a staging/final pair *F* records as unadmitted — the two recorded names sharing one inode at link count two, checked by metadata only (accepted Option 1, `C-P5.0-R5-RP11-I1-R3-D2`; [decision record](project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md)). A missing pair member, an identity or type that differs from the record, a wrong link count, a third link, a cross-object alias, a name in two pairs or categories, a duplicate or ambiguous encoding or any unexpected name reaching an accounted inode makes *F* inadmissible. **A missing, stale, non-durable or internally inconsistent final index state is an `inconclusive` stop**: no row of that pass is a measured fact, and *F* is **never** written, completed or reconstructed afterwards — not from the transcript, from memory, from the intermediate states or by hand. A failed X-3 attempt is not repeated, and the resulting final state is not repaired or completed. **Pass B's B0-RA re-applies this check to Pass A's retained evidence** (§7.1): read-only, before Pass B's X-1, with the barrier-success condition taken from the Pass A handback rather than re-observed. B0-RA adds a bidirectional comparison (B0-RA condition 5): every name observed anywhere under Pass A's root must be accounted for by Pass A's *F*, and every name *F* accounts for — including every unadmitted name — must be present at its exact relative name with its expected object type. Neither X-4 nor B0-RA establishes the content of an unadmitted file: it has no recorded digest, so only its presence, relative name and object type can be verified. That re-application is verification only; it never writes, completes, repairs, adopts or reconstructs anything, and a failure stops Pass B at B0 |
 
 #### 9.5.3 Interruption, stops and unadmitted files (C-15)
 
@@ -990,9 +1146,14 @@ C-12 require.
   session may close — completes P-1 … P-8 and X-2 before the next one is
   issued.
 * **Unadmitted files.** Any file under the pass's capture root that is a
-  temporary file, a stream file not bound by an admitted record, a record not
-  admitted under X-2, an index state outside *F*'s chain, or a file left by a
-  failed X-3 attempt is **unadmitted**. It is retained unmodified (C-8),
+  stream file not bound by an admitted record, a record not admitted under
+  X-2, an index state outside *F*'s chain, a staging name or a staging/final
+  pair of any publication that no durable index state admits — whichever
+  §9.5.1 state it stopped in — or a name left by a failed X-3 attempt is
+  **unadmitted**. A publication whose P-5 creation failed before any entry
+  existed, or refused an occupied staging name, left no object of the
+  mechanism's and nothing is recorded for it. An unadmitted object is retained
+  unmodified (C-8),
   recorded in *F* and reported in the handback by its exact relative name and
   object type (X-3, C-12), and never completed, renamed, deleted, adopted,
   digested to make it evidence, or used as evidence. B0-RA later verifies its
@@ -1010,21 +1171,35 @@ none of them states a different one.
    mechanism and the repository host both remain available and the pass has a
    durable genesis state *I*-0, the mechanism makes **one** X-3 finalization
    attempt (§9.5.2). It is the **only** write permitted under the pass's
-   capture root after the failure or refusal. It creates only *F*, alters no
-   stream file, per-act record, earlier index state or unadmitted file, issues
-   no host command, and is not a retry or a repair.
+   capture root after the failure or refusal. It creates only *F*'s staging
+   and final names, alters or removes no stream file, per-act record, earlier
+   index state, staging name or unadmitted file, issues no host command, and
+   is not a retry or a repair. It may **account** for names already known to
+   have been created; it never completes, links or repairs a publication.
 3. **One outcome.** The attempt **succeeds** when it reaches the X-3
-   finalization point: the successful directory barrier after *F*'s atomic
-   publication. It **fails** at the first of its steps that does not succeed,
+   finalization point: the successful verification of both of *F*'s names
+   after the directory barrier that follows *F*'s exclusive final link. It **fails** at the first of its steps that does not succeed,
    including a failed or unconfirmed file or directory barrier, or an
    interruption during the attempt. A failed attempt, including a failed
    finalization barrier, is not retried or cured, and the resulting final
    state is not repaired, completed or reconstructed; X-4 then decides
    admissibility.
-4. **Read-only state.** The pass's capture root becomes read-only when the
-   attempt reaches either outcome. From then on the operator may only list
+4. **Read-only state — a behavioural terminal seal.** The pass's capture root
+   becomes read-only when the attempt reaches either outcome. *Read-only* in
+   this contract means a **behavioural terminal seal**, and nothing more: the
+   mechanism enters a terminal state, releases every file and directory
+   descriptor it holds, and from then on **every writing operation it offers
+   refuses** without touching the filesystem. **No `chmod` or other permission
+   change is performed**, so the C-7 modes (`0700`, `0600`) are unchanged. **The
+   seal is not operating-system write protection.** It does not stop another
+   process of the operator's account, or root, from writing under the root; it
+   relies on the operator's conduct under this prompt and on the repository
+   host's access boundary, under which the `0700` root is writable only by the
+   operator's account and by root. From then on the operator may only list
    names and re-derive digests under it for the handback and the review.
    Nothing there is written, moved or removed, and the stop is not repaired.
+   A later change by anyone would not be prevented by the seal; B0-RA's check
+   (§7.1) is what detects, at the moment of that check, the changes it can.
 5. **No attempt after an interruption.** If the capture mechanism or the
    repository host was interrupted (C-15), no X-3 attempt is possible, before
    or after recovery. The capture root is read-only from the interruption, and
@@ -1041,6 +1216,37 @@ root is already read-only from the end of Pass A and is never written, even by
 Pass B's X-3 attempt. A B0-RA stop precedes Pass B's X-1: no
 `⟨MI.capture_root_B⟩` exists, so there is no *I*-0, no X-3 attempt and
 nothing to make read-only, and no host command has been issued.
+
+#### 9.5.4 Capability test — the first real X-1 publication (C-P5.0-R5-RP11-I1-R3)
+
+**There is no separate mutating publication probe.** The I1-R1 pre-admission
+capability check, its probe directories (`MI.publication_probe_directory_A`
+and `_B`) and its clean-up are withdrawn. Each pass's **first real
+publication — its X-1 genesis state, published by the exact §9.5.1 sequence
+before any host command** — is the fail-closed test that the route works in
+that mechanism process, on that capture root's filesystem, at that moment.
+
+* **Success** is the X-1 genesis publication reaching verification of both of
+  its names. Only then may the pass's first host command be issued.
+* **Failure** of any step — the root or a subdirectory not created or not
+  made durable; the staging name refused or not verified; the write or its
+  content check; the file barrier; the exclusive final link refused, reported
+  as failed or not confirmed; the directory barrier; or the verification of
+  both names — is an `inconclusive` stop of that pass **before any host
+  command**, with exactly the bounded, classified residue and stop semantics
+  of every later publication (§9.5.1, §9.5.3): no durable *I*-0, so no X-3
+  attempt; whatever X-1 created is retained unmodified and reported in the
+  pass handback by exact relative name and object type as an admission result,
+  never removed, completed, linked or repaired; and **nothing is retried**, in
+  that process or another, with another location or with a weaker rule. Any
+  different mechanism needs a new requirements proposal and independent review.
+* **What it establishes** is only that the route worked for that X-1, in that
+  process, at that moment. It is not evidence that any later capture will
+  succeed; each later publication is checked by its own steps.
+
+No reviewed record yet establishes that the §9.5.1 route works in the
+repository-host runtime that will operate the passes; that remains part of
+RP-11's review, and the first X-1 of each pass decides it fail-closed.
 
 ---
 
@@ -1091,7 +1297,18 @@ nothing to make read-only, and no host command has been issued.
    expected object type; for an unadmitted file that is presence, not content.
    If B0-RA fails, nothing under it is repaired, completed, restored or
    re-created, and no absent or mistyped name is re-created or replaced; the
-   failure is reported and Pass B does not start.
+   failure is reported and Pass B does not start. A staging name, or a
+   staging/final pair, that no durable index state admits (§9.5.1) is retained
+   like any other unadmitted file; it is never linked, re-linked, removed,
+   renamed or republished. **An admitted object's staging name is part of its
+   retained evidence, not a temporary**: it is never unlinked, renamed or
+   cleaned up. "Read-only" is the §9.5.3 behavioural terminal seal; no
+   permission is changed to roll anything back.
+10. **No publication probe (§9.5.4).** There is no probe, probe directory
+   or probe clean-up. A failed X-1 genesis publication — the capability test —
+   leaves its residue under the pass's own capture root, where it is retained
+   and reported under item 2 and item 9; the operator removes nothing, and
+   nothing in RP-11 unlinks, renames or cleans up any name.
 
 ---
 
@@ -1128,8 +1345,8 @@ escalation flag or equivalent.
 
 | Band | Stop on |
 |---|---|
-| Every band | any RP-11 capture failure under §9.5 C-10: a command not started; a stream not captured in full or not closed; a stream over its declared maximum; a digest not computed; a failed or unconfirmed file barrier on a stream file, record or index state; a failed or unconfirmed directory barrier after creating the capture root or a subdirectory, or after publishing a stream file, record or index state; an atomic publication that would replace an existing name; an index state not advanced (X-2); or a repository-host interruption (C-15). The act is `inconclusive`, and nothing is retried, repaired or re-issued. The §9.5.3 stop transition then applies in order: no further host command; if the capture mechanism and the repository host remain available, one X-3 finalization attempt as the only write; the pass's capture root read-only once that attempt succeeds at its finalization point or fails. After an interruption of the mechanism or the repository host (C-15), no attempt is made and X-4 applies directly. A missing, stale, non-durable or inconsistent final index state (X-4) makes the pass's capture evidence `inconclusive` |
-| A0 / B0 / B1 | any pin mismatch; a non-empty porcelain status; a dry-run line that differs; any failed or skipped classifier test; a missing A-1 … A-6 or MI input, including a missing independent MD-5 acceptance record; A0-08 not satisfied (RP-11 absent, its digest different, `⟨MI.capture_root_A⟩` already present, or Pass A's genesis index state not durably published under X-1); B0-RA not satisfied (RP-11 absent; `⟨MI.pass_a_handback⟩` missing or its digest different; the Pass A handback recording no successful X-3 finalization, no valid X-4 or no final index state; `⟨MI.capture_root_A⟩` not exactly the recorded root; the root or the named final index state absent; the re-derived capture index SHA-256 different; X-4 failing for Pass A's retained chain, records or bound stream files; in the complete recursive comparison of condition 5, a name observed under the root not accounted for by Pass A's final state, a name that final state accounts for — including an unadmitted name — absent at its exact relative name, an object-type mismatch, a duplicate or ambiguous name, a path alias, a name resolving outside the root or an unexpected object type; or the enumeration or either direction of the comparison not completed) — a fail-closed stop before B0-08, so no `⟨MI.capture_root_B⟩` is created and no Pass B host command is issued; B0-08 attempted without a successful B0-RA; B0-08 not satisfied (RP-11 absent, its digest different, `⟨MI.capture_root_B⟩` already present, equal to `⟨MI.capture_root_A⟩`, within it or containing it, or Pass B's genesis index state not durably published under X-1); any act that would write, move, rename, truncate, complete, repair, adopt, delete or change the permissions of anything under `⟨MI.capture_root_A⟩`, including during B0-RA, or use any of it as Pass B evidence; a current-state record that does not name this prompt |
+| Every band | any RP-11 capture failure under §9.5 C-10: a command not started; a stream not captured in full or not closed; a stream over its declared maximum; a digest not computed; a failed or unconfirmed file barrier on a stream file, record or index state; a failed or unconfirmed directory barrier after creating the capture root or a subdirectory, or after publishing a stream file, record or index state; a staging name that is occupied, cannot be created, or is not a regular, operator-owned, mode-`0600`, link-count-one inode on the capture root's device; a write whose content check finds a size or digest other than the record's; an exclusive final link refused because the final name is occupied, reported as failed, or not confirmed; a pair verification after the directory barrier that fails; an index state not advanced (X-2); or a repository-host interruption (C-15). The act is `inconclusive`, and nothing is retried, repaired or re-issued. The §9.5.3 stop transition then applies in order: no further host command; if the capture mechanism and the repository host remain available, one X-3 finalization attempt as the only write; the pass's capture root read-only once that attempt succeeds at its finalization point or fails. After an interruption of the mechanism or the repository host (C-15), no attempt is made and X-4 applies directly. A missing, stale, non-durable or inconsistent final index state (X-4) makes the pass's capture evidence `inconclusive` |
+| A0 / B0 / B1 | any pin mismatch; a non-empty porcelain status; a dry-run line that differs; any failed or skipped classifier test; a missing A-1 … A-6 or MI input, including a missing independent MD-5 acceptance record; A0-08 not satisfied (RP-11 unmet, its digest different, `⟨MI.capture_root_A⟩` already present, or Pass A's X-1 genesis publication — the §9.5.4 capability test — not reaching verification of both of its names); B0-RA not satisfied (RP-11 absent; `⟨MI.pass_a_handback⟩` missing or its digest different; the Pass A handback recording no successful X-3 finalization, no valid X-4 or no final index state; `⟨MI.capture_root_A⟩` not exactly the recorded root; the root or the named final index state absent; the re-derived capture index SHA-256 different; X-4 failing for Pass A's retained chain, records or bound stream files; in the complete recursive comparison of condition 5, a name observed under the root not accounted for by Pass A's final state, a name that final state accounts for — including an unadmitted name — absent at its exact relative name, an object-type mismatch, a duplicate or ambiguous name, a path alias other than a recorded staging/final pair, an admitted pair whose members, inode, owner, mode, link count or digest differ from Pass A's durable state, an unadmitted recorded pair whose members are not one inode at link count two, a name resolving outside the root or an unexpected object type; or the enumeration or either direction of the comparison not completed) — a fail-closed stop before B0-08, so no `⟨MI.capture_root_B⟩` is created and no Pass B host command is issued; B0-08 attempted without a successful B0-RA; B0-08 not satisfied (RP-11 absent, its digest different, `⟨MI.capture_root_B⟩` already present, equal to `⟨MI.capture_root_A⟩`, within it or containing it, or Pass B's own X-1 genesis publication — its §9.5.4 capability test — not reaching verification of both of its names); `⟨MI.pass_a_handback⟩` without exactly one well-formed `rp11-capture-binding/1` block (§14); any act that would write, move, rename, truncate, complete, repair, adopt, delete or change the permissions of anything under `⟨MI.capture_root_A⟩`, including during B0-RA, or use any of it as Pass B evidence; a current-state record that does not name this prompt |
 | A1 | a sync exit other than 0; a digest that differs; any target-identity mismatch; `R` present; any of the seven identities present; `fb-evidence-s4.service` loaded; `fb_evidence_p5_0` or `freedom_migration_coordinator` present; a V-item differing from its expected state; an unreadable or unparseable host fact; an A1-C value that differs from the pinned statement (reported, never reconciled); an A1-Z value that differs from its earlier Pass A value |
 | B2–B4 | any `REFUSED —` line; a non-zero exit; `stopped at` other than `—`; residue other than `none`; `configuration` other than `no unresolved risk`; `cleanup skipped` > 0; `artifact eligible: False`; `run unsettled: True`; a run record that is not written, read back and validated |
 | B4a | a producer exit other than 0; an `evidence_cli` refusal; an artifact that does not read back |
@@ -1143,7 +1360,9 @@ escalation flag or equivalent.
 **Nothing is retried, repeated or re-attempted after a stop**, including a
 harness run, a producer, an `fsync` injection, a rehearsal, a reboot, a
 synchronization, a command whose capture failed, a failed capture
-durability barrier (§9.5 C-10), a failed X-3 finalization attempt (§9.5.3), or
+durability barrier (§9.5 C-10), a failed or unconfirmed exclusive final link
+or pair verification (§9.5.1), a failed X-1 genesis publication (§9.5.4), a failed X-3
+finalization attempt (§9.5.3), or
 a failed or incomplete B0-RA retention verification (§7.1), including a
 failed or incomplete enumeration or name-set comparison,
 unless a later written
@@ -1244,7 +1463,44 @@ updates `docs/review/Handover information`, `docs/project-management/status.md`
 and implementation-plan §20 **only** to what actually happened. It updates the
 RAID, decision and change registers only where an event occurred.
 
-```markdown
+**The capture binding block (proposed by C-P5.0-R5-RP11-I1-R1).** A pass whose
+X-1 created its capture root states its capture binding in **exactly one**
+fenced block of the fixed form `rp11-capture-binding/1`, shown in the template
+below. A pass whose X-1 did not create its root carries **no** block and says
+so in its outcome; a Pass A handback without a block gives B0-RA nothing to
+verify, and Pass B is not admitted. The rules are exact:
+
+* **Encoding.** The handback is UTF-8 with LF line endings. It is authenticated
+  by its SHA-256 (`⟨MI.pass_a_handback⟩`) before anything in it is parsed.
+* **Single occurrence.** Exactly one line of the handback equals the opening
+  fence `` ```rp11-capture-binding `` exactly, and that fence text occurs
+  nowhere else in the file, not even quoted. Zero or more than one is a
+  refusal.
+* **Body.** The seven lines immediately after the opening fence are, in this
+  order and with no other line between them: `format`, `pass_id`,
+  `capture_root`, `x3_outcome`, `x4_validity`, `final_state`,
+  `capture_index_sha256`. Each is the key, a colon, **one** ASCII space and a
+  non-empty value with no leading or trailing whitespace and no carriage
+  return. The line immediately after the seventh is exactly `` ``` ``. A
+  missing, extra, reordered, repeated or differently spaced key is a refusal.
+* **Values.** `format` is exactly `rp11-capture-binding/1`. `pass_id` is the
+  pass's identifier (`C-P5.0-R5-OP1-A` or `C-P5.0-R5-OP1-B`), matching
+  `\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z`. `capture_root` is the pass's capture
+  root **byte for byte**: absolute, no trailing slash, and every component
+  matching `\A[A-Za-z0-9_-][A-Za-z0-9._-]{0,254}\Z`, at most 4096 bytes, with
+  no normalization applied. `x3_outcome` is one of `succeeded`, `failed`,
+  `not-made`. `x4_validity` is `valid` or `inconclusive`. `final_state` is
+  `index/NNNNNN.final.json` (six digits, state number at least 1) or `none`.
+  `capture_index_sha256` is 64 lowercase hexadecimal characters or `none`.
+* **What B0-RA reads.** After authenticating the handback digest, **B0-RA
+  parses only this block**, and no other line of the handback. It requires
+  `pass_id: C-P5.0-R5-OP1-A`, `x3_outcome: succeeded`, `x4_validity: valid`,
+  and a `final_state` and `capture_index_sha256` other than `none`; anything
+  else is a fail-closed B0 stop. The prose lines of §2 repeat the same values
+  for the reader and are never parsed. A disagreement between the prose and
+  the block is a handback defect for review; B0-RA does not resolve it.
+
+````markdown
 # Claude handback — C-P5.0-R5-OP1-<A|B>; P5.0-R5 feasibility evidence — <YYYY-MM-DD>
 
 Evidence class: FEASIBILITY — harness facsimile — oracle-test. Not production-code evidence.
@@ -1256,6 +1512,19 @@ pending independent review and maintainer decision. <If B6 did not complete: "MD
 satisfied; P5.0-R5 cannot close on this pass.">
 
 ## 2. Measured facts   (observed in this pass; every value from an admitted RP-11 capture record)
+<Only if this pass's X-1 created its capture root; exactly once in the handback:>
+```rp11-capture-binding
+format: rp11-capture-binding/1
+pass_id: <C-P5.0-R5-OP1-A | C-P5.0-R5-OP1-B>
+capture_root: <this pass's capture root, byte for byte>
+x3_outcome: <succeeded | failed | not-made>
+x4_validity: <valid | inconclusive>
+final_state: <index/NNNNNN.final.json | none>
+capture_index_sha256: <64 lowercase hex | none>
+```
+X-1 genesis publication — the capability test (§9.5.4; an admission result, not a measured
+fact): <both names verified at <client UTC> | stopped at <stage>: <classification>; publication
+state <§9.5.1 state>; residue retained <none | each exact relative name and object type>>.
 Capture root (this pass's own): <A: MI.capture_root_A | B: MI.capture_root_B |
 B: not created (stopped at B0-RA)>.
 <B only: B0-RA retention verification (§7.1; an admission result, not a measured fact) against
@@ -1278,8 +1547,9 @@ capture index SHA-256 (of the final state, §9.5.2 X-3): <64 hex | none>; termin
 <reason>>. Index states: I-0 … I-<n>, then final. Admitted records: <n>, seq 1–<n>, no gaps.
 Subdirectories created by the mechanism (X-3): <none | relative names>.
 Unadmitted files (§9.5.3): <none | each by exact relative name and object type, as the final
-state records it>. Their content is retained but not digested and not verified; they are not
-evidence.
+state records it, staging names and staging/final pairs included>. Their content is retained but
+not digested and not verified; they are not evidence. Every admitted record and index state is a
+retained staging/final pair on one inode; no name was unlinked, renamed or cleaned up.
 | # | Band/step | capture_seq | capture_record_sha256 | Exact argv | run_as | UTC start–end | Exit | stdout_sha256 | stderr_sha256 | Observed (safe excerpt) | Expected | Classification |
 
 ## 3. Inferences   (each marked as inference and naming the facts it rests on)
@@ -1315,7 +1585,7 @@ secret file read or transferred.
 ## 12. What this does not establish   (§15, restated)
 
 ## 13. Proposed independent-review focus
-```
+````
 
 ---
 
@@ -1349,7 +1619,14 @@ It **does not**:
 ---
 
 **Draft reminder:** this document is an amended draft for Codex's independent
-pre-execution re-review. It authorizes nothing. Pass A is not admissible until
+pre-execution re-review. It authorizes nothing. Option 1 is the accepted policy,
+but these exact amended requirements bytes and the RP-11 implementation remain
+unaccepted; the accepted R5 bytes (`5e06a388…`) remain the baseline until these
+exact bytes are accepted. There
+is no separate publication probe: each pass's X-1 genesis publication is its
+fail-closed capability test, before any host command (§9.5.4). Neither pass is
+executable while the C-11 synchronization route and the launcher environment
+are undecided in reviewed bytes. Pass A is not admissible until
 RP-11, A-6, `MI.pinned_commit` and `MI.capture_root_A` are met (and its A1-C
 steps need RP-10). Pass B is not admissible until RP-1 through RP-12 are met,
 its own distinct `MI.capture_root_B` and `MI.pass_a_handback` are supplied,

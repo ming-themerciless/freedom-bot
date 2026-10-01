@@ -15,6 +15,28 @@ with inert arguments.
 * `RecordingReadOnlyFilesystem` wraps the verifier's read-only filesystem, logs
   every call and can run a mutation hook at a chosen call, which is how the
   race tests change the tree mid-verification.
+
+## Descriptors the suite leaves behind — C-P5.0-R5-RP11-I1-R3-R1
+
+Three things this suite does deliberately leave a descriptor open in the pytest
+process, and none of them is a production release defect:
+
+* an **interruption** models the mechanism's process ending, so the mechanism
+  makes no further call, not even a close (C-15); a real crash has the kernel
+  close them, and the suite's process does not end;
+* a test that inspects an **open session** never ends it, and ending it would
+  add the X-3 write the test is not about; and
+* the fault modes `"fail"` on a close stage and `"after"` on an opening stage
+  withhold a real close or discard the descriptor the real call returned.
+
+Before this was tracked the RP-11 capture suite left 618 descriptors open, which
+exhausted a 1024 soft limit in one whole-package process (RP11-I1-R3-2).
+`FaultFilesystem` therefore records every descriptor the real filesystem hands
+out through it, with the identity it had, and `release_suite_descriptors`
+closes the ones still open **after** the test body — outside `_invoke`, so the
+"no call after an interruption" log is unchanged — and only where the number
+still refers to the recorded object. The autouse fixture
+`rp11_release_descriptors` calls it; each RP-11 test module imports it.
 """
 from __future__ import annotations
 
@@ -26,7 +48,9 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterator
+
+import pytest
 
 from tools.phase_5_0_evidence.execution.boundary import StreamCaptureLauncher, StreamCaptureResult
 from tools.phase_5_0_evidence.execution.capture_mechanism import (
@@ -64,14 +88,27 @@ class FixedClock:
         return self._moment
 
 
+#: Every `FaultFilesystem` created since the last release, so the autouse
+#: fixture can close what each one still holds.
+_TRACKED: list["FaultFilesystem"] = []
+
+#: The methods whose real call returns a new descriptor.
+_OPENING_METHODS = frozenset({"open_directory", "create_exclusive", "open_read"})
+
+
 class FaultFilesystem:
     """The real filesystem, with one stage failed or interrupted on purpose.
 
     `mode` is `"fail"` (raise `EIO` instead of the call), `"after"` (make the
     call, then raise `EIO` — an error reported after the effect), `"exists"`
     (raise `EEXIST` instead of the call) or `"interrupt"` (raise
-    `CaptureInterrupted` instead of the call).
+    `CaptureInterrupted` instead of the call). For `write_all` only, three
+    **false-success** modes write the wrong bytes and report success, as a
+    lying or partial write would: `"short"` (all but the last byte), `"empty"`
+    (nothing) and `"corrupt"` (the same length, first byte changed).
     """
+
+    FALSE_WRITES = ("short", "empty", "corrupt")
 
     def __init__(
         self,
@@ -91,6 +128,10 @@ class FaultFilesystem:
         self.triggered = False
         self._seen = 0
         self._stat_path_override = stat_path_override
+        #: Descriptor number → the `(st_dev, st_ino)` it referred to when the
+        #: real call returned it. Removed when a real close of it succeeds.
+        self.held: dict[int, tuple[int, int]] = {}
+        _TRACKED.append(self)
 
     def stages(self) -> list[str]:
         return [stage for _, stage in self.calls]
@@ -108,9 +149,31 @@ class FaultFilesystem:
                 if self.mode == "exists":
                     raise FileExistsError(errno.EEXIST, "injected")
                 if self.mode == "after":
-                    operation()
+                    self._hold(method, operation())
                 raise OSError(errno.EIO, "injected")
-        return operation()
+        return self._hold(method, operation())
+
+    def _hold(self, method: str, result):  # type: ignore[no-untyped-def]
+        if method in _OPENING_METHODS and isinstance(result, int):
+            facts = os.fstat(result)
+            self.held[result] = (facts.st_dev, facts.st_ino)
+        return result
+
+    def release_held(self) -> None:
+        """Close every descriptor still held, only if it is still the same object.
+
+        Called after the test body, never through `_invoke`. A number whose
+        object no longer matches was closed elsewhere and may have been reused,
+        so it is left alone rather than closed.
+        """
+        held, self.held = self.held, {}
+        for fd, identity in held.items():
+            try:
+                facts = os.fstat(fd)
+            except OSError:
+                continue
+            if (facts.st_dev, facts.st_ino) == identity:
+                os.close(fd)
 
     def open_directory(self, dir_fd, name, *, stage):  # type: ignore[no-untyped-def]
         return self._invoke("open_directory", stage, lambda: self.inner.open_directory(dir_fd, name, stage=stage))
@@ -132,13 +195,21 @@ class FaultFilesystem:
     def create_exclusive(self, dir_fd, name, mode, *, stage):  # type: ignore[no-untyped-def]
         return self._invoke("create_exclusive", stage, lambda: self.inner.create_exclusive(dir_fd, name, mode, stage=stage))
 
-    def create_unnamed(self, dir_fd, mode, *, stage):  # type: ignore[no-untyped-def]
-        return self._invoke("create_unnamed", stage, lambda: self.inner.create_unnamed(dir_fd, mode, stage=stage))
-
     def open_read(self, dir_fd, name, *, stage):  # type: ignore[no-untyped-def]
         return self._invoke("open_read", stage, lambda: self.inner.open_read(dir_fd, name, stage=stage))
 
     def write_all(self, fd, data, *, stage):  # type: ignore[no-untyped-def]
+        if self.mode in self.FALSE_WRITES and not self.triggered and stage == self.stage:
+            self.calls.append(("write_all", stage))
+            self.triggered = True
+            wrong = {
+                "short": data[:-1],
+                "empty": b"",
+                "corrupt": bytes([data[0] ^ 0xFF]) + data[1:],
+            }[self.mode]
+            if wrong:
+                self.inner.write_all(fd, wrong, stage=stage)
+            return None
         return self._invoke("write_all", stage, lambda: self.inner.write_all(fd, data, stage=stage))
 
     def digest(self, fd, *, stage):  # type: ignore[no-untyped-def]
@@ -147,11 +218,32 @@ class FaultFilesystem:
     def fsync(self, fd, *, stage):  # type: ignore[no-untyped-def]
         return self._invoke("fsync", stage, lambda: self.inner.fsync(fd, stage=stage))
 
-    def link_unnamed(self, fd, dir_fd, name, *, stage):  # type: ignore[no-untyped-def]
-        return self._invoke("link_unnamed", stage, lambda: self.inner.link_unnamed(fd, dir_fd, name, stage=stage))
+    def link_exclusive(self, dir_fd, source, destination, *, stage):  # type: ignore[no-untyped-def]
+        return self._invoke(
+            "link_exclusive",
+            stage,
+            lambda: self.inner.link_exclusive(dir_fd, source, destination, stage=stage),
+        )
 
     def close(self, fd, *, stage):  # type: ignore[no-untyped-def]
-        return self._invoke("close", stage, lambda: self.inner.close(fd, stage=stage))
+        result = self._invoke("close", stage, lambda: self.inner.close(fd, stage=stage))
+        self.held.pop(fd, None)
+        return result
+
+
+def release_suite_descriptors() -> None:
+    """Close what every tracked `FaultFilesystem` still holds, then forget them."""
+    tracked = list(_TRACKED)
+    _TRACKED.clear()
+    for filesystem in tracked:
+        filesystem.release_held()
+
+
+@pytest.fixture(autouse=True)
+def rp11_release_descriptors() -> Iterator[None]:
+    """After each test, release the descriptors the suite left open on purpose."""
+    yield
+    release_suite_descriptors()
 
 
 @dataclass
@@ -258,7 +350,9 @@ def open_session(
             tool_sha256=TOOL_SHA256,
             policy=host.policy(*others),
         ),
-        filesystem=filesystem if filesystem is not None else PosixCaptureFilesystem(),
+        # A `FaultFilesystem` with no stage is the real filesystem, unchanged,
+        # with the descriptors it hands out tracked for release after the test.
+        filesystem=filesystem if filesystem is not None else FaultFilesystem(),
         launcher=launcher if launcher is not None else ScriptedLauncher(),
         clock=FixedClock(),
         verifier_filesystem=verifier_filesystem,

@@ -1,5 +1,39 @@
 # Unresolved Decisions
 
+**Current static-launcher disposition, 2026-10-01.** Peter Duscha accepted the
+D2-R2 design after independent Codex review and decided LD-9 option (i): Codex
+must independently decode the actual `.text` at D9-2 using its own decoder or
+byte-by-byte manual derivation prepared without reading XD's table. Exercising
+XD alone is not sufficient. `R4-D2-R1-1` is Closed as remediated at the design
+level. LD-7 and LD-8 remain decided as recorded. PO-9 and PO-14 remain open;
+no implementation or operational authority exists, and a separate M-14/I-7
+assignment is required.
+[Acceptance and LD-9 decision](../review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md).
+
+**Current R3 disposition, 2026-09-29.** Peter Duscha accepted the bounded
+`PosixFilesystem.create_file`/`openat` descriptor-release remediation after
+independent review with no finding. Manifest version 26 and digest
+`526dd446…` are accepted review inputs only. RP-11 remains unwired and unmet;
+C-11 and the exact pinned launcher environment remain unresolved.
+[Acceptance record](../review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release-acceptance.md).
+
+**Current RP-11 alignment disposition, 2026-09-29.** Peter Duscha accepted
+Codex's independent review of the corrected Option-1 documentation alignment.
+`RP11-I1-2`, `RP11-I1-R2-1` and `RP11-I1-R1-1` are Closed as superseded by the
+accepted I1-R3 retained-alias design. This accepts no RP-11 implementation or
+operational authority; RP-11 remains unwired and unmet.
+[Acceptance record](../review/project-review-2026-09-29-p5-r5-rp11-option-1-alignment-acceptance.md).
+
+**Current RP-11 disposition, 2026-09-28.** Peter Duscha accepted Option 1 for
+the recorded unadmitted staging/final pair: metadata-only verification of the
+two fixed names sharing one regular-file inode at link count two, with no third
+name, no content read or digest and no admission. `RP11-I1-R3-1` is Closed by
+that decision; `RP11-I1-R3-2` and `RP11-I1-R3-3` are Closed as remediated after
+Codex's independent R2 review. Historical proposal and review text below that
+calls the policy pending is superseded. RP-11 itself remains unwired and unmet,
+and no operational authority or package-gate change follows.
+[Decision record](../review/project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md).
+
 **Current MD-4 disposition, 2026-09-23.** Peter Duscha explicitly accepted
 `R-5.0-10` through `R-5.0-16` as active residual risks on their stated terms.
 `R-5.0-12` through `R-5.0-16` now enter the current RAID register. Recovery

@@ -17,6 +17,34 @@ stage, deterministically, while every other call still reaches the real
 filesystem. That is how the suite proves each stage's failure behaviour without
 a production path that has a test mode.
 
+## Retained-alias publication (C-P5.0-R5-RP11-I1-R3)
+
+A record or an index state is published by `publish` as one inode with two
+names, in this order, each step once and only after the previous one succeeded:
+
+1. **create** the staging name exclusively, relative to the destination
+   directory's descriptor: `O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW|O_CLOEXEC`, mode
+   `0600`. An occupied staging name refuses and is neither read nor removed;
+2. **verify** the bound inode: regular, owned by the effective UID, exactly
+   `0600`, link count one, on the capture root's device;
+3. **write** every byte through a checked loop, then **verify the content** by
+   reopening the staging name no-follow, read-only, and requiring the bound
+   inode, the exact size and the exact SHA-256 — a short or falsely reported
+   write is caught here;
+4. the **file barrier** on the bound descriptor;
+5. **publish**: exactly one `descriptors.link_named_exclusive` from the staging
+   name to the final name. The kernel's `EEXIST` is the non-replacement; the
+   final name is not pre-checked;
+6. the **directory barrier** on the containing directory;
+7. **verify the pair**: both names opened no-follow, read-only, each the bound
+   inode, regular, owner, `0600`, device, link count two, exact size and
+   SHA-256; then 8. **close**.
+
+Nothing on this path — and nothing in this module — unlinks, renames, repairs,
+adopts or removes a name. `PublicationState` names what a publication has
+reached, so a failure or interruption leaves an exactly classified state that
+no later call can advance.
+
 ## What a failure means here
 
 An `OSError` from a stage becomes `StoreFailure(stage, classification)`. The
@@ -28,8 +56,9 @@ creating call failed and a no-follow `lstat` of that exact name shows a regular
 file whose identity is the one this store was creating. A creating call that
 failed before any entry existed leaves no known name, so it is never recorded as
 an unadmitted object (§9.5.3). An entry that already existed at a name the store
-was about to create — `EEXIST` — is not this store's and is never recorded:
-B0-RA then finds it unaccounted and stops, which is the fail-closed direction.
+was about to create — `EEXIST`, a staging name or a final name — is not this
+store's and is never recorded: B0-RA then finds it unaccounted and stops, which
+is the fail-closed direction.
 
 ## Interruption
 
@@ -65,7 +94,8 @@ import hashlib
 import os
 import stat
 from dataclasses import dataclass, field
-from typing import Protocol
+from enum import Enum
+from typing import Callable, Protocol
 
 from ..capture_contract import (
     DIRECTORY_MODE,
@@ -75,9 +105,10 @@ from ..capture_contract import (
     parse_capture_root,
     roots_overlap,
     sha256_hex,
+    staging_name,
 )
 from ..errors import HarnessError
-from .descriptors import link_unnamed_descriptor
+from .descriptors import link_named_exclusive
 
 #: The locations C-6 forbids for every pass. The worktree is added per
 #: repository by `RootPolicy.for_repository`.
@@ -97,6 +128,7 @@ STORE_FAILURES = frozenset(
         "write-failed",
         "digest-failed",
         "size-mismatch",
+        "content-mismatch",
         "file-barrier-failed",
         "directory-barrier-failed",
         "publication-exists",
@@ -141,8 +173,6 @@ class CaptureFilesystem(Protocol):
 
     def create_exclusive(self, dir_fd: int, name: str, mode: int, *, stage: str) -> int: ...
 
-    def create_unnamed(self, dir_fd: int, mode: int, *, stage: str) -> int: ...
-
     def open_read(self, dir_fd: int, name: str, *, stage: str) -> int: ...
 
     def write_all(self, fd: int, data: bytes, *, stage: str) -> None: ...
@@ -151,7 +181,7 @@ class CaptureFilesystem(Protocol):
 
     def fsync(self, fd: int, *, stage: str) -> None: ...
 
-    def link_unnamed(self, fd: int, dir_fd: int, name: str, *, stage: str) -> None: ...
+    def link_exclusive(self, dir_fd: int, source: str, destination: str, *, stage: str) -> None: ...
 
     def close(self, fd: int, *, stage: str) -> None: ...
 
@@ -190,17 +220,17 @@ class PosixCaptureFilesystem:
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
         return os.open(name, flags, mode, dir_fd=dir_fd)
 
-    def create_unnamed(self, dir_fd: int, mode: int, *, stage: str) -> int:
-        return os.open(".", os.O_TMPFILE | os.O_WRONLY | os.O_CLOEXEC, mode, dir_fd=dir_fd)
-
     def open_read(self, dir_fd: int, name: str, *, stage: str) -> int:
         flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC
         return os.open(name, flags, dir_fd=dir_fd)
 
     def write_all(self, fd: int, data: bytes, *, stage: str) -> None:
+        """A checked loop: every byte, or an error. A zero-byte write is an error."""
         view = memoryview(data)
         while view:
             written = os.write(fd, view)
+            if not isinstance(written, int) or written <= 0 or written > len(view):
+                raise OSError("write made no progress")
             view = view[written:]
 
     def digest(self, fd: int, *, stage: str) -> tuple[str, int]:
@@ -216,8 +246,8 @@ class PosixCaptureFilesystem:
     def fsync(self, fd: int, *, stage: str) -> None:
         os.fsync(fd)
 
-    def link_unnamed(self, fd: int, dir_fd: int, name: str, *, stage: str) -> None:
-        link_unnamed_descriptor(fd, dir_fd, name)
+    def link_exclusive(self, dir_fd: int, source: str, destination: str, *, stage: str) -> None:
+        link_named_exclusive(dir_fd, source, dir_fd, destination)
 
     def close(self, fd: int, *, stage: str) -> None:
         os.close(fd)
@@ -244,9 +274,11 @@ class PublicationStages:
     create: str
     verify: str
     write: str
+    verify_content: str
     file_barrier: str
     publish: str
     directory_barrier: str
+    verify_pair: str
     close: str
 
     @classmethod
@@ -255,10 +287,25 @@ class PublicationStages:
             create=f"{prefix}:create",
             verify=f"{prefix}:verify",
             write=f"{prefix}:write",
+            verify_content=f"{prefix}:verify-content",
             file_barrier=f"{prefix}:file-barrier",
             publish=f"{prefix}:publish",
             directory_barrier=f"{prefix}:directory-barrier",
+            verify_pair=f"{prefix}:verify-pair",
             close=f"{prefix}:close",
+        )
+
+    def ordered(self) -> tuple[str, ...]:
+        return (
+            self.create,
+            self.verify,
+            self.write,
+            self.verify_content,
+            self.file_barrier,
+            self.publish,
+            self.directory_barrier,
+            self.verify_pair,
+            self.close,
         )
 
 
@@ -267,14 +314,48 @@ RECORD_STAGES = PublicationStages(
     create="P-5:create",
     verify="P-5:verify",
     write="P-5:write",
+    verify_content="P-5:verify-content",
     file_barrier="P-6:file-barrier",
     publish="P-7:publish",
     directory_barrier="P-8:directory-barrier",
+    verify_pair="P-8:verify-pair",
     close="P-8:close",
 )
 GENESIS_STAGES = PublicationStages.uniform("X-1:genesis")
 ADVANCE_STAGES = PublicationStages.uniform("X-2")
 FINAL_STAGES = PublicationStages.uniform("X-3")
+
+
+class PublicationState(str, Enum):
+    """How far one publication got. Only `ADMITTED` is evidence.
+
+    Every state before `ADMITTED` is unadmitted: its names are retained and
+    reported, never completed, adopted, repaired, digested for admission or used
+    as evidence, and no call of this store advances it after a failure.
+    """
+
+    NO_STAGING = "no-staging-entry"
+    STAGING_ONLY = "staging-without-confirmed-final-link"
+    LINKED = "both-names-before-directory-barrier"
+    BARRIERED = "both-names-after-barrier-unverified"
+    VERIFIED = "both-names-verified-not-admitted"
+    ADMITTED = "both-names-admitted"
+
+
+@dataclass(frozen=True, slots=True)
+class Publication:
+    """A verified pair: both names, the shared inode and the content digest."""
+
+    name: str
+    staging: str
+    sha256: str
+    device: int
+    inode: int
+
+    @property
+    def identity(self) -> tuple[int, int]:
+        return (self.device, self.inode)
+
 
 #: The label of every descriptor closed on a path that has already failed. It is
 #: cleanup, not a contract step, so no test fails it and no failure of it is
@@ -300,6 +381,8 @@ class CaptureRootStore:
     _known: dict[str, ObjectType] = field(default_factory=dict)
     _identities: dict[str, tuple[int, int]] = field(default_factory=dict)
     _directories: dict[str, int] = field(default_factory=dict)
+    _states: dict[str, PublicationState] = field(default_factory=dict)
+    _device: int | None = None
 
     # -- what the final state records -----------------------------------------
 
@@ -307,6 +390,27 @@ class CaptureRootStore:
     def known_objects(self) -> dict[str, ObjectType]:
         """Every name this store knows exists under the root, with its type."""
         return dict(self._known)
+
+    @property
+    def publication_states(self) -> dict[str, PublicationState]:
+        """Each publication attempted, by final name, and the state it reached."""
+        return dict(self._states)
+
+    @property
+    def owner_uid(self) -> int:
+        """The account every created object must be owned by (C-7)."""
+        return os.geteuid()
+
+    def mark_admitted(self, *names: str) -> None:
+        """Record that a durable index state now accounts for these pairs.
+
+        Called by the mechanism only after the admitting state's publication
+        has itself been verified. Only a `VERIFIED` publication can be admitted.
+        """
+        for name in names:
+            if self._states.get(name) is not PublicationState.VERIFIED:
+                raise ValueError(f"{name} is not a verified publication")
+            self._states[name] = PublicationState.ADMITTED
 
     # -- X-1: the root and its subdirectories ---------------------------------
 
@@ -382,6 +486,8 @@ class CaptureRootStore:
         )
         self._directories[name] = opened
         facts = self._call(verify, "verify-failed", lambda: self.filesystem.fstat(opened, stage=verify))
+        if not name:
+            self._device = facts.st_dev
         entry = self._call(
             verify, "verify-failed", lambda: self.filesystem.lstat_at(container, leaf, stage=verify)
         )
@@ -487,53 +593,122 @@ class CaptureRootStore:
 
     # -- P-5 … P-8, X-1 genesis, X-2, X-3: one publication sequence -----------
 
-    def publish(self, name: str, data: bytes, *, stages: PublicationStages) -> str:
-        """Publish `data` at `name` by the unnamed-file sequence; return its SHA-256.
+    def publish(
+        self,
+        name: str,
+        content: bytes | Callable[[int, int], bytes],
+        *,
+        stages: PublicationStages,
+    ) -> Publication:
+        """Publish at `name` by the retained-alias sequence; return the pair.
 
-        1. `O_TMPFILE` in the destination directory, mode `0600`, verified
-           unnamed (`st_nlink == 0`), regular and correctly owned;
-        2. write every byte; 3. file barrier; 4. one `linkat` that refuses with
-        `EEXIST` rather than replace; 5. directory barrier; 6. close.
-
-        The publication has succeeded only when step 5 has. A failure before
-        step 4 leaves no entry at all. A failure at or after step 4 that left
-        the name in place leaves a known, unadmitted object.
+        `content` is the bytes, or a function of the bound inode's
+        `(st_dev, st_ino)` that returns them — how *F* records its own pair.
+        The publication has succeeded only when both names have been verified
+        after the directory barrier. Any earlier failure leaves the state
+        `publication_states` reports, and nothing is retried or removed.
         """
         directory, _, leaf = name.rpartition("/")
+        staging = staging_name(name)
+        staging_leaf = staging.rpartition("/")[2]
         container = self._directories[directory]
-        fd = self._call(
-            stages.create,
-            "create-failed",
-            lambda: self.filesystem.create_unnamed(container, FILE_MODE, stage=stages.create),
-        )
+        self._states[name] = PublicationState.NO_STAGING
+        try:
+            fd = self.filesystem.create_exclusive(
+                container, staging_leaf, FILE_MODE, stage=stages.create
+            )
+        except FileExistsError:
+            raise StoreFailure(stages.create, "object-exists") from None
+        except OSError:
+            if self._probe_regular(container, staging_leaf, staging, None):
+                self._states[name] = PublicationState.STAGING_ONLY
+            raise StoreFailure(stages.create, "create-failed") from None
+        self._known[staging] = ObjectType.REGULAR
+        self._states[name] = PublicationState.STAGING_ONLY
         try:
             facts = self._call(
                 stages.verify, "verify-failed", lambda: self.filesystem.fstat(fd, stage=stages.verify)
             )
-            if not stat.S_ISREG(facts.st_mode) or facts.st_nlink != 0:
+            if (
+                not stat.S_ISREG(facts.st_mode)
+                or facts.st_nlink != 1
+                or facts.st_dev != self._device
+            ):
                 raise StoreFailure(stages.verify, "identity-mismatch")
             self._require_mode(facts, FILE_MODE, stages.verify)
+            bound = _identity(facts)
+            self._identities[staging] = bound
+            data = content if isinstance(content, bytes) else content(*bound)
+            digest = sha256_hex(data)
             self._call(
                 stages.write, "write-failed", lambda: self.filesystem.write_all(fd, data, stage=stages.write)
             )
+            self._verify_name(
+                container, staging_leaf, bound, 1, digest, len(data), stage=stages.verify_content
+            )
             self._barrier(fd, stages.file_barrier, "file-barrier-failed")
             try:
-                self.filesystem.link_unnamed(fd, container, leaf, stage=stages.publish)
+                self.filesystem.link_exclusive(container, staging_leaf, leaf, stage=stages.publish)
             except FileExistsError:
                 raise StoreFailure(stages.publish, "publication-exists") from None
             except (OSError, ValueError):
-                self._probe_regular(container, leaf, name, _identity(facts))
+                if self._probe_regular(container, leaf, name, bound):
+                    self._states[name] = PublicationState.LINKED
                 raise StoreFailure(stages.publish, "publication-failed") from None
             self._known[name] = ObjectType.REGULAR
-            self._identities[name] = _identity(facts)
+            self._identities[name] = bound
+            self._states[name] = PublicationState.LINKED
             self._barrier(container, stages.directory_barrier, "directory-barrier-failed")
+            self._states[name] = PublicationState.BARRIERED
+            for member in (staging_leaf, leaf):
+                self._verify_name(
+                    container, member, bound, 2, digest, len(data), stage=stages.verify_pair
+                )
+            self._states[name] = PublicationState.VERIFIED
         except Exception:
             # Ordinary failures only. After an interruption nothing more is
             # called at all, not even a close.
             self._close_quietly(fd)
             raise
         self.close(fd, stage=stages.close)
-        return sha256_hex(data)
+        return Publication(name=name, staging=staging, sha256=digest, device=bound[0], inode=bound[1])
+
+    def _verify_name(
+        self,
+        container: int,
+        leaf: str,
+        bound: tuple[int, int],
+        links: int,
+        digest: str,
+        size: int,
+        *,
+        stage: str,
+    ) -> None:
+        """Open one name no-follow, read-only, and prove it is the bound inode
+        with the expected link count, owner, mode, size and exact bytes."""
+        read_fd = self._call(
+            stage, "open-refused", lambda: self.filesystem.open_read(container, leaf, stage=stage)
+        )
+        try:
+            facts = self._call(stage, "verify-failed", lambda: self.filesystem.fstat(read_fd, stage=stage))
+            if (
+                not stat.S_ISREG(facts.st_mode)
+                or _identity(facts) != bound
+                or facts.st_nlink != links
+            ):
+                raise StoreFailure(stage, "identity-mismatch")
+            self._require_mode(facts, FILE_MODE, stage)
+            observed, observed_size = self._call(
+                stage, "digest-failed", lambda: self.filesystem.digest(read_fd, stage=stage)
+            )
+            if observed_size != size or facts.st_size != size:
+                raise StoreFailure(stage, "size-mismatch")
+            if observed != digest:
+                raise StoreFailure(stage, "content-mismatch")
+        except Exception:
+            self._close_quietly(read_fd)
+            raise
+        self.close(read_fd, stage=stage)
 
     # -- the end of the pass ---------------------------------------------------
 
@@ -562,7 +737,7 @@ class CaptureRootStore:
 
     def _probe_regular(
         self, container: int, leaf: str, name: str, expected: tuple[int, int] | None
-    ) -> None:
+    ) -> bool:
         """After a creating call failed: does an entry of ours exist at `name`?
 
         Recorded only when a no-follow `lstat` shows a regular file and — where
@@ -572,12 +747,13 @@ class CaptureRootStore:
         try:
             facts = self.filesystem.lstat_at(container, leaf, stage=PROBE_STAGE)
         except (OSError, ValueError):
-            return
+            return False
         if facts is None or not stat.S_ISREG(facts.st_mode):
-            return
+            return False
         if expected is not None and _identity(facts) != expected:
-            return
+            return False
         self._known[name] = ObjectType.REGULAR
+        return True
 
     def _close_quietly(self, fd: int) -> None:
         try:
@@ -598,7 +774,9 @@ __all__ = [
     "CaptureInterrupted",
     "CaptureRootStore",
     "PosixCaptureFilesystem",
+    "Publication",
     "PublicationStages",
+    "PublicationState",
     "RootPolicy",
     "StoreFailure",
 ]

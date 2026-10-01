@@ -1,5 +1,6 @@
-"""RP-11, C-P5.0-R5-RP11-I1 — the capture mechanism, against §9.5 of the
-R5-amended operational-evidence draft (SHA-256 `5e06a388…`).
+"""RP-11, C-P5.0-R5-RP11-I1 and I1-R3 — the capture mechanism, against §9.5 of
+the operational-evidence draft as amended by C-P5.0-R5-RP11-I1-R3 (proposed,
+unaccepted; the accepted R5 bytes `5e06a388…` remain the baseline).
 
 What is asserted, and how:
 
@@ -11,11 +12,14 @@ What is asserted, and how:
   modes, the fixed layout, the genesis state, the forbidden locations by name
   and by identity, symbolic-link ancestors, and independent Pass A / Pass B
   roots.
-* **P-5 … P-8, X-2, X-3.** The unnamed-file publication, gap-free sequence
-  numbers and an intact chain; then **every labelled stage** of an act and of
-  X-3 failed in turn, and interrupted in turn, asserting the externally visible
-  result: no retry of the stage, no next command, no repair, the exact
-  unadmitted set *F* records, X-4, and a root B0-RA still admits.
+* **P-5 … P-8, X-2, X-3.** The retained-alias publication — an exclusive
+  staging name, one no-follow exclusive link to the final name, both names
+  retained on one inode with link count two — gap-free sequence numbers and an
+  intact chain; then **every labelled stage** of an act and of X-3 failed in
+  turn, and interrupted in turn, asserting the externally visible result: no
+  retry of the stage, no next command, no repair or clean-up, the exact
+  publication state, the exact unadmitted set *F* records, X-4, and a root
+  B0-RA still admits.
 
 Every assertion is about the files on disk or the calls made, not about a mock
 having been called.
@@ -45,6 +49,8 @@ from tests.phase_5_0_evidence.rp11_fixtures import (
     names_under,
     open_session,
     python_argv,
+    release_suite_descriptors,
+    rp11_release_descriptors,  # noqa: F401 - autouse fixture, active by import
     tree,
     write_handback,
     writes,
@@ -59,6 +65,8 @@ from tools.phase_5_0_evidence.capture_contract import (
     IndexState,
     ObjectType,
     RelativeName,
+    SelfPublication,
+    StateLink,
     Terminal,
     UnadmittedObject,
     accounted_objects,
@@ -85,9 +93,13 @@ from tools.phase_5_0_evidence.execution.capture_mechanism import (
     SessionState,
 )
 from tools.phase_5_0_evidence.execution.capture_store import (
+    ADVANCE_STAGES,
     CaptureInterrupted,
     FINAL_STAGES,
+    GENESIS_STAGES,
+    RECORD_STAGES,
     PosixCaptureFilesystem,
+    PublicationState,
 )
 from tools.phase_5_0_evidence.execution.retention_check import RetentionCheck
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES
@@ -236,30 +248,60 @@ def test_the_binding_block_refuses_every_other_shape(mutation, classification) -
 
 
 def _entry(seq: int) -> IndexEntry:
-    return IndexEntry(seq, contract.record_name(seq), "d" * 64)
+    name = contract.record_name(seq)
+    return IndexEntry(seq, name, name + ".staging", "d" * 64, 1, 100 + seq)
+
+
+def _link(number: int) -> StateLink:
+    name = contract.open_state_name(number)
+    return StateLink(name, name + ".staging", "e" * 64, 1, 200 + number)
+
+
+def _self(number: int) -> SelfPublication:
+    name = contract.final_state_name(number)
+    return SelfPublication(name, name + ".staging", 1, 300 + number)
+
+
+def _open(number: int, records: tuple[IndexEntry, ...]) -> IndexState:
+    return IndexState(
+        pass_id=PASS_A,
+        capture_root="/c/a",
+        tool_sha256=TOOL_SHA256,
+        owner_uid=1000,
+        state_number=number,
+        previous=None if number == 0 else _link(number - 1),
+        status="open",
+        records=records,
+    )
 
 
 def test_an_index_state_refuses_a_gap_and_a_final_state_its_own_shape() -> None:
     with pytest.raises(CaptureContractRefused) as refusal:
-        IndexState(PASS_A, "/c/a", TOOL_SHA256, 2, "e" * 64, "open", (_entry(1), _entry(3)))
+        IndexState(PASS_A, "/c/a", TOOL_SHA256, 1000, 2, _link(1), "open", (_entry(1), _entry(3)))
     assert refusal.value.classification == "record-list-gap"
     base = dict(
         pass_id=PASS_A,
         capture_root="/c/a",
         tool_sha256=TOOL_SHA256,
+        owner_uid=1000,
         state_number=2,
-        previous_state_sha256="e" * 64,
+        previous=_link(1),
         status="final",
         records=(_entry(1),),
         terminal=Terminal("completed"),
         subdirectories=tuple(sorted(LAYOUT)),
         unadmitted=(),
+        publication=_self(2),
     )
-    IndexState(**base)  # the valid shape
+    state = IndexState(**base)  # the valid shape
+    assert IndexState.from_bytes(state.to_bytes()) == state
     with pytest.raises(CaptureContractRefused):
         IndexState(**{**base, "subdirectories": ("index",)})
     with pytest.raises(CaptureContractRefused):
         IndexState(**{**base, "state_number": 3})
+    for broken in ({"publication": None}, {"publication": _self(3)}, {"previous": _link(0)}):
+        with pytest.raises(CaptureContractRefused):
+            IndexState(**{**base, **broken})
     with pytest.raises(CaptureContractRefused):
         UnadmittedObject("records/000002.json", ObjectType.DIRECTORY)
     with pytest.raises(CaptureContractRefused):
@@ -282,14 +324,37 @@ def test_a_name_in_two_categories_is_refused_when_r_is_formed() -> None:
         stdout=contract.StreamBinding("streams/stdout/000001", "0" * 64, 0),
         stderr=contract.StreamBinding("streams/stderr/000001", "0" * 64, 0),
     )
-    final = IndexState(
-        PASS_A, "/c/a", TOOL_SHA256, 2, "e" * 64, "final", (_entry(1),),
-        Terminal("completed"), tuple(sorted(LAYOUT)),
-        (UnadmittedObject("records/000001.json", ObjectType.REGULAR),),
-    )
+    chain = [_open(0, ()), _open(1, (_entry(1),))]
+    for reused in ("records/000001.json", "records/000001.json.staging", "index/000000.open.json.staging"):
+        final = IndexState(
+            PASS_A, "/c/a", TOOL_SHA256, 1000, 2, _link(1), "final", (_entry(1),),
+            Terminal("completed"), tuple(sorted(LAYOUT)),
+            (UnadmittedObject(reused, ObjectType.REGULAR),), _self(2),
+        )
+        with pytest.raises(CaptureContractRefused) as refusal:
+            accounted_objects(final, chain, [record])
+        assert refusal.value.classification == "duplicate-accounted-name", reused
+
+
+def test_a_staging_name_is_fixed_by_rule_and_names_only_its_own_object() -> None:
+    assert contract.staging_name("records/000007.json") == "records/000007.json.staging"
+    assert contract.staging_name("index/000000.open.json") == "index/000000.open.json.staging"
+    assert contract.staging_name("index/000003.final.json") == "index/000003.final.json.staging"
+    for text in ("streams/stdout/000001", "records/000001.json.staging", "index", "stray"):
+        with pytest.raises(CaptureContractRefused):
+            contract.staging_name(text)
+    assert contract.role_of("records/000007.json") == ("final", "records/000007.json.staging")
+    assert contract.role_of("records/000007.json.staging") == ("staging", "records/000007.json")
+    assert contract.role_of("streams/stdout/000007") == ("single", None)
+    assert contract.role_of("records/000007.json.staging.staging") == ("single", None)
     with pytest.raises(CaptureContractRefused) as refusal:
-        accounted_objects(final, [record])
-    assert refusal.value.classification == "duplicate-accounted-name"
+        IndexEntry(1, "records/000001.json", "records/000002.json.staging", "d" * 64, 1, 1)
+    assert refusal.value.classification == "pair-mismatch"
+    # A staging name is unadmittable only for a record or an open state.
+    UnadmittedObject("records/000001.json.staging", ObjectType.REGULAR)
+    UnadmittedObject("index/000000.open.json.staging", ObjectType.REGULAR)
+    with pytest.raises(CaptureContractRefused):
+        UnadmittedObject("index/000002.final.json.staging", ObjectType.REGULAR)
 
 
 def test_the_tool_digest_covers_exactly_the_rp11_sources() -> None:
@@ -462,7 +527,7 @@ def test_a_malformed_request_stops_the_pass_before_any_file_or_process(tmp_path:
     assert (outcome.failure.stage, outcome.failure.classification) == (REQUEST_STAGE, "request-malformed-argv")
     assert launcher.calls == []
     after = names_under(host.root())
-    assert after - before == {outcome.stop.final_state}
+    assert after - before == {outcome.stop.final_state, outcome.stop.final_state + ".staging"}
 
 
 # ===========================================================================
@@ -476,11 +541,15 @@ def test_the_root_is_created_exclusively_with_the_fixed_layout_and_modes(tmp_pat
     assert session.state is SessionState.OPEN
     root = host.root()
     facts = tree(root)
-    assert set(facts) == LAYOUT | {"index/000000.open.json"}
+    assert set(facts) == LAYOUT | {"index/000000.open.json", "index/000000.open.json.staging"}
     assert stat.S_IMODE(os.lstat(root).st_mode) == 0o700
     for name in LAYOUT:
         assert facts[name][0] == stat.S_IFDIR and facts[name][1] == 0o700
-    assert facts["index/000000.open.json"][1] == 0o600
+    genesis_final = facts["index/000000.open.json"]
+    genesis_staging = facts["index/000000.open.json.staging"]
+    assert genesis_final == genesis_staging  # one inode, both names retained
+    assert genesis_final[1] == 0o600 and genesis_final[3] == 2
+    assert session.publication_states == {"index/000000.open.json": PublicationState.VERIFIED}
     genesis = IndexState.from_bytes(_read(root, "index/000000.open.json"))
     assert (genesis.state_number, genesis.previous_state_sha256, genesis.records) == (0, None, ())
     assert (genesis.pass_id, genesis.capture_root, genesis.tool_sha256) == (PASS_A, root, TOOL_SHA256)
@@ -586,13 +655,7 @@ X1_STAGES = (
     "X-1:create-subdirectory",
     "X-1:verify-subdirectory",
     "X-1:subdirectory-entry-barrier",
-    "X-1:genesis:create",
-    "X-1:genesis:verify",
-    "X-1:genesis:write",
-    "X-1:genesis:file-barrier",
-    "X-1:genesis:publish",
-    "X-1:genesis:directory-barrier",
-    "X-1:genesis:close",
+    *GENESIS_STAGES.ordered(),
 )
 
 
@@ -662,9 +725,18 @@ def test_three_acts_publish_a_gap_free_chain_and_a_valid_final_state(tmp_path: P
     assert final.terminal == Terminal("completed") and final.unadmitted == ()
     for seq, digest in enumerate(digests, start=1):
         assert hashlib.sha256(_read(root, f"records/{seq:06d}.json")).hexdigest() == digest
-    for entry in tree(root).values():
+    facts = tree(root)
+    for name, entry in facts.items():
         if entry[0] == stat.S_IFREG:
-            assert entry[1] == 0o600 and entry[3] == 1
+            paired = name.startswith(("records/", "index/"))
+            assert entry[1] == 0o600 and entry[3] == (2 if paired else 1), name
+            if paired and not name.endswith(".staging"):
+                assert facts[name + ".staging"] == entry, name
+    # Every record and state is two names; every stream file is one.
+    assert sum(1 for n in facts if n.endswith(".staging")) == 3 + 4 + 1
+    assert final.publication.identity == (os.stat(root).st_dev, facts[name_of_f := "index/000004.final.json"][2])
+    assert facts[name_of_f + ".staging"][2] == final.publication.inode
+    assert all(state is PublicationState.ADMITTED for state in session.publication_states.values())
     assert _b0_ra(tmp_path, session, root).passed
 
 
@@ -678,33 +750,48 @@ def test_the_suites_act_stage_list_is_complete(tmp_path: Path) -> None:
     assert seen == set(ACT_STAGES)
 
 
-def test_a_published_name_is_never_replaced(tmp_path: Path) -> None:
-    """P-7: an object already at the final name refuses the act; its bytes stay."""
+def test_an_occupied_final_name_is_never_replaced(tmp_path: Path) -> None:
+    """P-7: an object already at the final name refuses the act by the kernel's
+    EEXIST; its bytes stay, it is not recorded as ours, and the staging name
+    is retained as unadmitted — never removed."""
     host = Host.under(tmp_path)
     session = open_session(host)
     planted = Path(host.root()) / "records" / "000001.json"
     planted.write_bytes(b"planted")
+    before = os.lstat(planted)
     outcome = session.run_act(act("A1-01", writes(b"", b"")))
     assert (outcome.failure.stage, outcome.failure.classification) == ("P-7:publish", "publication-exists")
     assert planted.read_bytes() == b"planted"
+    after = os.lstat(planted)
+    assert (after.st_ino, after.st_nlink, after.st_mtime_ns) == (before.st_ino, 1, before.st_mtime_ns)
     _, final = _final(host.root())
-    assert "records/000001.json" not in {item.name for item in final.unadmitted}
+    unadmitted = {item.name for item in final.unadmitted}
+    assert "records/000001.json" not in unadmitted
+    assert "records/000001.json.staging" in unadmitted
+    assert (Path(host.root()) / "records" / "000001.json.staging").exists()
+    assert session.publication_states["records/000001.json"] is PublicationState.STAGING_ONLY
+    # The occupant is not the mechanism's, so B0-RA fails closed on it.
+    assert not _b0_ra(tmp_path, session, host.root()).passed
 
 
-def test_the_unnamed_link_refuses_an_inode_that_already_has_a_name(tmp_path: Path) -> None:
-    named = tmp_path / "named"
-    named.write_bytes(b"x")
-    directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
-    fd = os.open(named, os.O_RDONLY)
-    try:
-        with pytest.raises(ValueError):
-            descriptors.link_unnamed_descriptor(fd, directory, "alias")
-        with pytest.raises(ValueError):
-            descriptors.link_unnamed_descriptor(fd, directory, "a/b")
-    finally:
-        os.close(fd)
-        os.close(directory)
-    assert not (tmp_path / "alias").exists() and os.stat(named).st_nlink == 1
+def test_an_occupied_staging_name_refuses_without_reading_or_removing_it(tmp_path: Path) -> None:
+    host = Host.under(tmp_path)
+    session = open_session(host)
+    planted = Path(host.root()) / "records" / "000001.json.staging"
+    planted.write_bytes(b"someone else's")
+    planted.chmod(0o000)  # it is never opened, so an unreadable occupant changes nothing
+    before = os.lstat(planted)
+    outcome = session.run_act(act("A1-01", writes(b"", b"")))
+    assert (outcome.failure.stage, outcome.failure.classification) == ("P-5:create", "object-exists")
+    after = os.lstat(planted)
+    assert (after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns) == (
+        before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns,
+    )
+    assert not (Path(host.root()) / "records" / "000001.json").exists()
+    _, final = _final(host.root())
+    assert "records/000001.json.staging" not in {item.name for item in final.unadmitted}
+    assert session.publication_states["records/000001.json"] is PublicationState.NO_STAGING
+    planted.chmod(0o600)
 
 
 # ===========================================================================
@@ -713,7 +800,43 @@ def test_the_unnamed_link_refuses_an_inode_that_already_has_a_name(tmp_path: Pat
 
 STREAMS_2 = {"streams/stdout/000002", "streams/stderr/000002"}
 RECORD_2 = "records/000002.json"
+RECORD_2S = RECORD_2 + ".staging"
 STATE_2 = "index/000002.open.json"
+STATE_2S = STATE_2 + ".staging"
+
+#: The state a publication reaches when the named stage of it fails (or is
+#: interrupted) — and so what a stop there leaves on disk.
+REACHED = {
+    "create": PublicationState.NO_STAGING,
+    "verify": PublicationState.STAGING_ONLY,
+    "write": PublicationState.STAGING_ONLY,
+    "verify-content": PublicationState.STAGING_ONLY,
+    "file-barrier": PublicationState.STAGING_ONLY,
+    "publish": PublicationState.STAGING_ONLY,
+    "directory-barrier": PublicationState.LINKED,
+    "verify-pair": PublicationState.BARRIERED,
+    "close": PublicationState.VERIFIED,
+}
+NAMES_LEFT = {
+    PublicationState.NO_STAGING: (),
+    PublicationState.STAGING_ONLY: ("staging",),
+    PublicationState.LINKED: ("staging", "final"),
+    PublicationState.BARRIERED: ("staging", "final"),
+    PublicationState.VERIFIED: ("staging", "final"),
+}
+
+
+def _left(final_name: str, state: PublicationState) -> set[str]:
+    return {final_name + ".staging" if role == "staging" else final_name for role in NAMES_LEFT[state]}
+
+
+def _reached(stage: str, mode: str) -> PublicationState:
+    reached = REACHED[stage.split(":", 1)[1]]
+    if mode == "after" and stage.endswith((":create",)):
+        return PublicationState.STAGING_ONLY
+    if mode == "after" and stage.endswith(":publish"):
+        return PublicationState.LINKED
+    return reached
 
 
 def _expected_unadmitted(stage: str, mode: str) -> set[str]:
@@ -721,21 +844,17 @@ def _expected_unadmitted(stage: str, mode: str) -> set[str]:
         return {"streams/stdout/000002"} if mode == "after" else set()
     if stage in ("P-1:verify-stdout", "P-1:create-stderr"):
         return {"streams/stdout/000002"}
-    if stage.startswith(("P-1", "P-2", "P-3", "P-4", "P-5", "P-6")):
+    if stage.startswith(("P-1", "P-2", "P-3", "P-4")):
         return set(STREAMS_2)
-    if stage == "P-7:publish":
-        return STREAMS_2 | ({RECORD_2} if mode == "after" else set())
-    if stage.startswith("P-8") or stage in (
-        "X-2:create", "X-2:verify", "X-2:write", "X-2:file-barrier",
-    ):
-        return STREAMS_2 | {RECORD_2}
-    if stage == "X-2:publish":
-        return STREAMS_2 | {RECORD_2} | ({STATE_2} if mode == "after" else set())
-    return STREAMS_2 | {RECORD_2, STATE_2}
+    if stage.startswith(("P-5", "P-6", "P-7", "P-8")):
+        return STREAMS_2 | _left(RECORD_2, _reached(stage, mode))
+    return STREAMS_2 | {RECORD_2, RECORD_2S} | _left(STATE_2, _reached(stage, mode))
 
 
 FAIL_CASES = [(stage, "fail") for stage in ACT_STAGES] + [
+    ("P-5:create", "after"),
     ("P-7:publish", "after"),
+    ("X-2:create", "after"),
     ("X-2:publish", "after"),
     ("P-1:create-stdout", "after"),
 ]
@@ -780,6 +899,18 @@ def test_every_act_stage_fails_closed_once_with_the_correct_final_state(
     assert [entry.capture_seq for entry in final.records] == [1]
     assert {item.name for item in final.unadmitted} == _expected_unadmitted(stage, mode)
     assert all(item.object_type is ObjectType.REGULAR for item in final.unadmitted)
+    # The exact classified state of the publication the stop interrupted; it
+    # was never advanced, repaired or cleaned up afterwards.
+    if stage.startswith(("P-5", "P-6", "P-7", "P-8", "X-2")):
+        subject = RECORD_2 if stage.startswith("P-") else STATE_2
+        assert session.publication_states[subject] is _reached(stage, mode)
+        present = names_under(root)
+        expected_left = _left(subject, _reached(stage, mode))
+        assert expected_left <= present
+        assert not (_left(subject, PublicationState.VERIFIED) - expected_left) & present
+    # Act 1's record and I-1 stay admitted; nothing unadmitted became admitted.
+    assert session.publication_states["records/000001.json"] is PublicationState.ADMITTED
+    assert session.publication_states.get(RECORD_2) is not PublicationState.ADMITTED
     # No repair: the act's stream files hold what the child wrote and nothing
     # else — all of it once both channels completed (P-2 onwards), a prefix of
     # it where the copy itself failed and the child was stopped.
@@ -826,15 +957,7 @@ def test_an_interruption_at_any_act_stage_ends_the_pass_with_no_x3(tmp_path: Pat
 # X-3: exactly one attempt, one outcome, then the seal
 # ===========================================================================
 
-X3_STAGES = (
-    FINAL_STAGES.create,
-    FINAL_STAGES.verify,
-    FINAL_STAGES.write,
-    FINAL_STAGES.file_barrier,
-    FINAL_STAGES.publish,
-    FINAL_STAGES.directory_barrier,
-    FINAL_STAGES.close,
-)
+X3_STAGES = FINAL_STAGES.ordered()
 
 
 @pytest.mark.parametrize("stage", X3_STAGES)
@@ -852,14 +975,17 @@ def test_a_failed_x3_attempt_is_recorded_not_retried_and_x4_is_inconclusive(
     assert (outcome.x3_outcome, outcome.x3_failure_stage) == ("failed", stage)
     assert outcome.x4_validity == "inconclusive"
     assert filesystem.stages().count("X-3:create") == 1
-    left = stage in (FINAL_STAGES.directory_barrier, FINAL_STAGES.close)
-    assert outcome.final_name_present is left
+    reached = REACHED[stage.split(":", 1)[1]]
+    left = _left("index/000002.final.json", reached)
+    assert outcome.final_name_present is ("index/000002.final.json" in left)
+    assert outcome.final_staging_present is ("index/000002.final.json.staging" in left)
+    assert session.publication_states["index/000002.final.json"] is reached
     after = tree(host.root())
-    # X-3 created at most F; every earlier object is byte-for-byte untouched.
+    # X-3 created at most F's two names; every earlier object is untouched.
     for name, facts in before.items():
         if name != "index":
             assert after[name] == facts, name
-    assert set(after) - set(before) == ({"index/000002.final.json"} if left else set())
+    assert set(after) - set(before) == left
     with pytest.raises(CaptureRefused):
         session.complete()
     with pytest.raises(CaptureRefused):
@@ -922,6 +1048,43 @@ def test_there_is_no_way_to_resume_or_finalize_an_existing_root(tmp_path: Path) 
 
 
 # ===========================================================================
+# The suite's own descriptors — RP11-I1-R3-2
+# ===========================================================================
+
+
+def _own_descriptors() -> set[str]:
+    """This pytest process's open descriptor numbers, and nothing else's."""
+    return set(os.listdir("/proc/self/fd"))
+
+
+def test_the_suite_releases_every_descriptor_it_leaves_open_on_purpose(tmp_path: Path) -> None:
+    """An interruption, an unended session and a withheld close hold descriptors
+    in this process by design. Released, the process is back where it began —
+    the leak that exhausted a 1024 limit in one whole-package run."""
+    for name in ("unended", "interrupted", "fail", "after"):
+        (tmp_path / name).mkdir()
+    release_suite_descriptors()
+    before = _own_descriptors()
+    unended = open_session(Host.under(tmp_path / "unended"))
+    assert unended.state is SessionState.OPEN
+    host = Host.under(tmp_path / "interrupted")
+    interrupted = FaultFilesystem()
+    session = open_session(host, filesystem=interrupted)
+    interrupted.stage, interrupted.mode = "P-6:file-barrier", "interrupt"
+    with pytest.raises(CaptureInterrupted):
+        session.run_act(act("A1-01", writes(b"", b"")))
+    assert interrupted.after_interrupt == []
+    for stage, mode in (("P-8:close", "fail"), ("P-5:create", "after")):
+        faulty = FaultFilesystem(stage=stage, mode=mode)
+        stopped = open_session(Host.under(tmp_path / mode), filesystem=faulty)
+        assert not stopped.run_act(act("A1-01", writes(b"", b""))).admitted
+    assert _own_descriptors() - before, "the scenarios no longer hold anything"
+    release_suite_descriptors()
+    assert interrupted.after_interrupt == []
+    assert _own_descriptors() == before
+
+
+# ===========================================================================
 # Structural: no execution, no network, not wired
 # ===========================================================================
 
@@ -971,33 +1134,59 @@ def test_the_harness_cli_does_not_reach_the_capture_mechanism() -> None:
         assert module not in text
 
 
-def test_the_package_still_has_one_link_call_and_linkat_does_not_follow() -> None:
-    source = (REPOSITORY / "tools/phase_5_0_evidence/execution/descriptors.py").read_text(encoding="utf-8")
-    tree_ = ast.parse(source)
-    linkat = next(n for n in ast.walk(tree_) if isinstance(n, ast.FunctionDef) and n.name == "linkat")
-    calls = [n for n in ast.walk(linkat) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_exclusive_link"]
-    assert len(calls) == 1
-    follow = next(k for k in calls[0].keywords if k.arg == "follow")
+def _functions(path: str) -> dict[str, ast.FunctionDef]:
+    tree_ = ast.parse((REPOSITORY / path).read_text(encoding="utf-8"))
+    return {n.name: n for n in ast.walk(tree_) if isinstance(n, ast.FunctionDef)}
+
+
+def test_the_package_has_one_link_call_it_never_follows_and_two_callers_reach_it() -> None:
+    functions = _functions("tools/phase_5_0_evidence/execution/descriptors.py")
+    site = functions["_exclusive_link"]
+    assert [a.arg for a in site.args.args + site.args.kwonlyargs] == [
+        "source", "destination", "source_dir_fd", "destination_dir_fd",
+    ]
+    (call,) = [n for n in ast.walk(site) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "link"]
+    follow = next(k for k in call.keywords if k.arg == "follow_symlinks")
     assert isinstance(follow.value, ast.Constant) and follow.value.value is False
+    callers = sorted(
+        name
+        for name, node in functions.items()
+        if any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_exclusive_link" for n in ast.walk(node))
+    )
+    assert callers == ["link_named_exclusive", "linkat"]
+    assert "link_unnamed_descriptor" not in functions
+    assert not hasattr(descriptors, "link_unnamed_descriptor")
+    assert not hasattr(descriptors, "UNNAMED_PUBLICATION")
+    assert "link_named_exclusive" in descriptors.__all__
 
 
-def test_a_real_linkat_through_the_shared_site_still_refuses_to_replace(tmp_path: Path) -> None:
+def test_a_real_named_link_refuses_to_replace_and_keeps_both_names(tmp_path: Path) -> None:
     fs = PosixCaptureFilesystem()
     directory = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        fd = fs.create_unnamed(directory, 0o600, stage="t")
+        fd = fs.create_exclusive(directory, "first.staging", 0o600, stage="t")
         fs.write_all(fd, b"first", stage="t")
-        fs.link_unnamed(fd, directory, "published", stage="t")
         os.close(fd)
-        other = fs.create_unnamed(directory, 0o600, stage="t")
+        fs.link_exclusive(directory, "first.staging", "published", stage="t")
+        other = fs.create_exclusive(directory, "second.staging", 0o600, stage="t")
         fs.write_all(other, b"second", stage="t")
-        with pytest.raises(FileExistsError):
-            fs.link_unnamed(other, directory, "published", stage="t")
         os.close(other)
+        with pytest.raises(FileExistsError):
+            fs.link_exclusive(directory, "second.staging", "published", stage="t")
+        (tmp_path / "link").symlink_to(tmp_path / "second.staging")
+        fs.link_exclusive(directory, "link", "not-followed", stage="t")
+        for bad in ("a/b", "..", ""):
+            with pytest.raises(ValueError):
+                fs.link_exclusive(directory, "first.staging", bad, stage="t")
     finally:
         os.close(directory)
     assert (tmp_path / "published").read_bytes() == b"first"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["published"]
+    assert os.stat(tmp_path / "published").st_ino == os.stat(tmp_path / "first.staging").st_ino
+    assert os.stat(tmp_path / "published").st_nlink == 2
+    assert os.lstat(tmp_path / "not-followed").st_ino == os.lstat(tmp_path / "link").st_ino
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "first.staging", "link", "not-followed", "published", "second.staging",
+    ]
 
 
 def test_an_injected_error_is_the_errno_the_suite_claims() -> None:
@@ -1006,3 +1195,272 @@ def test_an_injected_error_is_the_errno_the_suite_claims() -> None:
     with pytest.raises(OSError) as raised:
         filesystem._invoke("fsync", "s", lambda: None)
     assert raised.value.errno == errno.EIO
+
+
+# ===========================================================================
+# C-P5.0-R5-RP11-I1-R3 — the retained-alias publication, stage by stage
+# ===========================================================================
+
+#: One publication, as the filesystem sees it: (method, stage suffix). The
+#: staging name is created, checked and synchronized **before** the one link;
+#: the directory barrier follows the link; both names are verified after it.
+PUBLICATION_CALLS = [
+    ("create_exclusive", "create"),
+    ("fstat", "verify"),
+    ("write_all", "write"),
+    ("open_read", "verify-content"),
+    ("fstat", "verify-content"),
+    ("digest", "verify-content"),
+    ("close", "verify-content"),
+    ("fsync", "file-barrier"),
+    ("link_exclusive", "publish"),
+    ("fsync", "directory-barrier"),
+    *[
+        call
+        for _ in ("staging", "final")
+        for call in (
+            ("open_read", "verify-pair"),
+            ("fstat", "verify-pair"),
+            ("digest", "verify-pair"),
+            ("close", "verify-pair"),
+        )
+    ],
+    ("close", "close"),
+]
+
+
+def _calls_for(filesystem: FaultFilesystem, stages) -> list[tuple[str, str]]:  # type: ignore[no-untyped-def]
+    wanted = set(stages.ordered())
+    return [(method, stage.split(":")[-1]) for method, stage in filesystem.calls if stage in wanted]
+
+
+@pytest.mark.parametrize("stages", [GENESIS_STAGES, RECORD_STAGES, ADVANCE_STAGES, FINAL_STAGES], ids=lambda s: s.create)
+def test_each_publication_is_exactly_the_accepted_sequence(tmp_path: Path, stages) -> None:  # type: ignore[no-untyped-def]
+    """Staging created, verified, written, content-checked and synchronized;
+    **one** link, no pre-check of the final name, no rename, no unlink; the
+    directory barrier; both names verified; then the close."""
+    host = Host.under(tmp_path)
+    filesystem = FaultFilesystem()
+    session = open_session(host, filesystem=filesystem)
+    session.run_act(act("A1-01", writes(b"out", b"err")))
+    session.complete()
+    assert _calls_for(filesystem, stages) == PUBLICATION_CALLS
+    methods = {method for method, _ in filesystem.calls}
+    assert not methods & {"rename", "unlink", "remove", "replace", "link_unnamed", "create_unnamed"}
+    assert [m for m, _ in filesystem.calls].count("link_exclusive") == 4  # I-0, record, I-1, F
+    assert "lstat_at" not in {m for m, stage in filesystem.calls if stage in set(stages.ordered())}
+
+
+def test_a_successful_publication_is_one_inode_with_two_names_and_exact_bytes(tmp_path: Path) -> None:
+    host = Host.under(tmp_path)
+    session = open_session(host, launcher=CountingLauncher())
+    outcome = session.run_act(act("A1-01", writes(b"o", b"e")))
+    root = Path(host.root())
+    for final_name in ("index/000000.open.json", "records/000001.json", "index/000001.open.json"):
+        final_path, staging_path = root / final_name, root / (final_name + ".staging")
+        a, b = os.lstat(final_path), os.lstat(staging_path)
+        assert stat.S_ISREG(a.st_mode) and (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
+        assert a.st_nlink == 2 and stat.S_IMODE(a.st_mode) == 0o600 and a.st_uid == os.geteuid()
+        assert final_path.read_bytes() == staging_path.read_bytes()
+    record_bytes = (root / "records/000001.json").read_bytes()
+    assert hashlib.sha256(record_bytes).hexdigest() == outcome.record_sha256
+    state = IndexState.from_bytes((root / "index/000001.open.json").read_bytes())
+    (entry,) = state.records
+    record_facts = os.lstat(root / "records/000001.json")
+    assert (entry.staging, entry.device, entry.inode) == (
+        "records/000001.json.staging", record_facts.st_dev, record_facts.st_ino,
+    )
+    genesis_facts = os.lstat(root / "index/000000.open.json")
+    assert state.previous.identity == (genesis_facts.st_dev, genesis_facts.st_ino)
+    assert state.previous.staging == "index/000000.open.json.staging"
+    assert state.previous.sha256 == hashlib.sha256((root / "index/000000.open.json").read_bytes()).hexdigest()
+    assert state.owner_uid == os.geteuid()
+
+
+@pytest.mark.parametrize("mode", FaultFilesystem.FALSE_WRITES)
+@pytest.mark.parametrize("stage", [RECORD_STAGES.write, ADVANCE_STAGES.write, GENESIS_STAGES.write])
+def test_a_partial_empty_or_falsely_reported_write_never_admits(tmp_path: Path, stage: str, mode: str) -> None:
+    host = Host.under(tmp_path)
+    filesystem = FaultFilesystem(stage=stage, mode=mode)
+    launcher = ScriptedLauncher()
+    session = open_session(host, filesystem=filesystem, launcher=launcher)
+    subject = {
+        GENESIS_STAGES.write: "index/000000.open.json",
+        RECORD_STAGES.write: "records/000001.json",
+        ADVANCE_STAGES.write: "index/000001.open.json",
+    }[stage]
+    if stage == GENESIS_STAGES.write:
+        assert session.state is SessionState.NO_GENESIS
+        failure = session.genesis_failure
+    else:
+        outcome = session.run_act(act("A1-01", writes(b"", b"")))
+        assert not outcome.admitted
+        failure = outcome.failure
+    assert filesystem.triggered
+    prefix = stage.rsplit(":", 1)[0]
+    expected = "content-mismatch" if mode == "corrupt" else "size-mismatch"
+    assert (failure.stage, failure.classification) == (f"{prefix}:verify-content", expected)
+    # No link was attempted: only the retained staging name exists.
+    assert not [c for c in filesystem.calls if c[0] == "link_exclusive" and c[1].startswith(prefix)]
+    assert session.publication_states[subject] is PublicationState.STAGING_ONLY
+    assert (Path(host.root()) / (subject + ".staging")).exists()
+    assert not (Path(host.root()) / subject).exists()
+    if stage != GENESIS_STAGES.write:
+        assert session.admitted_records == 0
+        _, final = _final(host.root())
+        assert subject + ".staging" in {item.name for item in final.unadmitted}
+        assert final.records == ()
+        assert _b0_ra(tmp_path, session, host.root()).passed
+
+
+def test_the_write_loop_completes_short_writes_and_refuses_no_progress(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    fs = PosixCaptureFilesystem()
+    real_write = os.write
+    target = tmp_path / "f"
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        monkeypatch.setattr(os, "write", lambda f, view: real_write(f, bytes(view[:3])))
+        fs.write_all(fd, b"0123456789", stage="t")
+        monkeypatch.setattr(os, "write", lambda f, view: 0)
+        with pytest.raises(OSError):
+            fs.write_all(fd, b"more", stage="t")
+    finally:
+        monkeypatch.undo()
+        os.close(fd)
+    assert target.read_bytes() == b"0123456789"
+
+
+INTERRUPTIBLE = [
+    *[(stage, "records/000002.json") for stage in RECORD_STAGES.ordered()],
+    *[(stage, "index/000002.open.json") for stage in ADVANCE_STAGES.ordered()],
+]
+
+
+@pytest.mark.parametrize("stage, subject", INTERRUPTIBLE, ids=[s for s, _ in INTERRUPTIBLE])
+def test_every_publication_interruption_leaves_its_exact_classified_state(
+    tmp_path: Path, stage: str, subject: str
+) -> None:
+    """§3: an interruption at any step leaves exactly the names that step had
+    created, classifies them, and nothing afterwards — not a close, a retry, a
+    clean-up, an X-3 or a next command — touches the filesystem."""
+    host = Host.under(tmp_path)
+    filesystem = FaultFilesystem()
+    launcher = CountingLauncher()
+    session = open_session(host, filesystem=filesystem, launcher=launcher)
+    assert session.run_act(act("A1-01", writes(b"o1", b"e1"))).admitted
+    filesystem.stage, filesystem.mode = stage, "interrupt"
+    before = tree(host.root())
+    with pytest.raises(CaptureInterrupted):
+        session.run_act(act("A1-02", writes(b"o2", b"e2")))
+    reached = REACHED[stage.split(":", 1)[1]]
+    assert session.publication_states[subject] is reached
+    present = names_under(host.root())
+    assert _left(subject, reached) <= present
+    assert not (_left(subject, PublicationState.VERIFIED) - _left(subject, reached)) & present
+    if subject == "index/000002.open.json":
+        assert session.publication_states["records/000002.json"] is PublicationState.VERIFIED
+        assert session.publication_states["index/000001.open.json"] is PublicationState.VERIFIED
+    assert session.publication_states["records/000001.json"] is PublicationState.ADMITTED
+    for call in (session.complete, lambda: session.run_act(act("A1-03", writes(b"", b"")))):
+        with pytest.raises(CaptureRefused):
+            call()
+    assert filesystem.after_interrupt == []
+    assert len(launcher.calls) == 2
+    assert not [n for n in present if ".final.json" in n]
+    # Everything that existed before act 2 is untouched.
+    after = tree(host.root())
+    for name, facts in before.items():
+        if name not in LAYOUT:
+            assert after[name] == facts, name
+
+
+@pytest.mark.parametrize("stage", GENESIS_STAGES.ordered())
+def test_the_first_genesis_publication_is_the_fail_closed_capability_test(tmp_path: Path, stage: str) -> None:
+    """There is no separate probe. If X-1's genesis publication fails at any
+    step, no command runs, no X-3 is made, and what X-1 left is reported by
+    exact name as bounded residue — retained, never cleaned up."""
+    host = Host.under(tmp_path)
+    filesystem = FaultFilesystem(stage=stage)
+    launcher = CountingLauncher()
+    session = open_session(host, filesystem=filesystem, launcher=launcher)
+    assert session.state is SessionState.NO_GENESIS
+    assert session.genesis_failure.stage == stage
+    outcome = session.complete()
+    assert outcome.x3_outcome == "not-made" and outcome.final_state is None
+    assert launcher.calls == []
+    with pytest.raises(CaptureRefused):
+        session.run_act(act("A1-01", writes(b"", b"")))
+    on_disk = {n for n, f in tree(host.root()).items() if f[0] == stat.S_IFREG}
+    assert {item.name for item in outcome.unadmitted} == on_disk
+    assert on_disk == _left("index/000000.open.json", REACHED[stage.split(":", 2)[2]])
+    assert set(outcome.subdirectories) == LAYOUT
+    binding = session.binding()
+    assert (binding.x3_outcome, binding.final_state, binding.capture_index_sha256) == ("not-made", None, None)
+
+
+def test_a_failed_barrier_is_terminal_and_never_cured(tmp_path: Path) -> None:
+    host = Host.under(tmp_path)
+    filesystem = FaultFilesystem()
+    session = open_session(host, filesystem=filesystem)
+    session.run_act(act("A1-01", writes(b"", b"")))
+    filesystem.stage = RECORD_STAGES.directory_barrier
+    outcome = session.run_act(act("A1-02", writes(b"", b"")))
+    assert outcome.failure.stage == RECORD_STAGES.directory_barrier
+    # The one later directory barrier is X-3's own, on F's directory.
+    failed_at = max(i for i, call in enumerate(filesystem.calls) if call == ("fsync", RECORD_STAGES.directory_barrier))
+    later = filesystem.calls[failed_at + 1 :]
+    assert [stage for method, stage in later if method == "fsync"] == [
+        FINAL_STAGES.file_barrier, FINAL_STAGES.directory_barrier,
+    ]
+    assert session.publication_states["records/000002.json"] is PublicationState.LINKED
+    with pytest.raises(ValueError):
+        session._store.mark_admitted("records/000002.json")
+    assert session.publication_states["records/000002.json"] is PublicationState.LINKED
+
+
+RP11_SOURCE_MODULES = (
+    *RP11_MODULES,
+    "tools/phase_5_0_evidence/execution/descriptors.py",
+)
+
+
+@pytest.mark.parametrize("path", RP11_SOURCE_MODULES)
+def test_no_unnamed_inode_procfs_ctypes_rename_or_removal_on_the_rp11_route(path: str) -> None:
+    tree_ = ast.parse((REPOSITORY / path).read_text(encoding="utf-8"))
+    for node in ast.walk(tree_):
+        if isinstance(node, ast.Attribute):
+            assert node.attr != "O_TMPFILE", path
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
+            assert not any("ctypes" in name for name in names), path
+        if isinstance(node, ast.JoinedStr):
+            text = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+            assert not text.startswith("/proc"), path
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            assert not node.value.startswith("/proc/self/fd"), path
+    if path == "tools/phase_5_0_evidence/execution/descriptors.py":
+        return  # I3's reviewed renameat/unlinkat live here, unchanged
+    for node in ast.walk(tree_):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            assert node.func.attr not in {
+                "rename", "renames", "replace", "unlink", "remove", "rmdir", "removedirs",
+                "link", "symlink", "truncate", "ftruncate", "chmod", "fchmod",
+            } or not (isinstance(node.func.value, ast.Name) and node.func.value.id in ("os", "shutil")), (path, node.func.attr)
+
+
+def test_the_store_links_only_through_the_shared_named_primitive() -> None:
+    source = (REPOSITORY / "tools/phase_5_0_evidence/execution/capture_store.py").read_text(encoding="utf-8")
+    tree_ = ast.parse(source)
+    imported = {
+        (node.module, alias.name)
+        for node in ast.walk(tree_)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert ("descriptors", "link_named_exclusive") in imported
+    assert not {name for _, name in imported} & {"link_unnamed_descriptor", "_exclusive_link", "PosixFilesystem"}
+    publish = _functions("tools/phase_5_0_evidence/execution/capture_store.py")["publish"]
+    links = [n for n in ast.walk(publish) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "link_exclusive"]
+    assert len(links) == 1
+    flags = PosixCaptureFilesystem.create_exclusive.__code__.co_names
+    assert {"O_WRONLY", "O_CREAT", "O_EXCL", "O_NOFOLLOW", "O_CLOEXEC"} <= set(flags)

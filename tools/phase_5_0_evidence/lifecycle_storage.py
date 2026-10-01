@@ -1483,9 +1483,17 @@ class DurableRecordStore:
 
     **It never consults the model's durable-state map.** Everything it does is
     something a real participant could do with the descriptors it holds:
-    `openat`, `read`, `create`, `write`, `fsync`, `renameat`. A test may look at
-    the oracle; this may not, and `test_the_reader_uses_no_oracle_observation`
-    asserts that against the module's source.
+    `openat`, `read`, `create`, `write`, `fsync`, `renameat`, `close`. A test
+    may look at the oracle; this may not, and
+    `test_the_reader_uses_no_oracle_observation` asserts that against the
+    module's source.
+
+    **It owns every descriptor it opens — C-P5.0-R5-RP11-I1-R3-R2.** The two
+    that are its own — the record's read descriptor and the publication
+    temporary's write descriptor — are released exactly once, through
+    `_release`, on every path after they were acquired and on none before. The
+    two directory descriptors are the inventory's, held for the whole run, and
+    are never released here.
     """
 
     def __init__(
@@ -1551,6 +1559,42 @@ class DurableRecordStore:
             self._directory, DescriptorMode.O_RDONLY, self._label
         ).number
 
+    def _release(self, number: int) -> bool:
+        """Release one descriptor this store opened; say whether that worked.
+
+        Called **once** per acquired descriptor and never again for that number,
+        whatever it answers: after `close(2)` has returned — even with an error
+        — the number may already name another open file, so a retry could
+        close something this store does not own. That is
+        `PosixFilesystem.release`'s contract, and this defers to it.
+
+        The model has no `release`. Its `close` is the whole of its release and
+        refuses only a number it never issued, so its refusal is the model's
+        failed release. The branch is a type test and not a lookup by name,
+        because the planning tier may not look an attribute up by name.
+        """
+        if isinstance(self._fs, SyntheticFilesystem):
+            try:
+                self._fs.close(number)
+            except ModelRefused:
+                return False
+            return True
+        try:
+            return bool(self._fs.release(number))
+        except ModelRefused:
+            return False
+
+    def _release_refused(self, what: str, operation: str) -> str:
+        """The refusal a failed release becomes. It is never a success."""
+        return (
+            f"the descriptor this store opened on {what} for {self._label!r} was "
+            "not released: `close(2)` reported failure. A failed close can be "
+            "the only report of an earlier error on that descriptor, so this "
+            f"{operation} is not treated as having succeeded. The number is not "
+            "released a second time, because once `close(2)` has returned it "
+            "may already name another open file."
+        )
+
     def present(self) -> bool:
         """Whether the final name resolves. A name, not a durability claim."""
         return self._fs.fstatat(self._path_fd(), self._name) is not None
@@ -1610,6 +1654,13 @@ class DurableRecordStore:
         merely borrows the name — and a guard that had to tell them apart would
         be a guard with an exception in it. The refusal is a stop condition, so
         the method is renamed rather than the guard relaxed.
+
+        **The read descriptor is released on every path after it is opened.** A
+        read that refuses still refuses, with its own reason, and its descriptor
+        is released first. A release that fails after a successful read refuses
+        too, raising `ModelRefused` exactly as a failed read does: returning the
+        bytes would be reporting a success this reader could not establish, and
+        returning `None` would be reporting an absent record that is present.
         """
         try:
             fd = self._fs.openat(
@@ -1617,7 +1668,13 @@ class DurableRecordStore:
             ).number
         except ModelRefused:
             return None
-        return self._fs.read(fd)
+        try:
+            data = self._fs.read(fd)
+        finally:
+            released = self._release(fd)
+        if not released:
+            raise ModelRefused(self._release_refused(self._name, "read"))
+        return data
 
     def reseal(self) -> None:
         """Make the currently visible entry durable — the R3-1 obligation.
@@ -1809,6 +1866,15 @@ class DurableRecordStore:
         written** — PR-20260911-R4-1 and -R4-2. An invalid append leaves the
         stored bytes exactly as they were: no temporary is created, no rename is
         issued, and the refusal names every rule the proposed history breaks.
+
+        **The temporary's descriptor is released once, last, on every path after
+        its creation** — C-P5.0-R5-RP11-I1-R3-R2. The release follows the step
+        that stopped the sequence, or the entry barrier on success, so the order
+        above and the interruption points are unchanged, and releasing a
+        descriptor removes no name. A release that fails is `not_durable` with
+        the reason named, even after both barriers returned success: this writer
+        cannot establish that its publication completed, which is R3-1's
+        visible-but-refused state that every successor already re-seals against.
         """
         problems = self.semantic_problems(entries)
         if problems:
@@ -1847,6 +1913,15 @@ class DurableRecordStore:
         crossed: list[str] = []
         try:
             fd = self._fs.create_file(path_fd, self.temporary).number
+        except ModelRefused as refusal:
+            # Nothing was acquired, so nothing is released.
+            return PublicationOutcome(
+                published=False,
+                refusal=PublicationRefusal.NOT_DURABLE,
+                reasons=(str(refusal),),
+            )
+        reasons: list[str] = []
+        try:
             self._fs.write(fd, serialize_history(entries))
             if fail_at == "record-data":
                 raise ModelRefused(
@@ -1877,10 +1952,21 @@ class DurableRecordStore:
             self._fs.fsync(self._sync_fd(), barrier=f"{self._label}:record-entry")
             crossed.append("record-entry")
         except ModelRefused as refusal:
+            reasons.append(str(refusal))
+        finally:
+            released = self._release(fd)
+        if not released:
+            reasons.append(
+                self._release_refused(self.temporary, "publication")
+                + " Every name the publication already changed is left exactly "
+                "as it is, and `barriers` lists only the barriers that returned "
+                "success."
+            )
+        if reasons:
             return PublicationOutcome(
                 published=False,
                 refusal=PublicationRefusal.NOT_DURABLE,
-                reasons=(str(refusal),),
+                reasons=tuple(reasons),
                 barriers=tuple(crossed),
             )
         return PublicationOutcome(published=True, barriers=tuple(crossed))

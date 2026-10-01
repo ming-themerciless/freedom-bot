@@ -824,7 +824,23 @@ def test_the_manifest_pins_whether_a_contract_resolves_anything(plan) -> None:
     # rationale no longer says every outside-scope case is produced by the plan,
     # because S4-3 has no producer. No vector moves; the clauses below are
     # unchanged again.
-    assert body["manifest_version"] == MANIFEST_VERSION == 22
+    #
+    # **C-P5.0-R5-RP11-I1-R3, 2026-09-28.** It moves to 23: RP-11's publication
+    # becomes the retained staging/final alias and five covered files change.
+    # No vector moves; the clauses below are unchanged again.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R2, 2026-09-28.** It moves to 24:
+    # `lifecycle_storage.py`'s record store releases the descriptors it opens.
+    # No vector moves; the clauses below are unchanged again.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-D2, 2026-09-28.** It moves to 25 when the
+    # covered retention-check documentation cites the accepted Option-1
+    # decision. Behavior, vectors and executable state do not move.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R3, 2026-09-29.** It moves to 26:
+    # `descriptors.py` releases a descriptor whose acquisition fails after
+    # `os.open`. No vector moves; the clauses below are unchanged again.
+    assert body["manifest_version"] == MANIFEST_VERSION == 26
     assert body["supplied_observations"]["schema_version"] == 3
     assert "Band 7 supplied observations only" in (
         body["supplied_observations"]["importer_scope"]

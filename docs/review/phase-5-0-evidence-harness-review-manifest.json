@@ -1985,7 +1985,7 @@
   "harness_name": "phase-5-0-evidence-harness",
   "harness_version": "0.7.0-pre-execution",
   "manifest_schema": "phase-5-0-evidence-review-manifest",
-  "manifest_version": 22,
+  "manifest_version": 26,
   "materializations": [
     {
       "after_step_id": "B6-03",
@@ -2596,7 +2596,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/capture_contract.py",
-      "sha256": "e7a42d102346da369315852bb07ab3e8a846bdd223b79605e02050a1d356e7a5"
+      "sha256": "437d663e6cf79ac3d4cd62c0cbf7955a8fe9b207c680b144af6b9cd3beb60dd7"
     },
     {
       "path": "tools/phase_5_0_evidence/case_runtime.py",
@@ -2632,11 +2632,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/capture_mechanism.py",
-      "sha256": "a1c758898419da2b00019d7f1fb7f16f6a9dd7775c7494665d4ba4d0eae6f6bb"
+      "sha256": "b64d92cb7fcbd6176dee616d312ab24132a5d780cb7ebae7fe04922088c3c14a"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/capture_store.py",
-      "sha256": "4dfb5ceeff7bfd7d847b028c0a36b56f75085315556bcfa8c35da34807080248"
+      "sha256": "c038174db4e7293637eee831b58a0fd54dcc4194c5065fd90fd324e54a3fd081"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/case_program.py",
@@ -2648,7 +2648,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/descriptors.py",
-      "sha256": "499ea15a42cc39da68ae1f47c3574d5020fb8c3c1edd46e6de3cadc01e5212ca"
+      "sha256": "fbf37a86599c502aad81c44b4434dd892f855d6e3ad82d7ab4b822dc7205fb89"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/evidence_cli.py",
@@ -2696,7 +2696,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/execution/retention_check.py",
-      "sha256": "7bfb2116ea5b15ac76de7b9cf1babe16c4b5152780a30d1d8eb9af276659176f"
+      "sha256": "208bec5a251873a5661e692cd9b541db91629051ef72007336e506fac8803349"
     },
     {
       "path": "tools/phase_5_0_evidence/execution/run_ledger.py",
@@ -2728,7 +2728,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/lifecycle_storage.py",
-      "sha256": "7bbfc11ae5efd1d19f9c0de173e52488a87304beef4ee1c3060b7ff71f39882a"
+      "sha256": "fbee5aa1cc55fd32934251d58befca0e8b2a18c23470e962ffa32c507b378f45"
     },
     {
       "path": "tools/phase_5_0_evidence/manifest.py",
@@ -2768,7 +2768,7 @@
     },
     {
       "path": "tools/phase_5_0_evidence/review_manifest.py",
-      "sha256": "e35435a0f89cfe7ede63d21e94c26a85ba916a537d4dc4d182289437fd2ebfd2"
+      "sha256": "be0dd079980530f24cad39acc21efb4067b6d6fa7cf140a52a03526de1f05117"
     },
     {
       "path": "tools/phase_5_0_evidence/sudoers.py",

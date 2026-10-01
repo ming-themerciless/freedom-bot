@@ -204,15 +204,16 @@ EXCLUSIVE_LINK_PRIMITIVE = (
     "observation was impossible through it. A second `os.link` in the verifier "
     "would have been a divergent implementation of the same exclusive, "
     "no-follow guarantee; the factoring keeps one.",
-    "**Amended by C-P5.0-R5-RP11-I1, 2026-09-27, on the maintainer's decision.** "
-    "The one `os.link` call now lives in the private `_exclusive_link`, and it "
-    "has two callers. `PosixFilesystem.linkat` passes `follow=False`, so its "
-    "behaviour, its flags and its no-follow guarantee are unchanged. "
-    "`link_unnamed_descriptor` passes `follow=True`, and only for "
-    "`/proc/self/fd/N` of an inode with no name, for RP-11's `O_TMPFILE` "
-    "publication (`UNNAMED_PUBLICATION`). There is still one link "
-    "implementation in the package, and one exclusivity rule: the kernel's "
-    "EEXIST.",
+    "**C-P5.0-R5-RP11-I1-R3, 2026-09-28.** The one `os.link` call lives in the "
+    "private `_exclusive_link`, which always passes `follow_symlinks=False` and "
+    "takes no follow argument: every source it links is a name relative to a "
+    "directory descriptor, and none is ever followed. It has two callers, "
+    "`PosixFilesystem.linkat` (I3, unchanged in behaviour, flags and guarantee) "
+    "and `link_named_exclusive` (RP-11's retained-alias publication, "
+    "`RETAINED_ALIAS_PUBLICATION`). The I1 amendment that gave RP-11 a "
+    "`follow=True` caller through `/proc/self/fd/N` is withdrawn, with its "
+    "caller. There is still one link implementation in the package and one "
+    "exclusivity rule: the kernel's EEXIST.",
 )
 
 #: The **default** creation mode of `create_file`, and the mode the lifecycle
@@ -867,9 +868,17 @@ class PosixFilesystem:
             raise DescriptorRefused(DESCRIPTOR_OBJECT_EXISTS, role) from None
         except OSError:
             raise DescriptorRefused(DESCRIPTOR_OPEN_REFUSED, role) from None
-        descriptor = self._track(fd, self._identity(fd), DescriptorMode.O_WRONLY, name)
-        if data:
-            self.write(fd, data)
+        try:
+            descriptor = self._track(
+                fd, self._identity(fd), DescriptorMode.O_WRONLY, name
+            )
+            if data:
+                self.write(fd, data)
+        except BaseException:
+            # The name stays exactly as the failed call left it: `O_EXCL`
+            # created it, and removing it here would conceal the failure.
+            self._abandon(fd)
+            raise
         return descriptor
 
     def openat(self, dirfd: int, name: str, mode: DescriptorMode) -> Descriptor:
@@ -888,7 +897,11 @@ class PosixFilesystem:
             raise DescriptorRefused(DESCRIPTOR_OBJECT_ABSENT, role) from None
         except OSError:
             raise DescriptorRefused(DESCRIPTOR_OPEN_REFUSED, role) from None
-        return self._track(fd, self._identity(fd), mode, name)
+        try:
+            return self._track(fd, self._identity(fd), mode, name)
+        except BaseException:
+            self._abandon(fd)
+            raise
 
     def fstatat(self, dirfd: int, name: str) -> str | None:
         """What the name resolves to now, or `None`.
@@ -989,7 +1002,6 @@ class PosixFilesystem:
                 destination_name,
                 source_dir_fd=source_dirfd,
                 destination_dir_fd=destination_dirfd,
-                follow=False,
             )
         except FileExistsError:
             raise DescriptorRefused(
@@ -1133,6 +1145,23 @@ class PosixFilesystem:
         self._descriptors[fd] = descriptor
         return descriptor
 
+    def _abandon(self, fd: int) -> None:
+        """Release a descriptor whose acquiring call is failing — C-P5.0-R5-RP11-I1-R3-R3.
+
+        `create_file` and `openat` own the number `os.open` returned until they
+        hand the caller a `Descriptor`; a failure before that hand-off would
+        otherwise leak it. The number leaves this filesystem's table first and
+        `close(2)` is called **once**: a failed close is never retried, for the
+        reason `release` gives, and it is swallowed so that the failure the
+        caller sees is the one that caused the abandonment. The number is one
+        `os.open` just issued, so it can never be an inventory descriptor.
+        """
+        self._descriptors.pop(fd, None)
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
     def _descriptor(self, number: int) -> Descriptor:
         """The descriptor's recorded mode, or a refusal.
 
@@ -1203,66 +1232,63 @@ def _exclusive_link(
     source: str,
     destination: str,
     *,
-    source_dir_fd: int | None,
+    source_dir_fd: int,
     destination_dir_fd: int,
-    follow: bool,
 ) -> None:
-    """**The package's one `link(2)` call site.** Both uses reach it.
+    """**The package's one `link(2)` call site.** Both callers reach it.
 
-    `link(2)` fails with `EEXIST` when the destination exists, so neither use
-    can replace an entry. `follow` is `False` for `PosixFilesystem.linkat`,
-    whose source is a name and must never be followed, and `True` only for
-    `link_unnamed_descriptor`, whose source is the `/proc/self/fd` magic link of
-    an inode that has no name. `EXCLUSIVE_LINK_PRIMITIVE` states both.
+    `link(2)` fails with `EEXIST` when the destination exists, so no caller can
+    replace an entry. The flags are `0` — `follow_symlinks=False`, fixed here and
+    not a parameter — so a symbolic link at the source is linked as itself and
+    never followed. Both names are resolved relative to directory descriptors.
+    `EXCLUSIVE_LINK_PRIMITIVE` states the two callers.
     """
     os.link(
         source,
         destination,
         src_dir_fd=source_dir_fd,
         dst_dir_fd=destination_dir_fd,
-        follow_symlinks=follow,
+        follow_symlinks=False,
     )
 
 
-#: The `O_TMPFILE` publication route, stated where a reader of the link will see
-#: it — C-P5.0-R5-RP11-I1, maintainer decision of 2026-09-27.
-UNNAMED_PUBLICATION = (
-    "RP-11 publishes a record or index state by writing it into an unnamed "
-    "`O_TMPFILE` inode in the directory that will hold it, synchronizing it, and "
-    "then giving it its first and only name with one `linkat` through "
-    "`/proc/self/fd/N` with `AT_SYMLINK_FOLLOW`. The link fails with EEXIST "
-    "rather than replace an entry, and there is no temporary name at any point, "
-    "so a failure before the link leaves nothing behind and a failure after it "
-    "leaves exactly one name.",
-    "`link_unnamed_descriptor` refuses a descriptor whose inode already has a "
-    "name (`st_nlink != 0`), so this route can never create a second name for "
-    "an existing file: a hard-link alias is exactly what B0-RA must refuse.",
+#: RP-11's publication route, stated where a reader of the link will see it —
+#: C-P5.0-R5-RP11-I1-R3, under the maintainer's acceptance of 2026-09-28.
+RETAINED_ALIAS_PUBLICATION = (
+    "RP-11 publishes a record or index state by creating one deterministic, "
+    "object-specific staging name exclusively (`O_CREAT|O_EXCL|O_WRONLY|"
+    "O_NOFOLLOW|O_CLOEXEC`, mode `0600`), writing and synchronizing it, and then "
+    "giving the same inode its final name with exactly one `link_named_exclusive` "
+    "call. The link fails with EEXIST rather than replace an entry; no final name "
+    "is pre-checked in its place.",
+    "Both names are retained. The staging name is never unlinked, renamed, "
+    "repaired or cleaned up: after publication it is an expected alias, and the "
+    "next durable index state records both names and their shared inode. There "
+    "is no `O_TMPFILE`, no `/proc/self/fd` and no followed source anywhere on "
+    "this route.",
 )
 
 
-def link_unnamed_descriptor(fd: int, destination_dir_fd: int, destination_name: str) -> None:
-    """Give an unnamed `O_TMPFILE` inode its first and only name, exclusively.
+def link_named_exclusive(
+    source_dir_fd: int,
+    source_name: str,
+    destination_dir_fd: int,
+    destination_name: str,
+) -> None:
+    """Give an existing named inode one more name, exclusively and no-follow.
 
-    `destination_name` is one component relative to `destination_dir_fd`. The
-    inode must have **no** name — `st_nlink == 0` — or the call refuses before
-    linking. Raises `OSError` unchanged, including `FileExistsError`; the
-    caller classifies it.
+    Each name is exactly one component relative to its directory descriptor.
+    Raises `OSError` unchanged, including `FileExistsError`; the caller
+    classifies it. It removes nothing: on success both names remain.
     """
-    if (
-        not destination_name
-        or destination_name in (".", "..")
-        or "/" in destination_name
-        or "\0" in destination_name
-    ):
-        raise ValueError("the destination is exactly one component")
-    if os.fstat(fd).st_nlink != 0:
-        raise ValueError("only an unnamed inode is linked; this one already has a name")
+    for name in (source_name, destination_name):
+        if not name or name in (".", "..") or "/" in name or "\0" in name:
+            raise ValueError("each name is exactly one component")
     _exclusive_link(
-        f"/proc/self/fd/{fd}",
+        source_name,
         destination_name,
-        source_dir_fd=None,
+        source_dir_fd=source_dir_fd,
         destination_dir_fd=destination_dir_fd,
-        follow=True,
     )
 
 
@@ -1286,8 +1312,8 @@ __all__ = [
     "EXCLUSIVE_PUBLICATION_SUBSTITUTE",
     "FIRST_TRANSFERRED_DESCRIPTOR",
     "UNIMPLEMENTED_EXECUTION_ROUTE",
-    "UNNAMED_PUBLICATION",
-    "link_unnamed_descriptor",
+    "RETAINED_ALIAS_PUBLICATION",
+    "link_named_exclusive",
     "DescriptorInventory",
     "DescriptorRefused",
     "DirectoryHandle",

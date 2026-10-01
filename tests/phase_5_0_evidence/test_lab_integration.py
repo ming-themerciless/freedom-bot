@@ -58,9 +58,11 @@ from tools.phase_5_0_evidence.execution.boundary import (
     RecordingBoundary,
 )
 from tools.phase_5_0_evidence.execution.descriptors import (
+    DESCRIPTOR_OPERATION_REFUSED,
     FIRST_TRANSFERRED_DESCRIPTOR,
     DescriptorInventory,
     DescriptorRefused,
+    PosixFilesystem,
     TransferEntry,
 )
 from tools.phase_5_0_evidence.execution.participants import (
@@ -1039,3 +1041,573 @@ def test_the_reservation_record_is_the_one_the_fixture_initialized(tmp_path) -> 
         assert parsed.entries[0].kind is EntryKind.FIRST_USE
     finally:
         bound.close()
+
+
+# ---------------------------------------------------------------------------
+# 10. The record store releases every descriptor it opens — C-P5.0-R5-RP11-I1-R3-R2
+# ---------------------------------------------------------------------------
+#
+# `DurableRecordStore.read_record_bytes` and `publish` opened a descriptor
+# through `PosixFilesystem` and never released it, on success and on failure.
+# I1-R3-R1 measured 963 left open by four lab modules. These tests drive the
+# production store over the real filesystem and read ownership from the
+# filesystem's own calls, so each fails against the store that leaked. A
+# `/proc/self/fd` count supplements that oracle and never replaces it.
+
+
+class _OwnershipFilesystem(PosixFilesystem):
+    """`PosixFilesystem`, recording what the store acquires and releases.
+
+    A fault named in `faults` refuses that operation. `create` and `open`
+    refuse **before** a descriptor exists; `read` and `write` refuse after it
+    does. An injected `release` fault performs the real release and then
+    reports failure, which is what Linux does: `close(2)` frees the number even
+    when it returns an error, so the test leaks nothing it does not mean to.
+    """
+
+    def __init__(self, inventory: DescriptorInventory, *, faults=()) -> None:
+        super().__init__(inventory)
+        self.faults = frozenset(faults)
+        self.acquired: list[int] = []
+        self.release_calls: list[int] = []
+        self.held: set[int] = set()
+
+    def _fault(self, operation: str) -> None:
+        if operation in self.faults:
+            raise DescriptorRefused(
+                DESCRIPTOR_OPERATION_REFUSED, f"injected-{operation}"
+            )
+
+    def _acquire(self, descriptor):
+        assert descriptor.number not in self.held, descriptor
+        self.acquired.append(descriptor.number)
+        self.held.add(descriptor.number)
+        return descriptor
+
+    def create_file(self, dirfd, name, data=b"", **keywords):
+        self._fault("create")
+        return self._acquire(super().create_file(dirfd, name, data, **keywords))
+
+    def openat(self, dirfd, name, mode):
+        self._fault("open")
+        return self._acquire(super().openat(dirfd, name, mode))
+
+    def read(self, fd):
+        self._fault("read")
+        return super().read(fd)
+
+    def write(self, fd, data):
+        self._fault("write")
+        super().write(fd, data)
+
+    def release(self, number):
+        self.release_calls.append(number)
+        self.held.discard(number)
+        released = super().release(number)
+        return released and "release" not in self.faults
+
+
+def _open_descriptor_count() -> int | None:
+    """This process's descriptor table size, where Linux reports it."""
+    table = Path("/proc/self/fd")
+    return len(list(table.iterdir())) if table.is_dir() else None
+
+
+def _ownership_stores(lab, *, faults=()):
+    """The record and the ledger over one instrumented filesystem."""
+    from tools.phase_5_0_evidence.execution.lifecycle_record import ReservationRecord
+    from tools.phase_5_0_evidence.execution.run_ledger import ParticipantRunLedger
+
+    inventory = DescriptorInventory()
+    laboratory = inventory.open_provisioned_root(
+        "laboratory", lab.layout.laboratory_directory
+    )
+    runs = inventory.adopt_directory(
+        parent_role="laboratory", name=lab.layout.runs_directory_name, role="runs"
+    )
+    # The inventory binds each synchronizable descriptor on first use and holds
+    # it for the run. Binding both here puts them in every baseline below, so a
+    # `/proc/self/fd` count measures only what the store itself opens.
+    inventory.bind_synchronizable("laboratory")
+    inventory.bind_synchronizable("runs")
+    filesystem = _OwnershipFilesystem(inventory, faults=faults)
+    record = ReservationRecord(
+        filesystem=filesystem,
+        directory_object_id=laboratory.identity.object_id,
+        name=lab.layout.record_name,
+        host=HOST,
+        target_identity=TARGET_IDENTITY,
+    )
+    ledger = ParticipantRunLedger(
+        filesystem=filesystem,
+        directory_object_id=runs.identity.object_id,
+        host=HOST,
+        target_identity=TARGET_IDENTITY,
+    )
+    return inventory, filesystem, record, ledger
+
+
+def _assert_only_its_own_released(filesystem, inventory) -> None:
+    """Each acquired descriptor released once; no inventory descriptor at all."""
+    assert filesystem.held == set()
+    assert sorted(filesystem.release_calls) == sorted(filesystem.acquired)
+    for role in inventory.roles():
+        handle = inventory.directory(role)
+        for number in (handle.traversal_fd, handle.synchronizable_fd):
+            if number is not None:
+                assert number not in filesystem.release_calls, (role, number)
+
+
+def _begin(ledger, run_id: str, *, fail_at: str = ""):
+    participant = Participant.WEB_SUITE
+    return ledger.begin(
+        run_id=run_id,
+        participant=participant,
+        author=PARTICIPANT_PROFILES[participant].identity,
+        at=AT,
+        fail_at=fail_at,
+    )
+
+
+REPEATS = 40
+
+
+def test_repeated_reads_release_every_read_descriptor(tmp_path) -> None:
+    lab = _initialized(build_laboratory(tmp_path))
+    inventory, filesystem, record, _ledger = _ownership_stores(lab)
+    try:
+        record.read()
+        before = _open_descriptor_count()
+        for _ in range(REPEATS):
+            assert record.read().ok
+        assert _open_descriptor_count() == before
+        assert len(filesystem.acquired) == REPEATS + 1
+        _assert_only_its_own_released(filesystem, inventory)
+    finally:
+        inventory.close()
+
+
+def test_a_read_that_refuses_after_opening_still_releases(tmp_path) -> None:
+    lab = _initialized(build_laboratory(tmp_path))
+    inventory, filesystem, record, _ledger = _ownership_stores(
+        lab, faults={"read"}
+    )
+    try:
+        before = _open_descriptor_count()
+        for _ in range(REPEATS):
+            with pytest.raises(DescriptorRefused, match="injected-read"):
+                record.store.read_record_bytes()
+        assert _open_descriptor_count() == before
+        assert len(filesystem.acquired) == REPEATS
+        _assert_only_its_own_released(filesystem, inventory)
+    finally:
+        inventory.close()
+
+
+def test_repeated_publications_release_every_temporary_descriptor(tmp_path) -> None:
+    lab = build_laboratory(tmp_path)
+    inventory, filesystem, _record, ledger = _ownership_stores(lab)
+    try:
+        before = _open_descriptor_count()
+        for index in range(REPEATS):
+            outcome = _begin(ledger, f"run-{index:03d}")
+            assert outcome.published, outcome
+            assert outcome.barriers == ("record-data", "record-entry")
+        assert _open_descriptor_count() == before
+        assert len(filesystem.acquired) == REPEATS
+        _assert_only_its_own_released(filesystem, inventory)
+        assert ledger.read_run("run-000").ok
+    finally:
+        inventory.close()
+
+
+@pytest.mark.parametrize(
+    ("fail_at", "barriers", "temporary", "final"),
+    [
+        ("record-data", (), True, False),
+        ("rename", ("record-data",), True, False),
+        ("record-entry", ("record-data",), False, True),
+    ],
+)
+def test_every_injected_publication_failure_releases_and_keeps_its_artifacts(
+    tmp_path, fail_at, barriers, temporary, final
+) -> None:
+    """The interruption points and what each leaves are the ones they were."""
+    from tools.phase_5_0_evidence.lifecycle_storage import PublicationRefusal
+
+    lab = build_laboratory(tmp_path)
+    inventory, filesystem, _record, ledger = _ownership_stores(lab)
+    try:
+        before = _open_descriptor_count()
+        outcome = _begin(ledger, "run-interrupted", fail_at=fail_at)
+        assert not outcome.published
+        assert outcome.refusal is PublicationRefusal.NOT_DURABLE
+        assert outcome.barriers == barriers
+        assert len(outcome.reasons) == 1 and "injected failure" in outcome.reasons[0]
+        assert _open_descriptor_count() == before
+        assert len(filesystem.acquired) == 1
+        _assert_only_its_own_released(filesystem, inventory)
+        assert (lab.runs_directory / "run-interrupted.tmp").exists() is temporary
+        assert (lab.runs_directory / "run-interrupted").exists() is final
+        assert ledger.observe_publication_temporary("run-interrupted").present is temporary
+    finally:
+        inventory.close()
+
+
+def test_a_write_that_refuses_after_creation_releases(tmp_path) -> None:
+    from tools.phase_5_0_evidence.lifecycle_storage import PublicationRefusal
+
+    lab = build_laboratory(tmp_path)
+    inventory, filesystem, _record, ledger = _ownership_stores(
+        lab, faults={"write"}
+    )
+    try:
+        before = _open_descriptor_count()
+        outcome = _begin(ledger, "run-unwritten")
+        assert outcome.refusal is PublicationRefusal.NOT_DURABLE
+        assert outcome.barriers == ()
+        assert _open_descriptor_count() == before
+        _assert_only_its_own_released(filesystem, inventory)
+        assert (lab.runs_directory / "run-unwritten.tmp").exists()
+        assert not (lab.runs_directory / "run-unwritten").exists()
+    finally:
+        inventory.close()
+
+
+def test_a_failed_release_after_publication_refuses_and_is_never_retried(
+    tmp_path,
+) -> None:
+    """Both barriers returned success, and the writer still does not claim it."""
+    from tools.phase_5_0_evidence.lifecycle_storage import PublicationRefusal
+
+    lab = build_laboratory(tmp_path)
+    inventory, filesystem, _record, ledger = _ownership_stores(
+        lab, faults={"release"}
+    )
+    try:
+        outcome = _begin(ledger, "run-unreleased")
+        assert not outcome.published
+        assert outcome.refusal is PublicationRefusal.NOT_DURABLE
+        assert outcome.barriers == ("record-data", "record-entry")
+        assert len(outcome.reasons) == 1 and "was not released" in outcome.reasons[0]
+        assert filesystem.release_calls == filesystem.acquired
+        assert len(filesystem.release_calls) == 1
+        _assert_only_its_own_released(filesystem, inventory)
+        assert (lab.runs_directory / "run-unreleased").exists()
+        assert not (lab.runs_directory / "run-unreleased.tmp").exists()
+    finally:
+        inventory.close()
+
+
+def test_a_failed_release_after_a_failure_names_both_once(tmp_path) -> None:
+    lab = build_laboratory(tmp_path)
+    inventory, filesystem, _record, ledger = _ownership_stores(
+        lab, faults={"release"}
+    )
+    try:
+        outcome = _begin(ledger, "run-twice", fail_at="rename")
+        assert not outcome.published
+        assert outcome.barriers == ("record-data",)
+        assert len(outcome.reasons) == 2
+        assert "injected failure" in outcome.reasons[0]
+        assert "was not released" in outcome.reasons[1]
+        assert len(filesystem.release_calls) == 1
+        _assert_only_its_own_released(filesystem, inventory)
+        assert (lab.runs_directory / "run-twice.tmp").exists()
+    finally:
+        inventory.close()
+
+
+def test_a_failed_release_after_a_read_refuses_and_is_never_retried(
+    tmp_path,
+) -> None:
+    """Neither the bytes nor `None`: a read that cannot release refuses."""
+    from tools.phase_5_0_evidence.durability_model import ModelRefused
+
+    lab = _initialized(build_laboratory(tmp_path))
+    inventory, filesystem, record, _ledger = _ownership_stores(
+        lab, faults={"release"}
+    )
+    try:
+        with pytest.raises(ModelRefused, match="was not released"):
+            record.store.read_record_bytes()
+        assert len(filesystem.release_calls) == 1
+        _assert_only_its_own_released(filesystem, inventory)
+    finally:
+        inventory.close()
+
+
+@pytest.mark.parametrize("operation", ["open", "create"])
+def test_an_acquisition_that_refuses_releases_nothing(tmp_path, operation) -> None:
+    from tools.phase_5_0_evidence.lifecycle_storage import PublicationRefusal
+
+    lab = _initialized(build_laboratory(tmp_path))
+    inventory, filesystem, record, ledger = _ownership_stores(
+        lab, faults={operation}
+    )
+    try:
+        if operation == "open":
+            assert record.store.read_record_bytes() is None
+        else:
+            outcome = _begin(ledger, "run-uncreated")
+            assert outcome.refusal is PublicationRefusal.NOT_DURABLE
+            assert outcome.barriers == ()
+            assert not (lab.runs_directory / "run-uncreated.tmp").exists()
+        assert filesystem.acquired == []
+        assert filesystem.release_calls == []
+    finally:
+        inventory.close()
+
+
+# ---------------------------------------------------------------------------
+# 11. A failing acquisition releases what it opened — C-P5.0-R5-RP11-I1-R3-R3
+# ---------------------------------------------------------------------------
+#
+# `PosixFilesystem.create_file` and `openat` own the number `os.open` returns
+# until they hand the caller a `Descriptor`. Before this correction a failure
+# in between — `fstat` for the identity, or `create_file`'s optional initial
+# write — dropped it. The oracle is the kernel calls `descriptors.py` itself
+# makes: its module-level `os` is replaced by a recorder that performs every
+# real call, so the descriptors are real and every `open` and `close` is seen.
+# A `/proc/self/fd` count supplements that oracle and never replaces it.
+
+
+class _KernelCalls:
+    """The `os` that `descriptors.py` sees, recording `open` and `close`.
+
+    Faults named in `fail` apply only to descriptors opened after it was
+    installed, never to the inventory's. `fstat` refuses with one fixed
+    exception, so a test can prove it is the one the caller sees. `write`
+    writes a short prefix once and then refuses, so a failed initial write
+    leaves bytes a later cleanup would have to change. `close` performs the
+    real close and then reports failure, which is what Linux does: `close(2)`
+    frees the number even when it returns an error, so the test leaks nothing.
+    """
+
+    PARTIAL = 3
+
+    def __init__(self, *, fail=()) -> None:
+        import errno
+
+        self.fail = frozenset(fail)
+        self.opened: list[int] = []
+        self.closed: list[int] = []
+        self.writes = 0
+        self.fstat_error = OSError(errno.EIO, "injected-fstat")
+        self.close_error = OSError(errno.EIO, "injected-close")
+        self.write_error = OSError(errno.ENOSPC, "injected-write")
+
+    def __getattr__(self, name):
+        import os
+
+        return getattr(os, name)
+
+    def open(self, *arguments, **keywords):
+        import os
+
+        fd = os.open(*arguments, **keywords)
+        self.opened.append(fd)
+        return fd
+
+    def fstat(self, fd):
+        import os
+
+        if "fstat" in self.fail and fd in self.opened:
+            raise self.fstat_error
+        return os.fstat(fd)
+
+    def write(self, fd, data):
+        import os
+
+        self.writes += 1
+        if "write" not in self.fail:
+            return os.write(fd, data)
+        if self.writes > 1:
+            raise self.write_error
+        return os.write(fd, data[: self.PARTIAL])
+
+    def close(self, fd):
+        import os
+
+        self.closed.append(fd)
+        os.close(fd)
+        if "close" in self.fail:
+            raise self.close_error
+
+
+def _post_open_filesystem(tmp_path, monkeypatch, *, fail=()):
+    """A filesystem over one registered directory, and the recorder under it.
+
+    The inventory opens and binds both of its descriptors **before** the
+    recorder is installed, so every number the recorder sees opened is one the
+    filesystem call under test acquired, and a `/proc/self/fd` baseline taken
+    afterwards counts only that call.
+    """
+    from tools.phase_5_0_evidence.execution import descriptors as descriptors_module
+
+    inventory = DescriptorInventory()
+    root = inventory.open_provisioned_root("root", str(tmp_path))
+    inventory.bind_synchronizable("root")
+    kernel = _KernelCalls(fail=fail)
+    monkeypatch.setattr(descriptors_module, "os", kernel)
+    return inventory, PosixFilesystem(inventory), root.traversal_fd, kernel
+
+
+def _assert_released_exactly_once(kernel, filesystem, inventory) -> None:
+    """One `close` per acquired number, none repeated, none of the inventory's."""
+    from tools.phase_5_0_evidence.execution.descriptors import (
+        DESCRIPTOR_NOT_REGISTERED,
+    )
+
+    assert len(kernel.opened) == 1
+    assert kernel.closed == kernel.opened
+    for number in kernel.opened:
+        with pytest.raises(DescriptorRefused) as refused:
+            filesystem.describe(number)
+        assert refused.value.classification == DESCRIPTOR_NOT_REGISTERED
+    handle = inventory.directory("root")
+    assert handle.traversal_fd not in kernel.closed
+    assert handle.synchronizable_fd not in kernel.closed
+
+
+def _post_open_failure(filesystem, dirfd, operation: str):
+    """Drive one of the three failing acquisitions; return its exception."""
+    from tools.phase_5_0_evidence.durability_model import DescriptorMode
+
+    with pytest.raises(BaseException) as failure:
+        if operation == "create":
+            filesystem.create_file(dirfd, "created")
+        elif operation == "create-data":
+            filesystem.create_file(dirfd, "created", b"record-bytes")
+        else:
+            filesystem.openat(dirfd, "existing", DescriptorMode(operation))
+    return failure.value
+
+
+OPEN_MODES = ("O_RDONLY", "O_WRONLY", "O_PATH")
+
+
+@pytest.mark.parametrize("operation", ["create", *OPEN_MODES])
+def test_an_identity_failure_after_opening_releases_the_new_descriptor(
+    tmp_path, monkeypatch, operation
+) -> None:
+    """Prompt §3 items 1, 2 and 4: `fstat` refuses after `os.open` succeeded."""
+    (tmp_path / "existing").write_bytes(b"present")
+    inventory, filesystem, dirfd, kernel = _post_open_filesystem(
+        tmp_path, monkeypatch, fail={"fstat"}
+    )
+    try:
+        before = _open_descriptor_count()
+        failure = _post_open_failure(filesystem, dirfd, operation)
+        assert failure is kernel.fstat_error
+        assert _open_descriptor_count() == before
+        _assert_released_exactly_once(kernel, filesystem, inventory)
+        expected = ["created", "existing"] if operation == "create" else ["existing"]
+        assert sorted(p.name for p in tmp_path.iterdir()) == expected
+        assert (tmp_path / "existing").read_bytes() == b"present"
+        if operation == "create":
+            assert (tmp_path / "created").read_bytes() == b""
+    finally:
+        inventory.close()
+
+
+def test_an_initial_write_failure_releases_and_leaves_the_created_name(
+    tmp_path, monkeypatch
+) -> None:
+    """Prompt §3 items 3, 4 and 6: the name stays exactly as the write left it."""
+    from tools.phase_5_0_evidence.execution.descriptors import (
+        DESCRIPTOR_OPERATION_REFUSED,
+    )
+
+    inventory, filesystem, dirfd, kernel = _post_open_filesystem(
+        tmp_path, monkeypatch, fail={"write"}
+    )
+    try:
+        before = _open_descriptor_count()
+        failure = _post_open_failure(filesystem, dirfd, "create-data")
+        assert isinstance(failure, DescriptorRefused)
+        assert failure.classification == DESCRIPTOR_OPERATION_REFUSED
+        assert failure.role == "created"
+        assert kernel.writes == 2
+        assert _open_descriptor_count() == before
+        _assert_released_exactly_once(kernel, filesystem, inventory)
+        assert [p.name for p in tmp_path.iterdir()] == ["created"]
+        created = tmp_path / "created"
+        assert created.read_bytes() == b"record-bytes"[: _KernelCalls.PARTIAL]
+        assert created.stat().st_nlink == 1
+    finally:
+        inventory.close()
+
+
+@pytest.mark.parametrize(
+    ("operation", "cause"),
+    [
+        ("create", "fstat"),
+        ("create-data", "fstat"),
+        ("create-data", "write"),
+        *((mode, "fstat") for mode in OPEN_MODES),
+    ],
+)
+def test_a_failed_release_is_not_retried_and_the_first_failure_wins(
+    tmp_path, monkeypatch, operation, cause
+) -> None:
+    """Prompt §3 item 5: the close error neither repeats nor replaces the cause."""
+    from tools.phase_5_0_evidence.execution.descriptors import (
+        DESCRIPTOR_OPERATION_REFUSED,
+    )
+
+    (tmp_path / "existing").write_bytes(b"present")
+    inventory, filesystem, dirfd, kernel = _post_open_filesystem(
+        tmp_path, monkeypatch, fail={cause, "close"}
+    )
+    try:
+        failure = _post_open_failure(filesystem, dirfd, operation)
+        assert failure is not kernel.close_error
+        if cause == "fstat":
+            assert failure is kernel.fstat_error
+        else:
+            assert isinstance(failure, DescriptorRefused)
+            assert failure.classification == DESCRIPTOR_OPERATION_REFUSED
+        assert failure.__context__ is not kernel.close_error
+        _assert_released_exactly_once(kernel, filesystem, inventory)
+    finally:
+        inventory.close()
+
+
+@pytest.mark.parametrize("operation", ["create", "create-data", *OPEN_MODES])
+def test_a_successful_acquisition_transfers_the_descriptor_to_its_caller(
+    tmp_path, monkeypatch, operation
+) -> None:
+    """Prompt §3 item 7: nothing is closed until the caller releases it, once."""
+    from tools.phase_5_0_evidence.durability_model import DescriptorMode
+
+    (tmp_path / "existing").write_bytes(b"present")
+    inventory, filesystem, dirfd, kernel = _post_open_filesystem(
+        tmp_path, monkeypatch
+    )
+    try:
+        before = _open_descriptor_count()
+        if operation == "create":
+            descriptor = filesystem.create_file(dirfd, "created")
+        elif operation == "create-data":
+            descriptor = filesystem.create_file(dirfd, "created", b"record-bytes")
+        else:
+            descriptor = filesystem.openat(dirfd, "existing", DescriptorMode(operation))
+        name = "existing" if operation in OPEN_MODES else "created"
+        mode = DescriptorMode(operation) if operation in OPEN_MODES else DescriptorMode.O_WRONLY
+        assert kernel.opened == [descriptor.number]
+        assert kernel.closed == []
+        if before is not None:
+            assert _open_descriptor_count() == before + 1
+        facts = (tmp_path / name).stat()
+        assert descriptor.object_id == f"{facts.st_dev}:{facts.st_ino}"
+        assert descriptor.mode is mode
+        assert descriptor.label == name
+        assert filesystem.describe(descriptor.number) == descriptor
+        if operation == "create-data":
+            assert (tmp_path / "created").read_bytes() == b"record-bytes"
+        assert filesystem.release(descriptor.number) is True
+        assert kernel.closed == [descriptor.number]
+        assert _open_descriptor_count() == before
+    finally:
+        inventory.close()

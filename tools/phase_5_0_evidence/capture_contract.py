@@ -1,12 +1,13 @@
 """RP-11's fixed contract: names, the byte-safe name representation, the
 canonical encodings of a record and an index state, and the handback binding.
 
-The controlling requirements are the R5-amended P5.0-R5 operational-evidence
-draft, `docs/review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md`
-at SHA-256 `5e06a388…`, §9.5 (C-1 … C-15, P-1 … P-8, X-1 … X-4) and §7.1 B0-RA.
-This module is the **data** half of RP-11. It opens no file, starts no process
-and imports nothing from `execution/`; the storage, the process launcher and the
-retention check live there and import this.
+The controlling requirements are the P5.0-R5 operational-evidence draft,
+`docs/review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md`, as
+amended by C-P5.0-R5-RP11-I1-R3 (proposed, unaccepted; the accepted R5 bytes
+`5e06a388…` remain the baseline): §9.5 (C-1 … C-15, P-1 … P-8, X-1 … X-4) and
+§7.1 B0-RA. This module is the **data** half of RP-11. It opens no file, starts
+no process and imports nothing from `execution/`; the storage, the process
+launcher and the retention check live there and import this.
 
 ## The layout under a pass's capture root
 
@@ -17,28 +18,41 @@ the accounted set from the final state and these rules alone:
 |---|---|---|
 | `index`, `records`, `streams`, `streams/stdout`, `streams/stderr` | directory | X-1, before the genesis state, each followed by a directory barrier on its container |
 | `streams/stdout/NNNNNN`, `streams/stderr/NNNNNN` | the act's two stream files | P-1, exclusively |
-| `records/NNNNNN.json` | the act's per-act record | P-5 … P-8 |
-| `index/NNNNNN.open.json` | open index state *I*-*n* (genesis is `000000`) | X-1 / X-2 |
-| `index/NNNNNN.final.json` | the final state *F* | X-3 |
+| `records/NNNNNN.json.staging`, then `records/NNNNNN.json` | the act's per-act record: staging name, then final name, one inode | P-5 … P-8 |
+| `index/NNNNNN.open.json.staging`, then `index/NNNNNN.open.json` | open index state *I*-*n* (genesis is `000000`) | X-1 / X-2 |
+| `index/NNNNNN.final.json.staging`, then `index/NNNNNN.final.json` | the final state *F* | X-3 |
 
 `NNNNNN` is the six-digit, zero-padded `capture_seq` or state number. An open
 state's number equals the number of records it lists, and *F*'s number is the
 last durable open state's number plus one, so an open and a final state never
-share a name.
+share a name. A staging name is its final name followed by `.staging`: one
+component, ASCII, derived only from the already-bound object identity, and
+never the final name of anything.
 
 **Every subdirectory is created in X-1**, before the genesis state is
 published. C-6 requires the creation of *any* subdirectory to be made durable
 before the genesis state, so no act creates one. The nesting is still two deep,
 which is what the recursive comparison has to handle.
 
-**There is no temporary name.** Maintainer decision, 2026-09-27, on the P-7
-publication primitive: a record or index state is written into an *unnamed*
-`O_TMPFILE` inode in the directory that will hold it, synchronized, and then
-given its first and only name by one `linkat` that fails with `EEXIST` rather
-than replace anything. No reader can mistake an unfinished file for a published
-one because an unfinished file has no name at all, and a failure before the link
-leaves nothing behind. This is a stated deviation from P-5's "temporary name"
-and P-7's "rename", recorded in the RP-11 handback for review.
+## Retained-alias publication (C-P5.0-R5-RP11-I1-R3)
+
+A record or an index state is published as a **pair of names on one inode**.
+The staging name is created exclusively, the bytes are written, checked and
+synchronized, and then exactly one non-replacing, no-follow, descriptor-relative
+hard link gives the same inode its final name. After the directory barrier both
+names are opened and proved to be the bound inode, with link count two and the
+exact bytes. **Neither name is ever unlinked, renamed or repaired**: the staging
+name is an expected, retained alias, not a temporary. The pair's two names and
+their shared `(st_dev, st_ino)` are recorded in the next durable index state,
+and only that state admits the object:
+
+* a record is admitted by the open state that lists it (`IndexEntry`);
+* an index state is admitted by its successor's `previous_state` link; and
+* *F*, which has no successor, records its own pair (`publication`): its inode
+  exists, and its identity is known, before a byte of it is written.
+
+Every state also records `owner_uid`, the operator's account, so X-4 and B0-RA
+can require the owner of every admitted pair.
 
 ## The one relative-name representation
 
@@ -72,9 +86,8 @@ recorded and never re-typed, inferred or supplied by the operator". The §14
 template's prose lines are not a parseable format — a root path followed by a
 full stop is ambiguous — so RP-11 fixes one: a single fenced block,
 `HandbackBinding.render()`, that the Pass A handback carries verbatim, and that
-`parse_handback_binding` reads and nothing else. Pinning that block into §14 is
-an amendment of the draft, which this pass does not make; it is returned as an
-open question.
+`parse_handback_binding` reads and nothing else. Draft §14 fixes that block
+(proposed by C-P5.0-R5-RP11-I1-R1, unaccepted); I1-R3 leaves it unchanged.
 """
 from __future__ import annotations
 
@@ -94,7 +107,7 @@ from .errors import HarnessError
 # ---------------------------------------------------------------------------
 
 RECORD_SCHEMA = "rp11-capture-record/1"
-INDEX_SCHEMA = "rp11-capture-index/1"
+INDEX_SCHEMA = "rp11-capture-index/2"
 BINDING_FORMAT = "rp11-capture-binding/1"
 TOOL_DIGEST_SCHEMA = "rp11-capture-tool/1"
 
@@ -163,6 +176,18 @@ _RECORD_NAME = re.compile(r"\Arecords/([0-9]{6})\.json\Z")
 _OPEN_STATE_NAME = re.compile(r"\Aindex/([0-9]{6})\.open\.json\Z")
 _FINAL_STATE_NAME = re.compile(r"\Aindex/([0-9]{6})\.final\.json\Z")
 
+#: The suffix that turns a published object's final name into its staging name.
+STAGING_SUFFIX = ".staging"
+_RECORD_STAGING_NAME = re.compile(r"\Arecords/([0-9]{6})\.json\.staging\Z")
+_OPEN_STAGING_NAME = re.compile(r"\Aindex/([0-9]{6})\.open\.json\.staging\Z")
+_FINAL_STAGING_NAME = re.compile(r"\Aindex/([0-9]{6})\.final\.json\.staging\Z")
+
+#: A pair member's role.
+ROLE_FINAL = "final"
+ROLE_STAGING = "staging"
+#: An object that is not published as a pair: a stream file or a subdirectory.
+ROLE_SINGLE = "single"
+
 # ---------------------------------------------------------------------------
 # Refusal
 # ---------------------------------------------------------------------------
@@ -188,6 +213,7 @@ CONTRACT_REFUSALS = frozenset(
         "malformed-digest",
         "malformed-argv",
         "source-set-mismatch",
+        "pair-mismatch",
     }
 )
 
@@ -430,16 +456,52 @@ def is_record_name(name: RelativeName) -> bool:
     return bool(_RECORD_NAME.match(text))
 
 
+def _is_published_final_name(text: str) -> bool:
+    """A record, open-state or final-state name: something published as a pair."""
+    return any(p.match(text) for p in (_RECORD_NAME, _OPEN_STATE_NAME, _FINAL_STATE_NAME))
+
+
+def staging_name(final_name: str) -> str:
+    """The staging name of a published object: its final name plus `.staging`."""
+    _require(
+        isinstance(final_name, str) and _is_published_final_name(final_name),
+        "malformed-name",
+        "only a record or an index state has a staging name",
+    )
+    return final_name + STAGING_SUFFIX
+
+
+def role_of(text: str) -> tuple[str, str | None]:
+    """A created name's pair role and, for a pair member, its partner's name.
+
+    `(ROLE_FINAL, staging)`, `(ROLE_STAGING, final)` or `(ROLE_SINGLE, None)`.
+    Purely lexical: the partner is fixed by the naming rule, never observed.
+    """
+    if _is_published_final_name(text):
+        return ROLE_FINAL, text + STAGING_SUFFIX
+    if any(p.match(text) for p in (_RECORD_STAGING_NAME, _OPEN_STAGING_NAME, _FINAL_STAGING_NAME)):
+        return ROLE_STAGING, text[: -len(STAGING_SUFFIX)]
+    return ROLE_SINGLE, None
+
+
 def _is_unadmittable_name(text: str) -> bool:
     """Only a name the mechanism itself creates by a fixed rule can be unadmitted.
 
-    A stream file, a record or an open index state. Subdirectories are their own
-    category and a final state cannot record itself.
+    A stream file, or either name of a record or an open index state.
+    Subdirectories are their own category, and a final state's pair cannot be
+    recorded by the final state itself as unadmitted.
     """
-    for pattern in (_STREAM_NAME, _RECORD_NAME, _OPEN_STATE_NAME):
+    for pattern in (
+        _STREAM_NAME,
+        _RECORD_NAME,
+        _RECORD_STAGING_NAME,
+        _OPEN_STATE_NAME,
+        _OPEN_STAGING_NAME,
+    ):
         match = pattern.match(text)
         if match is not None:
-            return int(match.groups()[-1]) >= (0 if pattern is _OPEN_STATE_NAME else 1)
+            opens = pattern in (_OPEN_STATE_NAME, _OPEN_STAGING_NAME)
+            return int(match.group(match.lastindex or 1)) >= (0 if opens else 1)
     return False
 
 
@@ -701,16 +763,111 @@ OPEN = "open"
 FINAL = "final"
 
 
+def _require_identity(device: object, inode: object) -> None:
+    for value, what in ((device, "device"), (inode, "inode")):
+        _require(
+            isinstance(value, int) and not isinstance(value, bool) and value >= 0,
+            "malformed-document",
+            what,
+        )
+
+
+def _require_pair(name: str, staging: object) -> None:
+    _require(staging == staging_name(name), "pair-mismatch", "staging name is not the rule's")
+
+
 @dataclass(frozen=True, slots=True)
 class IndexEntry:
+    """One admitted record: both names of its pair, its digest and its inode."""
+
     capture_seq: int
     name: str
+    staging: str
     sha256: str
+    device: int
+    inode: int
 
     def __post_init__(self) -> None:
         _require_sequence(self.capture_seq, minimum=1)
         _require(self.name == record_name(self.capture_seq), "malformed-name", "record name")
+        _require_pair(self.name, self.staging)
         require_sha256(self.sha256, "record sha256")
+        _require_identity(self.device, self.inode)
+
+    @property
+    def identity(self) -> tuple[int, int]:
+        return (self.device, self.inode)
+
+    def as_document(self) -> dict[str, object]:
+        return {
+            "capture_seq": self.capture_seq,
+            "final": self.name,
+            "staging": self.staging,
+            "sha256": self.sha256,
+            "device": self.device,
+            "inode": self.inode,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class StateLink:
+    """A successor's account of its predecessor state: both names, digest, inode.
+
+    This is what admits an index state: the state that follows it records its
+    pair and its SHA-256.
+    """
+
+    name: str
+    staging: str
+    sha256: str
+    device: int
+    inode: int
+
+    def __post_init__(self) -> None:
+        _require(bool(_OPEN_STATE_NAME.match(self.name or "")), "malformed-name", "predecessor")
+        _require_pair(self.name, self.staging)
+        require_sha256(self.sha256, "previous_state sha256")
+        _require_identity(self.device, self.inode)
+
+    @property
+    def identity(self) -> tuple[int, int]:
+        return (self.device, self.inode)
+
+    def as_document(self) -> dict[str, object]:
+        return {
+            "final": self.name,
+            "staging": self.staging,
+            "sha256": self.sha256,
+            "device": self.device,
+            "inode": self.inode,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SelfPublication:
+    """*F*'s account of its own pair. No digest: a file cannot carry its own."""
+
+    name: str
+    staging: str
+    device: int
+    inode: int
+
+    def __post_init__(self) -> None:
+        _require(bool(_FINAL_STATE_NAME.match(self.name or "")), "malformed-name", "final self")
+        _require_pair(self.name, self.staging)
+        _require_identity(self.device, self.inode)
+
+    @property
+    def identity(self) -> tuple[int, int]:
+        return (self.device, self.inode)
+
+    def as_document(self) -> dict[str, object]:
+        return {
+            "final": self.name,
+            "staging": self.staging,
+            "device": self.device,
+            "inode": self.inode,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -754,9 +911,12 @@ class Terminal:
 class UnadmittedObject:
     """An object the mechanism created that is not admitted evidence (C-15).
 
-    Recorded by exact relative name and object type, **with no digest**. The
-    type is always `regular`: every name the mechanism can leave unadmitted is a
-    file, and B0-RA must refuse every other type outright.
+    Recorded by exact relative name and object type, **with no digest and no
+    identity**. The type is always `regular`: every name the mechanism can leave
+    unadmitted is a file, and B0-RA must refuse every other type outright. A
+    record or open state left between its staging creation and its admission is
+    one or two unadmitted names — the staging name, and the final name if the
+    link was confirmed or positively probed — each recorded here on its own.
     """
 
     name: str
@@ -767,18 +927,27 @@ class UnadmittedObject:
         _require(_is_unadmittable_name(self.name), "malformed-name", "not an unadmittable name")
         _require(self.object_type is ObjectType.REGULAR, "malformed-document", "unadmitted type")
 
+    @property
+    def role(self) -> str:
+        """`final`, `staging` or `single`, by the naming rule alone."""
+        return role_of(self.name)[0]
+
 
 _OPEN_KEYS = (
     "capture_root",
+    "owner_uid",
     "pass_id",
-    "previous_state_sha256",
+    "previous_state",
     "records",
     "schema",
     "state_number",
     "status",
     "tool_sha256",
 )
-_FINAL_KEYS = (*_OPEN_KEYS, "subdirectories", "terminal", "unadmitted")
+_FINAL_KEYS = (*_OPEN_KEYS, "publication", "subdirectories", "terminal", "unadmitted")
+_ENTRY_KEYS = ("capture_seq", "device", "final", "inode", "sha256", "staging")
+_LINK_KEYS = ("device", "final", "inode", "sha256", "staging")
+_SELF_KEYS = ("device", "final", "inode", "staging")
 
 
 @dataclass(frozen=True, slots=True)
@@ -786,30 +955,42 @@ class IndexState:
     pass_id: str
     capture_root: str
     tool_sha256: str
+    owner_uid: int
     state_number: int
-    previous_state_sha256: str | None
+    previous: StateLink | None
     status: str
     records: tuple[IndexEntry, ...]
     terminal: Terminal | None = None
     subdirectories: tuple[str, ...] | None = None
     unadmitted: tuple[UnadmittedObject, ...] | None = None
+    publication: SelfPublication | None = None
 
     def __post_init__(self) -> None:
         require_identifier(self.pass_id, "pass_id")
         parse_capture_root(self.capture_root)
         require_sha256(self.tool_sha256, "tool_sha256")
+        _require(
+            isinstance(self.owner_uid, int)
+            and not isinstance(self.owner_uid, bool)
+            and self.owner_uid >= 0,
+            "malformed-document",
+            "owner_uid",
+        )
         for position, entry in enumerate(self.records, start=1):
             _require(entry.capture_seq == position, "record-list-gap")
         if self.status == OPEN:
             _require_sequence(self.state_number, minimum=0)
             _require(self.state_number == len(self.records), "record-list-gap", "open state size")
             _require(
-                (self.state_number == 0) == (self.previous_state_sha256 is None),
+                (self.state_number == 0) == (self.previous is None),
                 "malformed-document",
                 "only the genesis state has no predecessor",
             )
             _require(
-                self.terminal is None and self.subdirectories is None and self.unadmitted is None,
+                self.terminal is None
+                and self.subdirectories is None
+                and self.unadmitted is None
+                and self.publication is None,
                 "schema-mismatch",
                 "an open state carries no final fields",
             )
@@ -817,7 +998,7 @@ class IndexState:
             _require(self.status == FINAL, "schema-mismatch", "status")
             _require_sequence(self.state_number, minimum=1)
             _require(self.state_number == len(self.records) + 1, "record-list-gap", "final size")
-            _require(self.previous_state_sha256 is not None, "malformed-document", "predecessor")
+            _require(self.previous is not None, "malformed-document", "predecessor")
             _require(self.terminal is not None, "schema-mismatch", "terminal")
             _require(
                 self.subdirectories == tuple(sorted(SUBDIRECTORIES)),
@@ -828,8 +1009,23 @@ class IndexState:
             assert self.unadmitted is not None
             names = [item.name for item in self.unadmitted]
             _require(names == sorted(set(names)), "duplicate-accounted-name", "unadmitted")
-        if self.previous_state_sha256 is not None:
-            require_sha256(self.previous_state_sha256, "previous_state_sha256")
+            _require(self.publication is not None, "schema-mismatch", "publication")
+            assert self.publication is not None
+            _require(
+                self.publication.name == final_state_name(self.state_number),
+                "pair-mismatch",
+                "a final state records its own pair",
+            )
+        if self.previous is not None:
+            _require(
+                self.previous.name == open_state_name(self.state_number - 1),
+                "pair-mismatch",
+                "the predecessor is the state numbered one less",
+            )
+
+    @property
+    def previous_state_sha256(self) -> str | None:
+        return None if self.previous is None else self.previous.sha256
 
     @property
     def name(self) -> str:
@@ -843,18 +1039,21 @@ class IndexState:
             "pass_id": self.pass_id,
             "capture_root": self.capture_root,
             "tool_sha256": self.tool_sha256,
+            "owner_uid": self.owner_uid,
             "state_number": self.state_number,
-            "previous_state_sha256": self.previous_state_sha256,
+            "previous_state": None if self.previous is None else self.previous.as_document(),
             "status": self.status,
-            "records": [[e.capture_seq, e.name, e.sha256] for e in self.records],
+            "records": [entry.as_document() for entry in self.records],
         }
         if self.status == FINAL:
             assert self.terminal is not None and self.unadmitted is not None
+            assert self.publication is not None
             document["terminal"] = self.terminal.as_document()
             document["subdirectories"] = list(self.subdirectories or ())
             document["unadmitted"] = [
                 {"name": item.name, "type": item.object_type.value} for item in self.unadmitted
             ]
+            document["publication"] = self.publication.as_document()
         return document
 
     def to_bytes(self) -> bytes:
@@ -871,9 +1070,33 @@ class IndexState:
         assert isinstance(raw_records, list)
         entries = []
         for item in raw_records:
-            _require(isinstance(item, list) and len(item) == 3, "malformed-document", "entry")
-            entries.append(IndexEntry(capture_seq=item[0], name=item[1], sha256=item[2]))
-        terminal = subdirectories = unadmitted = None
+            _require(isinstance(item, dict), "malformed-document", "entry")
+            assert isinstance(item, dict)
+            _exact_keys(item, _ENTRY_KEYS, "entry")
+            entries.append(
+                IndexEntry(
+                    capture_seq=item["capture_seq"],  # type: ignore[arg-type]
+                    name=item["final"],  # type: ignore[arg-type]
+                    staging=item["staging"],  # type: ignore[arg-type]
+                    sha256=item["sha256"],  # type: ignore[arg-type]
+                    device=item["device"],  # type: ignore[arg-type]
+                    inode=item["inode"],  # type: ignore[arg-type]
+                )
+            )
+        raw_previous = document["previous_state"]
+        previous = None
+        if raw_previous is not None:
+            _require(isinstance(raw_previous, dict), "malformed-document", "previous_state")
+            assert isinstance(raw_previous, dict)
+            _exact_keys(raw_previous, _LINK_KEYS, "previous_state")
+            previous = StateLink(
+                name=raw_previous["final"],  # type: ignore[arg-type]
+                staging=raw_previous["staging"],  # type: ignore[arg-type]
+                sha256=raw_previous["sha256"],  # type: ignore[arg-type]
+                device=raw_previous["device"],  # type: ignore[arg-type]
+                inode=raw_previous["inode"],  # type: ignore[arg-type]
+            )
+        terminal = subdirectories = unadmitted = publication = None
         if status == FINAL:
             raw_terminal = document["terminal"]
             _require(isinstance(raw_terminal, dict), "malformed-document", "terminal")
@@ -896,17 +1119,29 @@ class IndexState:
                     raise CaptureContractRefused("malformed-document", "unadmitted type") from None
                 parsed.append(UnadmittedObject(name=item["name"], object_type=kind))
             unadmitted = tuple(parsed)
+            raw_publication = document["publication"]
+            _require(isinstance(raw_publication, dict), "malformed-document", "publication")
+            assert isinstance(raw_publication, dict)
+            _exact_keys(raw_publication, _SELF_KEYS, "publication")
+            publication = SelfPublication(
+                name=raw_publication["final"],  # type: ignore[arg-type]
+                staging=raw_publication["staging"],  # type: ignore[arg-type]
+                device=raw_publication["device"],  # type: ignore[arg-type]
+                inode=raw_publication["inode"],  # type: ignore[arg-type]
+            )
         return cls(
             pass_id=document["pass_id"],  # type: ignore[arg-type]
             capture_root=document["capture_root"],  # type: ignore[arg-type]
             tool_sha256=document["tool_sha256"],  # type: ignore[arg-type]
+            owner_uid=document["owner_uid"],  # type: ignore[arg-type]
             state_number=document["state_number"],  # type: ignore[arg-type]
-            previous_state_sha256=document["previous_state_sha256"],  # type: ignore[arg-type]
+            previous=previous,
             status=status,  # type: ignore[arg-type]
             records=tuple(entries),
             terminal=terminal,
             subdirectories=subdirectories,
             unadmitted=unadmitted,
+            publication=publication,
         )
 
 
@@ -924,44 +1159,98 @@ CATEGORY_UNADMITTED = "unadmitted"
 
 @dataclass(frozen=True, slots=True)
 class AccountedObject:
+    """One name of *R*: its expected type, its category and its pair role.
+
+    `partner` is the other name of its pair where the pair is accounted for as
+    a whole. `identity` is the recorded `(st_dev, st_ino)` of an **admitted**
+    pair; an unadmitted name never has one, because none is recorded for it.
+    """
+
     object_type: ObjectType
     category: str
+    role: str = ROLE_SINGLE
+    partner: RelativeName | None = None
+    identity: tuple[int, int] | None = None
+
+    @property
+    def admitted_pair(self) -> bool:
+        return self.identity is not None
 
 
 def accounted_objects(
-    final: IndexState, records: Sequence[CaptureRecord]
+    final: IndexState,
+    chain: Sequence[IndexState],
+    records: Sequence[CaptureRecord],
 ) -> dict[RelativeName, AccountedObject]:
     """*R*: every name *F* and the fixed rules account for, each exactly once.
 
-    *F* itself, each state of *F*'s chain (by the fixed naming rule from its
-    number), each listed record, each stream file a listed record binds, each
-    recorded subdirectory and each recorded unadmitted object. A name in two
+    *F*'s own pair; both names of each state of *F*'s chain (`chain` is *I*-0 …
+    *I*-(*n* − 1), in order), with the identity its successor recorded; both
+    names of each listed record, with its entry's identity; each stream file a
+    listed record binds; each recorded subdirectory; and each recorded
+    unadmitted name. Two recorded unadmitted names that are one object's staging
+    and final name are paired, **without** an identity. A name in two
     categories, or twice in one, is `duplicate-accounted-name`.
     """
     _require(final.status == FINAL, "schema-mismatch", "R is formed from a final state")
     assert final.unadmitted is not None and final.subdirectories is not None
+    assert final.publication is not None and final.previous is not None
     _require(
         [record.capture_seq for record in records]
         == [entry.capture_seq for entry in final.records],
         "record-list-gap",
         "records supplied for R",
     )
-    items: list[tuple[str, ObjectType, str]] = [(final.name, ObjectType.REGULAR, CATEGORY_FINAL)]
-    items += [
-        (open_state_name(number), ObjectType.REGULAR, CATEGORY_CHAIN)
-        for number in range(final.state_number)
-    ]
+    _require(
+        [state.state_number for state in chain] == list(range(final.state_number)),
+        "record-list-gap",
+        "chain supplied for R",
+    )
+    items: list[tuple[str, ObjectType, str, str, str | None, tuple[int, int] | None]] = []
+
+    def pair(final_name: str, staging: str, category: str, identity: tuple[int, int]) -> None:
+        items.append((final_name, ObjectType.REGULAR, category, ROLE_FINAL, staging, identity))
+        items.append((staging, ObjectType.REGULAR, category, ROLE_STAGING, final_name, identity))
+
+    publication = final.publication
+    pair(publication.name, publication.staging, CATEGORY_FINAL, publication.identity)
+    successors = [*chain[1:], final]
+    for state, successor in zip(chain, successors):
+        link = successor.previous
+        assert link is not None
+        pair(link.name, link.staging, CATEGORY_CHAIN, link.identity)
     for entry, record in zip(final.records, records):
-        items.append((entry.name, ObjectType.REGULAR, CATEGORY_RECORD))
-        items.append((record.stdout.name, ObjectType.REGULAR, CATEGORY_STREAM))
-        items.append((record.stderr.name, ObjectType.REGULAR, CATEGORY_STREAM))
-    items += [(name, ObjectType.DIRECTORY, CATEGORY_SUBDIRECTORY) for name in final.subdirectories]
-    items += [(item.name, item.object_type, CATEGORY_UNADMITTED) for item in final.unadmitted]
+        pair(entry.name, entry.staging, CATEGORY_RECORD, entry.identity)
+        items.append((record.stdout.name, ObjectType.REGULAR, CATEGORY_STREAM, ROLE_SINGLE, None, None))
+        items.append((record.stderr.name, ObjectType.REGULAR, CATEGORY_STREAM, ROLE_SINGLE, None, None))
+    items += [
+        (name, ObjectType.DIRECTORY, CATEGORY_SUBDIRECTORY, ROLE_SINGLE, None, None)
+        for name in final.subdirectories
+    ]
+    recorded_unadmitted = {item.name for item in final.unadmitted}
+    for item in final.unadmitted:
+        role, partner = role_of(item.name)
+        items.append(
+            (
+                item.name,
+                item.object_type,
+                CATEGORY_UNADMITTED,
+                role,
+                partner if partner in recorded_unadmitted else None,
+                None,
+            )
+        )
     accounted: dict[RelativeName, AccountedObject] = {}
-    for text, kind, category in items:
+    for text, kind, category, role, partner, identity in items:
         name = RelativeName.created(text)
         _require(name not in accounted, "duplicate-accounted-name", text)
-        accounted[name] = AccountedObject(object_type=kind, category=category)
+        accounted[name] = AccountedObject(
+            object_type=kind,
+            category=category,
+            role=role,
+            partner=None if partner is None else RelativeName.created(partner),
+            identity=identity,
+        )
     return accounted
 
 
@@ -1119,7 +1408,11 @@ __all__ = [
     "INDEX_DIRECTORY",
     "MAX_STREAM_BOUND_BYTES",
     "RECORDS_DIRECTORY",
+    "ROLE_FINAL",
+    "ROLE_SINGLE",
+    "ROLE_STAGING",
     "RP11_SOURCES",
+    "STAGING_SUFFIX",
     "STDERR",
     "STDERR_DIRECTORY",
     "STDOUT",
@@ -1140,6 +1433,8 @@ __all__ = [
     "IndexState",
     "ObjectType",
     "RelativeName",
+    "SelfPublication",
+    "StateLink",
     "StreamBinding",
     "Terminal",
     "UnadmittedObject",
@@ -1159,8 +1454,10 @@ __all__ = [
     "record_name",
     "require_identifier",
     "require_sha256",
+    "role_of",
     "roots_overlap",
     "sha256_hex",
+    "staging_name",
     "stream_name",
     "validate_argv",
 ]

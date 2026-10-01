@@ -1,5 +1,386 @@
 # Disposable Linux Test Server
 
+**Restriction after D2-R2 acceptance and LD-9 decision, 2026-10-01 — design
+accepted; no action on this server is authorized.** Peter Duscha accepted the
+D2-R2 design and decided LD-9 option (i). `R4-D2-R1-1` is Closed as remediated
+at the design level, but XD, T-L11, T-L12 and Codex's D9-2 independent decode
+remain unimplemented and unperformed. A separate M-14/I-7 assignment is
+required. No synchronization, inspection, build, test, verifier, controlled
+write or other host command is authorized. PO-9 and PO-14 remain open; RP-11
+remains unwired and unmet; neither pass is executable.
+[Acceptance](../review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md).
+
+**Restriction at D2-R2 remediation return, 2026-09-30 — the remediation was
+returned documentation-only and issued no command to this server.** Nothing
+was compiled, built, decoded, traced, inspected or executed, and no decoder
+exists. Codex re-review is pending, and every prohibition below remains in
+force. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet, and
+neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md).
+
+**Restriction at D2-R2 assignment, 2026-09-30 — documentation-only; no action
+on this server is authorized.** Peter Duscha accepted LD-7's zero-`ret` design
+and LD-8's conditional bound-root model. `R4-D2-R1-1` remains Open, Blocking,
+and D2-R2 may amend documentation only. No synchronization, inspection, build,
+test, verifier, controlled write or other host command is authorized. PO-9 and
+PO-14 remain open; RP-11 remains unwired and unmet; neither pass is executable.
+[Decision](../review/project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md).
+
+**Restriction at D2-R1 static-launcher remediation return, 2026-09-29 —
+the remediation was returned documentation-only and issued no command to this
+server.** Nothing was compiled, built, traced, inspected or executed. The
+amended hostile-environment experiment would need a disposable `x86_64` host,
+unprivileged user and mount namespaces and separate authorization. None is
+requested or granted. Codex re-review is pending, and every prohibition below
+remains in force. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet,
+and neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r1-static-launcher-design-remediation-handback.md).
+
+**Restriction at LB-2S static-launcher design return, 2026-09-29 — the
+design was returned documentation-only and issued no command to this
+server.** Nothing was compiled, built, inspected or executed. The proposal's
+later hostile-environment experiment would need a disposable `x86_64` host and
+separate authorization; none is requested or granted. Codex review is pending,
+and every prohibition below remains in force. PO-9 and PO-14 remain open;
+RP-11 remains unwired and unmet, and neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-handback.md).
+
+**Restriction during the LB-2S static-launcher design, 2026-09-29 —
+documentation-only; no action on this server is authorized.** M-14 authorizes
+design only. M-9 conditionally selects LB-2S and M-10 records the threat scope;
+they do not authorize compilation, installation, host inspection or a drill.
+Every prohibition below remains in force. PO-9 and PO-14 remain open; RP-11
+remains unwired and unmet, and neither pass is executable.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-claude-prompt.md).
+
+**Restriction after R4-D1-R2 independent review, 2026-09-29 — no finding, but
+no host authority is created.** The remediation is accepted as internally
+reviewable design input only: no recommendation is ready, LB-2S depends on
+M-9/M-14/M-10 and PO-9/PO-14, and no implementation is authorized. No command
+was issued to this server. Every prohibition below remains in force; RP-11
+remains unwired and unmet, and neither pass is executable.
+[Review](../review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r2-system-manager-environment.md).
+
+**Restriction at R4-D1-R2 remediation return, 2026-09-29 — R4-D1-R2 was
+returned documentation-only and issued no command to this server.** No SSH,
+rsync, loader, interpreter, `systemctl`, `systemd-run`, polkit, `sudo` or hook
+probe was made. The amended proposal's corrected boundary (LB-2S) would need a
+compiled static image, separately authorized host provisioning on the
+repository host, which is not this server, and a later authorized drill. None
+is authorized. Codex re-review is pending, and every prohibition below remains
+in force. RP-11 remains unwired and unmet; neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r2-system-manager-environment-remediation-handback.md).
+
+**Restriction during R4-D1-R2 remediation, 2026-09-29 — documentation-only;
+no action on this server is authorized.** Claude may correct the LB-2
+system-manager environment design and return it for independent review. No
+loader, interpreter, systemd, hook, SSH or rsync probe may run. Every
+prohibition below remains in force; RP-11 remains unwired and unmet, and
+neither pass is executable.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r2-system-manager-environment-remediation-claude-prompt.md).
+
+**Restriction after remediation re-review, 2026-09-29 — R4-D1-R1 retains one
+Blocking design finding and requires further documentation remediation.** The
+recommended LB-2 unit does not yet establish a closed pre-loader environment;
+manager-level loader state could act before the entry's diagnostic check. No
+command was issued to this server. Every prohibition below remains in force;
+RP-11 remains unwired and unmet, and neither pass is executable.
+[Review](../review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r1-c11-launcher-contract.md).
+
+**Restriction at remediation return, 2026-09-29 — R4-D1-R1 was returned
+documentation-only and issued no command to this server.** No SSH, rsync, loader,
+interpreter-entry, hook, `systemctl`, polkit or `sudo` probe was made. The
+amended proposal's launch-boundary options would need separately authorized
+host provisioning on the repository host, which is not this server, and none is
+authorized. Codex re-review is pending; every prohibition below remains in
+force. RP-11 remains unwired and unmet; neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r1-c11-launcher-contract-remediation-handback.md).
+
+**Restriction during remediation, 2026-09-29 — R4-D1-R1 is documentation-only.
+It authorizes no action on this server and no loader, interpreter, hook, SSH or
+rsync probe. R4-D1's two Blocking findings remain open pending independent
+re-review. No SSH, rsync, synchronization, network or host inspection, `sudo`,
+database access, provisioning, controlled write, reboot, verifier, evidence
+band, harness `--execute`, real participant, real capture root, operational
+path, protected-artifact access, secrets scan, commit or push is authorized.
+RP-11 remains unwired and unmet; neither pass is executable;
+`plan.is_executable=False`.**
+
+**Restriction after independent review, 2026-09-29 — R4-D1 has two Blocking
+design findings and requires repository-only documentation remediation. O-2
+and D-1 are not ready for decision. No SSH, rsync, synchronization, network or
+host inspection, `sudo`, database access, provisioning, controlled write,
+reboot, verifier, evidence band, harness `--execute`, real participant, real
+capture root, operational path, protected-artifact access, secrets scan,
+commit or push is authorized. RP-11 remains unwired and unmet; neither pass is
+executable; `plan.is_executable=False`.**
+
+**Restriction at review return, 2026-09-29 — R4-D1 was returned
+documentation-only and issued no host command.** Claude read repository files
+only; no SSH, rsync, host, agent, socket, SSH configuration, known-hosts or
+environment inspection was made and no hook was run against a real command.
+Codex review is pending; every prohibition below remains in force. RP-11
+remains unwired and unmet; neither pass is executable.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-handback.md).
+
+**Restriction at assignment, 2026-09-29 — R4-D1 is documentation-only and creates no
+host authority.** Claude may prepare the C-11 guard-preserving capture and
+pinned launcher-environment proposal and handback, then must stop for Codex
+review. No source, hook, manifest, artifact or wiring change is authorized.
+**No SSH, rsync, synchronization, network or host inspection, `sudo`, database
+access, provisioning, controlled write, reboot, verifier, evidence band,
+harness `--execute`, real participant, real capture root, operational path,
+protected-artifact access, secrets scan, commit or push is authorized.** RP-11
+remains unwired and unmet; neither pass is executable; P5.0-R5 remains Blocking;
+and Package 5.0 remains not ready.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-claude-prompt.md).
+
+**Current restriction, 2026-09-29 — R3 accepted; no host authority is
+created.** Peter Duscha accepted the bounded post-open descriptor-release
+remediation after independent review with no finding. Manifest version 26 and
+digest `526dd446…` are accepted review inputs only. **No SSH, rsync,
+synchronization, network or host inspection, `sudo`, database access,
+provisioning, controlled write, reboot, verifier, evidence band, harness
+`--execute`, real participant, real capture root, operational path,
+protected-artifact access, secrets scan, commit or push is authorized.** RP-11
+remains unwired and unmet; neither pass is executable; P5.0-R5 remains Blocking;
+and Package 5.0 remains not ready.
+[Acceptance](../review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release-acceptance.md).
+
+**Current restriction, 2026-09-29 — Codex reviewed R3 with no finding; no host
+authority is created.** Independent repository-only verification reproduced 16
+focused passes and **3364 passed, 0 skipped** at both the 1024 and default
+descriptor limits, plus byte-identical harness dry-run artifacts at manifest
+version 26 and digest `526dd446…`. Peter Duscha decides acceptance. **No SSH,
+rsync, synchronization, network or host inspection, `sudo`, database access,
+provisioning, controlled write, reboot, verifier, evidence band, harness
+`--execute`, real participant, real capture root, operational path,
+protected-artifact access, secrets scan, commit or push is authorized.** RP-11
+remains unwired and unmet; neither pass is executable; P5.0-R5 remains Blocking;
+and Package 5.0 remains not ready.
+[Review](../review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release.md).
+
+**Restriction at review return, 2026-09-29 — C-P5.0-R5-RP11-I1-R3-R3 was returned
+repository-only and issued no host command.** Claude ran repository-local tests
+only on this repository host, under pytest temporary directories with
+`TEST_DATABASE_URL` unset; the soft descriptor limit was only **lowered**, to
+1024 inside a subshell; artifacts were regenerated by harness dry run only.
+Codex review was pending at that point; every prohibition below remained in force.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r3-posix-post-open-release-handback.md).
+
+**Restriction at assignment, 2026-09-29 — C-P5.0-R5-RP11-I1-R3-R3 is assigned
+repository-only and creates no host authority.** Claude may repair the named
+post-open descriptor leaks in `PosixFilesystem.create_file` and `openat`, add
+focused regressions, advance the review manifest and regenerate artifacts by
+harness dry run only. Codex is the independent reviewer. **No SSH, rsync,
+synchronization, network or host inspection, `sudo`, database access,
+provisioning, controlled write, reboot, verifier, evidence band, harness
+`--execute`, real participant, real capture root, operational path,
+protected-artifact access, secrets scan, commit or push is authorized.** RP-11
+remains unwired and unmet; neither pass is executable; P5.0-R5 remains Blocking;
+and Package 5.0 remains not ready.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r3-posix-post-open-release-claude-prompt.md).
+
+**Current restriction, 2026-09-29 — the RP-11 Option-1 alignment review is
+accepted and creates no host authority.** Peter Duscha accepted Codex's
+repository-only review with no finding and closed `RP11-I1-2`,
+`RP11-I1-R2-1` and `RP11-I1-R1-1` as superseded. No SSH, synchronization,
+network or host inspection, `sudo`, database access, provisioning, controlled
+write, reboot, verifier, evidence band, harness `--execute`, real participant,
+real capture root, protected-artifact access, secrets scan, commit or push
+occurred or is authorized. RP-11 remains unwired and unmet; neither pass is
+executable or authorized; `plan.is_executable=False`; P5.0-R5 remains Blocking;
+and Package 5.0 remains not ready.
+[Acceptance record](../review/project-review-2026-09-29-p5-r5-rp11-option-1-alignment-acceptance.md).
+
+**Current restriction, 2026-09-28 — the C-P5.0-R5-RP11-I1-R3-D2-DOC1-R1
+correction was returned repository-only and issued no host command.** Claude
+corrected documentation only, under Peter Duscha's instruction. It ran
+repository-local tests only on this repository host, under pytest temporary
+directories and with `TEST_DATABASE_URL` unset. The soft descriptor limit was
+only **lowered**, to 1024 inside a subshell, and harness artifacts were
+regenerated by dry run to scratchpad paths only. None of the actions listed
+below occurred, no host authority is created, and every prohibition below
+remains in force.
+[Handback](../review/phase-5-0-p5-r5-rp11-i1-r3-d2-doc1-r1-alignment-review-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-28 — RP-11 Option 1 is decided; documentation
+and exact-byte acceptance remediation remain repository-only.** Peter Duscha
+accepted the metadata-only rule for exactly the recorded unadmitted
+staging/final pair. Codex independently reviewed the descriptor-release
+remediation with no new Blocking or Important finding. Repository-local tests
+ran only on this repository host, under pytest temporary directories and with
+`TEST_DATABASE_URL` unset; the soft descriptor limit was only **lowered**, to
+1024 inside a subshell. **None of the following occurred:**
+
+* SSH, rsync, synchronization, or network or host inspection;
+* `sudo`, database access or provisioning;
+* a controlled write, reboot, verifier or evidence band;
+* harness `--execute` or real participant invocation;
+* use of a real capture root or an operational path;
+* protected-artifact access or a secrets scan.
+
+No guard refused a call. The mechanism remains unwired and unaccepted. Neither
+pass is executable or authorized, RP-11 remains unmet, **no host authority is
+created**, and every prohibition below remains in force.
+[Decision and review record](../review/project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md).
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1-R3-R2 is assigned
+repository-only and creates no host authority.** Claude may repair the local
+`DurableRecordStore` descriptor-release defect, add synthetic regressions,
+regenerate review artifacts by harness dry run only and run repository-local
+tests with `TEST_DATABASE_URL` unset. **No SSH, rsync, synchronization, network
+or host inspection, `sudo`, database access, provisioning, controlled write,
+reboot, verifier, evidence band, harness `--execute`, real participant, real
+capture root, operational path, protected-artifact access or secrets scan is
+authorized.** The mechanism remains unwired; neither pass is executable or
+authorized; RP-11 remains unmet; and every prohibition below remains in force.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r2-lifecycle-descriptor-release-remediation-claude-prompt.md).
+
+**Current restriction, 2026-09-28 — C-P5.0-R5-RP11-I1-R3-R1 was returned
+repository-only and issued no host command.** Claude diagnosed the
+whole-package descriptor-exhaustion discrepancy with local synthetic tests on
+this repository host only, under pytest temporary directories and with
+`TEST_DATABASE_URL` unset. The soft descriptor limit was only **lowered**, to
+1024 inside a subshell, to reproduce the review. Claude also corrected the
+proposed draft's state wording and prepared the unadmitted-pair decision
+proposal. **None of the following occurred:**
+
+* SSH, rsync, synchronization, or network or host inspection;
+* `sudo`, database access or provisioning;
+* a controlled write, reboot, verifier or evidence band;
+* harness `--execute` or real participant invocation;
+* use of a real capture root, a probe path or an operational path;
+* protected-artifact access or a secrets scan.
+
+No guard refused a call. The mechanism remains unwired. Independent Codex
+re-review is mandatory. Neither pass is executable or authorized, RP-11
+remains unmet, **no host authority is created**, and every prohibition below
+remains in force.
+[I1-R3-R1 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1-R3-R1 is assigned
+repository-only and creates no host authority.** Claude may diagnose the local
+whole-package descriptor-exhaustion discrepancy, correct proposed-draft state
+wording, prepare the unadmitted-pair decision proposal, make only narrowly
+authorized repository remediations and run local synthetic tests with
+`TEST_DATABASE_URL` unset. **No SSH, rsync, synchronization, network or host
+inspection, `sudo`, database access, provisioning, controlled write, reboot,
+verifier, evidence band, harness `--execute`, real participant, real capture
+root, operational path, protected-artifact access or secrets scan is
+authorized.** The mechanism remains unwired; neither pass is executable or
+authorized; RP-11 remains unmet; and every prohibition below remains in force.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-claude-prompt.md).
+
+**Current restriction, 2026-09-28 — C-P5.0-R5-RP11-I1-R3-I1 was repository-only
+and issued no host command.** Claude returned the retained-alias amendment of
+the proposed operational requirements and the unwired RP-11 source for
+independent Codex review. It ran only under pytest temporary directories on
+this repository host, with `TEST_DATABASE_URL` unset. **None of the following
+occurred:**
+
+* SSH, rsync, synchronization, or network or host inspection;
+* `sudo`, database access or provisioning;
+* a controlled write, reboot, verifier or evidence band;
+* harness `--execute` or real participant invocation;
+* use of a real capture root, a probe path or an operational path;
+* protected-artifact access or a secrets scan.
+
+No guard refused a call. The mechanism remains unwired, and the new review-input
+manifest digest (`264674da…`) is not an approval. Neither pass is executable or
+authorized, RP-11 remains unmet, **no host authority is created**, and every
+prohibition below remains in force.
+[I1-R3 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-handback.md).
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1-R3-I1 is assigned
+repository-only and creates no host authority.** Claude may amend the proposed
+operational requirements and unwired RP-11 source for retained staging/final
+aliases, update focused tests and regenerate repository review artifacts. The
+mechanism must remain unwired. **No SSH, rsync, synchronization, network or host
+inspection, `sudo`, database access, provisioning, controlled write, reboot,
+verifier, evidence band, harness `--execute`, real participant, real capture
+root, operational path, protected-artifact access or secrets scan is
+authorized.** Neither pass is executable or authorized, RP-11 remains unmet,
+and every prohibition below remains in force.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-claude-prompt.md).
+
+**Current restriction, 2026-09-28 — the accepted RP-11 I1-R3 approach change
+is repository-only and creates no host authority.** Peter Duscha accepted the
+[publication redesign](../review/phase-5-0-p5-r5-rp11-i1-r3-publication-redesign-proposal.md)
+that replaces the unreliable unnamed-inode/procfs route with named staging,
+non-replacing hard-link publication and retained indexed aliases. No production
+source, manifest or operational draft was changed. No test, SSH,
+synchronization, network or host inspection, `sudo`, database access,
+provisioning, controlled write, reboot, verifier, evidence band, harness
+`--execute`, real participant, capture root, operational probe,
+protected-artifact access or secrets scan occurred. Neither pass is executable
+or authorized, RP-11 remains unmet, and every prohibition below remains in
+force. [Acceptance record](../review/project-review-2026-09-28-p5-r5-rp11-i1-r3-redesign-acceptance.md).
+
+**Current restriction, 2026-09-28 — C-P5.0-R5-RP11-I1-R2 was repository-only
+and issued no host command.** Claude corrected the test-only §9.5.4 capability
+prototype and its evidence for the Important finding RP11-I1-R1-1. It ran only
+under pytest temporary directories on this repository host. **None of the
+following occurred:**
+
+* SSH, rsync, synchronization, or network or host inspection;
+* `sudo`, database access or provisioning;
+* a controlled write, reboot, verifier or evidence band;
+* harness `--execute` or real participant invocation;
+* use of a real capture root, a probe path or an operational path;
+* protected-artifact access.
+
+No secrets scan was run, and no guard refused a call. The corrected
+diagnostic now awaits independent Codex review. Neither pass is executable or
+authorized, RP-11 remains unmet, and **no host authority is created**. Every
+prohibition below remains in force.
+[I1-R2 handback](../review/phase-5-0-p5-r5-rp11-i1-r2-capability-prototype-evidence-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1-R1 was repository-only
+and issued no host command.** Claude returned the amended operational-evidence
+draft (`186ff546…`, unaccepted) and a local portability diagnosis for
+independent Codex review. The diagnosis ran only under pytest temporary
+directories on this repository host. **No SSH, rsync, synchronization, network
+or host inspection, `sudo`, database access, provisioning, controlled write,
+reboot, verifier, evidence band, harness `--execute`, real participant
+invocation, real capture root, operational path or protected-artifact access
+occurred**, no secrets scan was run, and no guard refused a call. The proposed
+§9.5.4 capability check chooses no operational location. Neither pass is
+executable or authorized, RP-11 remains unmet, and **no host authority is
+created**. Every prohibition below remains in force.
+[I1-R1 handback](../review/phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-handback.md).
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1-R1 is repository-only.**
+Peter Duscha assigns the bounded
+[publication-contract and portability remediation](../review/phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-claude-prompt.md).
+Claude may amend the operational-evidence requirements, add narrowly necessary
+repository-local diagnostic tests, create the handback and update current-state
+pointers. It must not change RP-11 production source. Codex's
+[review](../review/project-review-2026-09-28-p5-r5-rp11-capture-mechanism.md)
+found two Blocking issues and reproduced **991 passed, 179 failed, 0 skipped**
+locally because `/proc/self/fd/N` publication returned `ENOENT` before genesis.
+The remediation's capability check is bounded, disposable and cleanup-verified
+and occurs before any real capture root or host command.
+
+**No SSH, rsync, synchronization, network or host inspection, `sudo`, database
+access, provisioning, controlled write, reboot, verifier, evidence band,
+harness `--execute`, real participant invocation, real capture root,
+protected-artifact access or secrets scan is authorized.** Neither pass is
+executable or authorized, RP-11 remains unmet, and no host authority is
+created. Every prohibition below remains in force.
+
+**Restriction unchanged, 2026-09-28 — C-P5.0-R5-RP11-I1 was repository-only
+and issued no host command.** Claude returned the RP-11 capture mechanism and
+B0-RA retention check, implemented and tested locally under pytest temporary
+directories only. **No SSH, rsync, synchronization, network or host inspection,
+`sudo`, database access, provisioning, controlled write, reboot, verifier,
+evidence band, harness `--execute`, real capture root or protected-artifact
+access occurred**, no secrets scan was run, and no guard refused a call. The
+mechanism is wired to no command. RP-11 remains unmet pending independent Codex
+review. Neither pass is executable or authorized, and **no host authority is
+created**. Every prohibition below remains in force.
+[Implementation handback](../review/phase-5-0-p5-r5-rp11-capture-mechanism-implementation-handback.md).
+
 **Restriction unchanged, 2026-09-27 — C-P5.0-R5-RP11-I1 is repository-only.**
 Claude may implement and locally test RP-11's client-side capture and B0-RA
 retention mechanisms within the repository. **No SSH, rsync, synchronization,

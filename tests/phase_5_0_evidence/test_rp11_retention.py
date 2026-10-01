@@ -1,5 +1,9 @@
-"""RP-11, C-P5.0-R5-RP11-I1 — B0-RA, the read-only Pass A retention check,
-against §7.1 of the R5-amended operational-evidence draft (SHA-256 `5e06a388…`).
+"""RP-11, C-P5.0-R5-RP11-I1 and I1-R3 — B0-RA, the read-only Pass A retention
+check, against §7.1 of the operational-evidence draft as amended by
+C-P5.0-R5-RP11-I1-R3 (implementation unaccepted; the R5 bytes `5e06a388…`
+remain the baseline), including the accepted Option-1 retained-alias
+exception: a recorded staging/final pair may share an inode, and nothing else
+may.
 
 Every test builds a real Pass A capture root under a pytest temporary
 directory with the real mechanism, writes a Pass A handback carrying its binding
@@ -30,6 +34,7 @@ from tests.phase_5_0_evidence.rp11_fixtures import (
     ScriptedLauncher,
     act,
     open_session,
+    rp11_release_descriptors,  # noqa: F401 - autouse fixture, active by import
     tree,
     write_handback,
     writes,
@@ -51,6 +56,7 @@ from tools.phase_5_0_evidence.execution.retention_check import (
     PosixReadOnlyFilesystem,
     RetentionCheck,
     RetentionRefused,
+    verify_final_state,
 )
 
 REPOSITORY = Path(__file__).resolve().parents[2]
@@ -60,14 +66,21 @@ UNADMITTED = ("streams/stdout/000002", "streams/stderr/000002")
 class PassA:
     """A retained Pass A root and its digest-pinned handback."""
 
-    def __init__(self, tmp_path: Path, *, acts: int = 2, unadmitted: bool = True) -> None:
+    def __init__(
+        self,
+        tmp_path: Path,
+        *,
+        acts: int = 2,
+        unadmitted: bool = True,
+        stop_stage: str = "P-6:file-barrier",
+    ) -> None:
         self.host = Host.under(tmp_path)
         self.root = self.host.root()
         filesystem = FaultFilesystem()
         self.session = open_session(self.host, filesystem=filesystem, launcher=ScriptedLauncher())
         for index in range(1, acts + 1):
             if unadmitted and index == acts:
-                filesystem.stage = "P-6:file-barrier"
+                filesystem.stage = stop_stage
             self.session.run_act(act(f"A1-{index:02d}", writes(b"", b"")))
         if self.session.outcome is None:
             self.session.complete()
@@ -704,3 +717,322 @@ def test_a_same_size_rewrite_while_an_admitted_file_is_read_stops(tmp_path: Path
 
     result = _race(tmp_path, "read_all", 1, rewrite)
     _assert_stopped(result, CONDITION_NAME_AGREEMENT, "changed-during-verification")
+
+
+# ===========================================================================
+# C-P5.0-R5-RP11-I1-R3 — the retained staging/final pair
+# ===========================================================================
+
+PAIR_REASONS = {"pair-member-absent", "pair-member-not-regular", "pair-identity-mismatch", "pair-link-count", "pair-owner-or-mode"}
+ADMITTED_PAIRS = ("records/000001.json", "index/000000.open.json", "index/000001.open.json", "index/000002.final.json")
+
+
+def _x4(pass_a: PassA):  # type: ignore[no-untyped-def]
+    """X-4 alone — the mechanism's own re-application — on the retained root."""
+    return verify_final_state(
+        PosixReadOnlyFilesystem(),
+        capture_root=pass_a.root,
+        final_state=pass_a.binding.final_state,
+        final_sha256=pass_a.binding.capture_index_sha256,
+        pass_id=PASS_A,
+    )
+
+
+def test_every_admitted_object_is_a_recorded_pair_and_b0_ra_accepts_it(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path)
+    for name in ADMITTED_PAIRS:
+        final, staging = os.lstat(pass_a.path(name)), os.lstat(pass_a.path(name + ".staging"))
+        assert (final.st_ino, final.st_nlink) == (staging.st_ino, 2), name
+    recording = RecordingReadOnlyFilesystem()
+    result = pass_a.check(filesystem=recording)
+    assert result.passed, result
+    # Admitted content is read through the final name only; the staging name
+    # is the same inode, proved by metadata.
+    assert not [name for name in recording.opened_files if name.endswith(b".staging")]
+    assert "staging name was proved to be the same recorded inode" in result.evidentiary_limit
+
+
+@pytest.mark.parametrize("name", ADMITTED_PAIRS)
+def test_a_missing_staging_member_of_an_admitted_pair_stops(tmp_path: Path, name: str) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.path(name + ".staging").unlink()
+    before = tree(pass_a.root)
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_X4)
+    assert result.reason in PAIR_REASONS
+    assert not _x4(pass_a).passed
+    assert tree(pass_a.root) == before
+
+
+@pytest.mark.parametrize("name", ADMITTED_PAIRS[:3])
+def test_a_missing_final_member_of_an_admitted_pair_stops(tmp_path: Path, name: str) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.path(name).unlink()
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_X4)
+    assert not _x4(pass_a).passed
+
+
+@pytest.mark.parametrize("member", ["", ".staging"])
+def test_a_pair_member_replaced_by_an_identical_copy_stops(tmp_path: Path, member: str) -> None:
+    """Same bytes, same mode, a different inode: the identity is the record."""
+    pass_a = PassA(tmp_path)
+    target = pass_a.path("records/000001.json" + member)
+    data = target.read_bytes()
+    target.unlink()
+    target.write_bytes(data)
+    target.chmod(0o600)
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_X4)
+    assert result.reason in PAIR_REASONS
+
+
+@pytest.mark.parametrize("where", ["inside", "outside"])
+def test_a_third_link_to_an_admitted_pair_stops(tmp_path: Path, where: str) -> None:
+    pass_a = PassA(tmp_path)
+    alias = pass_a.path("records/stray") if where == "inside" else tmp_path / "outside-third-link"
+    os.link(pass_a.path("records/000001.json"), alias)
+    _assert_stopped(pass_a.check(), CONDITION_NAME_AGREEMENT, "path-alias")
+    assert not _x4(pass_a).passed
+
+
+def test_a_cross_object_alias_stops(tmp_path: Path) -> None:
+    """Record 1's inode given the name of the genesis state's staging alias."""
+    pass_a = PassA(tmp_path)
+    pass_a.path("records/000001.json.staging").unlink()
+    pass_a.path("index/000000.open.json.staging").unlink()
+    os.link(pass_a.path("records/000001.json"), pass_a.path("index/000000.open.json.staging"))
+    result = pass_a.check()
+    assert not result.passed
+    assert result.failed_condition in (CONDITION_X4, CONDITION_NAME_AGREEMENT)
+    assert result.reason in PAIR_REASONS | {"path-alias"}
+
+
+def test_a_pair_member_whose_mode_changed_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.path("records/000001.json.staging").chmod(0o640)
+    _assert_stopped(pass_a.check(), CONDITION_X4, "pair-owner-or-mode")
+
+
+@pytest.mark.parametrize("field", ["publication", "previous_state"])
+def test_a_recorded_identity_that_differs_from_the_tree_stops(tmp_path: Path, field: str) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.forge_final(lambda document: document[field].update(inode=document[field]["inode"] + 1))
+    _assert_stopped(pass_a.check(), CONDITION_X4, "pair-identity-mismatch")
+
+
+def test_a_recorded_staging_name_that_is_not_the_rule_s_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.forge_final(lambda document: document["publication"].update(staging="index/000002.final.json.x"))
+    _assert_stopped(pass_a.check(), CONDITION_X4, "final-state-invalid")
+
+
+@pytest.mark.parametrize("reused", ["records/000001.json.staging", "index/000001.open.json.staging"])
+def test_a_name_in_two_pairs_or_categories_stops(tmp_path: Path, reused: str) -> None:
+    pass_a = PassA(tmp_path)
+
+    def reuse(document) -> None:  # type: ignore[no-untyped-def]
+        document["unadmitted"] = sorted(
+            document["unadmitted"] + [{"name": reused, "type": "regular"}], key=lambda item: item["name"]
+        )
+
+    pass_a.forge_final(reuse)
+    _assert_stopped(pass_a.check(), CONDITION_NAME_AGREEMENT, "duplicate-accounted-name")
+
+
+@pytest.mark.parametrize("extra", ["records/000009.json.staging", "index/000009.open.json.staging", "records/000001.json.staging.staging"])
+def test_an_unexpected_staging_name_stops(tmp_path: Path, extra: str) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.path(extra).write_bytes(b"")
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_NAME_AGREEMENT, "name-sets-disagree")
+    assert result.observed_not_recorded == (extra,)
+
+
+def test_an_unrecorded_published_pair_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path)
+    pass_a.path("records/000009.json.staging").write_bytes(b"x")
+    os.link(pass_a.path("records/000009.json.staging"), pass_a.path("records/000009.json"))
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_X4, "published-record-not-accounted")
+
+
+# -- unadmitted names: presence, name and type; a recorded pair by metadata only
+
+
+UNADMITTED_PAIR_STOPS = ("P-8:directory-barrier", "P-8:verify-pair", "P-8:close", "X-2:create")
+
+
+@pytest.mark.parametrize("stop_stage", UNADMITTED_PAIR_STOPS)
+def test_a_recorded_unadmitted_pair_is_retained_and_never_read(tmp_path: Path, stop_stage: str) -> None:
+    """Accepted Option 1 (C-P5.0-R5-RP11-I1-R3-D2, 2026-09-28): a recorded
+    unadmitted staging/final pair may share one inode at link count two. Only
+    metadata is compared."""
+    pass_a = PassA(tmp_path, stop_stage=stop_stage)
+    for name in ("records/000002.json", "records/000002.json.staging"):
+        assert os.lstat(pass_a.path(name)).st_nlink == 2
+    before = tree(pass_a.root)
+    recording = RecordingReadOnlyFilesystem()
+    result = pass_a.check(filesystem=recording)
+    assert result.passed, result
+    assert not set(recording.opened_files) & {b"000002.json", b"000002.json.staging"}
+    assert tree(pass_a.root) == before
+    assert _x4(pass_a).passed
+
+
+def test_an_unadmitted_pair_whose_members_diverge_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path, stop_stage="P-8:directory-barrier")
+    target = pass_a.path("records/000002.json")
+    target.unlink()
+    target.write_bytes(b"not the staging inode")
+    target.chmod(0o600)
+    recording = RecordingReadOnlyFilesystem()
+    _assert_stopped(pass_a.check(filesystem=recording), CONDITION_NAME_AGREEMENT, "pair-divergent")
+    assert not set(recording.opened_files) & {b"000002.json", b"000002.json.staging"}
+
+
+def test_an_unadmitted_pair_with_a_third_link_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path, stop_stage="P-8:directory-barrier")
+    os.link(pass_a.path("records/000002.json"), tmp_path / "outside-third")
+    _assert_stopped(pass_a.check(), CONDITION_NAME_AGREEMENT, "path-alias")
+
+
+def test_a_deleted_member_of_an_unadmitted_pair_stops(tmp_path: Path) -> None:
+    pass_a = PassA(tmp_path, stop_stage="P-8:directory-barrier")
+    pass_a.path("records/000002.json").unlink()
+    result = pass_a.check()
+    _assert_stopped(result, CONDITION_NAME_AGREEMENT, "name-sets-disagree")
+    assert result.recorded_not_observed == ("records/000002.json",)
+
+
+def test_an_unadmitted_staging_name_hard_linked_elsewhere_stops(tmp_path: Path) -> None:
+    """A staging-only unadmitted object has no partner, so any second name is an alias."""
+    pass_a = PassA(tmp_path)  # stopped at P-6: records/000002.json.staging only
+    assert not pass_a.path("records/000002.json").exists()
+    os.link(pass_a.path("records/000002.json.staging"), pass_a.path("records/000002.json"))
+    result = pass_a.check()
+    assert not result.passed
+    assert result.reason in ("path-alias", "published-record-not-accounted", "name-sets-disagree")
+
+
+def test_two_accounted_names_that_are_not_partners_may_not_share_an_inode(tmp_path: Path) -> None:
+    """Both names are accounted for — two unadmitted stream files — but they
+    are not one object's pair, so their shared inode is a cross-object alias."""
+    pass_a = PassA(tmp_path)  # act 2's two stream files are unadmitted
+    pass_a.path(UNADMITTED[1]).unlink()
+    os.link(pass_a.path(UNADMITTED[0]), pass_a.path(UNADMITTED[1]))
+    _assert_stopped(pass_a.check(), CONDITION_NAME_AGREEMENT, "path-alias")
+    assert not _x4(pass_a).passed
+
+
+# -- C-P5.0-R5-RP11-I1-R3-R1: the recorded unadmitted pair is exactly one pair
+#
+# The option-1 exception (metadata only) permits exactly the state the mechanism
+# leaves. Every other shape around an unadmitted pair stops, and neither member
+# is ever opened, read or digested on the way to the stop.
+
+UNADMITTED_PAIR = ("records/000002.json", "records/000002.json.staging")
+
+
+def _pair_root(tmp_path: Path) -> PassA:
+    pass_a = PassA(tmp_path, stop_stage="P-8:directory-barrier")
+    for name in UNADMITTED_PAIR:
+        assert os.lstat(pass_a.path(name)).st_nlink == 2
+    return pass_a
+
+
+def _check_unread(pass_a: PassA, filesystem=None):  # type: ignore[no-untyped-def]
+    recording = filesystem or RecordingReadOnlyFilesystem()
+    result = pass_a.check(filesystem=recording)
+    assert not set(recording.opened_files) & {b"000002.json", b"000002.json.staging"}
+    return result
+
+
+@pytest.mark.parametrize("survivor", UNADMITTED_PAIR)
+def test_a_lone_unadmitted_pair_member_at_link_count_two_stops(tmp_path: Path, survivor: str) -> None:
+    """Its partner is gone, but a name outside the root keeps link count two."""
+    pass_a = _pair_root(tmp_path)
+    partner = UNADMITTED_PAIR[1 - UNADMITTED_PAIR.index(survivor)]
+    os.link(pass_a.path(survivor), tmp_path / "outside")
+    pass_a.path(partner).unlink()
+    assert os.lstat(pass_a.path(survivor)).st_nlink == 2
+    _assert_stopped(_check_unread(pass_a), CONDITION_NAME_AGREEMENT, "path-alias")
+
+
+def test_an_unadmitted_pair_with_a_third_link_inside_the_root_stops(tmp_path: Path) -> None:
+    pass_a = _pair_root(tmp_path)
+    os.link(pass_a.path(UNADMITTED_PAIR[0]), pass_a.path("streams/third"))
+    _assert_stopped(_check_unread(pass_a), CONDITION_NAME_AGREEMENT, "path-alias")
+
+
+def test_an_unadmitted_pair_member_aliasing_an_admitted_object_stops(tmp_path: Path) -> None:
+    pass_a = _pair_root(tmp_path)
+    pass_a.path(UNADMITTED_PAIR[0]).unlink()
+    os.link(pass_a.path("records/000001.json"), pass_a.path(UNADMITTED_PAIR[0]))
+    _assert_stopped(_check_unread(pass_a), CONDITION_NAME_AGREEMENT, "path-alias")
+    assert not _x4(pass_a).passed
+
+
+@pytest.mark.parametrize("member", UNADMITTED_PAIR)
+@pytest.mark.parametrize("kind", ["directory", "symlink"])
+def test_a_non_regular_unadmitted_pair_member_stops(tmp_path: Path, member: str, kind: str) -> None:
+    pass_a = _pair_root(tmp_path)
+    partner = UNADMITTED_PAIR[1 - UNADMITTED_PAIR.index(member)]
+    pass_a.path(member).unlink()
+    if kind == "directory":
+        pass_a.path(member).mkdir(mode=0o700)
+    else:
+        pass_a.path(member).symlink_to(pass_a.path(partner))
+    # The partner check runs before the bidirectional type comparison, so a
+    # member that is no longer the partner's regular inode is `pair-divergent`.
+    _assert_stopped(_check_unread(pass_a), CONDITION_NAME_AGREEMENT, "pair-divergent")
+
+
+def test_an_unadmitted_pair_recorded_twice_stops(tmp_path: Path) -> None:
+    """A name in two categories: an unadmitted pair member also listed as admitted."""
+    pass_a = _pair_root(tmp_path)
+
+    def reuse(document) -> None:  # type: ignore[no-untyped-def]
+        document["unadmitted"] = sorted(
+            document["unadmitted"] + [{"name": "records/000001.json", "type": "regular"}],
+            key=lambda item: item["name"],
+        )
+
+    pass_a.forge_final(reuse)
+    _assert_stopped(_check_unread(pass_a), CONDITION_NAME_AGREEMENT, "duplicate-accounted-name")
+
+
+@pytest.mark.parametrize("which", [1, 2, 4])
+def test_an_incomplete_enumeration_of_a_pair_root_stops(tmp_path: Path, which: int) -> None:
+    pass_a = _pair_root(tmp_path)
+    result = pass_a.check(filesystem=_Twisted(fail_listing_of=which))
+    assert not result.passed
+    assert result.reason.startswith("verification-incomplete")
+
+
+@pytest.mark.parametrize(
+    "trigger, count, change, reason",
+    [
+        # A third name is seen at link count three before any time comparison.
+        ("list_names", 1, "link", "path-alias"),
+        ("read_all", 1, "link", "path-alias"),
+        ("read_all", 1, "unlink", "changed-during-verification"),
+    ],
+)
+def test_an_unadmitted_pair_changing_during_the_check_stops(  # type: ignore[no-untyped-def]
+    tmp_path: Path, trigger, count, change, reason
+) -> None:
+    pass_a = _pair_root(tmp_path)
+    fired = []
+
+    def hook(method: str, seen: int, arguments: tuple) -> None:
+        if method == trigger and seen == count and not fired:
+            fired.append(True)
+            if change == "link":
+                os.link(pass_a.path(UNADMITTED_PAIR[0]), pass_a.path("late"))
+            else:
+                pass_a.path(UNADMITTED_PAIR[1]).unlink()
+
+    result = _check_unread(pass_a, RecordingReadOnlyFilesystem(hook=hook))
+    assert fired
+    _assert_stopped(result, CONDITION_NAME_AGREEMENT, reason)

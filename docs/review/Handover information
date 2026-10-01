@@ -1,406 +1,85 @@
-# Active handover — C-P5.0-R5-RP11-I1 repository implementation — 2026-09-27
-
-This file is the active assignment and restriction entry point. The complete
-handover history through 2026-09-24 is preserved verbatim in
-[`Handover-information-through-2026-09-24.md`](Handover-information-through-2026-09-24.md).
-Dedicated prompts, handbacks, reviews and decision records remain the durable
-records of their work.
-
-## Active Claude assignment — C-P5.0-R5-RP11-I1
-
-Claude, implement the bounded repository-only assignment in
-[`phase-5-0-p5-r5-rp11-capture-mechanism-implementation-claude-prompt.md`](phase-5-0-p5-r5-rp11-capture-mechanism-implementation-claude-prompt.md).
-It implements RP-11's crash-consistent client-side capture mechanism and
-read-only B0-RA retention verification, with focused local tests, then returns
-a handback for independent Codex review.
-
-This assignment authorizes scoped repository source, test and documentation
-edits and local tests with `TEST_DATABASE_URL` unset only. It does not authorize
-SSH, synchronization, network or host inspection, `sudo`, database access,
-provisioning, a controlled write, reboot, verifier, evidence band, harness
-`--execute`, real participant invocation, protected-artifact access, a secrets
-scan, a commit or a push. It does not mark RP-11 satisfied or authorize either
-operational pass. P5.0-R5 remains Blocking, OD-62 G-A remains conditional,
-`plan.is_executable=False` and Package 5.0 remains not ready.
-
-## Consumed disposition — R5 accepted; no operational authority
-
-Peter Duscha accepted Codex's independent R5 review and accepted
-C-P5.0-R5-OP1-R5. **OP1-R4-1 is Closed, remediated.** The acceptance applies
-only to the requirements correction in the exact R5-amended draft at SHA-256
-`5e06a38811462613244ee258524461eb23b5598862ce43efa3ec77365040acb3`.
-[Codex R5 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5.md);
-[maintainer acceptance](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r5-acceptance.md).
-
-RP-11 remains absent and unmet. Neither pass is accepted, executable or
-authorized. P5.0-R5 remains Blocking, OD-62 G-A remains conditional,
-`plan.is_executable=False` and Package 5.0 remains not ready. The next gate is
-maintainer direction for a separately scoped repository implementation and
-independent review of RP-11. This record does not assign or authorize that
-work, and it creates no host authority.
-
-## Consumed return — C-P5.0-R5-OP1-R5
-
-Claude has returned C-P5.0-R5-OP1-R5. The
-[R5-amended authorization draft](phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
-(SHA-256 `5e06a38811462613244ee258524461eb23b5598862ce43efa3ec77365040acb3`)
-and the
-[R5 unadmitted-retention handback](phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-handback.md)
-were independently reviewed by Codex against the
-[R4 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r4.md)
-and the
-[R5 assignment](phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-claude-prompt.md).
-The requirements remediation was accepted on 2026-09-27. The operational draft
-and both passes remain unauthorized. **Neither pass is executable, and RP-11
-remains absent and unmet.**
-
-The correction is requirements-only and addresses **OP1-R4-1**:
-
-* B0-RA has a new condition 5, **bidirectional retained-name agreement**. One
-  complete recursive enumeration of Pass A's root gives the observed names and
-  object types. Pass A's final state *F* gives the accounted names and expected
-  types. Every observed name must be accounted for, and every accounted
-  name—including every unadmitted name—must be present at its exact relative
-  name with its expected type.
-* An absent or unexpected name, a type mismatch, a duplicate or ambiguous
-  name, a path alias, an escape from the root or an incomplete comparison is a
-  fail-closed B0 stop before B0-08. No `MI.capture_root_B` is created and no
-  Pass B host command is issued. The check is not retried.
-* *F* now records each unadmitted file, and each subdirectory the mechanism
-  created, by exact relative name and object type. No content digest is added
-  for an unadmitted file.
-* **Evidentiary limit.** For an unadmitted file, B0-RA verifies presence,
-  relative name and type only, **never unchanged content**. C-8's retention
-  requirement is kept.
-
-Path resolution and detection methods remain RP-11 obligations. Nothing was
-implemented or tested, and no host action occurred. The earlier Codex reviews,
-assignments and handbacks are unchanged.
-
-## Consumed Claude assignment — C-P5.0-R5-OP1-R5 repository-only remediation
-
-Claude, implement the bounded assignment in
-[`phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-claude-prompt.md`](phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-claude-prompt.md).
-Read it and the controlling
-[`Codex R4 review`](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r4.md)
-completely before editing.
-
-Correct exactly one Blocking contract defect: B0-RA must compare the complete
-recursive retained-name set in both directions, so every observed name is
-accounted for and every name recorded by Pass A's final state—including every
-unadmitted name—still exists at its exact relative name and expected object
-type. State explicitly that an undigested unadmitted object's presence does
-not prove its content unchanged.
-
-This assignment authorizes repository reads and documentation edits only. It
-does not authorize host contact, synchronization, `sudo`, database access,
-provisioning, a verifier or suite, an evidence band, a controlled write, a
-reboot, `--execute`, a secrets scan, protected-artifact access, implementation,
-a commit or a push. Neither pass is executable or authorized. RP-11 remains
-absent and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package
-5.0 remains not ready.
-
-## Consumed return — C-P5.0-R5-OP1-R4
-
-Claude has returned C-P5.0-R5-OP1-R4. The
-[R4-amended authorization draft](phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
-(SHA-256 `20fa2ce07b391d430569df0e513d687859a1032cfc37bc4c6c0e4dda883b486b`)
-and the
-[R4 retention-verification handback](phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-handback.md)
-await **Codex's independent review of those exact bytes** against the
-[R3 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r3.md)
-and the
-[R4 assignment](phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-claude-prompt.md).
-The draft remains unaccepted and unauthorized. **Neither pass is executable,
-and RP-11 remains absent and unmet.**
-
-The correction is requirements-only and addresses **OP1-R3-1**:
-
-* A new Pass B admission step, **B0-RA**, runs after the B0 repeats and
-  before B0-08. B0-08 runs only after it succeeds.
-* B0-RA takes its inputs from a digest-pinned Pass A handback, supplied as
-  the new maintainer input `MI.pass_a_handback`. That handback must record a
-  successful X-3 finalization, a valid X-4 result and a final state.
-* B0-RA establishes four conditions:
-  1. `MI.capture_root_A` is exactly the recorded root;
-  2. that root and the named final index state exist;
-  3. the final state's re-derived SHA-256 equals the recorded capture index
-     SHA-256;
-  4. X-4 still holds for the retained chain, records and bound stream files,
-     and every name under the root is accounted for by that final state.
-* Absence, mismatch, invalidity or inability to check is a fail-closed B0
-  stop. No `MI.capture_root_B` is created, no X-1 is performed and no Pass B
-  host command is issued.
-* B0-RA may only list names, read bytes and re-derive digests. It changes
-  nothing under Pass A's root and uses nothing there as Pass B evidence. It
-  establishes retention at the moment of the check only.
-* Pass A's root stays retained and unmodified, and is never used as Pass B
-  evidence. The earlier "unused" wording is reconciled throughout the draft.
-
-No interface was chosen and nothing was implemented or tested. The earlier
-Codex reviews, assignments and handbacks are unchanged. No host action
-occurred.
-
-## Consumed Claude assignment — C-P5.0-R5-OP1-R4 repository-only remediation
-
-Claude, implement the bounded assignment in
-[`phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-claude-prompt.md`](phase-5-0-p5-r5-operational-evidence-prompt-r4-retention-verification-remediation-claude-prompt.md).
-Read it and the controlling
-[`Codex R3 review`](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r3.md)
-completely before editing.
-
-Correct exactly one Blocking contract defect: before Pass B creates its own
-capture root or issues any host command, a non-mutating admission check must
-bind Pass A's retained root and final index to the root, final-state name and
-capture-index digest recorded in the Pass A handback, and must revalidate X-4.
-Absence, mismatch, invalidity or inability to check stops Pass B fail-closed.
-
-This assignment authorizes repository reads and documentation edits only. It
-does not authorize host contact, synchronization, `sudo`, database access,
-provisioning, a verifier or suite, an evidence band, a controlled write, a
-reboot, `--execute`, a secrets scan, protected-artifact access, implementation,
-a commit or a push. Neither pass is executable or authorized. RP-11 remains
-absent and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package
-5.0 remains not ready.
-
-## Consumed return — C-P5.0-R5-OP1-R3
-
-Claude has returned C-P5.0-R5-OP1-R3. The
-[R3-amended authorization draft](phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
-(SHA-256 `026edf43935fb8a837911d66f467596e5ebfe31a4da1135e576f0c03a4dd69f7`)
-and the
-[R3 contract-consistency handback](phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-handback.md)
-await **Codex's independent review of those exact bytes** against the
-[R2 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md)
-and the
-[R3 assignment](phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-claude-prompt.md).
-The draft remains unaccepted and unauthorized. **Neither pass is executable,
-and RP-11 remains absent and unmet.**
-
-The correction is requirements-only:
-
-* **OP1-R2-1.** The single `MI.capture_root` is replaced by
-  `MI.capture_root_A` (Pass A only) and `MI.capture_root_B` (Pass B only).
-  The two are distinct, neither lies within the other, and each
-  independently meets C-6 and the accepted-filesystem condition. Each is
-  created exclusively by its own pass's X-1 with its own genesis state, index
-  chain and final state. A new B0-08 performs the admission check and X-1
-  against `MI.capture_root_B`. Pass A's root stays retained, unmodified and
-  unused, and is never removed, renamed, reused or modified to admit Pass B.
-* **OP1-R2-2.** §9.5.3 now states one ordered stop transition. Command
-  execution stops at once, and no host command is issued, retried or
-  reissued. Where the mechanism and repository host remain available, one X-3
-  finalization attempt is the only permitted write. The capture root becomes
-  read-only when that attempt succeeds at its finalization point or fails. A
-  failed attempt is never retried, cured or reconstructed. After an
-  interruption no attempt is made and X-4 applies directly. C-10, C-15, X-3,
-  X-4, §10 and §11 now refer to that transition.
-
-No interface was chosen and nothing was implemented or tested. The earlier
-Codex reviews, assignments and handbacks are unchanged. No host action
-occurred.
-
-## Consumed Claude assignment — C-P5.0-R5-OP1-R3 repository-only remediation
-
-Claude, implement the bounded assignment in
-[`phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-claude-prompt.md`](phase-5-0-p5-r5-operational-evidence-prompt-r3-contract-consistency-remediation-claude-prompt.md).
-Read it and the controlling
-[`Codex R2 review`](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md)
-completely before editing.
-
-Correct exactly two Blocking contract defects: give Pass A and Pass B distinct
-retained capture roots, and define one ordered stop transition in which X-3 is
-the sole permitted post-failure write before the root becomes read-only. Amend
-the authorization draft in place, create the named R3 handback, update the
-current-state pointers on return, and stop for Codex review.
-
-This assignment authorizes repository reads and documentation edits only. It
-does not authorize host contact, synchronization, `sudo`, database access,
-provisioning, a verifier or suite, an evidence band, a controlled write, a
-reboot, `--execute`, a secrets scan, protected-artifact access, implementation,
-a commit or a push. Neither pass is executable or authorized. RP-11 remains
-absent and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package
-5.0 remains not ready.
-
-## Consumed Codex R2 review — changes requested
-
-Codex independently reviewed the exact R2-amended draft (`308e788c…`) and R2
-handback (`c191a83c…`). The
-[R2 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r2.md)
-confirms that OP1-R1-1's original stream, record and index durability omissions
-are resolved in substance, but requests two Blocking corrections:
-
-1. **OP1-R2-1:** Pass A and Pass B cannot use the single `MI.capture_root`.
-   Pass A must retain it, while B0 requires it to be absent before Pass B.
-2. **OP1-R2-2:** C-10/X-3/§11.2 require final-index publication after a stop,
-   while §9.5.3 immediately makes the capture root read-only after a stop.
-
-Neither pass is authorized or executable. RP-11 remains absent and unmet;
-P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0 remains not
-ready. This review creates no host or implementation authority. A bounded
-repository-only correction and another independent review are required before
-the draft can be considered for acceptance.
-
-## Consumed return — C-P5.0-R5-OP1-R2
-
-Claude has returned C-P5.0-R5-OP1-R2. The
-[R2-amended authorization draft](phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
-(SHA-256 `308e788cfd4267308f7fc551d53db3a17cdaabebe870d7f4c4b5e2dad7eadc7e`)
-and the
-[R2 durability-remediation handback](phase-5-0-p5-r5-operational-evidence-prompt-r2-durability-remediation-handback.md)
-await **Codex's independent review of those exact bytes**. The draft remains
-unaccepted and unauthorized. **Neither pass is executable, and RP-11 remains
-absent and unmet.**
-
-The correction is requirements-only. RP-11 and §9.5 now require a
-crash-consistent publication contract. Each piece of capture evidence is made
-durable before the next act begins:
-
-* both stream files are completed, closed, file-synchronized, and their
-  directory entries made durable before any record publishes their digests;
-* each per-act record is written under a temporary name, file-synchronized,
-  published by a non-replacing atomic rename, and followed by a successful
-  synchronization of its containing directory;
-* the capture index is a chain of immutable index states, created before the
-  first host command and advanced after every record. It is finalized with
-  one defined finalization point, and its final state's SHA-256 is the
-  handback's capture index digest.
-
-Any failed file or directory barrier is an `inconclusive` stop. It is never
-retried, repaired or reissued. A missing, stale, non-durable or inconsistent
-final index state is never reconstructed.
-
-No interface was chosen and nothing was implemented or tested. The earlier
-Codex reviews, the drafting handback and the R1 assignment and handback are
-unchanged. No host action occurred.
-
-## Consumed Claude assignment — C-P5.0-R5-OP1-R2 repository-only remediation
-
-Claude, implement the bounded assignment in
-[`phase-5-0-p5-r5-operational-evidence-prompt-r2-durability-remediation-claude-prompt.md`](phase-5-0-p5-r5-operational-evidence-prompt-r2-durability-remediation-claude-prompt.md).
-Read it and the controlling
-[`Codex R1 re-review`](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r1.md)
-completely before editing.
-
-Codex reviewed the exact C-P5.0-R5-OP1-R1 bytes and found that the original
-three findings were resolved in substance. One Blocking finding remains:
-**OP1-R1-1**, the RP-11 capture contract calls records durable without requiring
-durability barriers for the stdout/stderr files, each published record's
-directory entry, or creation and finalization of the capture index.
-
-Amend the authorization draft in place and create the R2 handback named by the
-assignment. This is a requirements-only correction. Do not implement RP-11 or
-change source, tests, hooks or manifests.
-
-This assignment authorizes repository reads and documentation edits only. It
-does not authorize host contact, synchronization, `sudo`, database access,
-provisioning, a verifier or suite, an evidence band, a controlled write, a
-reboot, `--execute`, a secrets scan, protected-artifact access, a commit or a
-push. Return the amended draft for Codex independent review and stop.
-
-## Consumed return — C-P5.0-R5-OP1-R1
-
-Claude has returned C-P5.0-R5-OP1-R1. The
-[amended authorization draft](phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
-(SHA-256 `7a73d3da474562eb098548cd44270c9d1f39adecb3ab073a6ed02409295ffe61`)
-and the
-[remediation handback](phase-5-0-p5-r5-operational-evidence-prompt-remediation-handback.md)
-await **Codex's independent re-review of those exact bytes**. The draft
-remains unaccepted and unauthorized. **Neither pass is executable as amended.**
-It adds typed, fail-closed prerequisites that no pass can satisfy:
-
-* RP-10: a reviewed provenance and verification method for owner-stated
-  target facts;
-* RP-11: a reviewed client-side capture mechanism;
-* RP-12: a bounded `fsync` fault-injection producer. Row 40 is now
-  feasibility work.
-
-It also keeps MD-5 unmet until an independent acceptance record exists. The
-original drafting handback and the Codex review are unchanged. No host action
-occurred.
-
-The R1 assignment is consumed by that return. Its restrictions are preserved
-and strengthened by the active R2 assignment above.
-
-## Consumed Claude assignment — C-P5.0-R5-OP1-R1
-
-Claude, implement the complete bounded assignment in
-[`phase-5-0-p5-r5-operational-evidence-prompt-remediation-claude-prompt.md`](phase-5-0-p5-r5-operational-evidence-prompt-remediation-claude-prompt.md).
-Read it and the controlling
-[`Codex review`](project-review-2026-09-27-p5-r5-operational-evidence-prompt.md)
-completely before editing.
-
-Codex reviewed the exact returned authorization draft and requested changes.
-Neither Pass A nor Pass B is authorized. The three Blocking findings are:
-
-1. RP-1 improperly makes Pass A observations the source of E7 expectations,
-   contrary to the reviewed harness contract;
-2. the draft improperly defers row 40's `fsync` failure-injection feasibility
-   work; and
-3. the required separate stdout/stderr evidence digests have no executable
-   capture method.
-
-Amend the authorization draft in place and create the remediation handback
-named by the assignment. Preserve the original drafting handback and Codex
-review. Keep every unresolved implementation, policy, target and operational
-dependency as a typed, fail-closed prerequisite rather than inventing it.
-
-This assignment authorizes repository reads and documentation edits only. It
-does not authorize host contact, synchronization, `sudo`, database access,
-source or test changes, provisioning, a verifier, an evidence band, a
-controlled write, a reboot, `--execute`, a secrets scan, protected-artifact
-access, a commit or a push. Return the amended draft for Codex independent
-re-review and stop.
-
-## Controlling state
-
-- P5.0-R5 remains **Blocking**.
-- OD-62 G-A remains conditional and not binding.
-- `plan.is_executable=False` remains controlling.
-- Package 5.0 remains not ready.
-- No implementation, migration `0014`, host, database, verifier, evidence-band,
-  reboot, deployment, `--execute` or production authority exists.
-- MD-1 through MD-6 are decided and must not be reopened or weakened by the
-  prompt draft.
-- Feasibility evidence and later production-code evidence must remain clearly
-  separate and non-substitutable.
-- The supervised reboot is mandatory for feasibility closure.
-- JNL-40(b)'s second-host or `/etc/machine-id`-rewrite case is not required for
-  P5.0-R5 closure; `R-5.0-13` and its external-evidence controls remain active.
-
-## Host and artifact restrictions
-
-This assignment authorizes no action on `oracle-test`. Do not SSH, synchronize,
-inspect, run `sudo`, access a database, invoke a verifier, perform a controlled
-write, execute an evidence band, reboot or retry.
-
-The historical `/tmp/fb-i3-root.out`, `/tmp/fb-i3-root.err` and
-`/tmp/fb-i3-r6-filelist.txt` artifacts remain protected. They must not be read,
-inspected, `stat`ed, written, deleted, truncated, overwritten, moved, modified
-or reused. Referring to these restrictions is not access to the protected
-artifacts.
-
-No secrets scan or command expected to engage a secrets guard is part of this
-assignment. A guard or tool refusal is a stop condition and must not be routed
-around.
-
-## Required next handoff
-
-Claude has returned the R5-amended prompt and unadmitted-retention
-handback without executing an operational procedure, and has stopped.
-**Next:** Codex independently reviews the exact R5-amended bytes against the
-[R4 review](project-review-2026-09-27-p5-r5-operational-evidence-prompt-r4.md)
-and the
-[R5 assignment](phase-5-0-p5-r5-operational-evidence-prompt-r5-unadmitted-retention-remediation-claude-prompt.md).
-Only a later explicit maintainer decision may accept or authorize an
-operational pass.
-
-## Historical handover
-
-- [Complete handover history through 2026-09-24](Handover-information-through-2026-09-24.md)
-
-Future consumed, superseded or historical handover blocks should be moved to
-dated files beside this file and indexed in `handover-archive/`. This file
-should contain only the active assignment, controlling restrictions, immediate
-handoff and archive links. Keeping snapshots in this directory preserves the
-relative-link base of the original text.
+# Active handover — D2-R2 design accepted; implementation authority pending — 2026-10-01
+
+This is the concise active assignment and restriction entry point. The complete
+pre-decision state is preserved verbatim in
+[`Handover-information-through-2026-09-29-r4-d2-r1-return.md`](Handover-information-through-2026-09-29-r4-d2-r1-return.md).
+
+## Accepted decisions
+
+Peter Duscha accepted Codex's D2-R1 recommendations:
+
+* **LD-7:** require FA-2's zero-`ret` image from the start. Permitting `ret`
+  later requires a separate reviewed decision.
+* **LD-8:** accept the bound build root plus HA-1 … HA-5, provided IC-1 passes,
+  R-5 actually varies and records at least one of HA-1 … HA-3, unexplained
+  differences stop, and the independent-decoding finding is resolved.
+* archive the displaced Handover and status text as verbatim, hash-indexed
+  snapshots.
+* **LD-9:** require Codex to independently decode the actual `.text` at D9-2
+  using its own decoder or byte-by-byte manual derivation prepared without
+  reading XD's table. An independent exercise of XD alone is not sufficient.
+
+- [Independent review and decision record](project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md)
+- [D2-R2 acceptance and LD-9 decision](project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)
+
+## Completed assignment
+
+Claude is assigned a bounded, documentation-only D2-R2 remediation. Amend the
+D2 proposal so LD-7's zero-`ret` form is normative from the first build, remove
+the conditional recommendation to permit `ret`, and add an independent
+machine-code decoder whose result must agree exactly with the committed
+listing before T-L10 evidence is accepted. Trace the affected BI, RI, P, D9,
+T-L and trust statements together. Create a remediation handback and stop for
+independent Codex re-review.
+
+- [D2-R2 remediation assignment](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-claude-prompt.md)
+
+The assignment is complete and accepted at the design level. Do not implement
+the launcher or decoder. Do not build, compile, inspect a
+binary, acquire a toolchain, run a verifier or test, regenerate a manifest or
+artifact, or amend prior assignments, handbacks, reviews, decisions, snapshots
+or archives.
+
+## Return state
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D2-R2` documentation-only and has
+stopped. The D2 proposal is amended in place with a dated §0-D2R2 note and
+Appendix D:
+
+* the zero-`ret` form is the selected design: two functions, `_start`
+  entering `rp11_main` by one `jmp`, no `call` and no `ret`, the selection
+  functions inlined from `select.h`, and T-L8 narrowed as LD-7 accepts;
+* a second, independently implemented decoder, XD (§5.15, XD-1 … XD-11),
+  decodes `.text` from the image bytes and must agree exactly with the
+  listing (T-L11) before any T-L10 result is accepted; Codex independently
+  decodes the actual `.text` at D9-2; and
+* LD-8's conditions are normative, and reproducibility is not claimed to show
+  decoder correctness.
+
+Codex independently re-reviewed the remediation with no new Blocking or
+Important issue. Peter accepted it and decided LD-9 option (i).
+
+- [Amended D2 proposal](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
+- [D2-R2 remediation handback](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md)
+
+## Return gate and restrictions
+
+`R4-D2-R1-1` is Closed as remediated at the design level. A separate M-14/I-7
+assignment is required before implementation. PO-9 and PO-14 remain open.
+
+**Documentation and repository reads only. No source, build, test, dependency,
+binary, manifest, generated artifact, configuration, host or operational
+change is authorized. No compilation, installation, download, SSH, rsync,
+network or host inspection, `sudo`, database access, provisioning, controlled
+write, reboot, verifier, evidence band, harness `--execute`, real participant,
+real capture root, operational path, protected-artifact access, secrets scan,
+commit or push is authorized.**
+
+RP-11 remains unwired and unmet; neither pass is executable or authorized;
+`plan.is_executable=False`; P5.0-R5 remains Blocking; OD-62 G-A remains
+conditional; and Package 5.0 remains not ready.
+
+## Archives
+
+- [D2-R1 return snapshot](Handover-information-through-2026-09-29-r4-d2-r1-return.md)
+- [Handover archive index](handover-archive/README.md)

@@ -2548,7 +2548,547 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current action, 2026-09-27 — C-P5.0-R5-RP11-I1 repository implementation.**
+**Current action, 2026-10-01 — D2-R2 design accepted; prepare a separate
+M-14/I-7 implementation assignment before any implementation.**
+
+Peter Duscha accepted `C-P5.0-R5-RP11-I1-R3-R4-D2-R2` after Codex's
+independent review found no new Blocking or Important issue
+([amended proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md),
+[handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md),
+[acceptance](review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)).
+The zero-`ret` image is the selected design, with no `call` and no `ret`. An
+independently implemented decoder, XD, must decode `.text` from the image
+bytes and agree exactly with the committed listing before any T-L10 result
+is accepted. LD-8's conditions are normative. `R4-D2-R1-1` is Closed as
+remediated at the design level. LD-9 option (i) requires Codex to independently
+decode the actual `.text` at D9-2 using its own decoder or byte-by-byte manual
+derivation prepared without reading XD's table; exercising XD alone is not
+sufficient.
+
+No implementation, compilation, source, decoder, build, dependency, binary,
+manifest, artifact, configuration, host, wiring or operational authority
+exists. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
+P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0 remains not
+ready. A separate M-14/I-7 assignment is required before implementation.
+
+**Superseded current action, 2026-09-30 — Claude performs the documentation-only D2-R2
+zero-`ret` and independent-decoding remediation; Codex then re-reviews.**
+
+Peter Duscha accepted Codex's D2-R1 recommendations. LD-7 requires FA-2's
+zero-`ret` image from the first build. LD-8 accepts the bound build root plus
+HA-1 … HA-5 provided IC-1 passes, R-5 actually varies and records at least one
+of HA-1 … HA-3, and unexplained differences stop. Diverse double compilation
+is not required for PO-9.
+
+The original three D2 findings are remediated as framed. New Blocking finding
+`R4-D2-R1-1` remains Open because T-L7 and T-L10 consume the pinned
+disassembler's instruction boundaries without independently decoding `.text`.
+Claude is assigned a bounded documentation-only D2-R2 amendment; Codex
+independently re-reviews before Peter decides.
+([decision](review/project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md),
+[assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-claude-prompt.md)).
+
+No implementation, compilation, source, decoder, build, dependency, binary,
+manifest, artifact, configuration, host, wiring or operational authority
+exists. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
+P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0 remains not
+ready.
+
+**Superseded current action, 2026-09-29 — Codex independently re-reviews the returned
+D2-R1 static-launcher design remediation; Peter Duscha then decides.**
+
+Codex's review of the D2 design found three findings:
+
+* `R4-D2-1` (Blocking): PO-9's control-flow premise ignored `ret`;
+* `R4-D2-2` (Important): the build-input closure omitted `/bin/sh`, `env`
+  and runtime inputs; and
+* `R4-D2-3` (Important): hostile vectors could exceed `execve` limits, and
+  HX-5 omitted the normative diagnostic.
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D2-R1` documentation-only and
+stopped
+([assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r1-static-launcher-design-remediation-claude-prompt.md),
+[amended proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md),
+[handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r1-static-launcher-design-remediation-handback.md)).
+D-S1 is retained under three new elements:
+
+* a closed control-transfer and return-integrity discipline, checked by a
+  listing verifier and human review, with named fail-closed alternatives;
+* a build root bound file by file, with named residual host inputs; and
+* bounded hostile vectors with exact expected traces.
+
+No finding is claimed closed.
+
+No implementation, compilation, source, build, dependency, binary, manifest,
+artifact, configuration, host, wiring or operational authority exists. PO-9
+and PO-14 remain open; RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — Codex independently reviews the returned LB-2S
+static-launcher design; Peter Duscha then decides.**
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D2` documentation-only and stopped
+([proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md),
+[handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-handback.md)).
+It selects `D-S1`, a freestanding, syscall-only C image with no C library, and
+specifies its PO-9 proof, reproducible build, exact launcher contract, binding,
+tests and rollback. PO-9 is not discharged: that needs build, inspection,
+reproducibility and installation evidence under later authority.
+
+No implementation, compilation, source, build, dependency, binary, manifest,
+artifact, configuration, host, wiring or operational authority exists. PO-9
+and PO-14 remain open; RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — Claude produces the documentation-only LB-2S
+static-launcher design; Codex then reviews independently.**
+
+Peter Duscha accepted M-14 for a design pass, conditionally selected LB-2S
+under M-9 subject to an accepted design and later PO-9/PO-14 discharge, and
+kept T-A in scope under M-10 while explicitly trusting reviewed root-controlled
+manager execution settings under R-10. T-B remains out of scope.
+
+Claude is assigned `C-P5.0-R5-RP11-I1-R3-R4-D2` to design the runtime,
+toolchain, reproducible build, exact launcher contract, evidence and rollback,
+then stop for Codex review.
+([decision](review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r2-launch-boundary-decision.md),
+[assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-claude-prompt.md)).
+
+No implementation, compilation, source, build, dependency, binary, manifest,
+artifact, configuration, host, wiring or operational authority exists. PO-9
+and PO-14 remain open; RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — Peter Duscha decides the post-R4-D1-R2 design
+direction.**
+
+Codex reviewed `C-P5.0-R5-RP11-I1-R3-R4-D1-R2` with no Blocking, Important or
+Optional finding. `R4-D1-R1-1` is remediated at design-document level. The
+original LB-2 prevention claim is withdrawn; LB-2S is only a conditional
+direction requiring M-9, M-14, M-10, a separate static-launcher design and
+load-bearing PO-9/PO-14. **No recommendation is ready.** Peter Duscha decides
+whether to commission that design or choose another bounded direction.
+([review](review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r2-system-manager-environment.md)).
+
+No implementation, source, hook, manifest, artifact, draft, wiring or
+operational authority exists. RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — Codex independently re-reviews the returned
+R4-D1-R2 LB-2 system-manager environment remediation; Peter Duscha then
+decides.**
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D1-R2` documentation-only and stopped
+([amended proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-proposal.md),
+[R2 handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r2-system-manager-environment-remediation-handback.md)).
+**No recommendation is ready.**
+
+* **LB-2 as returned is withdrawn as prevention.** A systemd unit cannot build
+  an allow-list environment before `execve`.
+* **LB-2S is the specified correction.** A static first image that reads no
+  environment starts the entry with a literal. It depends on PO-9 and PO-14,
+  and on new decision M-14, a compiled build dependency.
+* **What remains trusted.** Manager execution settings are reviewed root
+  input, not prevention (R-10), and M-10 is revised.
+* **Scope.** R4-D1-2 is not reopened.
+
+The finding is not claimed closed. No implementation, source, hook, manifest,
+artifact, draft, wiring or operational authority exists. RP-11 remains unwired
+and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0
+remains not ready.
+
+**Superseded current action, 2026-09-29 — Claude performs the documentation-only R4-D1-R2
+LB-2 system-manager environment remediation, followed by independent Codex
+re-review.**
+
+Peter Duscha assigns Claude `C-P5.0-R5-RP11-I1-R3-R4-D1-R2` to establish a
+credible closed pre-`execve` entry environment for LB-2 or withdraw/narrow that
+direction truthfully. Claude amends the proposal in place, creates the named R2
+handback, updates concise pointers and stops. R4-D1-2 remains remediated at
+design level and is not reopened.
+([assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r2-system-manager-environment-remediation-claude-prompt.md)).
+
+No implementation, source, hook, manifest, artifact, draft, wiring or
+operational authority exists. RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — remediate the remaining R4-D1-R1 LB-2
+pre-loader-environment finding, then obtain independent Codex re-review.**
+
+Codex's independent remediation re-review found R4-D1-2 remediated in the
+design but one remaining Blocking defect under R4-D1-1: the recommended LB-2
+unit does not establish a closed pre-loader environment, so manager-level
+loader state could act before the entry's diagnostic check. LB-2 and the
+conditional O-2/D-1 direction are not ready for selection. Peter Duscha must
+issue any further bounded documentation-remediation assignment.
+([review](review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r1-c11-launcher-contract.md)).
+
+No implementation, source, hook, manifest, artifact, draft, wiring or
+operational authority exists. RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+
+**Superseded current action, 2026-09-29 — Codex independently re-reviews the returned
+R4-D1-R1 C-11 launcher-contract remediation; Peter Duscha then decides.**
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D1-R1` documentation-only and stopped
+([amended proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-proposal.md),
+[remediation handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r1-c11-launcher-contract-remediation-handback.md)).
+The amendment is a decision-ready impossibility result, not a recommendation
+that meets today's constraints:
+
+* **Ambient loader state.** No repository-only design on the client's ordinary
+  path keeps it from the entry. That needs a host-established launch boundary
+  (M-9) and a threat-scope decision (M-10).
+* **Pass A texts.** Pass A becomes all-literal under draft amendment D-2 to
+  A1-12.
+* **Pass B.** It cannot meet the pre-start inspection criterion as drafted
+  (M-11).
+
+D-1 is rewritten. Neither Blocking finding is claimed closed. No implementation,
+source, hook, manifest, artifact, wiring or operational authority exists. RP-11
+remains unwired and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`;
+Package 5.0 remains not ready.
+
+**Superseded action, 2026-09-29 — Claude performs the documentation-only R4-D1-R1
+C-11 launcher-contract remediation, followed by independent Codex re-review.**
+
+Claude returned `C-P5.0-R5-RP11-I1-R3-R4-D1` documentation-only and stopped
+([proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-proposal.md),
+[handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-handback.md)).
+Codex's [independent review](review/project-review-2026-09-29-p5-r5-rp11-r4-d1-c11-launcher-contract.md)
+found two Blocking defects. Ambient dynamic-loader state acts before the
+proposed entry can refuse it, so the claimed in-process enforcement is not
+fail-closed. A1-12's runtime value also does not exist when the client hook
+runs, so O-2 and D-1 incorrectly claim that the hook inspects its final command
+before process start. O-2 and D-1 are not ready for maintainer selection.
+Peter Duscha assigns the bounded
+[R4-D1-R1 remediation](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d1-r1-c11-launcher-contract-remediation-claude-prompt.md).
+Claude must correct both findings in the proposal and stop for independent
+re-review. No implementation, source, hook, manifest, artifact, wiring or
+operational authority exists. RP-11
+remains unwired and unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`;
+Package 5.0 remains not ready.
+
+**Superseded action, 2026-09-29 — Claude prepares the C-11 guard-preserving
+capture and pinned launcher-environment decision design.**
+
+Peter Duscha assigns Claude `C-P5.0-R5-RP11-I1-R3-R4-D1`, documentation-only,
+to compare viable security-boundary options, recommend one and specify a closed
+typed environment contract for RP-11-launched `rsync` and `ssh`
+([assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r4-c11-launcher-contract-claude-prompt.md)).
+Claude stops after the proposal and handback for independent Codex review. No
+source, hook, manifest, artifact, wiring or operational action is authorized.
+
+**Superseded action, 2026-09-29 — R3 is accepted; RP-11 remains blocked pending
+a fresh bounded assignment for C-11 and the exact pinned launcher environment.**
+
+Peter Duscha accepted `C-P5.0-R5-RP11-I1-R3-R3` after Codex's independent
+review found no Blocking, Important or Optional issue
+([acceptance](review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release-acceptance.md)).
+The post-open descriptor leaks in `PosixFilesystem.create_file` and `openat`
+are closed as remediated. Manifest version 26 and digest `526dd446…` are
+accepted review inputs only. RP-11 remains unwired and unmet; C-11 and the
+exact pinned launcher environment remain unresolved; P5.0-R5 remains Blocking;
+`plan.is_executable=False`; and Package 5.0 remains not ready. No follow-up
+implementation or operational authority exists.
+
+**Superseded action, 2026-09-29 — Peter Duscha decides acceptance of the
+reviewed C-P5.0-R5-RP11-I1-R3-R3 post-open descriptor-release remediation.**
+
+Claude returned the repository-only slice and stopped
+([handback](review/phase-5-0-p5-r5-rp11-i1-r3-r3-posix-post-open-release-handback.md)). `PosixFilesystem.create_file` and `openat` close
+the descriptor `os.open` returned exactly once when identity acquisition or the
+initial write fails, never retry the close, re-raise the first failure and
+leave the created name as the failure left it. 16 new regressions, 11 of which
+fail on the old file. The whole package is **3364 passed, 0 skipped** at both
+the 1024 and default descriptor limits. Manifest version 26, digest
+`526dd446…`, was regenerated by dry run only and is not an approval. RP-11
+remains unwired and unmet; P5.0-R5 remains Blocking;
+`plan.is_executable=False`; Package 5.0 remains not ready. No host,
+database, operational-pass, commit or push authority exists.
+
+Codex independently reviewed the return with no Blocking, Important or Optional
+finding and recommends acceptance
+([review](review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release.md)).
+Peter Duscha decides.
+
+**Superseded action, 2026-09-29 — Claude executes the bounded repository-only
+post-open descriptor-release remediation; Codex independently reviews the
+return.**
+
+Peter Duscha assigns Claude `C-P5.0-R5-RP11-I1-R3-R3` to repair the post-open
+descriptor leaks in `PosixFilesystem.create_file` and `openat`, add focused
+regressions, advance the covered-source manifest and regenerate review
+artifacts by dry run only
+([assignment](review/phase-5-0-p5-r5-rp11-i1-r3-r3-posix-post-open-release-claude-prompt.md)).
+Claude stops after handback; Codex is the independent reviewer. No host,
+database, operational-pass, RP-11 wiring, commit or push authority exists.
+
+**Superseded action, 2026-09-29 — await a bounded repository-only reliability
+assignment for the post-open failure leaks in `PosixFilesystem.create_file`
+and `openat`.**
+
+Peter Duscha accepted Codex's independent review of the corrected RP-11
+Option-1 alignment with no finding and closed `RP11-I1-2`, `RP11-I1-R2-1` and
+`RP11-I1-R1-1` as superseded by the accepted I1-R3 design
+([acceptance record](review/project-review-2026-09-29-p5-r5-rp11-option-1-alignment-acceptance.md)).
+The review reproduced **3348 passed, 0 skipped** at both the 1024 and default
+descriptor limits. This accepts the alignment and finding dispositions only.
+RP-11 remains unwired and unmet; C-11 and the pinned launcher environment
+remain unresolved; P5.0-R5 remains Blocking; `plan.is_executable=False`; and
+Package 5.0 remains not ready. No host or operational authority exists.
+
+**Superseded action, 2026-09-28 — Codex independently reviews the Option-1
+documentation alignment together with its C-P5.0-R5-RP11-I1-R3-D2-DOC1-R1
+correction.**
+
+Claude reviewed the returned D2-DOC1 alignment and found no Blocking issue and
+no behavior change. On Peter Duscha's instruction it corrected the record-integrity
+findings under D2-DOC1-R1
+([handback](review/phase-5-0-p5-r5-rp11-i1-r3-d2-doc1-r1-alignment-review-remediation-handback.md)):
+
+* **Proposal.** The historical decision proposal, edited in place, is restored
+  byte-for-byte to `ac504ce1…`, and an erratum records the correction.
+* **Draft.** The operational draft's amendment attribution, §4.3 stale-pin
+  list and B0-RA unresolved clause are corrected. It is now `5c6046fc…`,
+  unaccepted.
+* **Findings.** `RP11-I1-2` (Blocking), `RP11-I1-R2-1` (Blocking) and
+  `RP11-I1-R1-1` (Important) are restored to the current state as Open. Peter
+  directs a proposed disposition, superseded by the accepted I1-R3 design, for
+  independent confirmation.
+
+No covered source changed. Manifest version 25 and `f63cf359…` are unchanged
+and reproduce byte-identically by dry run. The whole package is 3348 passed,
+0 skipped, at both the 1024 and default descriptor limits. This is not RP-11
+acceptance or wiring. RP-11 remains unmet, C-11 and the pinned launcher
+environment remain unresolved, P5.0-R5 remains Blocking,
+`plan.is_executable=False`, and Package 5.0 remains not ready. No host or
+operational authority exists.
+
+**Superseded action, 2026-09-28 — independently review the exact bytes aligning
+the accepted RP-11 Option-1 policy.**
+
+Peter Duscha accepted **Option 1**: the one staging/final pair Pass A's final
+state records for an unadmitted regular file may be verified by metadata only.
+Both fixed names must be present, share one inode at link count two and share it
+with no third name. Neither member is opened, read, digested or admitted; every
+broader or ambiguous alias state stops fail closed.
+[Decision and review record](review/project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md).
+
+Codex's R2 re-review found no new Blocking or Important issue and reproduced
+the 12 focused regressions and the full **3348 passed, 0 skipped** package both
+at soft descriptor limit 1024 and at the default. `RP11-I1-R3-1` is Closed by
+decision; `RP11-I1-R3-2` and `RP11-I1-R3-3` are Closed as remediated.
+
+The returned documentation alignment removes stale pending-decision wording and moves
+the covered-source manifest to version 25 at review-input digest `f63cf359…`.
+The regenerated artifacts are dry-run products only. Focused verification is
+774 passed and the whole package is 3348 passed at both the 1024 and default
+descriptor limits, with zero skips. Those exact bytes now await independent
+review. This is not RP-11 acceptance or wiring. RP-11
+remains unmet, C-11 and the pinned launcher
+environment remain unresolved, P5.0-R5 remains Blocking,
+`plan.is_executable=False`, and Package 5.0 remains not ready. No host or
+operational authority exists.
+
+**Superseded action, 2026-09-28 — Claude repairs the production lifecycle-store
+descriptor leak under C-P5.0-R5-RP11-I1-R3-R2; Peter Duscha separately decides
+the unadmitted-pair policy.**
+
+Peter assigns the bounded repository-only
+[R2 remediation](review/phase-5-0-p5-r5-rp11-i1-r3-r2-lifecycle-descriptor-release-remediation-claude-prompt.md).
+It closes descriptors acquired by `DurableRecordStore` read and publication
+paths on every success and failure path, adds production leak regressions,
+increments the covered-source manifest and regenerates review artifacts by dry
+run. It does not change retained-alias semantics or record the pending policy
+decision. No host or operational authority exists. The return requires
+independent Codex re-review; RP-11 remains unmet, P5.0-R5 remains Blocking and
+`plan.is_executable=False`.
+
+**Superseded action, 2026-09-28 — Codex independently re-reviews the returned
+C-P5.0-R5-RP11-I1-R3-R1 remediation; Peter Duscha decides the unadmitted-pair
+policy.**
+
+Claude returned the repository-only remediation and stopped.
+[I1-R3-R1 handback](review/phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-handback.md).
+
+* **Evidence discrepancy.** The 2941-passed, 379-failed result reproduces
+  under a 1024 soft descriptor limit. The earlier 3320-pass run had a limit
+  of 1 048 576.
+  * RP-11 test-held descriptors, 619, are released test-side.
+  * A `lifecycle_storage` release defect exercised by older lab tests, 963,
+    is out of scope and proposed as a follow-up.
+  * The whole package passes from fresh processes at both limits: 3336
+    passed, 0 skipped.
+* **Draft wording.** Corrected to the precise unwired, unaccepted, unmet
+  state. The draft is `4f68e4c7…`, unaccepted.
+* **Policy.** The
+  [decision proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r1-unadmitted-pair-decision-proposal.md)
+  recommends option 1 and awaits Peter's decision. Source semantics are
+  unchanged.
+* **Manifest.** Unchanged: version 23, `264674da…`, not an approval.
+
+All findings remain Open, and RP11-I1-R3-1 remains Blocking. RP-11 remains
+unmet, P5.0-R5 remains Blocking, `plan.is_executable=False`, and Package 5.0
+remains not ready. No host or operational authority exists.
+
+**Superseded action, 2026-09-28 — Claude executes the repository-only
+C-P5.0-R5-RP11-I1-R3-R1 review remediation.**
+
+Codex's
+[I1-R3 review](review/project-review-2026-09-28-p5-r5-rp11-i1-r3.md)
+requested changes for three findings: the Blocking unadmitted-pair policy lacks
+a confirmed decision of record; the claimed 3320-pass whole-package result did
+not reproduce because a descriptor-exhaustion cascade produced 2941 passed and
+379 failed; and the amended draft still falsely says no RP-11 mechanism exists.
+
+Peter Duscha assigns Claude the
+[I1-R3-R1 remediation prompt](review/phase-5-0-p5-r5-rp11-i1-r3-r1-retained-alias-review-remediation-claude-prompt.md).
+Claude must diagnose and remediate the evidence discrepancy, correct stale
+state wording, and prepare a concrete decision proposal for Peter. The missing
+policy decision does not stop those unrelated tasks. Source semantics remain
+unchanged pending the decision. No host or operational authority exists.
+
+All findings remain Open. RP-11 remains unmet, P5.0-R5 remains Blocking,
+`plan.is_executable=False`, and Package 5.0 remains not ready.
+
+**Superseded action, 2026-09-28 — Codex independently reviews the returned
+C-P5.0-R5-RP11-I1-R3-I1 retained-alias implementation.**
+
+Claude returned the repository-only slice and stopped.
+[I1-R3 handback](review/phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-handback.md).
+
+* **Draft.** The
+  [operational-evidence draft](review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
+  is amended in place to SHA-256 `402126322f34…`, unaccepted. The R5 bytes
+  (`5e06a388…`) remain the baseline.
+* **Source.** The unwired RP-11 source is amended to match:
+  * each record and index state is an exclusively created staging name, given
+    its final name by one no-follow, non-replacing hard link;
+  * both names are verified, retained and recorded with their shared inode in
+    the next durable index state, which alone admits the object;
+  * nothing is ever unlinked, renamed or cleaned up.
+* **Removed.** The `O_TMPFILE`/procfs route and the mutating §9.5.4 probe. The
+  first real X-1 genesis publication is the fail-closed capability test.
+* **X-4 and B0-RA.** They accept only a recorded staging/final pair as an
+  alias. A recorded unadmitted pair is checked by metadata only, on Peter
+  Duscha's in-session decision, which is to be confirmed as the decision of
+  record.
+* **Manifest.** Version 23, review-input digest `264674da…`. **Not an
+  approval.**
+* **Local results, with `TEST_DATABASE_URL` unset.** RP-11 suites: 367 passed,
+  0 skipped. `tests/phase_5_0_evidence`: 3320 passed, 0 skipped. Harness CLI:
+  dry run only.
+
+RP11-I1-R1-1, RP11-I1-R2-1 and RP11-I1-2 remain Open, and RP-11 remains unmet.
+P5.0-R5 remains Blocking, `plan.is_executable=False`, and Package 5.0 remains
+not ready. No host or operational authority exists.
+
+**Superseded action, 2026-09-28 — execute the assigned bounded RP-11 I1-R3
+requirements-and-source implementation repository-only.**
+
+On Peter Duscha's instruction to change approach, Codex stopped further
+remediation of the context-dependent `O_TMPFILE` plus `/proc/self/fd/N` probe.
+The [I1-R3 proposal](review/phase-5-0-p5-r5-rp11-i1-r3-publication-redesign-proposal.md)
+recommends exclusive named staging creation, non-replacing descriptor-relative
+hard-link publication, and retention of both staging and final names as indexed
+objects with no automatic unlink. This removes both the procfs dependency and
+the recheck-to-unlink race.
+
+Peter Duscha accepts the direction in the
+[I1-R3 acceptance record](review/project-review-2026-09-28-p5-r5-rp11-i1-r3-redesign-acceptance.md).
+Peter Duscha assigns Claude the
+[I1-R3 implementation prompt](review/phase-5-0-p5-r5-rp11-i1-r3-retained-alias-implementation-claude-prompt.md).
+It authorizes coherent repository requirements/source/test/manifest edits and
+focused local tests, followed by mandatory independent Codex review. It does
+not authorize host or operational execution.
+RP11-I1-R1-1, RP11-I1-R2-1 and RP11-I1-2 remain Open; RP-11 remains unmet;
+P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0 remains not
+ready.
+
+**Superseded action, 2026-09-28 — Codex independently reviews the returned
+C-P5.0-R5-RP11-I1-R2 evidence remediation.**
+
+* **The finding.** Codex's
+  [I1-R1 review](review/project-review-2026-09-28-p5-r5-rp11-i1-r1.md) raised the Important finding **RP11-I1-R1-1**:
+  the diagnostic prototype did not exercise the proposed §9.5.4 check.
+* **The remediation.** On Peter Duscha's in-session instruction, Claude made
+  the test-only prototype perform every locally testable §9.5.4 step, in
+  order, through the production creation and link functions:
+  * owner, mode, emptiness and device checks;
+  * a checked complete write;
+  * exact readback;
+  * an identity recheck;
+  * verified cleanup.
+* **Results, with `TEST_DATABASE_URL` unset.** The module gives 30 passed,
+  0 skipped. The I1-R1 selection plus the module gives 1200 passed, 0 skipped.
+* **Erratum.** A dated erratum narrows the I1-R1 handback's prototype claim.
+* **Unchanged.** The draft (`186ff546…`), production source and the manifest.
+
+RP11-I1-R1-1 and RP11-I1-2 remain Open. RP-11 remains unmet. Neither pass is
+executable or authorized. P5.0-R5 remains Blocking, OD-62 G-A remains
+conditional, `plan.is_executable=False`, and Package 5.0 remains not ready.
+[I1-R2 handback](review/phase-5-0-p5-r5-rp11-i1-r2-capability-prototype-evidence-remediation-handback.md);
+[I1-R2 assignment](review/phase-5-0-p5-r5-rp11-i1-r2-capability-prototype-evidence-remediation-claude-prompt.md).
+
+**Superseded action, 2026-09-28 — Codex independently reviews the returned
+C-P5.0-R5-RP11-I1-R1 remediation.**
+
+* **Requirements amendment, unaccepted.** Claude amended the
+  [operational-evidence draft](review/phase-5-0-p5-r5-operational-evidence-authorization-prompt.md)
+  in place to SHA-256 `186ff546…`, for review only. P-5 … P-8 and X-1 … X-3
+  now specify publication by an unnamed `O_TMPFILE` inode given its one name
+  by an exclusive link through `/proc/self/fd/<n>`, with failure semantics
+  before and after the link. The shared `os.link` call site is stated as two
+  reviewed contracts, which amends the I3 primitive. The amendment also adds a
+  pre-admission publication capability check in the mechanism's own process
+  before X-1 (§9.5.4), the behavioural read-only seal, the
+  `rp11-capture-binding/1` block in §14 and the capture-tool digest scope.
+  C-11 and the launcher environment remain blockers.
+* **Diagnosis.** It reproduces 1170 passed, 0 skipped locally, and reproduces
+  Codex's `ENOENT` by two named routes. Its attribution in the review context
+  is unresolved.
+* **Unchanged.** No production source or manifest changed.
+
+The R5 bytes (`5e06a388…`) remain the accepted baseline. Both findings remain
+Open; RP-11 remains unmet; neither pass is executable or authorized; P5.0-R5
+remains Blocking; OD-62 G-A remains conditional; `plan.is_executable=False`;
+Package 5.0 remains not ready.
+[I1-R1 handback](review/phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-handback.md).
+
+**Superseded action, 2026-09-28 — C-P5.0-R5-RP11-I1-R1 assigned
+repository-only.** Peter Duscha accepts and assigns the bounded
+[publication-contract and portability remediation](review/phase-5-0-p5-r5-rp11-i1-r1-publication-contract-and-portability-remediation-claude-prompt.md).
+Claude must amend requirements for independent review and diagnose why the
+local publication route is not portable, without changing RP-11 production
+source. Codex's
+[review](review/project-review-2026-09-28-p5-r5-rp11-capture-mechanism.md)
+found two Blocking issues: `O_TMPFILE` + `linkat` differs from the accepted
+temporary-name + atomic-rename contract, and the reported focused result did
+not reproduce. Codex obtained **991 passed, 179 failed, 0 skipped** with
+`TEST_DATABASE_URL` unset because `/proc/self/fd/N` publication returned
+`ENOENT` before genesis. The capability check is bounded, disposable and
+cleanup-verified, before any real capture root or host command. The assignment
+creates no host or operational authority. Both findings remain Open; RP-11
+remains unmet; neither pass is executable or authorized; P5.0-R5 remains
+Blocking; OD-62 G-A remains conditional; `plan.is_executable=False`; Package
+5.0 remains not ready.
+
+**Superseded action, 2026-09-28 — Codex independently reviewed the returned
+C-P5.0-R5-RP11-I1 implementation.** Claude implemented RP-11's client-side
+capture mechanism and B0-RA's read-only retention check in repository source,
+with focused local tests: 1170 passed and 0 skipped. It is wired to no command.
+The review manifest moves to version 22 with review-input digest `adeabe17…`,
+which is not an approval. The review should cover the three in-session
+maintainer decisions (`O_TMPFILE` + `linkat` publication, the behavioural
+read-only seal, and the shared `os.link` call site) and the open questions: C-11
+synchronization capture versus `guard-secrets.py`, the launcher environment, and
+the binding block's place in draft §14. RP-11 remains unmet. Neither pass is
+executable or authorized. P5.0-R5 remains Blocking; OD-62 G-A remains
+conditional; `plan.is_executable=False`; Package 5.0 remains not ready.
+[Implementation handback](review/phase-5-0-p5-r5-rp11-capture-mechanism-implementation-handback.md).
+
+**Superseded action, 2026-09-27 — C-P5.0-R5-RP11-I1 repository implementation.**
 Peter Duscha assigned a bounded implementation of RP-11's crash-consistent
 client-side capture mechanism and read-only B0-RA retention verification, with
 focused local tests and a handback for independent Codex review. The assignment

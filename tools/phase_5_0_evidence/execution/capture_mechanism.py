@@ -13,8 +13,19 @@ launcher with no shell, and publishes its evidence in the draft's order:
 | P-2 | each file closed to writing, reopened read-only by name, identity-checked, file barrier | `CaptureRootStore.complete_stream` |
 | P-3 | directory barrier on `streams/stdout` and `streams/stderr` | `CaptureRootStore.directory_barrier` |
 | P-4 | SHA-256 of exactly the completed bytes | `CaptureRootStore.digest_stream` |
-| P-5 … P-8 | the record, unnamed, written, file barrier, exclusive link, directory barrier | `CaptureRootStore.publish` |
-| X-2 | open state *I*-*n* by the same sequence; only then may act *n* + 1 begin | `CaptureRootStore.publish` |
+| P-5 … P-8 | the record: staging name created exclusively, written and checked, file barrier, one exclusive link to the final name, directory barrier, both names verified | `CaptureRootStore.publish` |
+| X-2 | open state *I*-*n* by the same sequence, recording record *n*'s pair and *I*-(*n* − 1)'s; only then may act *n* + 1 begin | `CaptureRootStore.publish` |
+
+## Admission of a pair
+
+A published object is two retained names on one inode, and **only the next
+durable index state admits it**. *I*-*n* admits record *n* (its entry) and
+*I*-(*n* − 1) (its `previous_state` link); *F* admits the last open state and
+records its own pair. Until then the store reports the publication as
+`VERIFIED`, not `ADMITTED`, and a stop leaves both of its names unadmitted and
+retained. X-1's genesis publication is the first real publication of the pass
+and the fail-closed capability test of the route: if it does not reach
+`VERIFIED`, the session is `NO_GENESIS`, no command runs and no X-3 is made.
 
 ## The one stop transition (§9.5.3)
 
@@ -26,9 +37,10 @@ Every stop takes the same path, `_stop_transition`, in this order:
 2. **One X-3 attempt, only where possible.** Only if the session has a durable
    genesis state and was not interrupted. `_x3_attempted` is set **before** the
    attempt's first call, so no path can make a second.
-3. **One outcome.** Success is the directory barrier after *F*'s link.
-   Anything else — including a failed barrier — is the attempt's failure, and
-   it is recorded, not retried and not cured.
+3. **One outcome.** Success is the verification of both of *F*'s names after
+   the directory barrier that follows *F*'s link. Anything else — including a
+   failed barrier — is the attempt's failure, and it is recorded, not retried
+   and not cured.
 4. **Read-only.** The session is sealed: its directory descriptors are released
    and every writing method refuses. Maintainer decision, 2026-09-27: read-only
    is this behavioural seal. No `chmod` is issued, so C-7's `0700`/`0600` modes
@@ -48,14 +60,21 @@ refuses every later call, including `complete()` and `stop()`, so no X-3 attempt
 is made "after recovery". There is no function that opens an existing root:
 `create_capture_session` creates a root exclusively or fails, so a new process
 cannot adopt, resume or finalize a root it did not create in X-1.
+`publication_states` says, from memory, exactly where each publication stopped.
+After the process itself has gone, the only discovery is read-only
+(`retention_check`); no staging or final name is completed, linked, adopted or
+removed, before or after recovery.
 
 ## What *F* records
 
-*F* lists exactly the last durable open state's records and carries its SHA-256,
-the terminal status, the five subdirectories, and **every unadmitted object the
-store knows exists**, by exact relative name and type, with no digest: every
-name the store created or positively probed that is not the chain, an admitted
-record or a stream file an admitted record binds.
+*F* lists exactly the last durable open state's records and carries that
+state's pair and SHA-256, *F*'s own pair, the terminal status, the five
+subdirectories, and **every unadmitted object the store knows exists**, by exact
+relative name and type, with no digest and no identity: every name the store
+created or positively probed that is not a name of the chain, of an admitted
+record or a stream file an admitted record binds. A record or open state that
+never reached admission contributes its staging name, and its final name if
+that name is known to exist.
 
 ## Not wired
 
@@ -93,14 +112,18 @@ from ..capture_contract import (
     IndexEntry,
     IndexState,
     ObjectType,
+    SelfPublication,
+    StateLink,
     StreamBinding,
     Terminal,
     UnadmittedObject,
+    final_state_name,
     format_utc,
     parse_capture_root,
     record_name,
     require_identifier,
     require_sha256,
+    staging_name,
     stream_name,
     validate_argv,
 )
@@ -115,6 +138,8 @@ from .capture_store import (
     CaptureFilesystem,
     CaptureInterrupted,
     CaptureRootStore,
+    Publication,
+    PublicationState,
     RootPolicy,
     StoreFailure,
 )
@@ -147,20 +172,8 @@ ACT_STAGES = (
     "P-4:close-stdout",
     "P-4:digest-stderr",
     "P-4:close-stderr",
-    RECORD_STAGES.create,
-    RECORD_STAGES.verify,
-    RECORD_STAGES.write,
-    RECORD_STAGES.file_barrier,
-    RECORD_STAGES.publish,
-    RECORD_STAGES.directory_barrier,
-    RECORD_STAGES.close,
-    ADVANCE_STAGES.create,
-    ADVANCE_STAGES.verify,
-    ADVANCE_STAGES.write,
-    ADVANCE_STAGES.file_barrier,
-    ADVANCE_STAGES.publish,
-    ADVANCE_STAGES.directory_barrier,
-    ADVANCE_STAGES.close,
+    *RECORD_STAGES.ordered(),
+    *ADVANCE_STAGES.ordered(),
 )
 
 #: The act-level failures that are not a storage stage.
@@ -243,9 +256,11 @@ class FinalizationOutcome:
     terminal: Terminal | None
     final_state: str | None
     final_state_sha256: str | None
-    #: True when a failed attempt left *F*'s name in place. That file is not
-    #: admissible and is reported, never repaired.
+    #: True when a failed attempt left *F*'s final name in place. That file is
+    #: not admissible and is reported, never repaired.
     final_name_present: bool
+    #: True when the attempt created *F*'s staging name — reported likewise.
+    final_staging_present: bool
     x4_validity: str
     x4_reason: str
     admitted_records: int
@@ -283,9 +298,13 @@ class _FileSink:
 
 @dataclass(frozen=True, slots=True)
 class _Published:
-    name: str
-    sha256: str
+    publication: Publication
     state: IndexState
+
+    def link(self) -> StateLink:
+        """How the next state records this one: both names, digest, inode."""
+        item = self.publication
+        return StateLink(item.name, item.staging, item.sha256, item.device, item.inode)
 
 
 class CaptureSession:
@@ -330,6 +349,15 @@ class CaptureSession:
     def admitted_records(self) -> int:
         return len(self._records)
 
+    @property
+    def publication_states(self) -> dict[str, PublicationState]:
+        """Each publication attempted, by final name, and the state it reached.
+
+        A copy, read from memory: after an interruption it describes exactly
+        where each publication stopped, and nothing can advance it.
+        """
+        return self._store.publication_states
+
     def binding(self) -> HandbackBinding:
         """The fixed block the handback carries (`capture_contract`)."""
         outcome = self._outcome
@@ -363,12 +391,13 @@ class CaptureSession:
                 pass_id=self._request.pass_id,
                 capture_root=self._request.capture_root,
                 tool_sha256=self._request.tool_sha256,
+                owner_uid=self._store.owner_uid,
                 state_number=0,
-                previous_state_sha256=None,
+                previous=None,
                 status=OPEN,
                 records=(),
             )
-            digest = self._store.publish(genesis.name, genesis.to_bytes(), stages=GENESIS_STAGES)
+            publication = self._store.publish(genesis.name, genesis.to_bytes(), stages=GENESIS_STAGES)
         except CaptureInterrupted:
             self._state = SessionState.INTERRUPTED
             raise
@@ -377,7 +406,7 @@ class CaptureSession:
             self._state = SessionState.NO_GENESIS
             self._store.release()
             return
-        self._chain.append(_Published(genesis.name, digest, genesis))
+        self._chain.append(_Published(publication, genesis))
         self._state = SessionState.OPEN
 
     # -- acts --------------------------------------------------------------------
@@ -509,21 +538,31 @@ class CaptureSession:
                 stdout=bindings[STDOUT],
                 stderr=bindings[STDERR],
             )
-            record_digest = store.publish(
+            published = store.publish(
                 record_name(capture_seq), record.to_bytes(), stages=RECORD_STAGES
             )  # P-5 … P-8
-            entry = IndexEntry(capture_seq, record_name(capture_seq), record_digest)
+            entry = IndexEntry(
+                capture_seq=capture_seq,
+                name=published.name,
+                staging=published.staging,
+                sha256=published.sha256,
+                device=published.device,
+                inode=published.inode,
+            )
             previous = self._chain[-1]
             state = IndexState(
                 pass_id=self._request.pass_id,
                 capture_root=self._request.capture_root,
                 tool_sha256=self._request.tool_sha256,
+                owner_uid=store.owner_uid,
                 state_number=capture_seq,
-                previous_state_sha256=previous.sha256,
+                previous=previous.link(),
                 status=OPEN,
                 records=(*previous.state.records, entry),
             )
-            state_digest = store.publish(state.name, state.to_bytes(), stages=ADVANCE_STAGES)  # X-2
+            advanced = store.publish(state.name, state.to_bytes(), stages=ADVANCE_STAGES)  # X-2
+            # Only now are record n and I-(n-1) accounted for by a durable state.
+            store.mark_admitted(published.name, previous.publication.name)
         except StoreFailure as failure:
             self._close_quietly(write_fds, read_fds)
             raise _ActFailed(ActFailure(failure.stage, failure.classification, launched)) from None
@@ -532,12 +571,12 @@ class CaptureSession:
             if isinstance(failure, _ActFailed):
                 raise
             raise _ActFailed(ActFailure(LAUNCH_STAGE, failure.classification, launched)) from None
-        self._chain.append(_Published(state.name, state_digest, state))
+        self._chain.append(_Published(advanced, state))
         self._records.append((entry, record))
         return ActOutcome(
             capture_seq=capture_seq,
             admitted=True,
-            record_sha256=record_digest,
+            record_sha256=published.sha256,
             exit=record.exit,
             failure=None,
             stop=None,
@@ -561,26 +600,36 @@ class CaptureSession:
             raise CaptureRefused("X-3 is attempted exactly once")
         self._x3_attempted = True
         last = self._chain[-1]
-        admitted = {published.name for published in self._chain}
+        admitted: set[str] = set()
+        for published in self._chain:
+            admitted.update({published.publication.name, published.publication.staging})
         for entry, record in self._records:
-            admitted.update({entry.name, record.stdout.name, record.stderr.name})
+            admitted.update({entry.name, entry.staging, record.stdout.name, record.stderr.name})
         unadmitted = tuple(
             UnadmittedObject(name=name, object_type=ObjectType.REGULAR)
             for name, kind in sorted(self._store.known_objects.items())
             if name not in admitted and name not in SUBDIRECTORIES and kind is ObjectType.REGULAR
         )
-        final = IndexState(
-            pass_id=self._request.pass_id,
-            capture_root=self._request.capture_root,
-            tool_sha256=self._request.tool_sha256,
-            state_number=last.state.state_number + 1,
-            previous_state_sha256=last.sha256,
-            status=FINAL,
-            records=last.state.records,
-            terminal=terminal,
-            subdirectories=tuple(sorted(SUBDIRECTORIES)),
-            unadmitted=unadmitted,
-        )
+        number = last.state.state_number + 1
+
+        def final_state(device: int, inode: int) -> IndexState:
+            name = final_state_name(number)
+            return IndexState(
+                pass_id=self._request.pass_id,
+                capture_root=self._request.capture_root,
+                tool_sha256=self._request.tool_sha256,
+                owner_uid=self._store.owner_uid,
+                state_number=number,
+                previous=last.link(),
+                status=FINAL,
+                records=last.state.records,
+                terminal=terminal,
+                subdirectories=tuple(sorted(SUBDIRECTORIES)),
+                unadmitted=unadmitted,
+                publication=SelfPublication(name, staging_name(name), device, inode),
+            )
+
+        final_name = final_state_name(number)
         common = dict(
             terminal=terminal,
             admitted_records=len(self._records),
@@ -590,7 +639,11 @@ class CaptureSession:
             x4_reason="not-evaluated",
         )
         try:
-            digest = self._store.publish(final.name, final.to_bytes(), stages=FINAL_STAGES)
+            published = self._store.publish(
+                final_name,
+                lambda device, inode: final_state(device, inode).to_bytes(),
+                stages=FINAL_STAGES,
+            )
         except CaptureInterrupted:
             # §9.5.3 step 3: an interruption during the attempt is its failure.
             # Recorded in memory only; nothing further is called.
@@ -599,9 +652,9 @@ class CaptureSession:
                 x3_outcome=X3_FAILED,
                 x3_failure_stage=FINAL_STAGES.create.split(":")[0],
                 x3_failure_classification="interrupted",
-                final_state=final.name,
+                final_state=final_name,
                 final_state_sha256=None,
-                final_name_present=final.name in self._store.known_objects,
+                **self._final_presence(final_name),
                 **{**common, "x4_reason": "no-admissible-final-state"},  # type: ignore[arg-type]
             )
             raise
@@ -610,20 +663,29 @@ class CaptureSession:
                 x3_outcome=X3_FAILED,
                 x3_failure_stage=failure.stage,
                 x3_failure_classification=failure.classification,
-                final_state=final.name,
+                final_state=final_name,
                 final_state_sha256=None,
-                final_name_present=final.name in self._store.known_objects,
+                **self._final_presence(final_name),
                 **common,  # type: ignore[arg-type]
             )
+        self._store.mark_admitted(last.publication.name, final_name)
         return FinalizationOutcome(
             x3_outcome=X3_SUCCEEDED,
             x3_failure_stage=None,
             x3_failure_classification=None,
-            final_state=final.name,
-            final_state_sha256=digest,
+            final_state=final_name,
+            final_state_sha256=published.sha256,
             final_name_present=True,
+            final_staging_present=True,
             **common,  # type: ignore[arg-type]
         )
+
+    def _final_presence(self, final_name: str) -> dict[str, bool]:
+        known = self._store.known_objects
+        return {
+            "final_name_present": final_name in known,
+            "final_staging_present": staging_name(final_name) in known,
+        }
 
     def _apply_x4(self, outcome: FinalizationOutcome) -> FinalizationOutcome:
         if outcome.x3_outcome != X3_SUCCEEDED:
@@ -641,6 +703,14 @@ class CaptureSession:
         return _replace_x4(outcome, X4_INCONCLUSIVE, result.reason)
 
     def _not_made(self, reason: str) -> FinalizationOutcome:
+        """No durable genesis: nothing to finalize, and nothing is written.
+
+        The names X-1 did create are **reported** here — the subdirectories and
+        any genesis staging or final name — so the handback can state the
+        bounded residue of the failed capability test. They are retained and
+        never completed, removed or used as evidence.
+        """
+        known = self._store.known_objects
         return FinalizationOutcome(
             x3_outcome=X3_NOT_MADE,
             x3_failure_stage=None,
@@ -649,11 +719,18 @@ class CaptureSession:
             final_state=None,
             final_state_sha256=None,
             final_name_present=False,
+            final_staging_present=False,
             x4_validity=X4_INCONCLUSIVE,
             x4_reason=reason,
             admitted_records=len(self._records),
-            subdirectories=(),
-            unadmitted=(),
+            subdirectories=tuple(
+                sorted(name for name, kind in known.items() if kind is ObjectType.DIRECTORY)
+            ),
+            unadmitted=tuple(
+                UnadmittedObject(name=name, object_type=ObjectType.REGULAR)
+                for name, kind in sorted(known.items())
+                if kind is ObjectType.REGULAR
+            ),
         )
 
     # -- internals -------------------------------------------------------------
@@ -686,6 +763,7 @@ def _replace_x4(outcome: FinalizationOutcome, validity: str, reason: str) -> Fin
         final_state=outcome.final_state,
         final_state_sha256=outcome.final_state_sha256,
         final_name_present=outcome.final_name_present,
+        final_staging_present=outcome.final_staging_present,
         x4_validity=validity,
         x4_reason=reason,
         admitted_records=outcome.admitted_records,

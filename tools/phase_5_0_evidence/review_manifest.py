@@ -420,7 +420,86 @@ MANIFEST_SCHEMA = "phase-5-0-evidence-review-manifest"
 #: unresolved and `is_executable` stays `False`. RP-11 is **not** satisfied by
 #: this version: it is unreviewed, unpinned and wired to no command. A digest
 #: remains review input rather than execution approval.
-MANIFEST_VERSION = 22
+#: **23** is C-P5.0-R5-RP11-I1-R3, 2026-09-28: RP-11's publication is
+#: re-implemented as the accepted retained-alias design. It moves because five
+#: covered files change and a digest over them must not be mistaken for the
+#: version-22 tree. `capture_contract.py`: staging names, pair roles, index
+#: schema `rp11-capture-index/2` (both names and the shared inode of every
+#: admitted pair, `owner_uid`, *F*'s own pair). `execution/capture_store.py`:
+#: an exclusively created staging name, a content check, one no-follow
+#: exclusive link, both names verified after the directory barrier, and
+#: `PublicationState`; the `O_TMPFILE` creation and the procfs link are gone.
+#: `execution/capture_mechanism.py`: admission by the next durable state.
+#: `execution/retention_check.py`: the one recorded-pair alias exception, for
+#: X-4 and B0-RA. `execution/descriptors.py`: `_exclusive_link` loses its
+#: `follow` argument and always passes `follow_symlinks=False`;
+#: `link_unnamed_descriptor` and `UNNAMED_PUBLICATION` are removed and
+#: `link_named_exclusive` and `RETAINED_ALIAS_PUBLICATION` are added. I3's
+#: `PosixFilesystem.linkat` behaviour is unchanged.
+#:
+#: What does **not** move at 23: the covered set stays at the version-22 files;
+#: no vector, step, mutation, materialization, expectation, target fact,
+#: required case or unresolved entry changes; the supplied-observation schema
+#: stays at **3**, the run-record schema at **3**, the classified-artifact
+#: schema at **1**, `plan.PERMITTED_EXECUTABLES` at **20** and the verb table
+#: at **20**. C-7's three cases and C-S4-3 stay unresolved and `is_executable`
+#: stays `False`. RP-11 is **not** satisfied by this version: it is unreviewed,
+#: unpinned and wired to no command. A digest remains review input rather than
+#: execution approval.
+#: **24** is C-P5.0-R5-RP11-I1-R3-R2, 2026-09-28: a descriptor-release
+#: correction to one covered file, `lifecycle_storage.py`.
+#: `DurableRecordStore.read_record_bytes` and `DurableRecordStore.publish`
+#: opened a descriptor through the injected filesystem and never released it,
+#: on success or failure. Each now releases it exactly once, after acquisition
+#: and on every path, through `PosixFilesystem.release` (or the model's
+#: `close`), and never retries a failed release. A failed release after a read
+#: raises `ModelRefused`; after a publication it is `not_durable` with the
+#: reason named, even when both barriers returned success. A version-23 digest
+#: covered a store that leaked a descriptor per operation.
+#:
+#: What does **not** move at 24: the covered set stays at the version-22 files;
+#: the publication order, its three interruption points, the barriers it
+#: reports, the history rules and the refusal vocabulary are unchanged; no
+#: vector, step, mutation, materialization, expectation, target fact, required
+#: case or unresolved entry changes; the supplied-observation schema stays at
+#: **3**, the run-record schema at **3**, the classified-artifact schema at
+#: **1**, `plan.PERMITTED_EXECUTABLES` at **20** and the verb table at **20**.
+#: No RP-11 file changes. C-7's three cases and C-S4-3 stay unresolved and
+#: `is_executable` stays `False`. RP-11 remains unmet. A digest remains review
+#: input rather than execution approval.
+#: **25** is C-P5.0-R5-RP11-I1-R3-D2, 2026-09-28: Peter Duscha accepts
+#: Option 1 for the recorded unadmitted staging/final pair. Covered source
+#: `execution/retention_check.py` now cites the decision of record rather than
+#: an unqualified maintainer decision. Behavior does not change: the verifier
+#: still checks only the two recorded regular-file names, one inode, link count
+#: two and no third name, without opening, reading, digesting or admitting the
+#: object. `review_manifest.py` changes only to record this provenance.
+#:
+#: What does **not** move at 25: the covered set, schemas, vectors, steps,
+#: mutations, materializations, expectations, target facts, required cases,
+#: unresolved entries, executables and verb table are unchanged. C-7's three
+#: cases and C-S4-3 remain unresolved, `is_executable` remains `False`, and
+#: RP-11 remains unwired, unaccepted and unmet. A digest remains review input,
+#: not execution approval.
+#: **26** is C-P5.0-R5-RP11-I1-R3-R3, 2026-09-29: a descriptor-release
+#: correction to one covered file, `execution/descriptors.py`.
+#: `PosixFilesystem.create_file` and `PosixFilesystem.openat` dropped the
+#: descriptor `os.open` returned when `fstat` for its identity refused, and
+#: `create_file` dropped it when its optional initial write refused. Each now
+#: removes the number from its table and closes it exactly once on every
+#: failure before the hand-off, never retries a failed close, and re-raises the
+#: first causal failure. A name `O_EXCL` created stays exactly as the failed
+#: write left it. A version-25 digest covered a filesystem that leaked a
+#: descriptor on each of those failures.
+#:
+#: What does **not** move at 26: the covered set, successful behaviour, the
+#: returned descriptor metadata, creation modes, no-follow flags, refusal
+#: classifications, schemas, vectors, steps, mutations, materializations,
+#: expectations, target facts, required cases, unresolved entries, executables
+#: and verb table are unchanged. C-7's three cases and C-S4-3 remain
+#: unresolved, `is_executable` remains `False`, and RP-11 remains unwired,
+#: unaccepted and unmet. A digest remains review input, not execution approval.
+MANIFEST_VERSION = 26
 
 #: The source files whose exact bytes the manifest pins, relative to the
 #: repository root. Enumerated rather than globbed: a file added to the package

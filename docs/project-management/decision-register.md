@@ -1,5 +1,104 @@
 # Decision register
 
+## Decision — D2-R2 accepted; LD-9 independent decoding required — 2026-10-01
+
+Peter Duscha accepts the D2-R2 zero-`ret` and independent-decoding design after
+Codex's independent review found no new Blocking or Important issue.
+`R4-D2-R1-1` is Closed as remediated at the design level.
+
+**LD-9 option (i) is decided:** at D9-2, Codex must independently decode the
+actual `.text` using its own decoder or a byte-by-byte manual derivation
+prepared without reading XD's table. Exercising XD alone is not sufficient.
+This creates no implementation, build, host or operational authority; PO-9 and
+PO-14 remain open and a separate M-14/I-7 assignment is required.
+[Acceptance record](../review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md).
+
+## Decision — zero-ret launcher and bound build-root model — 2026-09-30
+
+Peter Duscha accepts Codex's D2-R1 recommendations. **LD-7** requires FA-2's
+zero-`ret` image from the first build; permitting `ret` later requires a new,
+separately reviewed decision. **LD-8** accepts the bound build root plus named
+residual inputs HA-1 … HA-5, provided IC-1 passes, R-5 actually varies and
+records at least one of HA-1 … HA-3, unexplained differences stop, and the
+independent-decoding finding is resolved. Diverse double compilation is not
+required for PO-9.
+
+New finding `R4-D2-R1-1` remains Open, Blocking: the current evidence consumes
+the pinned disassembler's instruction boundaries without an independent decode
+of `.text`. A documentation-only D2-R2 remediation is assigned. No
+implementation, build, host or operational authority is created.
+[Review and decision record](../review/project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md).
+
+## Decision — LB-2S direction and static-launcher design commissioned — 2026-09-29
+
+Peter Duscha accepts Codex's R4-D1-R2 review with no finding and decides M-14,
+M-9 and M-10 as recommended. A documentation-only design of the compiled
+static first image is commissioned; LB-2S is conditionally selected subject to
+an accepted design and later discharge of PO-9 and PO-14; T-A stays in scope,
+manager execution settings are explicitly trusted reviewed root input under
+R-10, and T-B remains out of scope.
+
+This creates no implementation, compilation, host or operational authority.
+RP-11 remains unmet and neither pass is executable.
+[Decision record](../review/project-review-2026-09-29-p5-r5-rp11-r4-d1-r2-launch-boundary-decision.md).
+
+## Decision — R3 PosixFilesystem descriptor-release remediation accepted — 2026-09-29
+
+Peter Duscha accepts `C-P5.0-R5-RP11-I1-R3-R3` after Codex's independent
+review found no Blocking, Important or Optional issue. The post-open descriptor
+leaks in `PosixFilesystem.create_file` and `openat` are closed as remediated.
+Manifest version 26 and digest `526dd446…` are accepted review inputs only.
+
+This does not approve execution, accept or wire RP-11, or change a package
+gate. RP-11 remains unmet, `plan.is_executable=False`, P5.0-R5 remains Blocking
+and Package 5.0 remains not ready.
+[Acceptance record](../review/project-review-2026-09-29-p5-r5-rp11-i1-r3-r3-posix-post-open-release-acceptance.md).
+
+## Decision — RP-11 Option-1 alignment accepted; legacy findings superseded — 2026-09-29
+
+Peter Duscha accepts Codex's independent review of the corrected Option-1
+documentation alignment with no finding. `RP11-I1-2`, `RP11-I1-R2-1` and
+`RP11-I1-R1-1` are Closed as superseded by the accepted I1-R3 retained-alias
+design.
+
+This accepts the documentation alignment and finding dispositions only. It
+does not accept or wire RP-11, authorize either operational pass, or change a
+package gate. RP-11 remains unmet, `plan.is_executable=False`, P5.0-R5 remains
+Blocking and Package 5.0 remains not ready.
+[Acceptance record](../review/project-review-2026-09-29-p5-r5-rp11-option-1-alignment-acceptance.md).
+
+## Decision — RP-11 recorded unadmitted pair permitted metadata-only — 2026-09-28
+
+Peter Duscha accepts Option 1 from the RP-11 unadmitted-pair proposal. Pass A's
+final state may account for exactly one unadmitted staging/final pair as two
+names for one regular-file inode when both fixed names are present, the link
+count is exactly two and no third name reaches the inode. The verifier compares
+metadata only: it does not open, read, digest or admit either member.
+
+Every broader or ambiguous alias state remains a fail-closed stop. This closes
+`RP11-I1-R3-1` by maintainer decision. Codex's associated R2 re-review closes
+`RP11-I1-R3-2` and `RP11-I1-R3-3` as remediated, with no new Blocking or
+Important finding.
+
+This decision does not accept or wire RP-11, approve a digest, authorize either
+operational pass or change any package gate. RP-11 remains unmet,
+`plan.is_executable=False`, P5.0-R5 remains Blocking and Package 5.0 remains
+not ready.
+[Decision and review record](../review/project-review-2026-09-28-p5-r5-rp11-i1-r3-r2-and-unadmitted-pair-decision.md).
+
+## Decision — RP-11 retained-alias publication redesign accepted — 2026-09-28
+
+Peter Duscha accepts the I1-R3 publication direction: an exclusively created
+named staging inode, one descriptor-relative non-replacing hard link to the
+final name, both names retained and explicitly indexed, and no automatic
+unlink. The first real X-1 publication replaces the separate mutating
+capability probe as the fail-closed capability test before any host command.
+
+This authorizes preparation of a bounded repository implementation assignment,
+not implementation, manifest regeneration, host work or either operational
+pass. The open findings and gates remain unchanged.
+[Acceptance record](../review/project-review-2026-09-28-p5-r5-rp11-i1-r3-redesign-acceptance.md).
+
 ## Decision — R-5.0-13 accepted without JNL-40(b) — 2026-09-24
 
 Peter Duscha accepts `R-5.0-13` without requiring JNL-40(b)'s second-host or
