@@ -4,23 +4,22 @@ This is the concise current operational-status entry point. The complete
 pre-cleanup state is preserved verbatim in
 [`status-through-2026-10-01-d2-r2-acceptance.md`](status-through-2026-10-01-d2-r2-acceptance.md).
 
-## Current status — D2-R2 design and LD-9 option (i) accepted — 2026-10-01
+## Current status — I-7 static-launcher implementation assigned — 2026-10-01
 
-Peter Duscha accepted the documentation-only D2-R2 remediation after Codex's
-independent review found no new Blocking or Important issue. The selected
-design is zero-`ret`; XD independently decodes the image bytes; T-L11 must
-agree exactly with the committed listing before T-L10 is evidence; and LD-8's
-conditions are normative. `R4-D2-R1-1` is Closed as remediated at the design
-level. Under decided LD-9 option (i), Codex must independently decode the
-actual `.text` at D9-2; exercising XD alone is not sufficient.
+Peter Duscha authorizes Claude to implement the accepted I-7 repository slice:
+the zero-`ret` launcher, pinned build boundary, XD, T-L1 … T-L12, IC-1,
+repository tests, manifest coverage and deterministic artifacts. Claude must
+stop after handback for independent Codex review. LD-7, LD-8 and LD-9 remain
+normative.
 
 - [Amended D2 proposal](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
 - [D2-R2 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md)
 - [Acceptance and LD-9 decision](../review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)
+- [I-7 implementation prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md)
 
-No implementation, compilation, build, decoder, toolchain, host or operational
-authority exists. A separate M-14/I-7 implementation assignment is required.
-PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
+Repository implementation and local evidence generation are authorized only
+as the prompt states. No test-server, installation or operational authority
+exists. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
 `plan.is_executable=False`; P5.0-R5 remains Blocking; OD-62 G-A remains
 conditional; and Package 5.0 remains not ready.
 

@@ -1,4 +1,4 @@
-# Active handover — D2-R2 design accepted; implementation authority pending — 2026-10-01
+# Active handover — I-7 static-launcher implementation assigned — 2026-10-01
 
 This is the concise active assignment and restriction entry point. The complete
 pre-cleanup state is preserved verbatim in
@@ -22,14 +22,14 @@ Peter Duscha accepted Codex's D2-R1 recommendations:
 - [Independent review and decision record](project-review-2026-09-30-p5-r5-rp11-r4-d2-r1-decisions.md)
 - [D2-R2 acceptance and LD-9 decision](project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)
 
-## Current state and next step
+## Active assignment
 
-The D2-R2 design is accepted. `R4-D2-R1-1` is Closed as remediated at the
-design level. PO-9 and PO-14 remain open, and the launcher, XD, T-L11, T-L12
-and D9-2 evidence remain unimplemented and unperformed.
+Peter Duscha authorizes Claude to implement the accepted I-7 repository slice:
+the zero-`ret` launcher, pinned build boundary, XD, T-L1 … T-L12, IC-1,
+repository tests, manifest coverage and deterministic artifacts. Claude stops
+after its handback for independent Codex review.
 
-The next permissible step is a separately approved M-14/I-7 implementation
-assignment. No such assignment currently exists.
+- [I-7 implementation prompt](phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md)
 
 - [Accepted D2 proposal](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md)
 - [D2-R2 handback](phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md)
@@ -37,15 +37,16 @@ assignment. No such assignment currently exists.
 
 ## Return gate and restrictions
 
-A separate M-14/I-7 assignment is required before implementation.
+The prompt authorizes repository implementation, isolated toolchain acquisition
+where required, local build/decoder/verifier work and repository tests. It does
+not authorize R-5 on Claude's own authority, Codex's XD-9/XD-11 review, host
+installation, H-1/H-2, PO-14 discharge, RP-11 wiring or an operational pass.
 
-**Documentation and repository reads only. No source, build, test, dependency,
-binary, manifest, generated artifact, configuration, host or operational
-change is authorized. No compilation, installation, download, SSH, rsync,
-network or host inspection, `sudo`, database access, provisioning, controlled
-write, reboot, verifier, evidence band, harness `--execute`, real participant,
-real capture root, operational path, protected-artifact access, secrets scan,
-commit or push is authorized.**
+**No SSH, rsync, `oracle-test` access, `sudo`, package installation, system
+configuration, service operation, database access, provisioning, launcher
+installation, controlled write, reboot, evidence band, harness `--execute`,
+real participant, real capture root, operational path, protected-artifact
+access, secrets scan, commit or push is authorized.**
 
 RP-11 remains unwired and unmet; neither pass is executable or authorized;
 `plan.is_executable=False`; P5.0-R5 remains Blocking; OD-62 G-A remains

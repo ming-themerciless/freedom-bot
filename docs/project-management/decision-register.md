@@ -1,5 +1,18 @@
 # Decision register
 
+## Decision — I-7 static-launcher implementation authorized — 2026-10-01
+
+Peter Duscha authorizes Claude to implement the accepted I-7 repository slice:
+the zero-`ret` launcher, pinned build boundary, XD, T-L1 … T-L12, IC-1,
+repository tests, manifest coverage and deterministic artifacts. Claude stops
+after handback for independent Codex review.
+
+This permits isolated toolchain acquisition and repository-host build,
+decoder, verifier and test work as the prompt specifies. It does not authorize
+Claude to satisfy independent R-5, Codex's XD-9/XD-11 duties, `oracle-test`,
+installation, H-1/H-2, PO-14 discharge, RP-11 wiring or an operational pass.
+[Implementation prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md).
+
 ## Decision — D2-R2 accepted; LD-9 independent decoding required — 2026-10-01
 
 Peter Duscha accepts the D2-R2 zero-`ret` and independent-decoding design after

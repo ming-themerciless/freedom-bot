@@ -1,14 +1,11 @@
 # Disposable Linux Test Server
 
-**Restriction after D2-R2 acceptance and LD-9 decision, 2026-10-01 — design
-accepted; no action on this server is authorized.** Peter Duscha accepted the
-D2-R2 design and decided LD-9 option (i). `R4-D2-R1-1` is Closed as remediated
-at the design level, but XD, T-L11, T-L12 and Codex's D9-2 independent decode
-remain unimplemented and unperformed. A separate M-14/I-7 assignment is
-required. No synchronization, inspection, build, test, verifier, controlled
-write or other host command is authorized. PO-9 and PO-14 remain open; RP-11
-remains unwired and unmet; neither pass is executable.
-[Acceptance](../review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md).
+**Restriction during I-7 implementation, 2026-10-01 — no action on this
+server is authorized.** Peter Duscha authorized repository implementation and
+repository-host evidence only. The I-7 prompt does not authorize SSH,
+synchronization, inspection, dependency installation, build, test, verifier,
+provisioning, controlled write or any other command on `oracle-test`.
+[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md).
 
 Historical restriction banners are preserved in [`disposable-test-server-through-2026-10-01-d2-r2-acceptance.md`](disposable-test-server-through-2026-10-01-d2-r2-acceptance.md) and indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
 

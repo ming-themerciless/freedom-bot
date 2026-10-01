@@ -2548,11 +2548,12 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current action, 2026-10-01 — D2-R2 design accepted; prepare a separate
-M-14/I-7 implementation assignment before any implementation.**
+**Current action, 2026-10-01 — Claude implements the accepted I-7 zero-`ret`
+static launcher and independent decoder; Codex then reviews.**
 
-Peter Duscha accepted `C-P5.0-R5-RP11-I1-R3-R4-D2-R2` after Codex's
-independent review found no new Blocking or Important issue
+Peter Duscha authorizes `C-P5.0-R5-RP11-I1-R3-R4-I7`
+([implementation prompt](review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md))
+under the accepted D2-R2 design
 ([amended proposal](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-static-launcher-design-proposal.md),
 [handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-d2-r2-zero-ret-decoding-remediation-handback.md),
 [acceptance](review/project-review-2026-10-01-p5-r5-rp11-r4-d2-r2-acceptance.md)).
@@ -2565,10 +2566,11 @@ decode the actual `.text` at D9-2 using its own decoder or byte-by-byte manual
 derivation prepared without reading XD's table; exercising XD alone is not
 sufficient.
 
-No implementation, compilation, source, decoder, build, dependency, binary,
-manifest, artifact, configuration, host, wiring or operational authority
-exists. PO-9 and PO-14 remain open; RP-11 remains unwired and unmet;
-P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0 remains not
-ready. A separate M-14/I-7 assignment is required before implementation.
+Repository implementation, isolated toolchain acquisition where required,
+local build/decoder/verifier work and repository tests are authorized. R-5
+remains independent; Codex later performs XD-9 and XD-11. No test-server,
+installation, H-1/H-2, PO-14, RP-11 wiring or operational authority exists.
+PO-9 and PO-14 remain open; RP-11 remains unwired and unmet; P5.0-R5 remains
+Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
 
 Historical immediate-action text is preserved in [`implementation-plan-through-2026-10-01-d2-r2-acceptance.md`](implementation-plan-through-2026-10-01-d2-r2-acceptance.md) and indexed under [`implementation-plan-archive/`](implementation-plan-archive/README.md).

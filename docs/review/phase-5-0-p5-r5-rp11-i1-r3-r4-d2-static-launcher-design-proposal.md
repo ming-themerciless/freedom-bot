@@ -63,7 +63,9 @@ D2-R2 remediation handback:
 State: **design accepted, unimplemented. Amended under D2-R1 and D2-R2,
 independently re-reviewed by Codex and accepted by Peter Duscha on 2026-10-01.
 `R4-D2-R1-1` is Closed as remediated at the design level. LD-9 option (i) is
-decided: Codex must independently decode the actual `.text` at D9-2.**
+decided: Codex must independently decode the actual `.text` at D9-2. I-7
+repository implementation was assigned on 2026-10-01 under
+[`C-P5.0-R5-RP11-I1-R3-R4-I7`](phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md).**
 Nothing in this document was compiled, built, installed, inspected or
 executed. It adds no source, build script, toolchain file, test, binary,
 manifest, artifact or configuration. **PO-9 and PO-14 remain open. RP-11
@@ -2096,13 +2098,13 @@ key set or literals, the `execve` vector, or any R4-D1-2 result.
 | **LD-8** *(new D2-R1; decided 2026-09-30, conditionally)* | the build-input claim | *(D2-R1 options)* accept the bound build root plus named residual inputs HA-1 … HA-5, with IC-1 in I-7; or require more, such as a diverse double compilation | **Decided by Peter Duscha: accepted, on four conditions, now normative**: IC-1 passes (§5.3.7); R-5 actually varies at least one of HA-1 … HA-3 and records which (§5.3.5); every unexplained difference is a hard stop (§5.3.5); and `R4-D2-R1-1` is resolved independently of reproducibility (§5.15). **Diverse double compilation is not required.** Reproducibility is not claimed to show decoder correctness (§5.3.8, §6.3) |
 | **LD-9** *(new D2-R2; decided 2026-10-01)* | the form of Codex's D9-2 decoding evidence (XD-11) | (i) require re-derivation by a decoder or byte-level decode of Codex's own; or (ii) also accept an independent exercise of XD | **Decided by Peter Duscha: (i).** Codex must independently decode the actual `.text` with its own decoder or byte-by-byte manual derivation prepared without reading XD's table. Option (ii) is not sufficient. The D9-2 record binds Codex's independently derived instruction starts, lengths, mnemonics, operands and targets to XD and the listing |
 
-**Also still required** (unchanged): the later M-14 implementation authority
-for I-7; H-1 and H-2 authority; the PO-14 citation; and every R2 decision not
-yet made (D-2, M-11, D-1, MD-C11 and others).
+**M-14/I-7 repository implementation authority was granted on 2026-10-01.**
+Still required: H-1 and H-2 authority; the PO-14 citation; and every R2
+decision not yet made (D-2, M-11, D-1, MD-C11 and others).
 
-*(D2-R2)* **Also required, and not granted by LD-7 or LD-8:** authority to
-implement XD and its test corpus in I-7; the independent review of XD (XD-9);
-and Codex's D9-2 decoding (XD-11).
+*(D2-R2)* Authority to implement XD and its test corpus is included in I-7.
+The independent review of XD (XD-9) and Codex's D9-2 decoding (XD-11) remain
+separate reviewer duties and are not delegated to the implementer.
 
 ---
 
