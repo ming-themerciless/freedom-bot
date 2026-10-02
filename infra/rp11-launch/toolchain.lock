@@ -1,0 +1,107 @@
+# rp11-launch toolchain lock (proposal §5.3.2). Format rp11-toolchain-lock/1.
+# Generated in I-7 (C-P5.0-R5-RP11-I1-R3-R4-I7) on 2026-10-01 from the provisioned root;
+# values recorded, not invented. Package files come from the signed snapshot archive;
+# provision.py verifies each SHA-256 below before unpacking it.
+format=rp11-toolchain-lock/1
+target=x86_64-linux-gnu
+distribution=ubuntu 26.04 (resolute), component main, architecture amd64, release pocket only
+archive_snapshot=20261001T000000Z
+archive_base=https://snapshot.ubuntu.com/ubuntu
+archive_signing_key=F6ECB3762474EDA9D21B7022871920D1991BC93C (Ubuntu Archive Automatic Signing Key (2018); informative, checked by class-P gpgv)
+seeds=base-files base-passwd dash coreutils-from-gnu findutils libc-bin gcc-15 binutils libc6-dev strace
+# package=<name> <version> <package-file SHA-256> <pool path>
+package=base-files 14ubuntu6 b766d8381fadc5e22249ba34632798dab333f9d896108092ce0f2d220b1b0537 pool/main/b/base-files/base-files_14ubuntu6_amd64.deb
+package=base-passwd 3.6.8 226c75127e46de2bbd8a329ac7e55781ede395ab8a9be0f269250b24c81b9c36 pool/main/b/base-passwd/base-passwd_3.6.8_amd64.deb
+package=binutils 2.46-3ubuntu2 d14fc7bf644b495083f77c99ff168f1a2215c8b3b7ad5202e0345dc1092002b0 pool/main/b/binutils/binutils_2.46-3ubuntu2_amd64.deb
+package=binutils-common 2.46-3ubuntu2 3c846f001d87b16e5038a3919ca975276808a2db17459308a9d0f965c1cddac5 pool/main/b/binutils/binutils-common_2.46-3ubuntu2_amd64.deb
+package=binutils-x86-64-linux-gnu 2.46-3ubuntu2 91fa094c31783f7ccf0f0df8ed06447655c40476ba61fc95dbd245a313f8171e pool/main/b/binutils/binutils-x86-64-linux-gnu_2.46-3ubuntu2_amd64.deb
+package=coreutils-from-gnu 0.0.0~ubuntu25 862be75c7dd5d92815f2b80149bbcf819d11d21b1dba734f62b545bc5acb0eb7 pool/main/c/coreutils-from/coreutils-from-gnu_0.0.0~ubuntu25_all.deb
+package=cpp-15 15.2.0-16ubuntu1 baacc9086e17c8cadc3603365e660f907bca483de4446e56e6f1bc25da4c02be pool/main/g/gcc-15/cpp-15_15.2.0-16ubuntu1_amd64.deb
+package=cpp-15-x86-64-linux-gnu 15.2.0-16ubuntu1 1649aa71c45b047feda5b9ca303c94799bdba5befa5c9de9735cbfc59c3ef93f pool/main/g/gcc-15/cpp-15-x86-64-linux-gnu_15.2.0-16ubuntu1_amd64.deb
+package=dash 0.5.12-12ubuntu3 563091a9b615a5a59951c2cc4478163d099df366a051113e8ce5bb2baab7f0c8 pool/main/d/dash/dash_0.5.12-12ubuntu3_amd64.deb
+package=debianutils 5.23.2build1 eb155f0a9531b5f3b1c06e0e415c4cd7e01777e7714cf51ac094fa6afa01638f pool/main/d/debianutils/debianutils_5.23.2build1_amd64.deb
+package=findutils 4.10.0-3build2 546d6b0c2b2f5c61494ee5d11aa1b49476213af27a66edd9e05bb3ef00940557 pool/main/f/findutils/findutils_4.10.0-3build2_amd64.deb
+package=gcc-15 15.2.0-16ubuntu1 28da225c111d3ce9d230209cca24db46ec645f631f593f188bef718d8a1e4711 pool/main/g/gcc-15/gcc-15_15.2.0-16ubuntu1_amd64.deb
+package=gcc-15-base 15.2.0-16ubuntu1 5a302d705d562fb7e150415b00651c00fed58b633faadff0b332eac1b73fadb3 pool/main/g/gcc-15/gcc-15-base_15.2.0-16ubuntu1_amd64.deb
+package=gcc-15-x86-64-linux-gnu 15.2.0-16ubuntu1 df0e5375c9e981b18e396c2e9ec1e359f226576a9b94a311bf07603f3ca6023a pool/main/g/gcc-15/gcc-15-x86-64-linux-gnu_15.2.0-16ubuntu1_amd64.deb
+package=gcc-16-base 16-20260322-1ubuntu1 281b3188840a7abdca85a02eb2609b0efad852e8994b3804a0e4227ec4ec3f90 pool/main/g/gcc-16/gcc-16-base_16-20260322-1ubuntu1_amd64.deb
+package=gnu-coreutils 9.7-3ubuntu2 6b5b60a5c372b6e9d1dcfa1507317aae59bf809d4f4d6d363d3ef0a58a189137 pool/main/c/coreutils/gnu-coreutils_9.7-3ubuntu2_amd64.deb
+package=libacl1 2.3.2-2 77f8d49c031182bbd6c4fe4ec9ad49edb5d4607f2dac795fc6932dce0e8f541e pool/main/a/acl/libacl1_2.3.2-2_amd64.deb
+package=libasan8 16-20260322-1ubuntu1 d59b3a851c0b58759e9f940fa407f68a6ef46401381e5389c74e5ded5419262d pool/main/g/gcc-16/libasan8_16-20260322-1ubuntu1_amd64.deb
+package=libatomic1 16-20260322-1ubuntu1 82fa61135e7154d7958feaa91ec1808a688eb1e0e06822ab35e99e2480feb148 pool/main/g/gcc-16/libatomic1_16-20260322-1ubuntu1_amd64.deb
+package=libattr1 1:2.5.2-4 195ca7b0ca6c91c4b4b9e17baf98b98143e3a14a0571f1613f04b318b9799510 pool/main/a/attr/libattr1_2.5.2-4_amd64.deb
+package=libbinutils 2.46-3ubuntu2 1376a5e49c8dc2ba938fadc15fce40dd01c7fbf1adf2d506a2a7cf7148e347c8 pool/main/b/binutils/libbinutils_2.46-3ubuntu2_amd64.deb
+package=libc-bin 2.43-2ubuntu2 c34230e6892fa95e498e51640f7131946120b83eb672f586e341fa53bf504359 pool/main/g/glibc/libc-bin_2.43-2ubuntu2_amd64.deb
+package=libc-dev-bin 2.43-2ubuntu2 85ffc97dcc6c63c80693b07a984128b9e267992482f12e1c0dd87c65f014c769 pool/main/g/glibc/libc-dev-bin_2.43-2ubuntu2_amd64.deb
+package=libc-gconv-modules-extra 2.43-2ubuntu2 eb5ba6fd4ec1a68801e757f4492c6c6b30119ff277ac9d99629a011559c963f0 pool/main/g/glibc/libc-gconv-modules-extra_2.43-2ubuntu2_amd64.deb
+package=libc6 2.43-2ubuntu2 c13775dc0c984403f3fcad229d14507a9f387763bd07ace1e5f93897ee6b8434 pool/main/g/glibc/libc6_2.43-2ubuntu2_amd64.deb
+package=libc6-dev 2.43-2ubuntu2 6c8def1cafec89468fef8bd0d7a4eb66192a7850bf17c9decf7bca8fcf3dd5fa pool/main/g/glibc/libc6-dev_2.43-2ubuntu2_amd64.deb
+package=libcc1-0 16-20260322-1ubuntu1 484ac5fd30a19bfade8db336fe70f3c046beccd1c9a9ac327fcd89d29dd5a125 pool/main/g/gcc-16/libcc1-0_16-20260322-1ubuntu1_amd64.deb
+package=libcrypt1 1:4.5.1-1 57ab343c3dd28ce7101dc4e23de4e9d5bd3e58c6cb0ecd5ba0c42a877fc8868a pool/main/libx/libxcrypt/libcrypt1_4.5.1-1_amd64.deb
+package=libctf-nobfd0 2.46-3ubuntu2 5ca038ae110ddf65e190b9fe88822592abd45cecba5001f3e4ce7692ca1f31be pool/main/b/binutils/libctf-nobfd0_2.46-3ubuntu2_amd64.deb
+package=libctf0 2.46-3ubuntu2 34b1757ce619720541c7e1e8d8f3aa506cb327731374e284ffb6ec872a2c566f pool/main/b/binutils/libctf0_2.46-3ubuntu2_amd64.deb
+package=libdebconfclient0 0.280ubuntu1 21f699abaaa7624b0206573f69bf4f7a902d92863f2c9dfba497662c5713456b pool/main/c/cdebconf/libdebconfclient0_0.280ubuntu1_amd64.deb
+package=libgcc-15-dev 15.2.0-16ubuntu1 32fa5bde1891f46fd4f422e466c863fb78e834b634e1aa08211c8eea68870af5 pool/main/g/gcc-15/libgcc-15-dev_15.2.0-16ubuntu1_amd64.deb
+package=libgcc-s1 16-20260322-1ubuntu1 2fb4d81c14fdf34251639ae82f5181f9f98480ea16125d535571ac1be9db3065 pool/main/g/gcc-16/libgcc-s1_16-20260322-1ubuntu1_amd64.deb
+package=libgmp10 2:6.3.0+dfsg-5ubuntu2 a9bbe9d4a4bcd5875bbd0f53e67c379bc881d1c1a80522d51dfb4b107cc31819 pool/main/g/gmp/libgmp10_6.3.0+dfsg-5ubuntu2_amd64.deb
+package=libgomp1 16-20260322-1ubuntu1 add19738c63794d2aa9ac529d3b8aebe2e88980faecb6c1c59f07aefd6c3c314 pool/main/g/gcc-16/libgomp1_16-20260322-1ubuntu1_amd64.deb
+package=libgprofng0 2.46-3ubuntu2 6b066ab912300b2c6a965a9a8045da45c237a52b76c2c11d8f2ceaf7aabfacbb pool/main/b/binutils/libgprofng0_2.46-3ubuntu2_amd64.deb
+package=libhwasan0 16-20260322-1ubuntu1 6bd25c936289463c6472290d3b4377edf8dd4f5e3a07f356fb0adf2de04a8055 pool/main/g/gcc-16/libhwasan0_16-20260322-1ubuntu1_amd64.deb
+package=libisl23 0.27-1build1 02ea5de2ab6ddba978606ad58647bf6371ea68c0ed63aa5d6d0d3b8c1fe77ea3 pool/main/i/isl/libisl23_0.27-1build1_amd64.deb
+package=libitm1 16-20260322-1ubuntu1 ef841c269b5e9f324e38b1069f712a13c29237051f037847d1de79441dc3a9a2 pool/main/g/gcc-16/libitm1_16-20260322-1ubuntu1_amd64.deb
+package=libjansson4 2.14-2build4 1dc986ac3cf112384919d1a339a952e8a86bede9890a4489c016fdc266a036ca pool/main/j/jansson/libjansson4_2.14-2build4_amd64.deb
+package=liblsan0 16-20260322-1ubuntu1 c90895d3b6cd164fcb54def68c7dff74419f869c837fa607e3f54c1a0e742263 pool/main/g/gcc-16/liblsan0_16-20260322-1ubuntu1_amd64.deb
+package=liblzma5 5.8.3-1 38ad8500817a9159db210fecfb8c50fa82d7a8829730fcdf8ae60e3523676d41 pool/main/x/xz-utils/liblzma5_5.8.3-1_amd64.deb
+package=libmpc3 1.3.1-3 a95c75b486f26fe8b140a632fd9e2883b7e2efc21f7586e155d27d2d2ff0ddc0 pool/main/m/mpclib3/libmpc3_1.3.1-3_amd64.deb
+package=libmpfr6 4.2.2-3 74defa71b7f81d66b103afccfce750ad356976696b40c96c846ddc956fcfe937 pool/main/m/mpfr4/libmpfr6_4.2.2-3_amd64.deb
+package=libpcre2-8-0 10.46-1build1 3e116766f1a7b149994d4745556023d993d26401223d1595520a991d4ba737fb pool/main/p/pcre2/libpcre2-8-0_10.46-1build1_amd64.deb
+package=libquadmath0 16-20260322-1ubuntu1 420e777fef436f397a85ddedde53fbb44f92c7ca8e87d581f9d86573859e1aa4 pool/main/g/gcc-16/libquadmath0_16-20260322-1ubuntu1_amd64.deb
+package=libselinux1 3.9-4build1 3ce3aea44b2ec00780c48b1b8e1f7e672166ec3ccac14b0eae8890e55983061e pool/main/libs/libselinux/libselinux1_3.9-4build1_amd64.deb
+package=libsframe3 2.46-3ubuntu2 05541ea1edb19e54bea297a21a9c33d0b99ca2cfe2e86d4a67335e6640667cfc pool/main/b/binutils/libsframe3_2.46-3ubuntu2_amd64.deb
+package=libssl3t64 3.5.5-1ubuntu3 fe78b8124fb6c8c0d7efc8f2bd8d5e0d3f217351f520a3b4652ee0afe24143c2 pool/main/o/openssl/libssl3t64_3.5.5-1ubuntu3_amd64.deb
+package=libstdc++6 16-20260322-1ubuntu1 a32b9ad585e39bdc7bd15d1eae6293461e6d466859a1dd2f7862d1e40f89b9d8 pool/main/g/gcc-16/libstdc++6_16-20260322-1ubuntu1_amd64.deb
+package=libsystemd0 259.5-0ubuntu3 a93b416fd58067a14061763bfc9a23d18b0d4e0914b9a678ff7795e02f71d532 pool/main/s/systemd/libsystemd0_259.5-0ubuntu3_amd64.deb
+package=libtinfo6 6.6+20251231-1 42705a701a98d84c203c6f96f08c6fd6a29a1ef978683e1ffbf0e27535b20ddb pool/main/n/ncurses/libtinfo6_6.6+20251231-1_amd64.deb
+package=libtsan2 16-20260322-1ubuntu1 95b7a9b63096840cb960562d190a802a541055366eb4bc756c763d7de6e174d8 pool/main/g/gcc-16/libtsan2_16-20260322-1ubuntu1_amd64.deb
+package=libubsan1 16-20260322-1ubuntu1 cde09806b1b60d0ab8ab96033177cb21a0290333a946f25572de8f72b4403695 pool/main/g/gcc-16/libubsan1_16-20260322-1ubuntu1_amd64.deb
+package=libunwind8 1.8.3-0ubuntu1 7a9978fadf0940f45500ced0fba219cb5954f322a31068b7b32ad04f3ddc5c3f pool/main/libu/libunwind/libunwind8_1.8.3-0ubuntu1_amd64.deb
+package=libzstd1 1.5.7+dfsg-3 34365d611ccf1f717f90a92fbe52ed96ae1829ab9be363c68a83563322797f8f pool/main/libz/libzstd/libzstd1_1.5.7+dfsg-3_amd64.deb
+package=linux-libc-dev 7.0.0-14.14 14bf36d574df2cacf2e50fa8c1f28b4b6b574b63e9561924cc942e4c9186e57e pool/main/l/linux/linux-libc-dev_7.0.0-14.14_amd64.deb
+package=mawk 1.3.4.20260129-1 9b071ec8637a7d87e152eee7952df8f3374e432bafecd3bcc30948feb3acb3e9 pool/main/m/mawk/mawk_1.3.4.20260129-1_amd64.deb
+package=openssl-provider-legacy 3.5.5-1ubuntu3 05c9ab6be49c5177b366b21fc1b96e042d69e2c119de898d539e55a3a778f8f7 pool/main/o/openssl/openssl-provider-legacy_3.5.5-1ubuntu3_amd64.deb
+package=rpcsvc-proto 1.4.3-1build1 d7102b9d3fd35fd7a66d94ba0765a9c8e87b2b80e3633ef4af401dd0c952bafd pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_amd64.deb
+package=strace 6.19+ds-0ubuntu5 aa530bb652e46beaf92d5c916403182a5ac6b2ba79a94f18e5b9da45d1799ee5 pool/main/s/strace/strace_6.19+ds-0ubuntu5_amd64.deb
+package=zlib1g 1:1.3.dfsg+really1.3.1-1ubuntu3 c45bbbf9c87457d90b8ba38720c5f01b9388c380d40f303c26f5c4953932da26 pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1ubuntu3_amd64.deb
+# tool=<path> | links=<symbolic links resolved on the path> | sha256=<resolved file> | class=<X-n> | version=<first --version line>
+tool=/usr/bin/env | links=/usr/bin/env->gnuenv | sha256=f799b16c85a06cb27749a75d6e8bde2528cbe9407117ee6489c2e1eb54515e0e | class=X-5 | version=env (GNU coreutils) 9.7
+tool=/bin/sh | links=/bin->usr/bin;/usr/bin/sh->dash | sha256=c626229526bb58ec2d0f585f3c3ae1412e6f973b4353385042d11c38d8426917 | class=X-6 | version=(dash has no --version; identity is package dash 0.5.12-12ubuntu3 and this digest)
+tool=/usr/bin/gcc-15 | links=/usr/bin/gcc-15->x86_64-linux-gnu-gcc-15 | sha256=b5f1b773a7c733738352000c92a077dc5852a1a2fc6d836b1e411be1e9ec5f88 | class=X-7 | version=gcc-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+tool=/usr/libexec/gcc/x86_64-linux-gnu/15/cc1 | links=- | sha256=30510b346885152c4fce41d2b501751c95d3690b1c34eaa04ebb970e70eae620 | class=X-8 | version=(cc1 prints no --version line; the -v record reports GNU C11 (Ubuntu 15.2.0-16ubuntu1) version 15.2.0 (x86_64-linux-gnu))
+tool=/usr/bin/as | links=/usr/bin/as->x86_64-linux-gnu-as | sha256=4e5fcaa3cdc160173cb5cfe7aa35dc39d7aa1f06ba8d75b8d923bbae5473991b | class=X-9 | version=GNU assembler (GNU Binutils for Ubuntu) 2.46
+tool=/usr/bin/ld.bfd | links=/usr/bin/ld.bfd->x86_64-linux-gnu-ld.bfd | sha256=97f48d93b8b076a92d2809ec29dcb17f0f37c8827358f832255e2ed22fef6075 | class=X-10 | version=GNU ld (GNU Binutils for Ubuntu) 2.46
+tool=/usr/bin/objdump | links=/usr/bin/objdump->x86_64-linux-gnu-objdump | sha256=44f07f8da860b15bd4dec909f229dec536595fb170a616fe3ab29c7b21c9736f | class=X-12 | version=GNU objdump (GNU Binutils for Ubuntu) 2.46
+tool=/usr/bin/readelf | links=/usr/bin/readelf->x86_64-linux-gnu-readelf | sha256=c857339616bbbfa5eba32733e22365048903fbaf6ed2126b897dd138bcb741fc | class=X-13 | version=GNU readelf (GNU Binutils for Ubuntu) 2.46
+tool=/usr/bin/sha256sum | links=/usr/bin/sha256sum->gnusha256sum | sha256=2a92e573e54966ce08eb51e32d6200760c0a2679e69746492bfd60990f761019 | class=X-4,X-14 | version=sha256sum (GNU coreutils) 9.7
+tool=/usr/bin/find | links=- | sha256=efe4843f166525b02f328f0c456a884d6a597f32d2c78cd615b6be0b64279bcf | class=X-4 | version=find (GNU findutils) 4.10.0
+tool=/usr/bin/strace | links=- | sha256=f47342683309e807bca57d6d89b82f94a9b39aa614e9c28c2b67cefbc35eee58 | class=X-15 | version=strace -- version 6.19
+build_argv=["/usr/bin/env", "-i", "LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0", "/bin/sh", "infra/rp11-launch/build.sh", "build-out"]
+build_env=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0"]
+shell_added_env=["OLDPWD", "PWD"]
+# Not foreseen by the design text; established by IC-1 and named for review:
+entry_added_env=["PWD"]
+driver_added_env=["COLLECT_GCC", "COLLECT_GCC_OPTIONS", "OFFLOAD_TARGET_DEFAULT", "OFFLOAD_TARGET_NAMES"]
+# I-7-R1 (C-P5.0-R5-RP11-I1-R3-R4-I7-R1, finding I7-R1-1): IC-1's exact environment. Each successful execve of the traced
+# build, in order, must receive exactly its class's entries: no variable missing, none changed, none added. {co} is the
+# run's controlled checkout mount point. The driver values are specified from build.sh's driver vector and the pinned
+# driver's configuration (verify/ic1check.py), not taken from a trace.
+ic1_controlled_checkouts=["/rp11/co", "/rp11/alt/checkout"]
+ic1_exec_sequence=[["/usr/bin/env", "entry"], ["/bin/sh", "shell"], ["/usr/bin/gcc-15", "source"], ["/usr/libexec/gcc/x86_64-linux-gnu/15/cc1", "compiler"], ["/usr/bin/as", "source"], ["/usr/bin/as", "output"], ["/usr/bin/ld.bfd", "output"], ["/usr/bin/readelf", "output"], ["/usr/bin/objdump", "output"], ["/usr/bin/objdump", "output"]]
+ic1_env_entry=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0", "PWD={co}"]
+ic1_env_shell=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0"]
+ic1_env_source=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0", "OLDPWD={co}", "PWD={co}/infra/rp11-launch"]
+ic1_env_compiler=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0", "OLDPWD={co}", "PWD={co}/infra/rp11-launch", "COLLECT_GCC=/usr/bin/gcc-15", "COLLECT_GCC_OPTIONS='-S' '-v' '-std=c11' '-ffreestanding' '-nostdinc' '-fno-builtin' '-fno-pie' '-fno-stack-protector' '-fno-stack-clash-protection' '-fcf-protection=none' '-mindirect-branch=keep' '-mfunction-return=keep' '-fno-asynchronous-unwind-tables' '-fno-unwind-tables' '-fno-jump-tables' '-fno-tree-vectorize' '-fno-common' '-fno-ident' '-fno-optimize-sibling-calls' '-fno-reorder-blocks-and-partition' '-fno-partial-inlining' '-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' '-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' '-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' '-frandom-seed=rp11-launch' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' '-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'", "OFFLOAD_TARGET_DEFAULT=1", "OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa"]
+ic1_env_output=["LC_ALL=C", "PATH=/usr/bin", "SOURCE_DATE_EPOCH=0", "TZ=UTC0", "OLDPWD={co}/infra/rp11-launch", "PWD={co}/build-out"]
+manifest_argv=["/usr/bin/find", "/", "(", "-path", "/proc", "-o", "-path", "/sys", "-o", "-path", "/dev", "-o", "-path", "/run", "-o", "-path", "/rp11", ")", "-prune", "-o", "-printf", "%y\\0%m\\0%U\\0%G\\0%s\\0%p\\0%l\\0"]
+manifest_argv=["/usr/bin/find", "/", "(", "-path", "/proc", "-o", "-path", "/sys", "-o", "-path", "/dev", "-o", "-path", "/run", "-o", "-path", "/rp11", ")", "-prune", "-o", "-type", "f", "-exec", "/usr/bin/sha256sum", "-z", "--", "{}", "+"]
+build_root_manifest_sha256=f08ba9de4374374fa91012021ce12fb83f6370be5547ee4e214232100c38e76f
+entry_mechanism=bubblewrap 0.9.0 (Ubuntu 24.04 host package, unprivileged user namespace; --unshare-all --die-with-parent --new-session --clearenv, root bound read-only at /); informative, not a pin (HA-3)

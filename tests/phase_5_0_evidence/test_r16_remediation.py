@@ -840,7 +840,25 @@ def test_the_manifest_pins_whether_a_contract_resolves_anything(plan) -> None:
     # **C-P5.0-R5-RP11-I1-R3-R3, 2026-09-29.** It moves to 26:
     # `descriptors.py` releases a descriptor whose acquisition fails after
     # `os.open`. No vector moves; the clauses below are unchanged again.
-    assert body["manifest_version"] == MANIFEST_VERSION == 26
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R4-I7, 2026-10-01.** It moves to 27: the covered
+    # set gains the unwired `rp11-launch/1` contract and launcher files, and
+    # the body an `rp11_launch` section. No vector moves; the clauses below are
+    # unchanged again.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R4-I7-R1, 2026-10-01.** It moves to 28: IC-1's
+    # environment contract is serialised with exact values (finding I7-R1-1),
+    # and the lock's bytes move with it. No vector moves; the clauses below are
+    # unchanged again.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R2, 2026-10-01.** It moves to 29: the accepted
+    # cc1.v baseline fixture is added to RP11_LAUNCH_COVERED and its verified
+    # contract serialized in rp11_launch.
+    #
+    # **C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R3, 2026-10-01.** It moves to 30: the synthetic
+    # placeholder verification bypass is removed (finding B1-R3-1); every supplied
+    # baseline fixture value must satisfy the length (5120) and SHA-256 contract.
+    assert body["manifest_version"] == MANIFEST_VERSION == 30
     assert body["supplied_observations"]["schema_version"] == 3
     assert "Band 7 supplied observations only" in (
         body["supplied_observations"]["importer_scope"]

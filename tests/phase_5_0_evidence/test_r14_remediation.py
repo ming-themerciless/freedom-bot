@@ -70,6 +70,7 @@ from tests.phase_5_0_evidence.harness_fixtures import (
     cleanup_observations_for,
     runnable_plan,
     supply_reviewed_e7_facts,
+    load_test_source_bytes,
 )
 from tests.phase_5_0_evidence.test_r13_remediation import (
     EVIDENCE_DATABASE,
@@ -82,7 +83,7 @@ from tests.phase_5_0_evidence.test_r13_remediation import (
     step_named,
 )
 
-SOURCES = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+SOURCES = load_test_source_bytes()
 
 DATABASE_QUERY = "SELECT datname FROM pg_database"
 ROLE_QUERY = "SELECT rolname FROM pg_roles"

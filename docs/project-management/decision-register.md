@@ -1,5 +1,144 @@
 # Decision register
 
+## Decision — B1-R4 and version-30 baseline contract accepted — 2026-10-02
+
+Peter Duscha accepts Gemini's B1-R4 record remediation and corrected B1-R3
+record on Codex's independent recommendation. `B1-R3-1` and `B1-R3-2` are
+Closed as remediated. Manifest version 30, aggregate digest
+`28a4f4c2b7596e9042f6b12a34f5684b3499a3fafd997e306fe25f6798e8a526`
+and the 5,120-byte diagnostic baseline with SHA-256 `b77f92dc…905b` are accepted
+as review inputs. The impossible self-hash requirement for the B1-R4 handback
+is waived; Codex measured `ca2a3462…9ed1` independently.
+
+This grants no R-5 or host authority. A fresh R-5 assignment must be prepared,
+independently reviewed and explicitly accepted. R-5 remains stopped, Blocking
+and unaccepted; `plan.is_executable=False`; RP-11 remains unwired and unmet;
+Package 5.0 remains not ready.
+[Decision record](../review/project-review-2026-10-02-p5-r5-rp11-b1-r4-acceptance.md).
+
+## Assignment — Gemini baseline contract verification remediation (B1-R3) — 2026-10-01
+
+Peter Duscha assigns work ID `C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R3` to Gemini to
+execute the baseline contract verification remediation in
+`docs/review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-b1-r3-baseline-contract-verification-remediation-gemini-prompt.md`.
+Gemini must remediate Finding B1-R3-1 by removing the synthetic-placeholder
+bypass in `ReviewManifest.build()` so that all `cc1.v.baseline` fixture bytes
+undergo exact length (5,120) and SHA-256 (`b77f92dc...905b`) verification
+unconditionally, update shared test fixtures to load verified fixture bytes, add
+4 regression tests, advance `MANIFEST_VERSION` to 30, remediate Finding B1-R3-2 by
+producing the missing B1-R2 handback with the dated review correction note, and
+produce the B1-R3 handback.
+
+Repository source, tests, and documentation only. No `oracle-test` access,
+build-root provisioning, network access, package installation, service/database
+action, RP-11 wiring, operational authority, or R-5 execution. R-5 remains
+stopped, unexecuted, and unaccepted; `plan.is_executable=False`; and Package 5.0
+remains not ready.
+[Prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-b1-r3-baseline-contract-verification-remediation-gemini-prompt.md).
+[B1-R2 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-b1-r2-baseline-contract-integration-remediation-handback.md).
+[B1-R3 handback](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-b1-r3-baseline-contract-verification-remediation-handback.md).
+
+## Decision — R4-R1 accepted; Option 1 reference reproduction authorized — 2026-10-01
+
+Peter accepts Gemini's R4-R1 record correction and corrected R4 Branch B on
+Codex's recommendation. No historical `cc1.v` artifact was recovered and no
+fixture was created. Peter selects Option 1 and assigns Gemini a controlled
+reference reproduction on the repository host, conditional on freshly matching
+Claude's kernel `6.8.0-139-generic`, CPU `AMD EPYC-Milan Processor` and
+bubblewrap `0.9.0`. A fixture may be retained only for exact SHA-256
+`b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b`.
+Any mismatch stops. No `oracle-test` access or R-5 rerun is authorized; R-5
+remains stopped, Blocking and unaccepted.
+[Decision](../review/project-review-2026-10-01-p5-r5-rp11-r4-r1-acceptance-and-reference-reproduction-decision.md).
+[Prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-b1-cc1-reference-reproduction-gemini-prompt.md).
+
+## Decision — R-5 R3 accepted; Gemini R4 `cc1.v` baseline recovery — 2026-10-01
+
+Peter Duscha accepts Gemini's R3 `cc1.v` comparison remediation on Codex's
+independent recommendation. R2 had introduced the same-invocation R-1/R-2 gate
+and withdrawn the erroneous R-5 PASS; R3 removed the unsafe causal regex
+override, so byte equality is the only route to `PASS`. Codex reproduced 4,019
+passing repository tests, with 12 toolchain-dependent skips because no accepted
+local root was available, plus clean compilation, byte-range checks and `git
+diff --check`.
+
+Peter authorizes Gemini only to recover Claude's historical `cc1.v` bytes with
+exact SHA-256
+`b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b`. No
+rebuild, baseline reproduction, SSH, `oracle-test`, download, provisioning or
+R-5 rerun is authorized. Failure requires a handback and stop; success
+authenticates only the historical artifact and neither explains Gemini's
+differing `cc1.v` nor accepts R-5. R-5 remains stopped, Blocking and
+unaccepted; RP-11 remains unwired and unmet; `plan.is_executable=False`; and
+Package 5.0 remains not ready.
+[Acceptance](../review/project-review-2026-10-01-p5-r5-rp11-r5-r3-acceptance.md).
+[R4 prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-r4-cc1-baseline-recovery-gemini-prompt.md).
+
+## Assignment — Gemini R-5 R2 orchestration remediation — 2026-10-01
+
+Peter Duscha assigns Gemini a repository-only remediation of the returned R-5
+evidence. It must add the missing one-invocation R-1/R-2 manifest gate, correct
+the snapshot statement, withdraw the premature PASS, and prepare exact
+`cc1.v` difference handling. Gemini stops for independent review before any
+new host run.
+
+No SSH, `oracle-test`, package, provisioning or build authority exists in this
+stage. R-5 remains unaccepted.
+[Prompt](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-r2-orchestration-remediation-gemini-prompt.md).
+
+## Decision — Gemini may install bubblewrap and resume R-5 — 2026-10-01
+
+After Gemini correctly stopped on the missing `/usr/bin/bwrap` prerequisite,
+Peter Duscha authorizes Gemini to run only `sudo apt-get update` and `sudo
+apt-get install -y bubblewrap` on `oracle-test`, record the transaction and
+resume the accepted R-5 assignment with entirely fresh disposable directories.
+
+Gemini must correct Important finding `R5-R1-1` in its amended handback. No
+other privilege, package, host, installation or operational authority is
+created. R-5 remains incomplete and unaccepted.
+[Review](../review/project-review-2026-10-01-p5-r5-rp11-r5-bwrap-stop.md).
+[Authority](../review/project-review-2026-10-01-p5-r5-rp11-r5-bwrap-install-authority.md).
+
+## Decision — R-5 assigned to Gemini — 2026-10-01
+
+Peter Duscha accepts the R-5 independent-rebuild prompt after Antigravity found
+no Blocking or Important issue and names Gemini as the independent assignee.
+Gemini may perform only the bounded `oracle-test` actions in the prompt, must
+produce the prescribed handback and stop, and does not gain authority for any
+later step.
+
+This accepts the assignment, not its evidence. R-5 remains unperformed until
+Gemini returns a conforming record; that record then requires independent
+review and Peter's acceptance.
+[Review](../review/project-review-2026-10-01-p5-r5-rp11-r5-assignment-antigravity.md).
+[Acceptance](../review/project-review-2026-10-01-p5-r5-rp11-r5-assignment-acceptance.md).
+
+## Direction — prepare R-5 independent-rebuild assignment — 2026-10-01
+
+Peter Duscha authorizes Codex to prepare, but not execute, a bounded R-5
+assignment. The proposed prompt uses `oracle-test` as the candidate independent
+environment, requires fresh proof that at least one of HA-1 … HA-3 actually
+differs, and preserves every LD-8 hard stop.
+
+The prompt is not accepted or assigned. No SSH, synchronization, host
+inspection, acquisition, provisioning, build, installation, operational
+execution, commit or push authority is created.
+[Proposed assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-independent-rebuild-assignment.md).
+
+## Decision — I-7-R1 accepted; exact IC-1 environment finding closed — 2026-10-01
+
+Peter Duscha accepts Claude's I-7-R1 remediation on Codex's independent
+recommendation. `I7-R1-1` is Closed as remediated and D-2 is accepted as
+implemented. The accepted manifest is version 28 with aggregate digest
+`02d660c3bb8cd030a36ae1ece70da0de1756ca3052f3de74c89a15279a5c5abb`.
+
+This closes only the narrow return gate. R-5 remains unperformed and requires
+a separate maintainer assignment to an independent party; it must vary and
+record at least one of HA-1 … HA-3. No host, installation, H-1/H-2, PO-14,
+RP-11 wiring or operational authority is created.
+[Acceptance record](../review/project-review-2026-10-01-p5-r5-rp11-i7-r1-acceptance.md).
+[Independent re-review](../review/project-review-2026-10-01-p5-r5-rp11-i7-r1-ic1-environment-remediation.md).
+
 ## Decision — I-7 static-launcher implementation authorized — 2026-10-01
 
 Peter Duscha authorizes Claude to implement the accepted I-7 repository slice:

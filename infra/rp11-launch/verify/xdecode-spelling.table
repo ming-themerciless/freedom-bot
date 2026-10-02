@@ -1,0 +1,173 @@
+rp11-xdecode-spelling/1
+# XD-6 spelling table: XD's canonical mnemonics and registers -> the
+# committed listing's AT&T spelling. PRESENTATION ONLY. Nothing here can
+# change an instruction boundary, a length, a byte or a direct target: XD
+# compares those numerically. The loader checks that the mapping is injective
+# and complete for XD's closed table.
+#
+# Entry kinds:
+#   reg    <canonical> <listing spelling>
+#   mnem   <canonical> <listing stem> <suffix policy>
+#            ambiguous - append the operand-size letter only when no register
+#                        operand fixes the size (memory/immediate operands)
+#            never     - never append a size letter
+#            ext       - stem + source-size letter + destination-size letter
+#   form   <row id>/<operand size> <listing spelling>
+#            a whole-form spelling that overrides the mnemonic entry for
+#            exactly one row and operand size (never suffixed)
+#   suffix <operand size in bits> <letter>
+#   target <format with {addr} and {label}>
+
+suffix 8 b
+suffix 16 w
+suffix 32 l
+suffix 64 q
+
+target {addr} {label}
+
+reg rax %rax
+reg rcx %rcx
+reg rdx %rdx
+reg rbx %rbx
+reg rsp %rsp
+reg rbp %rbp
+reg rsi %rsi
+reg rdi %rdi
+reg r8 %r8
+reg r9 %r9
+reg r10 %r10
+reg r11 %r11
+reg r12 %r12
+reg r13 %r13
+reg r14 %r14
+reg r15 %r15
+reg eax %eax
+reg ecx %ecx
+reg edx %edx
+reg ebx %ebx
+reg esp %esp
+reg ebp %ebp
+reg esi %esi
+reg edi %edi
+reg r8d %r8d
+reg r9d %r9d
+reg r10d %r10d
+reg r11d %r11d
+reg r12d %r12d
+reg r13d %r13d
+reg r14d %r14d
+reg r15d %r15d
+reg ax %ax
+reg cx %cx
+reg dx %dx
+reg bx %bx
+reg sp %sp
+reg bp %bp
+reg si %si
+reg di %di
+reg r8w %r8w
+reg r9w %r9w
+reg r10w %r10w
+reg r11w %r11w
+reg r12w %r12w
+reg r13w %r13w
+reg r14w %r14w
+reg r15w %r15w
+reg al %al
+reg cl %cl
+reg dl %dl
+reg bl %bl
+reg spl %spl
+reg bpl %bpl
+reg sil %sil
+reg dil %dil
+reg r8b %r8b
+reg r9b %r9b
+reg r10b %r10b
+reg r11b %r11b
+reg r12b %r12b
+reg r13b %r13b
+reg r14b %r14b
+reg r15b %r15b
+reg ah %ah
+reg ch %ch
+reg dh %dh
+reg bh %bh
+
+# Added after the first T-L11 comparison (2026-10-01): the listing spells
+# MOV r64, imm64 (REX.W + B8+rd io, SDM Vol.2B MOV p.4-28) as "movabs".
+form mov-Z-Iv/64 movabs
+
+mnem add add ambiguous
+mnem or or ambiguous
+mnem and and ambiguous
+mnem sub sub ambiguous
+mnem xor xor ambiguous
+mnem cmp cmp ambiguous
+mnem test test ambiguous
+mnem inc inc ambiguous
+mnem dec dec ambiguous
+mnem not not ambiguous
+mnem neg neg ambiguous
+mnem shl shl ambiguous
+mnem shr shr ambiguous
+mnem sar sar ambiguous
+mnem mov mov ambiguous
+mnem movzx movz ext
+mnem movsx movs ext
+mnem movsxd movslq never
+mnem lea lea ambiguous
+mnem push push never
+mnem pop pop never
+mnem nop nop ambiguous
+mnem syscall syscall never
+mnem ud2 ud2 never
+mnem jmp jmp never
+mnem jo jo never
+mnem jno jno never
+mnem jb jb never
+mnem jae jae never
+mnem je je never
+mnem jne jne never
+mnem jbe jbe never
+mnem ja ja never
+mnem js js never
+mnem jns jns never
+mnem jp jp never
+mnem jnp jnp never
+mnem jl jl never
+mnem jge jge never
+mnem jle jle never
+mnem jg jg never
+mnem seto seto never
+mnem setno setno never
+mnem setb setb never
+mnem setae setae never
+mnem sete sete never
+mnem setne setne never
+mnem setbe setbe never
+mnem seta seta never
+mnem sets sets never
+mnem setns setns never
+mnem setp setp never
+mnem setnp setnp never
+mnem setl setl never
+mnem setge setge never
+mnem setle setle never
+mnem setg setg never
+mnem cmovo cmovo ambiguous
+mnem cmovno cmovno ambiguous
+mnem cmovb cmovb ambiguous
+mnem cmovae cmovae ambiguous
+mnem cmove cmove ambiguous
+mnem cmovne cmovne ambiguous
+mnem cmovbe cmovbe ambiguous
+mnem cmova cmova ambiguous
+mnem cmovs cmovs ambiguous
+mnem cmovns cmovns ambiguous
+mnem cmovp cmovp ambiguous
+mnem cmovnp cmovnp ambiguous
+mnem cmovl cmovl ambiguous
+mnem cmovge cmovge ambiguous
+mnem cmovle cmovle ambiguous
+mnem cmovg cmovg ambiguous

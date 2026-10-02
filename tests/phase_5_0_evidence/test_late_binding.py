@@ -48,9 +48,10 @@ from tests.phase_5_0_evidence.harness_fixtures import (
     observations_for,
     runnable_plan,
     supply_reviewed_e7_facts,
+    load_test_source_bytes,
 )
 
-SOURCES = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+SOURCES = load_test_source_bytes()
 REVIEWED_INTERPRETER_DIGEST = "5" * 64
 
 #: The second reviewed target fact, new in R12. `P-05` reports `interpreter_real`

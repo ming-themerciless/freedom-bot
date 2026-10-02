@@ -96,9 +96,10 @@ from tests.phase_5_0_evidence.harness_fixtures import (
     observations_for,
     runnable_plan,
     supply_reviewed_e7_facts,
+    load_test_source_bytes,
 )
 
-SOURCES = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+SOURCES = load_test_source_bytes()
 
 #: The repository root, for the two source-level assertions below.
 SOURCE_ROOT = Path(__file__).resolve().parents[2]

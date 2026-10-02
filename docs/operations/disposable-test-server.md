@@ -1,13 +1,13 @@
 # Disposable Linux Test Server
 
-**Restriction during I-7 implementation, 2026-10-01 — no action on this
-server is authorized.** Peter Duscha authorized repository implementation and
-repository-host evidence only. The I-7 prompt does not authorize SSH,
-synchronization, inspection, dependency installation, build, test, verifier,
-provisioning, controlled write or any other command on `oracle-test`.
-[Assignment](../review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md).
+**Restriction after baseline-contract acceptance, 2026-10-02 — no action on
+this server is authorized.** B1 through B1-R4 are complete and accepted, but no
+fresh R-5 assignment exists. SSH, rsync, `oracle-test` access, provisioning,
+build, test, verifier and every other command on this server remain forbidden
+until a separately reviewed assignment is explicitly accepted.
+[Acceptance decision](../review/project-review-2026-10-02-p5-r5-rp11-b1-r4-acceptance.md).
 
-Historical restriction banners are preserved in [`disposable-test-server-through-2026-10-01-d2-r2-acceptance.md`](disposable-test-server-through-2026-10-01-d2-r2-acceptance.md) and indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
+Historical restriction banners are preserved in [`disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md`](disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md) and the earlier snapshots indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the

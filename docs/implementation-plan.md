@@ -2548,8 +2548,46 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current action, 2026-10-01 — Claude implements the accepted I-7 zero-`ret`
-static launcher and independent decoder; Codex then reviews.**
+**Current action, 2026-10-02 — Peter Duscha accepted B1-R4 and the corrected
+B1-R3 record on Codex's independent recommendation. `B1-R3-1` and `B1-R3-2`
+are Closed as remediated. Manifest version 30 and aggregate digest
+`28a4f4c2b7596e9042f6b12a34f5684b3499a3fafd997e306fe25f6798e8a526`
+are the accepted baseline-contract review input. The diagnostic fixture remains
+5,120 bytes with SHA-256 `b77f92dc...905b`. The next controlled step is a newly
+prepared, independently reviewed and explicitly accepted R-5 assignment; no
+fresh execution authority exists.
+([acceptance](review/project-review-2026-10-02-p5-r5-rp11-b1-r4-acceptance.md)).**
+
+R4 recovery found no historical artifact and created no fixture. R4-R1 bounded
+the search claims and corrected the unavailable byte length; Codex found no
+remaining Blocking or Important issue, and Peter accepted the corrected result
+([decision](review/project-review-2026-10-01-p5-r5-rp11-r4-r1-acceptance-and-reference-reproduction-decision.md)).
+Reference reproduction B1/B1-R1 produced the 5,120-byte `cc1.v.baseline` fixture
+matching expected SHA-256 `b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b`
+under kernel `6.8.0-139-generic`, CPU `AMD EPYC-Milan Processor`, and `bubblewrap 0.9.0`.
+
+R-5 history: the returned rebuild matched the four frozen outputs across HA-1 …
+HA-3 variation, but was not accepted because one-invocation R-1/R-2 gating was
+absent and `cc1.v` changed without explanation. Gemini's R2 remediation
+introduced the same-invocation R-1/R-2 gate and withdrew the erroneous R-5
+PASS
+([handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-r2-orchestration-remediation-handback.md)).
+R3 removed the unsafe causal regex override, so byte equality is the only route
+to `PASS`
+([handback](review/phase-5-0-p5-r5-rp11-i1-r3-r4-r5-r3-cc1-comparison-remediation-handback.md)).
+Codex independently reproduced 4,019 passing repository tests, with 12
+toolchain-dependent skips because no accepted local root was available, plus
+clean compilation, byte-range checks and `git diff --check`; Peter Duscha
+accepted R3
+([acceptance](review/project-review-2026-10-01-p5-r5-rp11-r5-r3-acceptance.md)).
+
+Gemini's first R-5 attempt stopped before provisioning because `bubblewrap` was
+absent. Peter narrowly authorized the exact `apt-get update` and `apt-get
+install -y bubblewrap` operations, after which Gemini resumed with wholly fresh
+disposable directories, corrected Important finding `R5-R1-1`, wrote the
+amended handback and stopped
+([review](review/project-review-2026-10-01-p5-r5-rp11-r5-bwrap-stop.md),
+[authority](review/project-review-2026-10-01-p5-r5-rp11-r5-bwrap-install-authority.md)).
 
 Peter Duscha authorizes `C-P5.0-R5-RP11-I1-R3-R4-I7`
 ([implementation prompt](review/phase-5-0-p5-r5-rp11-i1-r3-r4-i7-static-launcher-implementation-claude-prompt.md))
@@ -2566,11 +2604,13 @@ decode the actual `.text` at D9-2 using its own decoder or byte-by-byte manual
 derivation prepared without reading XD's table; exercising XD alone is not
 sufficient.
 
-Repository implementation, isolated toolchain acquisition where required,
-local build/decoder/verifier work and repository tests are authorized. R-5
-remains independent; Codex later performs XD-9 and XD-11. No test-server,
-installation, H-1/H-2, PO-14, RP-11 wiring or operational authority exists.
-PO-9 and PO-14 remain open; RP-11 remains unwired and unmet; P5.0-R5 remains
-Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
+`I7-R1-1` is Closed as remediated and D-2 is accepted as implemented. R-5
+must actually vary and record at least one of HA-1 … HA-3, and every
+unexplained difference is a hard stop. Codex has performed XD-9 and XD-11 for
+the unchanged image. No R-5 rerun is authorized, and no installation, H-1/H-2,
+PO-14, RP-11 wiring or operational authority exists. R-5 remains stopped,
+Blocking and unaccepted; PO-9 and PO-14 remain open; RP-11 remains unwired and
+unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0
+remains not ready.
 
-Historical immediate-action text is preserved in [`implementation-plan-through-2026-10-01-d2-r2-acceptance.md`](implementation-plan-through-2026-10-01-d2-r2-acceptance.md) and indexed under [`implementation-plan-archive/`](implementation-plan-archive/README.md).
+Historical immediate-action text is preserved in [`implementation-plan-through-2026-10-02-r5-b1-r4-acceptance.md`](implementation-plan-through-2026-10-02-r5-b1-r4-acceptance.md) and the earlier snapshots indexed under [`implementation-plan-archive/`](implementation-plan-archive/README.md).

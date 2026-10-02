@@ -11,4 +11,8 @@ become current because it appears in a snapshot.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md`](../disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md) | Verbatim superseded no-access banner governing local B1 work before baseline-contract acceptance | `07c1aa54cccf8d66feb1944a21b437134436bca2b4fbbc615a8c5d7c8000b564` |
 | [`disposable-test-server-through-2026-10-01-d2-r2-acceptance.md`](../disposable-test-server-through-2026-10-01-d2-r2-acceptance.md) | Complete former disposable-server document immediately before superseded restriction banners were removed from the canonical operational entry point | `fe704d1a573296c51922b5aa1a8591f01372f212e7209837687d425a6f2dfc2f` |
+| [`disposable-test-server-through-2026-10-01-i7-r1-review.md`](../disposable-test-server-through-2026-10-01-i7-r1-review.md) | Verbatim superseded restriction banner immediately before I-7-R1 acceptance | `f3bca9c88957c312447766798b45bc251ddab772eff340afe8894e30dc99e69c` |
+| [`disposable-test-server-through-2026-10-01-r5-r3-acceptance.md`](../disposable-test-server-through-2026-10-01-r5-r3-acceptance.md) | Complete former disposable-server document immediately before the R2 restriction banner was replaced by the R4 baseline-recovery restriction; only the banner changed | `c422f0b39a5db782decd26fdce8376a702e12482e6930a2896e3d02c1c7f9222` |
+| [`disposable-test-server-through-2026-10-01-r5-r4-branch-b.md`](../disposable-test-server-through-2026-10-01-r5-r4-branch-b.md) | Verbatim displaced R4 restriction banner before local reference reproduction became current | `96294d98a747f772817421a5eac23ecadaa82840cde300dc5312188c1e54f721` |

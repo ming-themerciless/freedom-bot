@@ -1,0 +1,259 @@
+rp11-xdecode-corpus/1
+# T-L12 corpus for XD (proposal §5.15, XD-10). Hand-encoded from the manuals,
+# not from objdump output or the committed listing, and written before the
+# first build of rp11-launch existed.
+#
+#   SDM = Intel SDM Vol. 2, 325383-093US.  APM = AMD APM Vol. 3, 24594 r3.20.
+#
+# Line kinds (fields separated by " | "):
+#   + <row id> | <hex bytes> | <expected canonical decode> | <citation>
+#       decoded alone at address 0x401000; the whole vector must be one
+#       instruction of exactly that row.
+#   - <class> | <hex bytes> | <what it is> | <citation>
+#       decoded alone at 0x401000; must fail with that XD-5 class
+#       (b unsupported encoding, c undecoded byte).
+#   s <class> | <_start hex> | <rp11_main hex> | <what it is>
+#       a two-function .text at 0x401000 with .rodata at 0x402000..0x402040;
+#       decode_text must report that class (or "pass" for none).
+#
+# Canonical form: Intel operand order (destination first); registers by
+# their Intel names; mN[...] an N-bit memory operand; iN:0x.. an N-bit
+# immediate as encoded; relN:0x.. the absolute direct target.
+
+# ---- group-1 ALU forms: SDM Vol.2A ADD p.3-14, AND p.3-60, CMP p.3-161;
+# ---- Vol.2B OR p.4-163, SUB p.4-685; Vol.2D XOR p.6-40; APM §3 and
+# ---- Appendix A Tables A-1, A-2, A-6 (group 1)
++ add-Eb-Gb | 00 c8 | add al, cl | SDM ADD 00 /r
++ add-E-G | 48 01 c8 | add rax, rcx | SDM ADD REX.W + 01 /r
++ add-Gb-Eb | 02 c8 | add cl, al | SDM ADD 02 /r
++ add-G-E | 03 c8 | add ecx, eax | SDM ADD 03 /r
++ add-AL-Ib | 04 7f | add al, i8:0x7f | SDM ADD 04 ib
++ add-A-Iz | 05 78 56 34 12 | add eax, i32:0x12345678 | SDM ADD 05 id
++ add-80 | 80 44 24 08 05 | add m8[rsp+0x8], i8:0x5 | SDM ADD 80 /0 ib; SIB base rsp
++ add-81 | 48 81 c4 00 01 00 00 | add rsp, i32:0x100 | SDM ADD REX.W + 81 /0 id
++ add-83 | 48 83 c4 08 | add rsp, i8:0x8 | SDM ADD REX.W + 83 /0 ib
++ or-Eb-Gb | 08 c8 | or al, cl | SDM OR 08 /r
++ or-E-G | 09 c8 | or eax, ecx | SDM OR 09 /r
++ or-Gb-Eb | 0a c8 | or cl, al | SDM OR 0A /r
++ or-G-E | 48 0b c8 | or rcx, rax | SDM OR REX.W + 0B /r
++ or-AL-Ib | 0c 01 | or al, i8:0x1 | SDM OR 0C ib
++ or-A-Iz | 66 0d 34 12 | or ax, i16:0x1234 | SDM OR 0D iw with 66
++ or-80 | 80 4c 24 08 05 | or m8[rsp+0x8], i8:0x5 | SDM OR 80 /1 ib
++ or-81 | 81 cc 00 01 00 00 | or esp, i32:0x100 | SDM OR 81 /1 id
++ or-83 | 83 cc 08 | or esp, i8:0x8 | SDM OR 83 /1 ib
++ and-Eb-Gb | 20 c8 | and al, cl | SDM AND 20 /r
++ and-E-G | 21 c8 | and eax, ecx | SDM AND 21 /r
++ and-Gb-Eb | 22 c8 | and cl, al | SDM AND 22 /r
++ and-G-E | 23 c8 | and ecx, eax | SDM AND 23 /r
++ and-AL-Ib | 24 0f | and al, i8:0xf | SDM AND 24 ib
++ and-A-Iz | 48 25 f0 ff ff ff | and rax, i32:0xfffffff0 | SDM AND REX.W + 25 id
++ and-80 | 80 64 24 08 05 | and m8[rsp+0x8], i8:0x5 | SDM AND 80 /4 ib
++ and-81 | 81 e4 00 01 00 00 | and esp, i32:0x100 | SDM AND 81 /4 id
++ and-83 | 48 83 e4 f0 | and rsp, i8:0xf0 | SDM AND REX.W + 83 /4 ib
++ sub-Eb-Gb | 28 c8 | sub al, cl | SDM SUB 28 /r
++ sub-E-G | 29 c8 | sub eax, ecx | SDM SUB 29 /r
++ sub-Gb-Eb | 2a c8 | sub cl, al | SDM SUB 2A /r
++ sub-G-E | 2b c8 | sub ecx, eax | SDM SUB 2B /r
++ sub-AL-Ib | 2c 01 | sub al, i8:0x1 | SDM SUB 2C ib
++ sub-A-Iz | 2d 78 56 34 12 | sub eax, i32:0x12345678 | SDM SUB 2D id
++ sub-80 | 80 6c 24 08 05 | sub m8[rsp+0x8], i8:0x5 | SDM SUB 80 /5 ib
++ sub-81 | 48 81 ec 00 01 00 00 | sub rsp, i32:0x100 | SDM SUB REX.W + 81 /5 id
++ sub-83 | 48 83 ec 18 | sub rsp, i8:0x18 | SDM SUB REX.W + 83 /5 ib
++ xor-Eb-Gb | 30 c8 | xor al, cl | SDM XOR 30 /r
++ xor-E-G | 31 ed | xor ebp, ebp | SDM XOR 31 /r
++ xor-Gb-Eb | 32 c8 | xor cl, al | SDM XOR 32 /r
++ xor-G-E | 33 c0 | xor eax, eax | SDM XOR 33 /r
++ xor-AL-Ib | 34 01 | xor al, i8:0x1 | SDM XOR 34 ib
++ xor-A-Iz | 35 78 56 34 12 | xor eax, i32:0x12345678 | SDM XOR 35 id
++ xor-80 | 80 74 24 08 05 | xor m8[rsp+0x8], i8:0x5 | SDM XOR 80 /6 ib
++ xor-81 | 81 f4 00 01 00 00 | xor esp, i32:0x100 | SDM XOR 81 /6 id
++ xor-83 | 83 f4 08 | xor esp, i8:0x8 | SDM XOR 83 /6 ib
++ cmp-Eb-Gb | 38 c8 | cmp al, cl | SDM CMP 38 /r
++ cmp-E-G | 39 c8 | cmp eax, ecx | SDM CMP 39 /r
++ cmp-Gb-Eb | 3a c8 | cmp cl, al | SDM CMP 3A /r
++ cmp-G-E | 3b c8 | cmp ecx, eax | SDM CMP 3B /r
++ cmp-AL-Ib | 3c 2d | cmp al, i8:0x2d | SDM CMP 3C ib
++ cmp-A-Iz | 3d 78 56 34 12 | cmp eax, i32:0x12345678 | SDM CMP 3D id
++ cmp-80 | 80 7c 24 08 2d | cmp m8[rsp+0x8], i8:0x2d | SDM CMP 80 /7 ib
++ cmp-81 | 81 fc 00 01 00 00 | cmp esp, i32:0x100 | SDM CMP 81 /7 id
++ cmp-83 | 83 f8 03 | cmp eax, i8:0x3 | SDM CMP 83 /7 ib
+
+# ---- TEST: SDM Vol.2B p.4-721; APM §3 TEST; Table A-6 group 3
++ test-Eb-Gb | 84 c0 | test al, al | SDM TEST 84 /r
++ test-E-G | 85 c0 | test eax, eax | SDM TEST 85 /r
++ test-AL-Ib | a8 01 | test al, i8:0x1 | SDM TEST A8 ib
++ test-A-Iz | a9 01 00 00 00 | test eax, i32:0x1 | SDM TEST A9 id
++ test-F6 | f6 c1 01 | test cl, i8:0x1 | SDM TEST F6 /0 ib
++ test-F7 | 48 f7 c1 01 00 00 00 | test rcx, i32:0x1 | SDM TEST REX.W + F7 /0 id
+
+# ---- INC/DEC: SDM Vol.2A INC p.3-457, DEC p.3-262; APM §3; Table A-6 groups 4, 5
++ inc-FE | fe c0 | inc al | SDM INC FE /0
++ inc-FF | 48 ff c7 | inc rdi | SDM INC REX.W + FF /0
++ dec-FE | fe c8 | dec al | SDM DEC FE /1
++ dec-FF | ff c9 | dec ecx | SDM DEC FF /1
+
+# ---- NOT/NEG: SDM Vol.2B NOT p.4-161, NEG p.4-158; Table A-6 group 3
++ not-F6 | f6 d0 | not al | SDM NOT F6 /2
++ not-F7 | f7 d0 | not eax | SDM NOT F7 /2
++ neg-F6 | f6 d8 | neg al | SDM NEG F6 /3
++ neg-F7 | 48 f7 d8 | neg rax | SDM NEG REX.W + F7 /3
+
+# ---- shifts: SDM Vol.2B SAL/SAR/SHL/SHR p.4-603; Table A-6 group 2
++ shl-C0 | c0 e0 03 | shl al, i8:0x3 | SDM SHL C0 /4 ib
++ shl-C1 | c1 e0 03 | shl eax, i8:0x3 | SDM SHL C1 /4 ib
++ shl-D0 | d0 e0 | shl al, 1 | SDM SHL D0 /4
++ shl-D1 | d1 e0 | shl eax, 1 | SDM SHL D1 /4
++ shl-D2 | d2 e0 | shl al, cl | SDM SHL D2 /4
++ shl-D3 | 48 d3 e0 | shl rax, cl | SDM SHL REX.W + D3 /4
++ shr-C0 | c0 e8 03 | shr al, i8:0x3 | SDM SHR C0 /5 ib
++ shr-C1 | c1 e8 03 | shr eax, i8:0x3 | SDM SHR C1 /5 ib
++ shr-D0 | d0 e8 | shr al, 1 | SDM SHR D0 /5
++ shr-D1 | d1 e8 | shr eax, 1 | SDM SHR D1 /5
++ shr-D2 | d2 e8 | shr al, cl | SDM SHR D2 /5
++ shr-D3 | d3 e8 | shr eax, cl | SDM SHR D3 /5
++ sar-C0 | c0 f8 03 | sar al, i8:0x3 | SDM SAR C0 /7 ib
++ sar-C1 | c1 f8 03 | sar eax, i8:0x3 | SDM SAR C1 /7 ib
++ sar-D0 | d0 f8 | sar al, 1 | SDM SAR D0 /7
++ sar-D1 | d1 f8 | sar eax, 1 | SDM SAR D1 /7
++ sar-D2 | d2 f8 | sar al, cl | SDM SAR D2 /7
++ sar-D3 | d3 f8 | sar eax, cl | SDM SAR D3 /7
+
+# ---- MOV: SDM Vol.2B p.4-28; §2.2.1.5 (imm64 example); Table A-6 group 11
++ mov-Eb-Gb | 88 c8 | mov al, cl | SDM MOV 88 /r
++ mov-Eb-Gb | 88 f0 | mov al, dh | SDM MOV 88 /r; no REX: reg 6 is DH (§2.2.1.2)
++ mov-Eb-Gb | 40 88 f0 | mov al, sil | SDM MOV REX + 88 /r; with REX: reg 6 is SIL
++ mov-E-G | 89 7c 24 10 | mov m32[rsp+0x10], edi | SDM MOV 89 /r; SIB base rsp, disp8
++ mov-Gb-Eb | 8a 07 | mov al, m8[rdi] | SDM MOV 8A /r
++ mov-G-E | 48 8b 44 24 08 | mov rax, m64[rsp+0x8] | SDM MOV REX.W + 8B /r
++ mov-G-E | 8b 05 10 00 00 00 | mov eax, m32[rip+0x10] | SDM Table 2-7 RIP-relative
++ mov-G-E | 8b 04 25 00 20 40 00 | mov eax, m32[0x402000] | SDM Table 2-7 SIB no base, no index
++ mov-G-E | 8b 04 d0 | mov eax, m32[rax+rdx*8] | SDM Table 2-3 scaled index
++ mov-G-E | 41 8b 04 24 | mov eax, m32[r12] | SDM Table 2-5 r12 needs SIB
++ mov-G-E | 41 8b 45 00 | mov eax, m32[r13+0x0] | SDM Table 2-5 r13 needs disp8
++ mov-G-E | 42 8b 04 08 | mov eax, m32[rax+r9*1] | SDM Table 2-4 REX.X
++ mov-G-E | 8b 45 f8 | mov eax, m32[rbp-0x8] | SDM Table 2-2 disp8 sign-extended
++ mov-Zb-Ib | b2 0a | mov dl, i8:0xa | SDM MOV B0+rb ib
++ mov-Z-Iv | bf 00 20 40 00 | mov edi, i32:0x402000 | SDM MOV B8+rd id
++ mov-Z-Iv | 48 b8 88 77 66 55 44 33 22 11 | mov rax, i64:0x1122334455667788 | SDM §2.2.1.5 example, REX.W + B8+rd io
++ mov-C6 | c6 44 24 0e 3d | mov m8[rsp+0xe], i8:0x3d | SDM MOV C6 /0 ib
++ mov-C7 | 48 c7 44 24 10 00 20 40 00 | mov m64[rsp+0x10], i32:0x402000 | SDM MOV REX.W + C7 /0 id
++ mov-C7 | 66 c7 44 24 0c 44 3d | mov m16[rsp+0xc], i16:0x3d44 | SDM MOV C7 /0 iw with 66
+
+# ---- MOVZX/MOVSX/MOVSXD: SDM Vol.2B p.4-130, p.4-120; APM §3; Tables A-1, A-4
++ movzx-G-Eb | 0f b6 07 | movzx eax, m8[rdi] | SDM MOVZX 0F B6 /r
++ movzx-G-Ew | 0f b7 c1 | movzx eax, cx | SDM MOVZX 0F B7 /r
++ movsx-G-Eb | 48 0f be c1 | movsx rax, cl | SDM MOVSX REX.W + 0F BE /r
++ movsx-G-Ew | 0f bf c1 | movsx eax, cx | SDM MOVSX 0F BF /r
++ movsxd-G-Ed | 48 63 c7 | movsxd rax, edi | SDM MOVSXD REX.W + 63 /r
+
+# ---- LEA: SDM Vol.2A p.3-547
++ lea | 48 8d 74 24 08 | lea rsi, m0[rsp+0x8] | SDM LEA REX.W + 8D /r (address only)
+
+# ---- CMOVcc, SETcc: SDM Vol.2A p.3-157, Vol.2B p.4-623; APM Table A-5
++ cmovcc | 0f 44 c1 | cmove eax, ecx | SDM CMOVE 0F 44 /r
++ cmovcc | 48 0f 4c c8 | cmovl rcx, rax | SDM CMOVL REX.W + 0F 4C /r
++ setcc | 0f 94 c0 | sete al | SDM SETE 0F 94
++ setcc | 0f 95 c1 | setne cl | SDM SETNE 0F 95
+
+# ---- PUSH/POP: SDM Vol.2B p.4-522, p.4-398; §2.2.1.7 default 64-bit
++ push-Z | 55 | push rbp | SDM PUSH 50+rd
++ push-Z | 41 54 | push r12 | SDM PUSH 50+rd with REX.B
++ push-FF | ff 74 24 08 | push m64[rsp+0x8] | SDM PUSH FF /6
++ push-Ib | 6a 00 | push i8:0x0 | SDM PUSH 6A ib
++ push-Iz | 68 00 20 40 00 | push i32:0x402000 | SDM PUSH 68 id
++ pop-Z | 5d | pop rbp | SDM POP 58+rd
++ pop-Z | 41 5c | pop r12 | SDM POP 58+rd with REX.B
++ pop-8F | 8f 44 24 08 | pop m64[rsp+0x8] | SDM POP 8F /0
+
+# ---- NOP, SYSCALL, UD2: SDM Vol.2B p.4-160, p.4-699, p.4-737
++ nop-90 | 90 | nop | SDM NOP NP 90
++ nop-0F1F | 0f 1f 40 00 | nop m32[rax+0x0] | SDM NOP 0F 1F /0
++ nop-0F1F | 66 0f 1f 44 00 00 | nop m16[rax+rax*1+0x0] | SDM NOP 0F 1F /0 with 66
++ syscall | 0f 05 | syscall | SDM SYSCALL 0F 05
++ ud2 | 0f 0b | ud2 | SDM UD2 0F 0B
+
+# ---- Jcc, JMP: SDM Vol.2A p.3-499, p.3-504 (targets relative to the next instruction)
++ jcc-rel8 | 74 05 | je rel8:0x401007 | SDM JE 74 cb
++ jcc-rel8 | 75 fe | jne rel8:0x401000 | SDM JNE 75 cb, displacement -2
++ jcc-rel32 | 0f 84 10 00 00 00 | je rel32:0x401016 | SDM JE 0F 84 cd
++ jcc-rel32 | 0f 8e f0 ff ff ff | jle rel32:0x400ff6 | SDM JLE 0F 8E cd, negative
++ jmp-rel8 | eb 10 | jmp rel8:0x401012 | SDM JMP EB cb
++ jmp-rel32 | e9 00 01 00 00 | jmp rel32:0x401105 | SDM JMP E9 cd
+
+# ---- forbidden forms of §5.14.1 (XD-10), each class (b)
+- b | c3 | RET near | SDM RET C3
+- b | c2 10 00 | RET near imm16 | SDM RET C2 iw
+- b | f3 c3 | REP RET | SDM §2.1.1 group-1 prefix; RET
+- b | f2 c3 | REPNE RET (BND RET) | SDM §2.1.1; RET
+- b | cb | RET far | SDM RET CB
+- b | ca 10 00 | RET far imm16 | SDM RET CA iw
+- b | cf | IRET | SDM IRET CF
+- b | 48 cf | IRETQ | SDM IRETQ REX.W + CF
+- b | e8 00 00 00 00 | CALL rel32 | SDM CALL E8 cd
+- b | ff d0 | CALL r/m64 (register) | SDM CALL FF /2
+- b | ff 10 | CALL r/m64 (memory) | SDM CALL FF /2
+- b | ff 18 | CALL far m16:32 | SDM CALL FF /3
+- b | ff e0 | JMP r/m64 (register) | SDM JMP FF /4
+- b | ff 20 | JMP r/m64 (memory) | SDM JMP FF /4
+- b | ff 28 | JMP far m16:32 | SDM JMP FF /5
+- b | cc | INT3 | SDM INT3 CC
+- b | cd 80 | INT imm8 | SDM INT CD ib
+- b | f1 | INT1 | SDM INT1 F1
+- b | ce | INTO (invalid in 64-bit mode) | SDM INTO CE
+- b | 0f 34 | SYSENTER | SDM SYSENTER 0F 34
+- b | 0f 35 | SYSEXIT | SDM SYSEXIT 0F 35
+- b | 0f 07 | SYSRET | SDM SYSRET 0F 07
+- b | c8 10 00 00 | ENTER | SDM ENTER C8 iw ib
+- b | c9 | LEAVE | SDM LEAVE C9
+- b | e2 fe | LOOP | SDM LOOP E2 cb
+- b | e1 fe | LOOPE | SDM LOOPE E1 cb
+- b | e0 fe | LOOPNE | SDM LOOPNE E0 cb
+- b | e3 fe | JRCXZ | SDM JRCXZ E3 cb
+- b | c7 f8 00 00 00 00 | XBEGIN | SDM XBEGIN C7 F8 cd
+- b | c6 f8 00 | XABORT | SDM XABORT C6 F8 ib
+- b | 0f 01 d5 | XEND | SDM XEND 0F 01 D5
+- b | f3 0f 1e fa | ENDBR64 | SDM ENDBR64 F3 0F 1E FA
+- b | f4 | HLT | SDM HLT F4
+- b | 0f 01 f8 | SWAPGS (privileged) | SDM SWAPGS 0F 01 F8
+- b | 64 48 8b 04 25 28 00 00 00 | FS segment override | SDM §2.1.1 group 2 (64)
+- b | 65 48 8b 04 25 28 00 00 00 | GS segment override | SDM §2.1.1 group 2 (65)
+- b | 2e 90 | CS segment override | SDM §2.1.1 group 2 (2E)
+- b | f0 ff 00 | LOCK prefix | SDM §2.1.1 group 1 (F0)
+- b | f3 a4 | REP MOVSB (string) | SDM MOVS A4; §2.1.1
+- b | a4 | MOVSB (string, no prefix) | SDM MOVS A4
+- b | aa | STOSB (string) | SDM STOS AA
+- b | c5 f8 77 | VZEROUPPER (VEX2) | SDM §2.3 VEX C5
+- b | c4 e2 79 18 00 | VBROADCASTSS (VEX3) | SDM §2.3 VEX C4
+- b | 62 f1 7c 48 10 00 | VMOVUPS (EVEX) | SDM §2.7 EVEX 62
+- b | 8f e8 78 c0 c0 00 | XOP-encoded VPROTB | APM §1.9 XOP 8F with ModRM.reg != 0
+- b | 67 8b 00 | address-size override | SDM §2.1.1 group 4 (67)
+- b | 66 66 89 c0 | repeated 66 prefix | SDM §2.1.1
+- b | 48 66 89 c0 | REX not immediately before the opcode | SDM §2.2.1
+- b | 66 66 66 66 66 66 66 66 66 66 66 66 66 66 66 66 90 | prefix run beyond 15 bytes | SDM §2.2.1 15-byte limit
+- b | 40 90 | REX on NOP 90 (would be XCHG with REX.B) | SDM NOP NP 90
+- b | 41 0f 0b | REX on UD2 | SDM UD2 0F 0B
+- b | 48 6a 00 | REX.W on PUSH imm8 | SDM §2.2.1.7
+- b | 66 50 | 66 on PUSH r16 (not permitted) | SDM PUSH 50+rw
+- b | 63 c7 | MOVSXD without REX.W | SDM MOVSXD 63 /r
+- b | 87 c0 | XCHG (not permitted) | SDM XCHG 87 /r
+- b | 0f af c1 | IMUL (not permitted) | SDM IMUL 0F AF /r
+- b | 48 98 | CDQE (not permitted) | SDM CBW/CWDE/CDQE 98
+- b | 8d c0 | LEA with a register operand | SDM LEA 8D /r (m only)
+- b | 0f 92 c8 | SETB with ModRM.reg != 0 | SDM SETcc 0F 9x (reg field 0 required by XD)
+- b | d1 f0 | SAL /6 alias | SDM Table A-6 group 2 /6 (not in XD's table)
+- c | 48 83 | truncated: no ModR/M | SDM §2.1.3
+- c | 48 83 e4 | truncated: no imm8 | SDM §2.1.4
+- c | e9 00 00 | truncated rel32 | SDM JMP E9 cd
+- c | 0f | truncated escape | SDM §2.1.2
+- c | 66 | prefix with no opcode | SDM §2.1.1
+
+# ---- whole-.text vectors (XD-2, XD-5 d e f)
+s pass | 31 ed 6a 00 eb 00 | b8 e7 00 00 00 0f 05 0f 0b | minimal valid image: entry jmp, exit_group, ud2
+s d | eb ff | 0f 0b | overlapping pair: jmp to its own second byte decodes ff 0f ... as another stream
+s e | eb 00 | 74 01 0f 0b 0f 0b | jump into an instruction: je lands in the middle of ud2
+s e | eb 00 | e9 f9 0f 00 00 0f 0b | jump into .rodata (0x402000)
+s e | eb 00 | 74 fc 0f 0b | jump out of rp11_main into _start
+s e | 90 90 | 0f 0b | no CT-4 entry jump: _start falls off its end
+s f | eb 00 | 0f 0b 0f 0b | unreached instruction after ud2
+s c | eb 00 | 0f 0b 48 83 | undecoded tail: truncated instruction at the end of .text
+s b | eb 00 | c3 | a RET in rp11_main

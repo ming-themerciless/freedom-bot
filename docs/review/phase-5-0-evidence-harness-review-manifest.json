@@ -1985,7 +1985,7 @@
   "harness_name": "phase-5-0-evidence-harness",
   "harness_version": "0.7.0-pre-execution",
   "manifest_schema": "phase-5-0-evidence-review-manifest",
-  "manifest_version": 26,
+  "manifest_version": 30,
   "materializations": [
     {
       "after_step_id": "B6-03",
@@ -2573,6 +2573,360 @@
       "supplied_externally": false
     }
   ],
+  "rp11_launch": {
+    "accepted_arguments": [
+      "--pass",
+      "A"
+    ],
+    "architecture": "x86_64",
+    "argc": 3,
+    "build": {
+      "argv": [
+        "/usr/bin/env",
+        "-i",
+        "LC_ALL=C",
+        "PATH=/usr/bin",
+        "SOURCE_DATE_EPOCH=0",
+        "TZ=UTC0",
+        "/bin/sh",
+        "infra/rp11-launch/build.sh",
+        "build-out"
+      ],
+      "driver_added_env": [
+        "COLLECT_GCC",
+        "COLLECT_GCC_OPTIONS",
+        "OFFLOAD_TARGET_DEFAULT",
+        "OFFLOAD_TARGET_NAMES"
+      ],
+      "entry_added_env": [
+        "PWD"
+      ],
+      "env": [
+        "LC_ALL=C",
+        "PATH=/usr/bin",
+        "SOURCE_DATE_EPOCH=0",
+        "TZ=UTC0"
+      ],
+      "ic1_environment": {
+        "checkout_token": "{co}",
+        "classes": {
+          "compiler": [
+            "LC_ALL=C",
+            "PATH=/usr/bin",
+            "SOURCE_DATE_EPOCH=0",
+            "TZ=UTC0",
+            "OLDPWD={co}",
+            "PWD={co}/infra/rp11-launch",
+            "COLLECT_GCC=/usr/bin/gcc-15",
+            "COLLECT_GCC_OPTIONS='-S' '-v' '-std=c11' '-ffreestanding' '-nostdinc' '-fno-builtin' '-fno-pie' '-fno-stack-protector' '-fno-stack-clash-protection' '-fcf-protection=none' '-mindirect-branch=keep' '-mfunction-return=keep' '-fno-asynchronous-unwind-tables' '-fno-unwind-tables' '-fno-jump-tables' '-fno-tree-vectorize' '-fno-common' '-fno-ident' '-fno-optimize-sibling-calls' '-fno-reorder-blocks-and-partition' '-fno-partial-inlining' '-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' '-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' '-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' '-frandom-seed=rp11-launch' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' '-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'",
+            "OFFLOAD_TARGET_DEFAULT=1",
+            "OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa"
+          ],
+          "entry": [
+            "LC_ALL=C",
+            "PATH=/usr/bin",
+            "SOURCE_DATE_EPOCH=0",
+            "TZ=UTC0",
+            "PWD={co}"
+          ],
+          "output": [
+            "LC_ALL=C",
+            "PATH=/usr/bin",
+            "SOURCE_DATE_EPOCH=0",
+            "TZ=UTC0",
+            "OLDPWD={co}/infra/rp11-launch",
+            "PWD={co}/build-out"
+          ],
+          "shell": [
+            "LC_ALL=C",
+            "PATH=/usr/bin",
+            "SOURCE_DATE_EPOCH=0",
+            "TZ=UTC0"
+          ],
+          "source": [
+            "LC_ALL=C",
+            "PATH=/usr/bin",
+            "SOURCE_DATE_EPOCH=0",
+            "TZ=UTC0",
+            "OLDPWD={co}",
+            "PWD={co}/infra/rp11-launch"
+          ]
+        },
+        "comparison": "exact",
+        "controlled_checkouts": [
+          "/rp11/co",
+          "/rp11/alt/checkout"
+        ],
+        "exec_sequence": [
+          {
+            "class": "entry",
+            "path": "/usr/bin/env"
+          },
+          {
+            "class": "shell",
+            "path": "/bin/sh"
+          },
+          {
+            "class": "source",
+            "path": "/usr/bin/gcc-15"
+          },
+          {
+            "class": "compiler",
+            "path": "/usr/libexec/gcc/x86_64-linux-gnu/15/cc1"
+          },
+          {
+            "class": "source",
+            "path": "/usr/bin/as"
+          },
+          {
+            "class": "output",
+            "path": "/usr/bin/as"
+          },
+          {
+            "class": "output",
+            "path": "/usr/bin/ld.bfd"
+          },
+          {
+            "class": "output",
+            "path": "/usr/bin/readelf"
+          },
+          {
+            "class": "output",
+            "path": "/usr/bin/objdump"
+          },
+          {
+            "class": "output",
+            "path": "/usr/bin/objdump"
+          }
+        ]
+      },
+      "shell_added_env": [
+        "OLDPWD",
+        "PWD"
+      ]
+    },
+    "cc1_v_baseline": {
+      "byte_length": 5120,
+      "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
+      "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+    },
+    "contract": "rp11-launch/1",
+    "control": {
+      "conditional_jumps": [
+        "ja",
+        "jbe",
+        "je",
+        "jne"
+      ],
+      "execve_argv": [
+        "/usr/bin/python3.12",
+        "-I",
+        "-S",
+        "/usr/local/libexec/freedom-blades-rp11/rp11_entry.py",
+        "run",
+        "--pass",
+        "A"
+      ],
+      "execve_env_literals": [
+        "LC_ALL=C",
+        "PATH=/usr/bin"
+      ],
+      "execve_path": "/usr/bin/python3.12",
+      "expected_frame": 200,
+      "frame_bound": 512,
+      "functions": [
+        "_start",
+        "rp11_main"
+      ],
+      "invocation_id_prefix": "INVOCATION_ID=",
+      "permitted_mnemonics": [
+        "add",
+        "and",
+        "cmp",
+        "cmpb",
+        "dec",
+        "inc",
+        "ja",
+        "jbe",
+        "je",
+        "jmp",
+        "jne",
+        "lea",
+        "mov",
+        "movabs",
+        "movb",
+        "movl",
+        "movq",
+        "movw",
+        "push",
+        "shr",
+        "sub",
+        "syscall",
+        "test",
+        "ud2",
+        "xor"
+      ],
+      "stack_bound": 1024,
+      "status_lines": {
+        "111": {
+          "line": "rp11-launch/1: launch-usage\n",
+          "status": 111
+        },
+        "112": {
+          "line": "rp11-launch/1: launch-invocation-id\n",
+          "status": 112
+        },
+        "113": {
+          "line": "rp11-launch/1: launch-stdio\n",
+          "status": 113
+        },
+        "114": {
+          "line": "rp11-launch/1: launch-descriptors\n",
+          "status": 114
+        },
+        "115": {
+          "line": "rp11-launch/1: launch-signals\n",
+          "status": 115
+        },
+        "116": {
+          "line": "rp11-launch/1: launch-chdir\n",
+          "status": 116
+        },
+        "117": {
+          "line": "rp11-launch/1: launch-exec-failed\n",
+          "status": 117
+        }
+      },
+      "syscalls": {
+        "1": "write",
+        "13": "rt_sigaction",
+        "14": "rt_sigprocmask",
+        "231": "exit_group",
+        "436": "close_range",
+        "59": "execve",
+        "72": "fcntl",
+        "80": "chdir",
+        "95": "umask"
+      }
+    },
+    "execve": {
+      "argv": [
+        "/usr/bin/python3.12",
+        "-I",
+        "-S",
+        "/usr/local/libexec/freedom-blades-rp11/rp11_entry.py",
+        "run",
+        "--pass",
+        "A"
+      ],
+      "env_keys": [
+        "LC_ALL",
+        "PATH",
+        "INVOCATION_ID"
+      ],
+      "env_literals": [
+        "LC_ALL=C",
+        "PATH=/usr/bin"
+      ],
+      "path": "/usr/bin/python3.12"
+    },
+    "expected_sha256": {
+      "build_root_manifest": "f08ba9de4374374fa91012021ce12fb83f6370be5547ee4e214232100c38e76f",
+      "image": "04218ed2d834c1c7abe417a850831d8956f087711befd692eefc2e61b2668572",
+      "launch_s": "b37280d53eecce690210021a793cde5d5b73a8f9c027d187e4bd1338e7e27706",
+      "listing": "8c1fedee1c717b17a14d7c746669ffcec3c41d155e5cc4c63d24a5f2527cd188",
+      "map": "5a8b058084edcb1e3f6f7ddea13b60da6af71102300ea276225ae4ab0e8bc34d",
+      "toolchain_lock": "f92380735e32f9d7747834d684657d4087f14c7a22c0178703a50a70eef784cf"
+    },
+    "expected_stack_depth": 223,
+    "independent_decoding": {
+      "agreed_stream_sha256": "e1354c29e4abddd115fad9b1f83fd69b3b93aae2971db6a448964baa8edbf8e0",
+      "spelling_table_sha256": "d20406488804d7d3559917a3d55512d44b40789c018849977d6737a86ba67b66",
+      "xdecode_py_sha256": "84598d0683f377fcdb2282ae8080d07d4ce144e46adcc236d1d0677766038c97"
+    },
+    "installed": false,
+    "invocation_id": {
+      "grammar": "[0-9a-f]{32}",
+      "name": "INVOCATION_ID"
+    },
+    "minimum_kernel": "5.9",
+    "statuses": [
+      {
+        "class": "launch-usage",
+        "line": "rp11-launch/1: launch-usage\n",
+        "status": 111
+      },
+      {
+        "class": "launch-invocation-id",
+        "line": "rp11-launch/1: launch-invocation-id\n",
+        "status": 112
+      },
+      {
+        "class": "launch-stdio",
+        "line": "rp11-launch/1: launch-stdio\n",
+        "status": 113
+      },
+      {
+        "class": "launch-descriptors",
+        "line": "rp11-launch/1: launch-descriptors\n",
+        "status": 114
+      },
+      {
+        "class": "launch-signals",
+        "line": "rp11-launch/1: launch-signals\n",
+        "status": 115
+      },
+      {
+        "class": "launch-chdir",
+        "line": "rp11-launch/1: launch-chdir\n",
+        "status": 116
+      },
+      {
+        "class": "launch-exec-failed",
+        "line": "rp11-launch/1: launch-exec-failed\n",
+        "status": 117
+      }
+    ],
+    "syscalls": [
+      {
+        "name": "write",
+        "number": 1
+      },
+      {
+        "name": "rt_sigaction",
+        "number": 13
+      },
+      {
+        "name": "rt_sigprocmask",
+        "number": 14
+      },
+      {
+        "name": "execve",
+        "number": 59
+      },
+      {
+        "name": "fcntl",
+        "number": 72
+      },
+      {
+        "name": "chdir",
+        "number": 80
+      },
+      {
+        "name": "umask",
+        "number": 95
+      },
+      {
+        "name": "exit_group",
+        "number": 231
+      },
+      {
+        "name": "close_range",
+        "number": 436
+      }
+    ],
+    "wired": false
+  },
   "source_digests": [
     {
       "path": "tools/phase_5_0_evidence/__init__.py",
@@ -2768,7 +3122,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/review_manifest.py",
-      "sha256": "be0dd079980530f24cad39acc21efb4067b6d6fa7cf140a52a03526de1f05117"
+      "sha256": "311f1d0300e3e98f5b3b33ea6c4598bfc744ad8e9ba61bf0d2adb2d62f5c1844"
+    },
+    {
+      "path": "tools/phase_5_0_evidence/rp11_launch.py",
+      "sha256": "5a2f4694983619d6a3fb7ac3965e4415dd114fb7504003d91abb6071d189c2b1"
     },
     {
       "path": "tools/phase_5_0_evidence/sudoers.py",
@@ -2781,6 +3139,46 @@
     {
       "path": "tools/phase_5_0_evidence/unit_sandbox.py",
       "sha256": "edd360fbd01aaded56ee29bdf61af5cb9ae0882d0f990ad8f4e620fd8fc7a92c"
+    },
+    {
+      "path": "infra/rp11-launch/build-root.manifest",
+      "sha256": "f08ba9de4374374fa91012021ce12fb83f6370be5547ee4e214232100c38e76f"
+    },
+    {
+      "path": "infra/rp11-launch/build.sh",
+      "sha256": "7c8fc6da367e9fa9a8bb639ace7aa19da41db306fd62757ab86f0716b1b738e0"
+    },
+    {
+      "path": "infra/rp11-launch/expected.sha256",
+      "sha256": "6e87a54207f7f7aa3392fcd61f2f1c3303c0c7823fb1ef746dd28f5527a83625"
+    },
+    {
+      "path": "infra/rp11-launch/launch.c",
+      "sha256": "6810bcd0dd9567c9ee49a2b7f0dd7bfe2d69148eaba3d3d5caea3aa0983fa6fe"
+    },
+    {
+      "path": "infra/rp11-launch/rp11-launch.ld",
+      "sha256": "ed5519ef1994d4b32eb92f754f008a5aeb88e08d5194ede92491ddda1ac95326"
+    },
+    {
+      "path": "infra/rp11-launch/rp11-launch.x86_64.listing",
+      "sha256": "8c1fedee1c717b17a14d7c746669ffcec3c41d155e5cc4c63d24a5f2527cd188"
+    },
+    {
+      "path": "infra/rp11-launch/select.h",
+      "sha256": "34b56cfc1adb4f14f2e09c740e5e25915194778ebf73c74c1d24502121425c4b"
+    },
+    {
+      "path": "infra/rp11-launch/start.s",
+      "sha256": "ca631f087ad09c16d5e45d2088c7be81593f2fb8efb805b66ed65aff0a1a5139"
+    },
+    {
+      "path": "infra/rp11-launch/toolchain.lock",
+      "sha256": "f92380735e32f9d7747834d684657d4087f14c7a22c0178703a50a70eef784cf"
+    },
+    {
+      "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
+      "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
     }
   ],
   "steps": [

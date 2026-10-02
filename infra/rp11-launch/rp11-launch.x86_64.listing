@@ -1,0 +1,421 @@
+== readelf -W -h -l -S -s rp11-launch
+ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              EXEC (Executable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Version:                           0x1
+  Entry point address:               0x4000b0
+  Start of program headers:          64 (bytes into file)
+  Start of section headers:          1984 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         2
+  Size of section headers:           64 (bytes)
+  Number of section headers:         6
+  Section header string table index: 5
+
+Section Headers:
+  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+  [ 1] .text             PROGBITS        00000000004000b0 0000b0 00050f 00  AX  0   0  1
+  [ 2] .rodata           PROGBITS        00000000004005bf 0005bf 000156 01 AMS  0   0  1
+  [ 3] .symtab           SYMTAB          0000000000000000 000718 000060 18      4   2  8
+  [ 4] .strtab           STRTAB          0000000000000000 000778 00001b 00      0   0  1
+  [ 5] .shstrtab         STRTAB          0000000000000000 000793 000029 00      0   0  1
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  D (mbind), l (large), p (processor specific)
+
+Program Headers:
+  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
+  LOAD           0x000000 0x0000000000400000 0x0000000000400000 0x000715 0x000715 R E 0x1000
+  GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000 RW  0x8
+
+ Section to Segment mapping:
+  Segment Sections...
+   00     .text .rodata 
+   01     
+
+Symbol table '.symtab' contains 4 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
+     1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS launch.c
+     2: 00000000004000b0    27 FUNC    GLOBAL DEFAULT    1 _start
+     3: 00000000004000cb  1268 FUNC    GLOBAL DEFAULT    1 rp11_main
+== objdump -d -w -z rp11-launch
+
+rp11-launch:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000004000b0 <_start>:
+  4000b0:	31 ed                	xor    %ebp,%ebp
+  4000b2:	48 8b 3c 24          	mov    (%rsp),%rdi
+  4000b6:	48 8d 74 24 08       	lea    0x8(%rsp),%rsi
+  4000bb:	48 8d 54 fc 10       	lea    0x10(%rsp,%rdi,8),%rdx
+  4000c0:	48 83 e4 f0          	and    $0xfffffffffffffff0,%rsp
+  4000c4:	6a 00                	push   $0x0
+  4000c6:	e9 00 00 00 00       	jmp    4000cb <rp11_main>
+
+00000000004000cb <rp11_main>:
+  4000cb:	48 83 ff 03          	cmp    $0x3,%rdi
+  4000cf:	75 3c                	jne    40010d <rp11_main+0x42>
+  4000d1:	48 8b 46 08          	mov    0x8(%rsi),%rax
+  4000d5:	80 38 2d             	cmpb   $0x2d,(%rax)
+  4000d8:	75 33                	jne    40010d <rp11_main+0x42>
+  4000da:	80 78 01 2d          	cmpb   $0x2d,0x1(%rax)
+  4000de:	75 2d                	jne    40010d <rp11_main+0x42>
+  4000e0:	80 78 02 70          	cmpb   $0x70,0x2(%rax)
+  4000e4:	75 27                	jne    40010d <rp11_main+0x42>
+  4000e6:	80 78 03 61          	cmpb   $0x61,0x3(%rax)
+  4000ea:	75 21                	jne    40010d <rp11_main+0x42>
+  4000ec:	80 78 04 73          	cmpb   $0x73,0x4(%rax)
+  4000f0:	75 1b                	jne    40010d <rp11_main+0x42>
+  4000f2:	80 78 05 73          	cmpb   $0x73,0x5(%rax)
+  4000f6:	75 15                	jne    40010d <rp11_main+0x42>
+  4000f8:	80 78 06 00          	cmpb   $0x0,0x6(%rax)
+  4000fc:	75 0f                	jne    40010d <rp11_main+0x42>
+  4000fe:	48 8b 46 10          	mov    0x10(%rsi),%rax
+  400102:	80 38 41             	cmpb   $0x41,(%rax)
+  400105:	75 06                	jne    40010d <rp11_main+0x42>
+  400107:	80 78 01 00          	cmpb   $0x0,0x1(%rax)
+  40010b:	74 24                	je     400131 <rp11_main+0x66>
+  40010d:	b8 01 00 00 00       	mov    $0x1,%eax
+  400112:	bf 02 00 00 00       	mov    $0x2,%edi
+  400117:	be bf 05 40 00       	mov    $0x4005bf,%esi
+  40011c:	ba 1c 00 00 00       	mov    $0x1c,%edx
+  400121:	0f 05                	syscall
+  400123:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  400128:	bf 6f 00 00 00       	mov    $0x6f,%edi
+  40012d:	0f 05                	syscall
+  40012f:	0f 0b                	ud2
+  400131:	31 c9                	xor    %ecx,%ecx
+  400133:	45 31 c0             	xor    %r8d,%r8d
+  400136:	48 8b 02             	mov    (%rdx),%rax
+  400139:	48 85 c0             	test   %rax,%rax
+  40013c:	74 71                	je     4001af <rp11_main+0xe4>
+  40013e:	80 38 49             	cmpb   $0x49,(%rax)
+  400141:	75 66                	jne    4001a9 <rp11_main+0xde>
+  400143:	80 78 01 4e          	cmpb   $0x4e,0x1(%rax)
+  400147:	75 60                	jne    4001a9 <rp11_main+0xde>
+  400149:	80 78 02 56          	cmpb   $0x56,0x2(%rax)
+  40014d:	75 5a                	jne    4001a9 <rp11_main+0xde>
+  40014f:	80 78 03 4f          	cmpb   $0x4f,0x3(%rax)
+  400153:	75 54                	jne    4001a9 <rp11_main+0xde>
+  400155:	80 78 04 43          	cmpb   $0x43,0x4(%rax)
+  400159:	75 4e                	jne    4001a9 <rp11_main+0xde>
+  40015b:	80 78 05 41          	cmpb   $0x41,0x5(%rax)
+  40015f:	75 48                	jne    4001a9 <rp11_main+0xde>
+  400161:	80 78 06 54          	cmpb   $0x54,0x6(%rax)
+  400165:	75 42                	jne    4001a9 <rp11_main+0xde>
+  400167:	80 78 07 49          	cmpb   $0x49,0x7(%rax)
+  40016b:	75 3c                	jne    4001a9 <rp11_main+0xde>
+  40016d:	80 78 08 4f          	cmpb   $0x4f,0x8(%rax)
+  400171:	75 36                	jne    4001a9 <rp11_main+0xde>
+  400173:	80 78 09 4e          	cmpb   $0x4e,0x9(%rax)
+  400177:	75 30                	jne    4001a9 <rp11_main+0xde>
+  400179:	80 78 0a 5f          	cmpb   $0x5f,0xa(%rax)
+  40017d:	75 2a                	jne    4001a9 <rp11_main+0xde>
+  40017f:	80 78 0b 49          	cmpb   $0x49,0xb(%rax)
+  400183:	75 24                	jne    4001a9 <rp11_main+0xde>
+  400185:	80 78 0c 44          	cmpb   $0x44,0xc(%rax)
+  400189:	75 1e                	jne    4001a9 <rp11_main+0xde>
+  40018b:	40 8a 70 0d          	mov    0xd(%rax),%sil
+  40018f:	40 80 fe 3d          	cmp    $0x3d,%sil
+  400193:	75 09                	jne    40019e <rp11_main+0xd3>
+  400195:	48 ff c1             	inc    %rcx
+  400198:	4c 8d 40 0e          	lea    0xe(%rax),%r8
+  40019c:	eb 0b                	jmp    4001a9 <rp11_main+0xde>
+  40019e:	40 84 f6             	test   %sil,%sil
+  4001a1:	75 06                	jne    4001a9 <rp11_main+0xde>
+  4001a3:	48 ff c1             	inc    %rcx
+  4001a6:	45 31 c0             	xor    %r8d,%r8d
+  4001a9:	48 83 c2 08          	add    $0x8,%rdx
+  4001ad:	eb 87                	jmp    400136 <rp11_main+0x6b>
+  4001af:	48 ff c9             	dec    %rcx
+  4001b2:	75 29                	jne    4001dd <rp11_main+0x112>
+  4001b4:	4d 85 c0             	test   %r8,%r8
+  4001b7:	74 24                	je     4001dd <rp11_main+0x112>
+  4001b9:	41 8a 14 00          	mov    (%r8,%rax,1),%dl
+  4001bd:	8d 4a d0             	lea    -0x30(%rdx),%ecx
+  4001c0:	80 f9 09             	cmp    $0x9,%cl
+  4001c3:	76 08                	jbe    4001cd <rp11_main+0x102>
+  4001c5:	83 ea 61             	sub    $0x61,%edx
+  4001c8:	80 fa 05             	cmp    $0x5,%dl
+  4001cb:	77 10                	ja     4001dd <rp11_main+0x112>
+  4001cd:	48 ff c0             	inc    %rax
+  4001d0:	48 83 f8 20          	cmp    $0x20,%rax
+  4001d4:	75 e3                	jne    4001b9 <rp11_main+0xee>
+  4001d6:	41 80 78 20 00       	cmpb   $0x0,0x20(%r8)
+  4001db:	74 24                	je     400201 <rp11_main+0x136>
+  4001dd:	b8 01 00 00 00       	mov    $0x1,%eax
+  4001e2:	bf 02 00 00 00       	mov    $0x2,%edi
+  4001e7:	be dc 05 40 00       	mov    $0x4005dc,%esi
+  4001ec:	ba 24 00 00 00       	mov    $0x24,%edx
+  4001f1:	0f 05                	syscall
+  4001f3:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  4001f8:	bf 70 00 00 00       	mov    $0x70,%edi
+  4001fd:	0f 05                	syscall
+  4001ff:	0f 0b                	ud2
+  400201:	41 b9 01 00 00 00    	mov    $0x1,%r9d
+  400207:	31 ff                	xor    %edi,%edi
+  400209:	b8 48 00 00 00       	mov    $0x48,%eax
+  40020e:	4c 89 ce             	mov    %r9,%rsi
+  400211:	48 89 fa             	mov    %rdi,%rdx
+  400214:	0f 05                	syscall
+  400216:	48 3d 00 f0 ff ff    	cmp    $0xfffffffffffff000,%rax
+  40021c:	76 22                	jbe    400240 <rp11_main+0x175>
+  40021e:	bf 02 00 00 00       	mov    $0x2,%edi
+  400223:	be 01 06 40 00       	mov    $0x400601,%esi
+  400228:	ba 1c 00 00 00       	mov    $0x1c,%edx
+  40022d:	4c 89 c8             	mov    %r9,%rax
+  400230:	0f 05                	syscall
+  400232:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  400237:	bf 71 00 00 00       	mov    $0x71,%edi
+  40023c:	0f 05                	syscall
+  40023e:	0f 0b                	ud2
+  400240:	b8 48 00 00 00       	mov    $0x48,%eax
+  400245:	4c 89 cf             	mov    %r9,%rdi
+  400248:	31 d2                	xor    %edx,%edx
+  40024a:	0f 05                	syscall
+  40024c:	48 3d 00 f0 ff ff    	cmp    $0xfffffffffffff000,%rax
+  400252:	76 22                	jbe    400276 <rp11_main+0x1ab>
+  400254:	bf 02 00 00 00       	mov    $0x2,%edi
+  400259:	be 01 06 40 00       	mov    $0x400601,%esi
+  40025e:	ba 1c 00 00 00       	mov    $0x1c,%edx
+  400263:	4c 89 c8             	mov    %r9,%rax
+  400266:	0f 05                	syscall
+  400268:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  40026d:	bf 71 00 00 00       	mov    $0x71,%edi
+  400272:	0f 05                	syscall
+  400274:	0f 0b                	ud2
+  400276:	b8 48 00 00 00       	mov    $0x48,%eax
+  40027b:	bf 02 00 00 00       	mov    $0x2,%edi
+  400280:	31 d2                	xor    %edx,%edx
+  400282:	0f 05                	syscall
+  400284:	48 3d 00 f0 ff ff    	cmp    $0xfffffffffffff000,%rax
+  40028a:	76 1d                	jbe    4002a9 <rp11_main+0x1de>
+  40028c:	be 01 06 40 00       	mov    $0x400601,%esi
+  400291:	ba 1c 00 00 00       	mov    $0x1c,%edx
+  400296:	4c 89 c8             	mov    %r9,%rax
+  400299:	0f 05                	syscall
+  40029b:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  4002a0:	bf 71 00 00 00       	mov    $0x71,%edi
+  4002a5:	0f 05                	syscall
+  4002a7:	0f 0b                	ud2
+  4002a9:	b8 b4 01 00 00       	mov    $0x1b4,%eax
+  4002ae:	bf 03 00 00 00       	mov    $0x3,%edi
+  4002b3:	be ff ff ff ff       	mov    $0xffffffff,%esi
+  4002b8:	31 d2                	xor    %edx,%edx
+  4002ba:	0f 05                	syscall
+  4002bc:	48 85 c0             	test   %rax,%rax
+  4002bf:	74 22                	je     4002e3 <rp11_main+0x218>
+  4002c1:	be 1e 06 40 00       	mov    $0x40061e,%esi
+  4002c6:	ba 22 00 00 00       	mov    $0x22,%edx
+  4002cb:	4c 89 c8             	mov    %r9,%rax
+  4002ce:	bf 02 00 00 00       	mov    $0x2,%edi
+  4002d3:	0f 05                	syscall
+  4002d5:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  4002da:	bf 72 00 00 00       	mov    $0x72,%edi
+  4002df:	0f 05                	syscall
+  4002e1:	0f 0b                	ud2
+  4002e3:	53                   	push   %rbx
+  4002e4:	31 f6                	xor    %esi,%esi
+  4002e6:	bf 01 00 00 00       	mov    $0x1,%edi
+  4002eb:	48 81 ec c0 00 00 00 	sub    $0xc0,%rsp
+  4002f2:	48 89 74 24 30       	mov    %rsi,0x30(%rsp)
+  4002f7:	48 89 74 24 38       	mov    %rsi,0x38(%rsp)
+  4002fc:	48 89 74 24 40       	mov    %rsi,0x40(%rsp)
+  400301:	48 89 74 24 48       	mov    %rsi,0x48(%rsp)
+  400306:	48 8d 74 24 30       	lea    0x30(%rsp),%rsi
+  40030b:	8d 4f ff             	lea    -0x1(%rdi),%ecx
+  40030e:	ba 00 01 04 00       	mov    $0x40100,%edx
+  400313:	48 d3 ea             	shr    %cl,%rdx
+  400316:	83 e2 01             	and    $0x1,%edx
+  400319:	75 36                	jne    400351 <rp11_main+0x286>
+  40031b:	41 ba 08 00 00 00    	mov    $0x8,%r10d
+  400321:	b8 0d 00 00 00       	mov    $0xd,%eax
+  400326:	0f 05                	syscall
+  400328:	48 85 c0             	test   %rax,%rax
+  40032b:	74 24                	je     400351 <rp11_main+0x286>
+  40032d:	b8 01 00 00 00       	mov    $0x1,%eax
+  400332:	bf 02 00 00 00       	mov    $0x2,%edi
+  400337:	be 41 06 40 00       	mov    $0x400641,%esi
+  40033c:	ba 1e 00 00 00       	mov    $0x1e,%edx
+  400341:	0f 05                	syscall
+  400343:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  400348:	bf 73 00 00 00       	mov    $0x73,%edi
+  40034d:	0f 05                	syscall
+  40034f:	0f 0b                	ud2
+  400351:	48 ff c7             	inc    %rdi
+  400354:	48 83 ff 41          	cmp    $0x41,%rdi
+  400358:	75 b1                	jne    40030b <rp11_main+0x240>
+  40035a:	31 c9                	xor    %ecx,%ecx
+  40035c:	48 8d 74 24 08       	lea    0x8(%rsp),%rsi
+  400361:	41 ba 08 00 00 00    	mov    $0x8,%r10d
+  400367:	31 d2                	xor    %edx,%edx
+  400369:	48 89 4c 24 08       	mov    %rcx,0x8(%rsp)
+  40036e:	b8 0e 00 00 00       	mov    $0xe,%eax
+  400373:	bf 02 00 00 00       	mov    $0x2,%edi
+  400378:	0f 05                	syscall
+  40037a:	48 85 c0             	test   %rax,%rax
+  40037d:	74 1f                	je     40039e <rp11_main+0x2d3>
+  40037f:	b8 01 00 00 00       	mov    $0x1,%eax
+  400384:	be 41 06 40 00       	mov    $0x400641,%esi
+  400389:	ba 1e 00 00 00       	mov    $0x1e,%edx
+  40038e:	0f 05                	syscall
+  400390:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  400395:	bf 73 00 00 00       	mov    $0x73,%edi
+  40039a:	0f 05                	syscall
+  40039c:	0f 0b                	ud2
+  40039e:	b8 5f 00 00 00       	mov    $0x5f,%eax
+  4003a3:	bf 3f 00 00 00       	mov    $0x3f,%edi
+  4003a8:	0f 05                	syscall
+  4003aa:	b8 50 00 00 00       	mov    $0x50,%eax
+  4003af:	bf 60 06 40 00       	mov    $0x400660,%edi
+  4003b4:	0f 05                	syscall
+  4003b6:	48 85 c0             	test   %rax,%rax
+  4003b9:	74 24                	je     4003df <rp11_main+0x314>
+  4003bb:	b8 01 00 00 00       	mov    $0x1,%eax
+  4003c0:	be 62 06 40 00       	mov    $0x400662,%esi
+  4003c5:	ba 1c 00 00 00       	mov    $0x1c,%edx
+  4003ca:	bf 02 00 00 00       	mov    $0x2,%edi
+  4003cf:	0f 05                	syscall
+  4003d1:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  4003d6:	bf 74 00 00 00       	mov    $0x74,%edi
+  4003db:	0f 05                	syscall
+  4003dd:	0f 0b                	ud2
+  4003df:	66 c7 44 24 5c 44 3d 	movw   $0x3d44,0x5c(%rsp)
+  4003e6:	31 d2                	xor    %edx,%edx
+  4003e8:	48 8d b4 24 80 00 00 00 	lea    0x80(%rsp),%rsi
+  4003f0:	48 b8 49 4e 56 4f 43 41 54 49 	movabs $0x495441434f564e49,%rax
+  4003fa:	c7 44 24 58 4f 4e 5f 49 	movl   $0x495f4e4f,0x58(%rsp)
+  400402:	bf 7f 06 40 00       	mov    $0x40067f,%edi
+  400407:	48 89 44 24 50       	mov    %rax,0x50(%rsp)
+  40040c:	41 8a 00             	mov    (%r8),%al
+  40040f:	88 44 24 5e          	mov    %al,0x5e(%rsp)
+  400413:	41 8a 40 01          	mov    0x1(%r8),%al
+  400417:	88 44 24 5f          	mov    %al,0x5f(%rsp)
+  40041b:	41 8a 40 02          	mov    0x2(%r8),%al
+  40041f:	88 44 24 60          	mov    %al,0x60(%rsp)
+  400423:	41 8a 40 03          	mov    0x3(%r8),%al
+  400427:	88 44 24 61          	mov    %al,0x61(%rsp)
+  40042b:	41 8a 40 04          	mov    0x4(%r8),%al
+  40042f:	88 44 24 62          	mov    %al,0x62(%rsp)
+  400433:	41 8a 40 05          	mov    0x5(%r8),%al
+  400437:	88 44 24 63          	mov    %al,0x63(%rsp)
+  40043b:	41 8a 40 06          	mov    0x6(%r8),%al
+  40043f:	88 44 24 64          	mov    %al,0x64(%rsp)
+  400443:	41 8a 40 07          	mov    0x7(%r8),%al
+  400447:	88 44 24 65          	mov    %al,0x65(%rsp)
+  40044b:	41 8a 40 08          	mov    0x8(%r8),%al
+  40044f:	88 44 24 66          	mov    %al,0x66(%rsp)
+  400453:	41 8a 40 09          	mov    0x9(%r8),%al
+  400457:	88 44 24 67          	mov    %al,0x67(%rsp)
+  40045b:	41 8a 40 0a          	mov    0xa(%r8),%al
+  40045f:	88 44 24 68          	mov    %al,0x68(%rsp)
+  400463:	41 8a 40 0b          	mov    0xb(%r8),%al
+  400467:	88 44 24 69          	mov    %al,0x69(%rsp)
+  40046b:	41 8a 40 0c          	mov    0xc(%r8),%al
+  40046f:	88 44 24 6a          	mov    %al,0x6a(%rsp)
+  400473:	41 8a 40 0d          	mov    0xd(%r8),%al
+  400477:	88 44 24 6b          	mov    %al,0x6b(%rsp)
+  40047b:	41 8a 40 0e          	mov    0xe(%r8),%al
+  40047f:	88 44 24 6c          	mov    %al,0x6c(%rsp)
+  400483:	41 8a 40 0f          	mov    0xf(%r8),%al
+  400487:	88 44 24 6d          	mov    %al,0x6d(%rsp)
+  40048b:	41 8a 40 10          	mov    0x10(%r8),%al
+  40048f:	88 44 24 6e          	mov    %al,0x6e(%rsp)
+  400493:	41 8a 40 11          	mov    0x11(%r8),%al
+  400497:	88 44 24 6f          	mov    %al,0x6f(%rsp)
+  40049b:	41 8a 40 12          	mov    0x12(%r8),%al
+  40049f:	88 44 24 70          	mov    %al,0x70(%rsp)
+  4004a3:	41 8a 40 13          	mov    0x13(%r8),%al
+  4004a7:	88 44 24 71          	mov    %al,0x71(%rsp)
+  4004ab:	41 8a 40 14          	mov    0x14(%r8),%al
+  4004af:	88 44 24 72          	mov    %al,0x72(%rsp)
+  4004b3:	41 8a 40 15          	mov    0x15(%r8),%al
+  4004b7:	88 44 24 73          	mov    %al,0x73(%rsp)
+  4004bb:	41 8a 40 16          	mov    0x16(%r8),%al
+  4004bf:	88 44 24 74          	mov    %al,0x74(%rsp)
+  4004c3:	41 8a 40 17          	mov    0x17(%r8),%al
+  4004c7:	88 44 24 75          	mov    %al,0x75(%rsp)
+  4004cb:	41 8a 40 18          	mov    0x18(%r8),%al
+  4004cf:	88 44 24 76          	mov    %al,0x76(%rsp)
+  4004d3:	41 8a 40 19          	mov    0x19(%r8),%al
+  4004d7:	88 44 24 77          	mov    %al,0x77(%rsp)
+  4004db:	41 8a 40 1a          	mov    0x1a(%r8),%al
+  4004df:	88 44 24 78          	mov    %al,0x78(%rsp)
+  4004e3:	41 8a 40 1b          	mov    0x1b(%r8),%al
+  4004e7:	88 44 24 79          	mov    %al,0x79(%rsp)
+  4004eb:	41 8a 40 1c          	mov    0x1c(%r8),%al
+  4004ef:	88 44 24 7a          	mov    %al,0x7a(%rsp)
+  4004f3:	41 8a 40 1d          	mov    0x1d(%r8),%al
+  4004f7:	88 44 24 7b          	mov    %al,0x7b(%rsp)
+  4004fb:	41 8a 40 1e          	mov    0x1e(%r8),%al
+  4004ff:	88 44 24 7c          	mov    %al,0x7c(%rsp)
+  400503:	41 8a 40 1f          	mov    0x1f(%r8),%al
+  400507:	48 89 54 24 28       	mov    %rdx,0x28(%rsp)
+  40050c:	48 8d 54 24 10       	lea    0x10(%rsp),%rdx
+  400511:	88 44 24 7d          	mov    %al,0x7d(%rsp)
+  400515:	31 c0                	xor    %eax,%eax
+  400517:	48 89 84 24 b8 00 00 00 	mov    %rax,0xb8(%rsp)
+  40051f:	48 8d 44 24 50       	lea    0x50(%rsp),%rax
+  400524:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+  400529:	b8 3b 00 00 00       	mov    $0x3b,%eax
+  40052e:	c6 44 24 7e 00       	movb   $0x0,0x7e(%rsp)
+  400533:	48 c7 84 24 80 00 00 00 7f 06 40 00 	movq   $0x40067f,0x80(%rsp)
+  40053f:	48 c7 84 24 88 00 00 00 93 06 40 00 	movq   $0x400693,0x88(%rsp)
+  40054b:	48 c7 84 24 90 00 00 00 96 06 40 00 	movq   $0x400696,0x90(%rsp)
+  400557:	48 c7 84 24 98 00 00 00 99 06 40 00 	movq   $0x400699,0x98(%rsp)
+  400563:	48 c7 84 24 a0 00 00 00 ce 06 40 00 	movq   $0x4006ce,0xa0(%rsp)
+  40056f:	48 c7 84 24 a8 00 00 00 d2 06 40 00 	movq   $0x4006d2,0xa8(%rsp)
+  40057b:	48 c7 84 24 b0 00 00 00 d9 06 40 00 	movq   $0x4006d9,0xb0(%rsp)
+  400587:	48 c7 44 24 10 db 06 40 00 	movq   $0x4006db,0x10(%rsp)
+  400590:	48 c7 44 24 18 e4 06 40 00 	movq   $0x4006e4,0x18(%rsp)
+  400599:	0f 05                	syscall
+  40059b:	b8 01 00 00 00       	mov    $0x1,%eax
+  4005a0:	be f2 06 40 00       	mov    $0x4006f2,%esi
+  4005a5:	ba 22 00 00 00       	mov    $0x22,%edx
+  4005aa:	bf 02 00 00 00       	mov    $0x2,%edi
+  4005af:	0f 05                	syscall
+  4005b1:	b8 e7 00 00 00       	mov    $0xe7,%eax
+  4005b6:	bf 75 00 00 00       	mov    $0x75,%edi
+  4005bb:	0f 05                	syscall
+  4005bd:	0f 0b                	ud2
+== objdump -s -j .rodata rp11-launch
+
+rp11-launch:     file format elf64-x86-64
+
+Contents of section .rodata:
+ 4005bf 72703131 2d6c6175 6e63682f 313a206c  rp11-launch/1: l
+ 4005cf 61756e63 682d7573 6167650a 00727031  aunch-usage..rp1
+ 4005df 312d6c61 756e6368 2f313a20 6c61756e  1-launch/1: laun
+ 4005ef 63682d69 6e766f63 6174696f 6e2d6964  ch-invocation-id
+ 4005ff 0a007270 31312d6c 61756e63 682f313a  ..rp11-launch/1:
+ 40060f 206c6175 6e63682d 73746469 6f0a0072   launch-stdio..r
+ 40061f 7031312d 6c61756e 63682f31 3a206c61  p11-launch/1: la
+ 40062f 756e6368 2d646573 63726970 746f7273  unch-descriptors
+ 40063f 0a007270 31312d6c 61756e63 682f313a  ..rp11-launch/1:
+ 40064f 206c6175 6e63682d 7369676e 616c730a   launch-signals.
+ 40065f 002f0072 7031312d 6c61756e 63682f31  ./.rp11-launch/1
+ 40066f 3a206c61 756e6368 2d636864 69720a00  : launch-chdir..
+ 40067f 2f757372 2f62696e 2f707974 686f6e33  /usr/bin/python3
+ 40068f 2e313200 2d49002d 53002f75 73722f6c  .12.-I.-S./usr/l
+ 40069f 6f63616c 2f6c6962 65786563 2f667265  ocal/libexec/fre
+ 4006af 65646f6d 2d626c61 6465732d 72703131  edom-blades-rp11
+ 4006bf 2f727031 315f656e 7472792e 70790072  /rp11_entry.py.r
+ 4006cf 756e002d 2d706173 73004100 4c435f41  un.--pass.A.LC_A
+ 4006df 4c4c3d43 00504154 483d2f75 73722f62  LL=C.PATH=/usr/b
+ 4006ef 696e0072 7031312d 6c61756e 63682f31  in.rp11-launch/1
+ 4006ff 3a206c61 756e6368 2d657865 632d6661  : launch-exec-fa
+ 40070f 696c6564 0a00                        iled..          

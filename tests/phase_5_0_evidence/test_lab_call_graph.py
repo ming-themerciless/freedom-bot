@@ -43,6 +43,7 @@ from tests.phase_5_0_evidence.harness_fixtures import (
     RecordingEffects,
     runnable_plan,
     supply_reviewed_e7_facts,
+    load_test_source_bytes,
 )
 from tests.phase_5_0_evidence.lab_fixtures import (
     AT,
@@ -92,7 +93,7 @@ from tools.phase_5_0_evidence.reservation import (
 )
 from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES, ReviewManifest
 
-SOURCES = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+SOURCES = load_test_source_bytes()
 
 #: The two reviewed target facts, as a run would have them. Each gate is
 #: asserted against its **shipped** unconfirmed value elsewhere; this module is

@@ -23,15 +23,19 @@ refused. This is the *positive* fixture, so that the rest of the suite can go on
 exercising cleanup, ordering, interruption and materialization against a run that
 gets as far as it should.
 
-**Nothing here reads a host account, starts a process, opens a socket or touches
-a file.** `test_no_execution.py` scans every `*.py` in this directory, including
-this one — the scan was widened from `test_*.py` to `*.py` for exactly that
-reason.
+**Nothing here reads a host account, starts a process or opens a socket.** It
+performs no host, operational or target-system inspection. Its only file reads
+are deterministic reads of the repository files in `COVERED_SOURCES` for
+test-fixture construction; this repository-file access is exercised under the
+test suite, not an execution boundary or operational run. `test_no_execution.py`
+scans every `*.py` in this directory, including this one — the scan was widened
+from `test_*.py` to `*.py` for exactly that reason.
 """
 from __future__ import annotations
 
 import hashlib
 from dataclasses import replace
+from pathlib import Path
 from typing import Sequence
 
 from tools.phase_5_0_evidence import capability
@@ -401,3 +405,25 @@ def observations_for(
         subject=step.step_id,
     )
     return () if contract is None else contract.satisfying_observations()
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+
+def load_test_source_bytes() -> dict[str, bytes]:
+    """Shared source-byte mapping for tests constructing a ReviewManifest.
+
+    Every source file receives a synthetic stub except cc1.v.baseline,
+    which is loaded directly from its exact repository path because its
+    verification contract requires the actual accepted fixture bytes.
+    A test helper must not reproduce or synthesize the accepted 5,120-byte
+    content from constants.
+    """
+    from tools.phase_5_0_evidence import rp11_launch
+    from tools.phase_5_0_evidence.review_manifest import COVERED_SOURCES
+
+    sources = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+    sources[rp11_launch.CC1_V_BASELINE_PATH] = (
+        REPOSITORY_ROOT / rp11_launch.CC1_V_BASELINE_PATH
+    ).read_bytes()
+    return sources

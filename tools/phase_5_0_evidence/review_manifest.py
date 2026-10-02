@@ -98,6 +98,7 @@ from .expectations import (
     launcher_capability_contract,
 )
 from .required_cases import REQUIRED_CASES
+from . import rp11_launch
 
 #: The schema name the aggregate digest is computed under. Changing what the
 #: manifest *means* changes this string, so a digest approved under an older
@@ -499,7 +500,106 @@ MANIFEST_SCHEMA = "phase-5-0-evidence-review-manifest"
 #: and verb table are unchanged. C-7's three cases and C-S4-3 remain
 #: unresolved, `is_executable` remains `False`, and RP-11 remains unwired,
 #: unaccepted and unmet. A digest remains review input, not execution approval.
-MANIFEST_VERSION = 26
+#: **27** is C-P5.0-R5-RP11-I1-R3-R4-I7, 2026-10-01: the accepted D2-R2 static
+#: first image `rp11-launch/1` is implemented as repository text, unwired. The
+#: covered set gains the planning-tier contract module `rp11_launch.py` and the
+#: nine `infra/rp11-launch/` files proposal §5.11 binds — the image source
+#: (`start.s`, `launch.c`, `select.h`), the build definition (`rp11-launch.ld`,
+#: `build.sh`), the toolchain and build-root identity (`toolchain.lock`,
+#: `build-root.manifest`), `expected.sha256` and the committed listing — and
+#: the body gains an `rp11_launch` section serialising the contract: argv,
+#: the `INVOCATION_ID` grammar, the literal `execve`, the status table, the
+#: system-call inventory, the control-transfer contract T-L10 checks, the build
+#: vectors and named environment additions, the expected digests, and XD's
+#: source, spelling-table and agreed-stream digests. A version-26 digest bound
+#: no launcher at all.
+#:
+#: What does **not** move at 27: no vector, step, mutation, materialization,
+#: expectation, target fact, required case or unresolved entry changes; the
+#: supplied-observation schema stays at **3**, the run-record schema at **3**,
+#: the classified-artifact schema at **1**, `plan.PERMITTED_EXECUTABLES` at
+#: **20** and the verb table at **20**. The section records `installed: false`
+#: and `wired: false`. C-7's three cases and C-S4-3 remain unresolved,
+#: `is_executable` remains `False`, PO-9 and PO-14 remain open, and RP-11
+#: remains unwired and unmet. A digest remains review input, not execution
+#: approval, and nothing here authorizes building, installing or running the
+#: image.
+#: **28** is C-P5.0-R5-RP11-I1-R3-R4-I7-R1, 2026-10-01, finding `I7-R1-1`. It
+#: moves because what a digest covers does: version 27 serialised IC-1's
+#: environment additions as names only, and its checker admitted them without
+#: requiring them or checking their values. The `rp11_launch` section's
+#: `build` gains `ic1_environment` — the controlled checkouts, the ordered
+#: `execve` sequence and each process class's complete environment, compared
+#: exactly — and `toolchain.lock` gains the same contract, so its bytes and
+#: `expected_sha256.toolchain_lock` move with it. A version-27 digest covered
+#: a contract under which a class-B process could lack a named variable or
+#: carry an arbitrary value for it.
+#:
+#: What does **not** move at 28: the image, listing, map, `launch.s`, XD
+#: source, spelling table and agreed stream digests, the build-root manifest
+#: and every other launcher file; the covered set; and every vector, step,
+#: mutation, materialization, expectation, target fact, required case,
+#: unresolved entry, schema, executable and verb table. The section still
+#: records `installed: false` and `wired: false`. C-7's three cases and C-S4-3
+#: remain unresolved, `is_executable` remains `False`, PO-9 and PO-14 remain
+#: open, and RP-11 remains unwired and unmet. A digest remains review input,
+#: not execution approval.
+#: **29** is C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R2, 2026-10-01: the accepted Branch A
+#: `cc1.v` baseline fixture is integrated into the reviewed evidence contract.
+#: The covered set gains `infra/rp11-launch/verify/fixtures/cc1.v.baseline`,
+#: explicitly enumerated in `RP11_LAUNCH_COVERED`. The `rp11_launch` section
+#: gains `cc1_v_baseline` serialising its path, exact byte length (5120) and
+#: SHA-256 (`b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b`),
+#: verified against the actual fixture bytes during manifest construction.
+#: A version-28 digest covered a tree where the baseline fixture was unpinned
+#: and unverified by the review manifest.
+#:
+#: What does **not** move at 29: the four normative launcher output digests in
+#: `expected.sha256` and `expected_sha256` are unchanged; `cc1.v.baseline` is
+#: diagnostic comparison evidence, not a normative launcher output; no vector,
+#: step, mutation, materialization, expectation, target fact, required case,
+#: unresolved entry, schema, executable or verb table changes. The section
+#: still records `installed: false` and `wired: false`. C-7's three cases and
+#: C-S4-3 remain unresolved, `is_executable` remains `False`, PO-9 and PO-14
+#: remain open, and RP-11 remains unwired and unmet. A digest remains review
+#: input, not execution approval.
+#: **30** is C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R3, 2026-10-01, finding `B1-R3-1`.
+#: It removes the bypass under which unverified placeholder bytes could be
+#: represented by accepted baseline metadata. Manifest construction now
+#: verifies the supplied fixture bytes unconditionally through the exact length
+#: (5120) and SHA-256 (`b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b`)
+#: contract.
+#:
+#: What does **not** move at 30: the four normative launcher output digests in
+#: `expected.sha256` and `expected_sha256` are unchanged; `cc1.v.baseline` is
+#: diagnostic comparison evidence, not a normative launcher output; no vector,
+#: step, mutation, materialization, expectation, target fact, required case,
+#: unresolved entry, schema, executable or verb table changes. The section
+#: still records `installed: false` and `wired: false`. C-7's three cases and
+#: C-S4-3 remain unresolved, `is_executable` remains `False`, PO-9 and PO-14
+#: remain open, and RP-11 remains unwired and unmet. A digest remains review
+#: input, not execution approval.
+MANIFEST_VERSION = 30
+
+#: **27.** The `infra/rp11-launch/` files whose bytes the manifest pins
+#: (proposal §5.2, §5.11): image source, build definition, toolchain and
+#: build-root identity, expected digests and the committed listing. Enumerated,
+#: not globbed. The test harness and the evidence tooling (XD, its spelling
+#: table, T-L7, T-L10, IC-1) are covered as tests are; XD's and its table's
+#: digests are serialised in the `rp11_launch` section instead (XD-8).
+#: **29.** Added `infra/rp11-launch/verify/fixtures/cc1.v.baseline` (B1-R2).
+RP11_LAUNCH_COVERED = (
+    "infra/rp11-launch/build-root.manifest",
+    "infra/rp11-launch/build.sh",
+    "infra/rp11-launch/expected.sha256",
+    "infra/rp11-launch/launch.c",
+    "infra/rp11-launch/rp11-launch.ld",
+    "infra/rp11-launch/rp11-launch.x86_64.listing",
+    "infra/rp11-launch/select.h",
+    "infra/rp11-launch/start.s",
+    "infra/rp11-launch/toolchain.lock",
+    "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
+)
 
 #: The source files whose exact bytes the manifest pins, relative to the
 #: repository root. Enumerated rather than globbed: a file added to the package
@@ -555,9 +655,14 @@ COVERED_SOURCES = (
     "tools/phase_5_0_evidence/required_cases.py",
     "tools/phase_5_0_evidence/reservation.py",
     "tools/phase_5_0_evidence/review_manifest.py",
+    "tools/phase_5_0_evidence/rp11_launch.py",
     "tools/phase_5_0_evidence/sudoers.py",
     "tools/phase_5_0_evidence/targets.py",
     "tools/phase_5_0_evidence/unit_sandbox.py",
+) + (
+    # **27, C-P5.0-R5-RP11-I1-R3-R4-I7.** The launcher files proposal §5.11
+    # binds by this digest, enumerated above.
+    RP11_LAUNCH_COVERED
 )
 
 #: §2.13.2b's three exit classifications, pinned so a reviewer approves what each
@@ -642,6 +747,7 @@ class ReviewManifest:
 
     plan: ConcretePlan
     source_digests: tuple[tuple[str, str], ...]
+    baseline_contract: dict[str, object]
 
     @classmethod
     def build(
@@ -662,10 +768,16 @@ class ReviewManifest:
                 "set is enumerated so that adding a file to the package is a "
                 "decision rather than a side effect."
             )
+        # **30.** Verify the actual cc1.v baseline fixture bytes against the contract.
+        # B1-R3 removes the synthetic-placeholder bypass; every supplied value
+        # must satisfy the exact length and SHA-256 verification contract.
+        baseline_bytes = source_bytes[rp11_launch.CC1_V_BASELINE_PATH]
+        baseline_contract = rp11_launch.verify_cc1_v_baseline(baseline_bytes)
+
         digests = tuple(
             (name, _sha256_hex(source_bytes[name])) for name in COVERED_SOURCES
         )
-        return cls(plan=plan, source_digests=digests)
+        return cls(plan=plan, source_digests=digests, baseline_contract=baseline_contract)
 
     def digest_for(self, path: str) -> str:
         """The covered-source digest for one pinned path.
@@ -1119,6 +1231,10 @@ class ReviewManifest:
             "source_digests": [
                 {"path": path, "sha256": digest} for path, digest in self.source_digests
             ],
+            # **27.** The static first image's contract (proposal §5.11).
+            # Review input only: it installs, builds and wires nothing.
+            # **29.** Diagnostic cc1.v baseline contract (B1-R2).
+            "rp11_launch": rp11_launch.manifest_section(self.baseline_contract),
         }
 
     def serialize(self) -> bytes:
@@ -1204,6 +1320,7 @@ def digests_match(reviewed: str, recomputed: str) -> bool:
 
 __all__ = [
     "COVERED_SOURCES",
+    "RP11_LAUNCH_COVERED",
     "EXIT_CLASSIFICATIONS",
     "MANIFEST_SCHEMA",
     "MANIFEST_VERSION",

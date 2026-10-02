@@ -186,6 +186,12 @@ PLANNING_TIER_NAMES = {
     # nothing.
     "reservation",
     "review_manifest",
+    # **C-P5.0-R5-RP11-I1-R3-R4-I7.** The `rp11-launch/1` contract as reviewed
+    # data: argv, the `INVOCATION_ID` grammar, the literal `execve`, statuses,
+    # the system-call inventory, the control-transfer contract and the expected
+    # digests. It is in this tier because it is constants: it reads no file,
+    # builds nothing and starts nothing.
+    "rp11_launch",
     "sudoers",
     "targets",
     # **C-P5.0-R5-R1.** §2.13.2a S4-3's typed comparison of a supplied deployed

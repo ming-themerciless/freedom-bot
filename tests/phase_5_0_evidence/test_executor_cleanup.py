@@ -53,9 +53,10 @@ from tests.phase_5_0_evidence.harness_fixtures import (
     observations_for,
     runnable_plan,
     supply_reviewed_e7_facts,
+    load_test_source_bytes,
 )
 
-SOURCES = {name: f"# {name}\n".encode("utf-8") for name in COVERED_SOURCES}
+SOURCES = load_test_source_bytes()
 
 #: A stand-in for the reviewed target fact a maintainer supplies before any run.
 #:
