@@ -1,0 +1,15 @@
+rsync
+-avz
+--delete
+--include=.env.example
+--exclude=.env*
+--exclude=*.pem
+--exclude=*.key
+--exclude=yt-cookies.txt
+--exclude=*service_account*.json
+--exclude=*credentials*.json
+--exclude=__pycache__/
+--exclude=*.py[cod]
+--exclude=.pytest_cache/
+/opt/freedom-blades/platform/
+oracle-test:/var/tmp/<RUN>-checkout/
