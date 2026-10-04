@@ -1985,7 +1985,7 @@
   "harness_name": "phase-5-0-evidence-harness",
   "harness_version": "0.7.0-pre-execution",
   "manifest_schema": "phase-5-0-evidence-review-manifest",
-  "manifest_version": 30,
+  "manifest_version": 31,
   "materializations": [
     {
       "after_step_id": "B6-03",
@@ -2592,6 +2592,16 @@
         "infra/rp11-launch/build.sh",
         "build-out"
       ],
+      "compiler_fixed_params": [
+        {
+          "name": "ggc-min-expand",
+          "value": 100
+        },
+        {
+          "name": "ggc-min-heapsize",
+          "value": 131072
+        }
+      ],
       "driver_added_env": [
         "COLLECT_GCC",
         "COLLECT_GCC_OPTIONS",
@@ -2618,7 +2628,7 @@
             "OLDPWD={co}",
             "PWD={co}/infra/rp11-launch",
             "COLLECT_GCC=/usr/bin/gcc-15",
-            "COLLECT_GCC_OPTIONS='-S' '-v' '-std=c11' '-ffreestanding' '-nostdinc' '-fno-builtin' '-fno-pie' '-fno-stack-protector' '-fno-stack-clash-protection' '-fcf-protection=none' '-mindirect-branch=keep' '-mfunction-return=keep' '-fno-asynchronous-unwind-tables' '-fno-unwind-tables' '-fno-jump-tables' '-fno-tree-vectorize' '-fno-common' '-fno-ident' '-fno-optimize-sibling-calls' '-fno-reorder-blocks-and-partition' '-fno-partial-inlining' '-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' '-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' '-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' '-frandom-seed=rp11-launch' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' '-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'",
+            "COLLECT_GCC_OPTIONS='-S' '-v' '-std=c11' '-ffreestanding' '-nostdinc' '-fno-builtin' '-fno-pie' '-fno-stack-protector' '-fno-stack-clash-protection' '-fcf-protection=none' '-mindirect-branch=keep' '-mfunction-return=keep' '-fno-asynchronous-unwind-tables' '-fno-unwind-tables' '-fno-jump-tables' '-fno-tree-vectorize' '-fno-common' '-fno-ident' '-fno-optimize-sibling-calls' '-fno-reorder-blocks-and-partition' '-fno-partial-inlining' '-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' '-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' '-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' '-frandom-seed=rp11-launch' '--param=ggc-min-expand=100' '--param=ggc-min-heapsize=131072' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' '-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'",
             "OFFLOAD_TARGET_DEFAULT=1",
             "OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa"
           ],
@@ -2706,9 +2716,9 @@
       ]
     },
     "cc1_v_baseline": {
-      "byte_length": 5120,
+      "byte_length": 5305,
       "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
-      "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+      "sha256": "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a"
     },
     "contract": "rp11-launch/1",
     "control": {
@@ -2836,7 +2846,7 @@
       "launch_s": "b37280d53eecce690210021a793cde5d5b73a8f9c027d187e4bd1338e7e27706",
       "listing": "8c1fedee1c717b17a14d7c746669ffcec3c41d155e5cc4c63d24a5f2527cd188",
       "map": "5a8b058084edcb1e3f6f7ddea13b60da6af71102300ea276225ae4ab0e8bc34d",
-      "toolchain_lock": "f92380735e32f9d7747834d684657d4087f14c7a22c0178703a50a70eef784cf"
+      "toolchain_lock": "f704c0f4f0ddbe9de92da9812dde6929f681ba778263746a603bde8b4b3563d6"
     },
     "expected_stack_depth": 223,
     "independent_decoding": {
@@ -3122,11 +3132,11 @@
     },
     {
       "path": "tools/phase_5_0_evidence/review_manifest.py",
-      "sha256": "311f1d0300e3e98f5b3b33ea6c4598bfc744ad8e9ba61bf0d2adb2d62f5c1844"
+      "sha256": "09983ff782eef3be420994f165e3168eee9682f6da8481e0427a31a481007dd7"
     },
     {
       "path": "tools/phase_5_0_evidence/rp11_launch.py",
-      "sha256": "5a2f4694983619d6a3fb7ac3965e4415dd114fb7504003d91abb6071d189c2b1"
+      "sha256": "0d4ece459dbffac790e3a1f7d61e0c83efe270825e0d874cded48e759f626a08"
     },
     {
       "path": "tools/phase_5_0_evidence/sudoers.py",
@@ -3146,7 +3156,7 @@
     },
     {
       "path": "infra/rp11-launch/build.sh",
-      "sha256": "7c8fc6da367e9fa9a8bb639ace7aa19da41db306fd62757ab86f0716b1b738e0"
+      "sha256": "87e318cdd77f1fae0a354f707d9fe32d163ba48b708bb455c670f6d4d333cfd1"
     },
     {
       "path": "infra/rp11-launch/expected.sha256",
@@ -3174,11 +3184,11 @@
     },
     {
       "path": "infra/rp11-launch/toolchain.lock",
-      "sha256": "f92380735e32f9d7747834d684657d4087f14c7a22c0178703a50a70eef784cf"
+      "sha256": "f704c0f4f0ddbe9de92da9812dde6929f681ba778263746a603bde8b4b3563d6"
     },
     {
       "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
-      "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+      "sha256": "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a"
     }
   ],
   "steps": [

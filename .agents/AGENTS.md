@@ -601,6 +601,24 @@ for environment specifications, safe synchronization procedures, and test execut
 
 ## Contributor and agent workflow
 
+### Gemini assignment invocation
+
+Every assignment to Gemini must be handed to Gemini with this `/goal`
+invocation, replacing `<PATH_TO_ASSIGNMENT>` with the repository-relative path
+of the active assignment:
+
+```text
+/goal Execute the active assignment in <PATH_TO_ASSIGNMENT>. Proceed autonomously through every authorized step in order until the defined terminal state (PASS, INVALID RUN, or HARD STOP). Do not post intermediate progress updates, do not yield turns for user confirmation on background tasks, and do not stop until the final handback and closing record are fully written.
+```
+
+The assignment author or activator must include the resolved invocation in the
+handoff or activation record so that it can be copied without interpretation.
+This instruction prevents conversational pauses; it does not broaden the
+assignment, authorize an omitted command, suppress a genuine tool-permission
+prompt, permit a retry or remediation, or override any HARD STOP. At the first
+defined terminal state Gemini writes the complete prescribed handback and
+closing record, then stops.
+
 ### Current-state documents and archives
 
 `docs/project-management/status.md` and `docs/review/Handover information` are

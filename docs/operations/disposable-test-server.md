@@ -1,13 +1,15 @@
 # Disposable Linux Test Server
 
-**Restriction after baseline-contract acceptance, 2026-10-02 — no action on
-this server is authorized.** B1 through B1-R4 are complete and accepted, but no
-fresh R-5 assignment exists. SSH, rsync, `oracle-test` access, provisioning,
-build, test, verifier and every other command on this server remain forbidden
-until a separately reviewed assignment is explicitly accepted.
-[Acceptance decision](../review/project-review-2026-10-02-p5-r5-rp11-b1-r4-acceptance.md).
+**Active restriction, 2026-10-04 — no host authority.** Gemini's accepted R5
+runner invocation ended in a complete PASS and its authority is consumed.
+Peter accepts the static-launcher R-5 result and records D9-3 Complete. The
+retained R4 and R5 paths must not be inspected, changed or deleted without a
+new explicit decision. No retry, remediation, cleanup, package, privilege,
+configuration, service/database, operational, secrets, commit or push action
+is authorized for any agent.
+[Acceptance](../review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-pass-acceptance.md).
 
-Historical restriction banners are preserved in [`disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md`](disposable-test-server-through-2026-10-02-r5-b1-r4-acceptance.md) and the earlier snapshots indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
+The immediately superseded restriction is preserved in [`disposable-test-server-through-2026-10-02-fresh-r5-procedure-acceptance.md`](disposable-test-server-through-2026-10-02-fresh-r5-procedure-acceptance.md); earlier snapshots are indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the

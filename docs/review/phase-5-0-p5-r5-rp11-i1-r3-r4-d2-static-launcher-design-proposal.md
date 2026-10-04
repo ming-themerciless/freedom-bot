@@ -862,6 +862,26 @@ value is invented here.
 
 #### 5.3.3 The flag vectors *(amended D2-R1)*
 
+**Dated determinism amendment, 2026-10-04 (`FRESH-R4-HS-1`).** The accepted
+compile vector below is extended immediately after
+`-frandom-seed=rp11-launch` by exactly these two canonical tokens:
+
+```text
+--param=ggc-min-expand=100 --param=ggc-min-heapsize=131072
+```
+
+GCC otherwise selects these garbage-collector values from outer-host memory
+and resource limits and prints them in the exact-compared `cc1.v` diagnostic.
+The fixed values remove that uncontrolled input while preserving every
+normative artifact digest. They occur exactly once in both the driver and
+`cc1` vectors; IC-1 refuses absence, duplication, another spelling or value,
+a later override and a response-file argument. `cc1check.py` remains unchanged:
+byte equality is still the only PASS. The complete audit and evidence are in
+the [remediation handback](phase-5-0-p5-r5-rp11-fresh-r4-cc1-determinism-remediation-handback.md)
+and [independent review](project-review-2026-10-04-p5-r5-rp11-fresh-r4-cc1-determinism-remediation.md).
+This dated note amends the transcribed vector and the resource-input row of
+§5.3.4 without rewriting the historical D2/D2-R1/D2-R2 text.
+
 Compiling *(amended D2-R2)* `launch.c`, the only C translation unit, which
 includes `select.h`, to assembly (`-S -o build-out/launch.s`):
 

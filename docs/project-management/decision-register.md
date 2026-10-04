@@ -1,5 +1,34 @@
 # Decision register
 
+## Decision — static-launcher R-5 accepted; D9-3 complete — 2026-10-04
+
+Peter Duscha accepts Gemini's complete R5 PASS and Codex's independent review.
+The static-launcher independent-rebuild procedure R-5 is accepted and D9-3 is
+Complete. This does not close the distinct package RAID item `P5.0-R5`, which
+remains Blocking, or any later installed-host/operational gate. No host,
+cleanup or H-1 authority exists.
+[Decision](../review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-pass-acceptance.md).
+
+## Decision — determinism remediation and R5 accepted; Gemini activated — 2026-10-04
+
+Peter Duscha accepts the reviewed `cc1.v` determinism remediation, closes
+`FRESH-R4-HS-1`, accepts the dated D2 amendment, confirms the R5 identifiers,
+retains the R4 evidence without cleanup and leaves S10 unchanged. Focused
+commit `4cbdf0b6ecabad7484e64ff0485587a17f55dcaf` satisfies the controlled-file
+precondition. The exact R5 assignment is accepted and Gemini is activated for
+one digest-pinned runner invocation. No other host or cleanup authority exists.
+[Decision](../review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-acceptance-and-gemini-activation.md).
+
+## Decision — R4 HARD STOP accepted; staged determinism remediation — 2026-10-04
+
+Peter Duscha accepts Gemini's consumed R4 HARD STOP, Codex's independent review
+and open Important finding `FRESH-R4-HS-1`. Claude is assigned repository-only
+remediation of the complete `cc1.v` determinism contract. Codex independently
+reviews the return. A successor Gemini run is conditionally the next stage only
+after a clean review and an exact digest-pinned assignment and activation
+record; no current host authority exists.
+[Decision](../review/project-review-2026-10-04-p5-r5-rp11-fresh-r4-hard-stop-acceptance-and-remediation-authority.md).
+
 ## Decision — B1-R4 and version-30 baseline contract accepted — 2026-10-02
 
 Peter Duscha accepts Gemini's B1-R4 record remediation and corrected B1-R3

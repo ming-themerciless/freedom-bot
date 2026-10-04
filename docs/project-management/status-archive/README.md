@@ -14,6 +14,8 @@ authority or disposition.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`status-through-2026-10-02-fresh-r5-procedure-acceptance.md`](../status-through-2026-10-02-fresh-r5-procedure-acceptance.md) | Complete former current status after procedure acceptance and immediately before Gemini activation | `b9ce65a23aca1c858333dd96911baa6e430cd5d40b239bc368475170320a82ab` |
+| [`status-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md`](../status-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md) | Complete former current status immediately before the fresh R-5 procedure was accepted, while executor appointment remained pending | `9b91deb969cf63983cd30062b5f4c66f4fb4936520b1b7f4e51a969bf12ba81d` |
 | [`status-through-2026-10-02-r5-b1-r4-acceptance.md`](../status-through-2026-10-02-r5-b1-r4-acceptance.md) | Verbatim displaced B1-R3 current-action status immediately after B1-R4 and baseline-contract acceptance | `393de86eeb2b8b61fc113fe76099ec3ebeb03da172bcc1758f30636c76b682ad` |
 | [`status-through-2026-09-24.md`](../status-through-2026-09-24.md) | Complete former `docs/project-management/status.md`, including all current, superseded and historical blocks present at archival | `6842e6132575769565f2941e5d9c68fdf7617a161ecd5894f5485557764dc9c1` |
 | [`status-through-2026-09-28.md`](../status-through-2026-09-28.md) | Complete former `docs/project-management/status.md` immediately before the Option-1 decision and R2 review disposition were made current | `c992d327179a2a693b3a7a26cb228a2f4b42b9c95681c868bc25bcc8c0217266` |

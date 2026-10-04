@@ -2548,15 +2548,211 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current action, 2026-10-02 — Peter Duscha accepted B1-R4 and the corrected
-B1-R3 record on Codex's independent recommendation. `B1-R3-1` and `B1-R3-2`
-are Closed as remediated. Manifest version 30 and aggregate digest
-`28a4f4c2b7596e9042f6b12a34f5684b3499a3fafd997e306fe25f6798e8a526`
-are the accepted baseline-contract review input. The diagnostic fixture remains
-5,120 bytes with SHA-256 `b77f92dc...905b`. The next controlled step is a newly
-prepared, independently reviewed and explicitly accepted R-5 assignment; no
-fresh execution authority exists.
-([acceptance](review/project-review-2026-10-02-p5-r5-rp11-b1-r4-acceptance.md)).**
+**Current action, 2026-10-04 — Peter Duscha accepts Gemini's complete R5 PASS
+and Codex's independent review. The static-launcher independent-rebuild step
+R-5 is accepted and D9-3 is Complete. The distinct package RAID item
+`P5.0-R5` remains Blocking. PO-9, PO-14, D9-4, H-1, RP-11 wiring,
+`plan.is_executable` and Package 5.0 readiness remain open. No host or cleanup
+authority is active. The next controlled step is a separate decision on
+preparation of H-1 installed-host evidence.**
+
+[Acceptance](review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-pass-acceptance.md).
+
+**Superseded current action, 2026-10-04 — Gemini's one-run R5 authority is consumed.
+Codex independently validates the handback as a complete PASS with no Blocking,
+Important or Optional finding and recommends accepting static-launcher R-5 and treating D9-3
+as complete. This establishes reproducibility/build-environment evidence only;
+PO-9, PO-14, D9-4, H-1, RP-11 wiring, `plan.is_executable` and Package 5.0
+readiness remain open. No host or cleanup authority is active; retained R4 and
+R5 paths remain untouched pending Peter Duscha's decision.**
+
+[Independent review](review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-pass.md).
+
+**Superseded current action, 2026-10-04 — Peter Duscha accepts the reviewed `cc1.v`
+determinism remediation, closes `FRESH-R4-HS-1`, accepts the dated D2
+amendment and exact R5 assignment, confirms its identifiers, retains the R4
+remote evidence without cleanup and leaves S10 unchanged. Focused commit
+`4cbdf0b6ecabad7484e64ff0485587a17f55dcaf` contains exactly the 17
+reviewed controlled files. Gemini is activated for one digest-pinned R5 runner
+invocation. R-5 remains Blocking and unaccepted pending the result and
+independent review; RP-11 remains unwired and unmet; `plan.is_executable=False`;
+PO-9 and PO-14 remain open; Package 5.0 remains not ready.**
+
+[Acceptance and activation](review/project-review-2026-10-04-p5-r5-rp11-fresh-r5-acceptance-and-gemini-activation.md)
+· [accepted R5 assignment](review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r5.md).
+
+**Superseded current action, 2026-10-04 — Claude returned the complete `cc1.v`
+determinism remediation and draft R5 assignment. Codex independently found no
+Blocking, Important or Optional implementation issue and recommends closing
+`FRESH-R4-HS-1`, confirming the proposed R5 identifiers, retaining R4 remote
+evidence, leaving S10 unchanged, adding a dated D2 design amendment and
+authorizing one focused controlled-file commit. No host, cleanup or R-5
+authority is active pending Peter Duscha's decisions and the required
+acceptance/activation record. R-5 remains Blocking and unaccepted; RP-11
+remains unwired and unmet; `plan.is_executable=False`; PO-9 and PO-14 remain
+open; Package 5.0 remains not ready.**
+
+[Independent review](review/project-review-2026-10-04-p5-r5-rp11-fresh-r4-cc1-determinism-remediation.md).
+
+**Superseded current action, 2026-10-04 — Peter Duscha accepts Gemini's valid consumed R4
+HARD STOP, Codex's independent review and open Important finding
+`FRESH-R4-HS-1`. Claude is assigned a repository-only audit and remediation of
+the complete `cc1.v` determinism contract, preserving exact comparison and the
+normative launcher outputs. Codex independently reviews the return. A successor
+Gemini run is conditionally next only after a clean review and a complete
+digest-pinned assignment and activation record; no host authority is active
+now. R-5 remains Blocking and unaccepted; RP-11 remains unwired and unmet;
+`plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0 remains not
+ready.**
+
+[Acceptance and staged authority](review/project-review-2026-10-04-p5-r5-rp11-fresh-r4-hard-stop-acceptance-and-remediation-authority.md)
+· [Claude prompt](review/phase-5-0-p5-r5-rp11-fresh-r4-cc1-determinism-remediation-claude-prompt.md).
+
+**Superseded current action, 2026-10-04 — Gemini's accepted R4 invocation is complete and
+consumed. Codex independently confirms a valid, correctly closed S9 HARD STOP.
+The same-invocation R-1/R-2 gate and all four normative outputs plus the listing
+passed byte-for-byte; only GCC's host-resource-selected diagnostic GGC values
+differed (`100/131072` versus `94/2169`). Important finding `FRESH-R4-HS-1`
+records the uncontrolled input in the exact `cc1.v` contract. Codex recommends
+accepting the terminal state and authorizing repository-only Claude remediation
+to pin both GGC parameters as explicit reviewed compiler inputs while preserving
+exact byte equality. No host, cleanup, retry, remediation or new-run authority
+is active. R-5 remains Blocking and unaccepted; RP-11 remains unwired and unmet;
+`plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0 remains not
+ready.**
+
+[Independent review](review/project-review-2026-10-04-p5-r5-rp11-fresh-r4-hard-stop.md).
+
+**Superseded current action, 2026-10-04 — Peter Duscha accepts the clean R4-R1 re-review,
+closes `R4-D1-1`, confirms U-14 … U-17 and the proposed identifiers, and
+activates Gemini for exactly one digest-pinned runner invocation. Focused
+commit `d216cb1b93125c83e13d43b989fd94c2ded01569` contains exactly the 19
+controlled runner/resource/test files; controlled paths match `HEAD`, pins
+match and 75 focused tests pass. Only the assignment's single runner command
+and same-task Antigravity waiting are authorized. R-5 remains Blocking and
+unaccepted pending the result and review; RP-11 remains unwired and unmet;
+`plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0 remains not
+ready.**
+
+[Acceptance and activation](review/project-review-2026-10-04-p5-r5-rp11-r4-r1-acceptance-and-gemini-activation.md)
+· [accepted R4-R1 assignment](review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r4.md).
+
+**Superseded current action, 2026-10-04 — Codex independently re-reviewed Claude's R4-R1
+wait-contract remediation, reproduced 75 passing focused tests and found no
+remaining finding. `R4-D1-1` is recommended Closed as remediated. The 19
+controlled runner/resource/test files remain untracked and must be committed
+at their pinned bytes before R4 can pass S1.4. Peter's focused commit decision,
+then R4-R1 acceptance and Gemini activation, are required as separate recorded
+steps. No host access or new run is authorized. R-5 remains Blocking and
+unaccepted; RP-11 remains unwired and unmet; `plan.is_executable=False`; PO-9
+and PO-14 remain open; Package 5.0 remains not ready.**
+
+[Independent re-review](review/project-review-2026-10-04-p5-r5-rp11-antigravity-delivery-redesign-r1.md).
+
+**Superseded current action, 2026-10-04 — Claude returned a digest-pinned non-interactive
+runner, 17 static command resources, 75 focused tests and the R4 successor
+proposal. Codex independently reproduced the focused suite and found one
+Important workflow issue, `R4-D1-1`: R4 instructs Gemini to stop before the
+runner's terminal state if Antigravity returns early. Claude is assigned a
+narrow repository-only remediation permitting same-task Antigravity waiting
+without input, EOF, signal, reinvocation or user yield. No host access or new
+run is authorized. R-5 remains Blocking and unaccepted; RP-11 remains unwired
+and unmet; `plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0
+remains not ready.**
+
+[Independent review](review/project-review-2026-10-04-p5-r5-rp11-antigravity-delivery-redesign.md)
+· [R4-R1 prompt](review/phase-5-0-p5-r5-rp11-antigravity-delivery-redesign-r1-claude-prompt.md).
+
+**Superseded current action, 2026-10-03 — Peter Duscha accepts Gemini's consumed R3 HARD
+STOP and Important findings `FRESH-R3-HS-1` and `FRESH-R3-HS-2`. Claude is
+assigned repository-only design, implementation and local testing of an
+Antigravity-compatible, non-interactive, digest-pinned runner and complete
+successor assignment. It must preserve R3's substantive procedure, eliminate
+heredoc/EOF dependence and guarantee closeout after the first terminal
+condition. No host access or new run is authorized. R-5 remains Blocking and
+unaccepted; RP-11 remains unwired and unmet; `plan.is_executable=False`; PO-9
+and PO-14 remain open; Package 5.0 remains not ready.**
+
+[Acceptance and redesign authority](review/project-review-2026-10-03-p5-r5-rp11-fresh-r3-hard-stop-acceptance.md)
+· [Claude redesign prompt](review/phase-5-0-p5-r5-rp11-antigravity-delivery-redesign-claude-prompt.md).
+
+**Superseded current action, 2026-10-03 — Gemini's accepted R3 run ended at a Step 1
+missing-evidence HARD STOP before any remote action. Antigravity's background
+terminal did not execute or emit the prescribed heredoc and returned exit 0
+after an interactive EOF; the mandatory S12.start evidence is also absent.
+Codex records Important findings `FRESH-R3-HS-1` and `FRESH-R3-HS-2`. The
+activation is consumed and no host access, retry or new run is authorized.
+The next controlled decision is whether to accept the HARD STOP and authorize
+a narrow Antigravity-compatible command-delivery redesign. R-5 remains
+Blocking and unaccepted; RP-11 remains unwired and unmet;
+`plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0 remains
+not ready.**
+
+[R3 handback](review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r3-handback.md)
+· [independent review](review/project-review-2026-10-03-p5-r5-rp11-fresh-r3-hard-stop.md).
+
+**Superseded current action, 2026-10-03 — Peter Duscha accepts the independently reviewed
+R3 successor assignment, including its strict S1.3 evidence rule, confirms
+work ID `C-P5.0-R5-RP11-FRESH-R5-R3` and the R3 handback path, and activates
+Gemini for exactly one wholly new bounded run using outer-host `/var/tmp`.
+Only the assignment's exact actions are authorized; there is no retry,
+remediation or cleanup authority. R-5 remains Blocking and unaccepted pending
+the result, independent review and a further maintainer decision; RP-11
+remains unwired and unmet; `plan.is_executable=False`; PO-9 and PO-14 remain
+open; Package 5.0 remains not ready.**
+
+[Acceptance and activation](review/project-review-2026-10-03-p5-r5-rp11-fresh-assignment-r3-acceptance-and-gemini-activation.md)
+· [accepted assignment](review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r3.md).
+
+**Superseded current action, 2026-10-03 — Claude returned the standalone R3 successor
+assignment at SHA-256
+`9959d93da7fafb194f942657a3851e83652dc8e1b9ec332b0fa5abd7abb72909`
+and 109,644 bytes. Codex independently found no Blocking, Important or
+Optional issue. Peter Duscha may now accept the strict S1.3 evidence rule,
+confirm work ID `C-P5.0-R5-RP11-FRESH-R5-R3` and the proposed handback path,
+and activate Gemini for exactly one run. No host authority is active until
+that decision is recorded. R-5 remains Blocking and unaccepted; RP-11 remains
+unwired and unmet; `plan.is_executable=False`; PO-9 and PO-14 remain open;
+Package 5.0 remains not ready.**
+
+[R3 proposal](review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r3.md)
+· [independent review](review/project-review-2026-10-03-p5-r5-rp11-fresh-assignment-r3.md).
+
+**Superseded current action, 2026-10-03 — Codex completed the authorized diagnosis and
+cleanup. `/tmp` is a separate 475.4 MiB tmpfs; the 39 GiB free root filesystem
+does not enlarge it. The six retained stopped-run paths are absent and host
+authority is exhausted. Claude is assigned repository-only preparation of a
+standalone successor assignment using outer-host `/var/tmp`, a 4 GiB preflight
+floor and complete Step 1 status output. Codex independent review and
+maintainer activation are required before the authorized new Gemini run. R-5
+remains Blocking and unaccepted; RP-11 remains unwired and unmet;
+`plan.is_executable=False`; PO-9 and PO-14 remain open; Package 5.0 remains not
+ready.**
+
+[Cleanup result](review/phase-5-0-p5-r5-rp11-fresh-r5-cleanup-result.md)
+· [Claude preparation prompt](review/phase-5-0-p5-r5-rp11-fresh-r5-new-run-assignment-preparation-claude-prompt.md).
+
+**Superseded current action, 2026-10-03 — Gemini's accepted fresh-R-5 invocation ended at
+a valid Step 5 HARD STOP (`Errno 122`) while provisioning beneath the separate
+approximately 475 MiB `/tmp` tmpfs. Peter Duscha accepts Codex's independent
+review, authorizes bounded inspection and deletion of exactly the six retained
+run paths, and authorizes preparation of one wholly new Gemini run after the
+result is incorporated into an exact assignment. R-5 remains Blocking and
+unaccepted; RP-11 remains unwired and unmet; `plan.is_executable=False`; PO-9
+and PO-14 remain open; Package 5.0 remains not ready.**
+
+[Decision and cleanup authority](review/project-review-2026-10-03-p5-r5-rp11-fresh-r5-hard-stop-acceptance-and-cleanup-authority.md)
+· [independent review](review/project-review-2026-10-03-p5-r5-rp11-fresh-r5-hard-stop.md).
+
+**Superseded current action, 2026-10-02 — Peter Duscha accepted Claude's fresh-assignment
+R2 remediation on Codex's independent recommendation. `FRESH-A1-R2-1` is
+Closed as remediated, and the fresh R-5 assignment at SHA-256
+`f5b4c4e935817e7a68df3c8d1b6f8cc78617e0db6622a86a45ea38c1f0c18f94`
+is accepted as the execution procedure. Peter Duscha names Gemini as the
+independent executor for work ID `C-P5.0-R5-RP11-FRESH-R5` and confirms the
+fresh-R-5 handback filename. The next controlled step is Gemini's one bounded
+run using the exact accepted commands and wholly fresh resources
+([activation](review/project-review-2026-10-02-p5-r5-rp11-fresh-assignment-gemini-activation.md)).**
 
 R4 recovery found no historical artifact and created no fixture. R4-R1 bounded
 the search claims and corrected the unavailable byte length; Codex found no
@@ -2604,13 +2800,12 @@ decode the actual `.text` at D9-2 using its own decoder or byte-by-byte manual
 derivation prepared without reading XD's table; exercising XD alone is not
 sufficient.
 
-`I7-R1-1` is Closed as remediated and D-2 is accepted as implemented. R-5
-must actually vary and record at least one of HA-1 … HA-3, and every
-unexplained difference is a hard stop. Codex has performed XD-9 and XD-11 for
-the unchanged image. No R-5 rerun is authorized, and no installation, H-1/H-2,
-PO-14, RP-11 wiring or operational authority exists. R-5 remains stopped,
-Blocking and unaccepted; PO-9 and PO-14 remain open; RP-11 remains unwired and
-unmet; P5.0-R5 remains Blocking; `plan.is_executable=False`; Package 5.0
-remains not ready.
+`I7-R1-1` is Closed as remediated and D-2 is accepted as implemented. The
+accepted fresh R-5 run varied and recorded qualifying HA-1 and HA-2 conditions,
+and its exact normative outputs passed. Static-launcher R-5 is accepted and
+D9-3 is Complete. No installation, retry, remediation, H-1/H-2, PO-14,
+RP-11 wiring or operational authority exists. PO-9 and PO-14 remain open;
+RP-11 remains unwired and unmet; the distinct package RAID item P5.0-R5
+remains Blocking; `plan.is_executable=False`; Package 5.0 remains not ready.
 
-Historical immediate-action text is preserved in [`implementation-plan-through-2026-10-02-r5-b1-r4-acceptance.md`](implementation-plan-through-2026-10-02-r5-b1-r4-acceptance.md) and the earlier snapshots indexed under [`implementation-plan-archive/`](implementation-plan-archive/README.md).
+The immediately superseded §20 text is preserved in [`implementation-plan-through-2026-10-02-fresh-r5-procedure-acceptance.md`](implementation-plan-through-2026-10-02-fresh-r5-procedure-acceptance.md); earlier snapshots are indexed under [`implementation-plan-archive/`](implementation-plan-archive/README.md).

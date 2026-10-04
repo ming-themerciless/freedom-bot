@@ -1749,6 +1749,11 @@ surface.
 
 ## Package 5.0 readiness — 2026-08-29
 
+**Naming clarification, 2026-10-04.** The accepted static-launcher
+independent-rebuild procedure **R-5 / D9-3** is distinct from the package RAID
+item **P5.0-R5** below. Acceptance of the former does not close or downgrade the
+latter; **P5.0-R5 remains Blocking** until its own exit criteria are satisfied.
+
 ### Independent design-review findings
 
 | ID | Class | Finding | Required remediation | State |

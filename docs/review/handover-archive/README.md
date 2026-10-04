@@ -14,6 +14,8 @@ assignment or operational authority.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`Handover-information-through-2026-10-02-fresh-r5-procedure-acceptance.md`](../Handover-information-through-2026-10-02-fresh-r5-procedure-acceptance.md) | Complete former active handover after procedure acceptance and immediately before Gemini activation | `2cd3ae6b5f996a3398012fc25959fa9f1ecbce2b45571279aa25985a007c6f66` |
+| [`Handover-information-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md`](../Handover-information-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md) | Complete former active handover immediately before the fresh R-5 procedure was accepted, while executor appointment remained pending | `17eaa26ad4cbda4ff77436729fae72b3968489ba05cae3abc1a85d8d40f962c1` |
 | [`Handover-information-through-2026-10-02-r5-b1-r4-acceptance.md`](../Handover-information-through-2026-10-02-r5-b1-r4-acceptance.md) | Verbatim displaced B1-R3 current-action block immediately after B1-R4 and baseline-contract acceptance | `6a202ca5ac75eeb4974702b1534a54dab681602dca69f9f6e3d0eec31856a213` |
 | [`Handover-information-through-2026-09-24.md`](../Handover-information-through-2026-09-24.md) | Complete former `docs/review/Handover information`, including all active, consumed, superseded and historical blocks present at archival | `bf2f4f68064242bcb33efa361577f893db3ba2b2197953ae1f590a9a1b620aaf` |
 | [`Handover-information-through-2026-09-28.md`](../Handover-information-through-2026-09-28.md) | Complete former `docs/review/Handover information` immediately before the Option-1 decision and R2 review disposition were made current | `bbffec76f2bc787eebfe3be9d459bc6a017d6f28713161ee21ff015be0e7fc6a` |
