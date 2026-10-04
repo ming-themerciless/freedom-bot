@@ -858,7 +858,12 @@ def test_the_manifest_pins_whether_a_contract_resolves_anything(plan) -> None:
     # **C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R3, 2026-10-01.** It moves to 30: the synthetic
     # placeholder verification bypass is removed (finding B1-R3-1); every supplied
     # baseline fixture value must satisfy the length (5120) and SHA-256 contract.
-    assert body["manifest_version"] == MANIFEST_VERSION == 30
+    #
+    # **C-P5.0-R5-RP11-FRESH-R5-R4-D1, 2026-10-04.** It moves to 31: `build.sh`
+    # fixes GCC's two garbage-collector parameters (finding FRESH-R4-HS-1), the
+    # section gains `compiler_fixed_params`, and the lock, IC-1 contract and
+    # re-derived 5305-byte fixture move with it. No vector moves.
+    assert body["manifest_version"] == MANIFEST_VERSION == 31
     assert body["supplied_observations"]["schema_version"] == 3
     assert "Band 7 supplied observations only" in (
         body["supplied_observations"]["importer_scope"]

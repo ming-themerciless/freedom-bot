@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Deterministic, non-interactive runner for the fresh R-5 successor R4 assignment.
+"""Deterministic, non-interactive runner for the fresh R-5 successor R5 assignment.
 
 The accepted R3 procedure fed each block to a shell through a terminal heredoc.
 Antigravity's background terminal never delivered that input and returned exit
 0 only after an interactive EOF (FRESH-R3-HS-1); the mandatory S12.start
 closeout was then skipped (FRESH-R3-HS-2). This runner removes the terminal
 from the delivery path without changing a command.
+
+Under R5 (C-P5.0-R5-RP11-FRESH-R5-R4-D1, finding FRESH-R4-HS-1) the runner and
+blocks are unchanged in behaviour. Only the identifiers, the consumed run list,
+the pinned launcher digests the blocks carry and the `cc1.v` fixture's length
+and digest move, because `build.sh` now fixes GCC's two garbage-collector
+parameters and the fixture was re-derived.
 
 * Every block is a pinned static resource under ``tools/r5_runner/blocks/``.
   Its bytes, with only ``<RUN>`` substituted, are written to the standard input
@@ -42,21 +48,24 @@ from types import FrameType
 from typing import Callable, Iterable, Protocol, Sequence
 
 # ---------------------------------------------------------------------------
-# Fixed identifiers (assignment R4 §3.5, §5, §12)
+# Fixed identifiers (assignment R5 §3.5, §5, §12)
 # ---------------------------------------------------------------------------
 
 REPOSITORY_ROOT = Path("/opt/freedom-blades/platform")
 RUNNER = "tools/r5_runner/r5run.py"
 RESOURCE_DIRECTORY = "tools/r5_runner/blocks"
-ASSIGNMENT = "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r4.md"
-HANDBACK = "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r4-handback.md"
-WORK_ID = "C-P5.0-R5-RP11-FRESH-R5-R4"
+ASSIGNMENT = "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r5.md"
+HANDBACK = "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r5-handback.md"
+WORK_ID = "C-P5.0-R5-RP11-FRESH-R5-R5"
+#: The assignment revision named in the handback and in the runner's messages.
+REVISION = "R5"
 EXECUTOR = "Gemini"
 
-#: Run identifiers that are consumed and may never be reused (assignment R4 §5).
+#: Run identifiers that are consumed and may never be reused (assignment R5 §5).
 CONSUMED_RUN_IDS = (
     "p5-r5-fresh-20261002T184800Z-7e9b2d41",
     "p5-r5-fresh-20261003T191400Z-9c3f71e2",
+    "p5-r5-fresh-20261003T234834Z-4fc93046",
 )
 RUN_ID_PATTERN = re.compile(r"p5-r5-fresh-\d{8}T\d{6}Z-[0-9a-f]{8}")
 
@@ -64,7 +73,7 @@ RUN_ID_PATTERN = re.compile(r"p5-r5-fresh-\d{8}T\d{6}Z-[0-9a-f]{8}")
 #: whose own identity is supplied on the command line from the assignment.
 PINS: dict[str, tuple[str, int]] = {
     "tools/r5_runner/blocks/s01.sh": (
-        "2900b9f43e114cc30571f4b2db8f6c46828a6e932330096eb29c4ecbff57ea0d",
+        "119e3d924fe4020588311df6404f927fdf356f47d4cc709bf8e74d13a23c81fd",
         11516,
     ),
     "tools/r5_runner/blocks/s02.sh": (
@@ -92,11 +101,11 @@ PINS: dict[str, tuple[str, int]] = {
         232,
     ),
     "tools/r5_runner/blocks/s04c.sh": (
-        "1c8b06263214b29e6675b23b2fee3a203ea0a31018485f113e2abebf8de63a84",
+        "4110a1c52f28f8996fde2d674716749c3be79dba572c193839279a79c2c814b7",
         4420,
     ),
     "tools/r5_runner/blocks/s04d.sh": (
-        "8912189776ffa2f9644e24e297e73f9598b0137035afbaaa91c24e266e485331",
+        "1cbd8aca86b11d0405f657b42ca36a14898ddca2694f7e5912cb6aae69ab06ea",
         8708,
     ),
     "tools/r5_runner/blocks/s05.sh": (
@@ -120,7 +129,7 @@ PINS: dict[str, tuple[str, int]] = {
         2029,
     ),
     "tools/r5_runner/blocks/s11.sh": (
-        "1431cb617b27a2c978b337203973674723dd8ede6aa6ae2510a00a9341400ef4",
+        "1a0004523890ce3d19be1fd87353bbc5ea692d9a65e07a431045f819290e8bc2",
         10066,
     ),
     "tools/r5_runner/blocks/s12-start.sh": (
@@ -128,12 +137,12 @@ PINS: dict[str, tuple[str, int]] = {
         240,
     ),
     "tools/r5_runner/blocks/s12-end.sh": (
-        "eda40b93b105e04fa1d0c52d950120a85100eaa1d0dd71ddedd1f28e1bbf16aa",
+        "9aaf1069e4637e3b342712cb33817c4282c1fa8efef8296f54974c6dd59d46db",
         1283,
     ),
     "tests/test_r5_runner.py": (
-        "6bc5320c389f4f816297782436d0f4c97d084ae6dbefdb983e3d2255f26b448f",
-        30835,
+        "95647bb82646550ffd09e4a693136a6ff1dac20bbfd137cde017ed4544a3154f",
+        35674,
     ),
 }
 
@@ -141,7 +150,9 @@ LOCAL_BASH = ("/bin/bash", "--noprofile", "--norc", "-s")
 REMOTE_BASH = ("ssh", "oracle-test", "/bin/bash", "--noprofile", "--norc", "-s")
 
 TIMESTAMP = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"
-BASELINE_SHA256 = "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+#: The `cc1.v` fixture re-derived under FRESH-R4-HS-1 (assignment R5 §3.1).
+BASELINE_SHA256 = "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a"
+BASELINE_LENGTH = 5305
 
 EXIT_PASS = 0
 EXIT_HARD_STOP = 1
@@ -174,7 +185,7 @@ class Kind(enum.Enum):
 
 @dataclasses.dataclass(frozen=True)
 class Invocation:
-    """One separately invoked process of assignment R4 §6, in plan order."""
+    """One separately invoked process of assignment R5 §6, in plan order."""
 
     scope: str
     resource: str
@@ -637,8 +648,8 @@ def _s5_root_mode(record: Record, run_id: str) -> list[str]:
 def _s9_exact(record: Record) -> list[str]:
     problems = []
     length = _segment(record.lines, "S9.start date exit=0", "S9.1 cc1v-length exit=0")
-    if length != ["5120"]:
-        problems.append(f"S9.1 printed {length!r}, not ['5120']")
+    if length != [str(BASELINE_LENGTH)]:
+        problems.append(f"S9.1 printed {length!r}, not [{str(BASELINE_LENGTH)!r}]")
     for line in (
         f"actual_sha256:   {BASELINE_SHA256}",
         "is_identical:    True",
@@ -707,7 +718,7 @@ class RunResult:
 
 
 class Runner:
-    """One run of assignment R4 §6, from the attestation to the S12.end block."""
+    """One run of assignment R5 §6, from the attestation to the S12.end block."""
 
     def __init__(
         self,
@@ -864,7 +875,7 @@ class Runner:
             return [
                 Condition(
                     scope, Verdict.HARD_STOP,
-                    f"{scope} exited 0 but its required evidence is missing (R4 §8.3)",
+                    f"{scope} exited 0 but its required evidence is missing ({REVISION} §8.3)",
                     "; ".join(gaps),
                 )
             ]
@@ -958,7 +969,7 @@ def _fence(text: str) -> str:
 ATTESTATION = """\
 ## 1. Executor identity and §2 independence attestation
 
-I, {executor}, execute this run under assignment R4 and make this attestation
+I, {executor}, execute this run under assignment {revision} and make this attestation
 by invoking the runner with `--executor {executor} --attest-independence`,
 before step 1 and before any host action:
 
@@ -974,10 +985,13 @@ before step 1 and before any host action:
    (`/tmp/p5-b1-repro-20261001t190454z-*` on the repository host), my stopped
    fresh R-5 run `p5-r5-fresh-20261002T184800Z-7e9b2d41` (formerly
    `/tmp/p5-r5-fresh-20261002T184800Z-7e9b2d41-*` on `oracle-test`, deleted by
-   Codex on 2026-10-03; any surviving copy is equally forbidden) or my consumed
+   Codex on 2026-10-03; any surviving copy is equally forbidden), my consumed
    R3 run `p5-r5-fresh-20261003T191400Z-9c3f71e2`, which created no
-   `oracle-test` path. That includes roots, caches, checkouts, outputs, `cc1.v`
-   bytes, manifests, traces, logs and pytest temporary directories.
+   `oracle-test` path, or my consumed R4 run
+   `p5-r5-fresh-20261003T234834Z-4fc93046` (its retained
+   `/var/tmp/p5-r5-fresh-20261003T234834Z-4fc93046-*` paths on `oracle-test`).
+   That includes roots, caches, checkouts, outputs, `cc1.v` bytes, manifests,
+   traces, logs and pytest temporary directories.
 """
 
 
@@ -985,12 +999,12 @@ def render_header(identity: Identity, run_id: str, interpreter: str) -> str:
     rows = [identity.runner, *identity.files]
     table = "\n".join(f"| `{f.path}` | {f.length} | `{f.sha256}` | OK |" for f in rows)
     return (
-        "# Fresh R-5 successor R4 independent static-launcher rebuild handback\n\n"
+        f"# Fresh R-5 successor {REVISION} independent static-launcher rebuild handback\n\n"
         f"Execution work ID: `{WORK_ID}`\n"
         f"Run identifier: `{run_id}`\n"
         f"Executor: {EXECUTOR}\n"
         f"Controlling assignment: [`{ASSIGNMENT}`]({Path(ASSIGNMENT).name})\n"
-        f"Written by: `{RUNNER}` on the executor's single invocation (assignment R4 §13)\n\n"
+        f"Written by: `{RUNNER}` on the executor's single invocation (assignment {REVISION} §13)\n\n"
         "---\n\n"
         "## 0. Runner identity, verified before any host action\n\n"
         "The runner verified these files before writing this file and before step 1.\n"
@@ -999,7 +1013,7 @@ def render_header(identity: Identity, run_id: str, interpreter: str) -> str:
         f"{table}\n\n"
         f"Interpreter: `{interpreter}`; flags: isolated=1, dont_write_bytecode=1.\n\n"
         "---\n\n"
-        + ATTESTATION.format(executor=EXECUTOR, assignment=ASSIGNMENT)
+        + ATTESTATION.format(executor=EXECUTOR, assignment=ASSIGNMENT, revision=REVISION)
         + "\n---\n"
     )
 
@@ -1119,7 +1133,7 @@ def _transcript(record: Record) -> str:
             if line.startswith("sent ") or line.startswith("total size is ")
         ]
         text += (
-            "Per R4 §10.1 only the exit status and rsync's closing summary lines are "
+            f"Per {REVISION} §10.1 only the exit status and rsync's closing summary lines are "
             "embedded; the per-file list and standard error are withheld and are "
             "identified only by the digests above.\n\n"
         )
@@ -1288,7 +1302,7 @@ def render_body(runner: Runner) -> str:
         add(f"* runner note: {note}")
 
     add("\n## 13. Retained evidence and cleanup state\n")
-    add(f"* the handback `{HANDBACK}` is the evidence of record (R4 §10.1).")
+    add(f"* the handback `{HANDBACK}` is the evidence of record ({REVISION} §10.1).")
     if record("S4a") is not None:
         add(f"* step 4a ran: directories were created under `oracle-test:/var/tmp/{run_id}-*`, and"
             " `oracle-test`'s `/var/tmp` changed.")
@@ -1355,7 +1369,7 @@ USAGE = (
 
 
 def parse_arguments(argv: Sequence[str]) -> str:
-    """Accept exactly the one invocation of R4 §13; return the runner digest."""
+    """Accept exactly the one invocation of R5 §13; return the runner digest."""
     if (
         len(argv) != 5
         or argv[0:3] != ["--executor", EXECUTOR, "--attest-independence"]

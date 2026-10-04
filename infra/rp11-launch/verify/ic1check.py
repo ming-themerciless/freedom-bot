@@ -28,7 +28,12 @@ Class-E evidence tooling. It reads the pinned `strace` record of one R-2 run
    from `build.sh`'s driver vector and the pinned driver's configuration (see
    `DRIVER_ADDED_VALUES`). Each `PWD` must also be the process's traced
    working directory;
-4. nothing under `/tmp` or `/var/tmp` is created.
+4. nothing under `/tmp` or `/var/tmp` is created; and
+5. *(FRESH-R4-HS-1)* the argument vectors of the driver (X-7) and of `cc1`
+   (X-8) each carry every `FIXED_PARAMS` entry exactly once, as the one token
+   `--param=<name>=<value>`, and no other token names that parameter, so no
+   later or differently spelled `--param` can override it; and neither vector
+   carries an `@file` response-file argument.
 
 The output digests are compared with R-2's by the caller.
 """
@@ -69,7 +74,8 @@ COLLECT_GCC_OPTIONS = (
     "'-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' "
     "'-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' "
     "'-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' "
-    "'-frandom-seed=rp11-launch' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' "
+    "'-frandom-seed=rp11-launch' '--param=ggc-min-expand=100' '--param=ggc-min-heapsize=131072' "
+    "'-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' "
     "'-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'"
 )
 #: The driver's additions for `cc1`. `COLLECT_GCC` is the driver's `argv[0]`
@@ -82,6 +88,13 @@ DRIVER_ADDED_VALUES = (
     ("OFFLOAD_TARGET_DEFAULT", "1"),
     ("OFFLOAD_TARGET_NAMES", "nvptx-none:amdgcn-amdhsa"),
 )
+#: (FRESH-R4-HS-1) GCC's garbage-collector parameters, which `cc1` otherwise
+#: selects at startup from the host's memory and resource limits and prints on
+#: the `GGC heuristics:` line of `cc1.v`. `build.sh` fixes them; GCC keeps the
+#: last value given, so each must reach the driver and `cc1` exactly once.
+FIXED_PARAMS = (("ggc-min-expand", "100"), ("ggc-min-heapsize", "131072"))
+#: The executables whose argument vectors must carry `FIXED_PARAMS`.
+FIXED_PARAM_EXECUTABLES = ("/usr/bin/gcc-15", CC1)
 _SOURCE_DIRS = (("OLDPWD", "{co}"), ("PWD", "{co}/infra/rp11-launch"))
 #: The exact environment of each process class; ``{co}`` is the checkout.
 ENV_CLASSES = (
@@ -301,10 +314,12 @@ def check(trace: str, manifest_text: str, checkout: str) -> dict:
         if call == "execve":
             if ok:
                 try:
-                    path, _argv, env = parse_execve(args)
+                    path, argv, env = parse_execve(args)
                 except ValueError as exc:
                     failures.append(f"{pid}: malformed execve record ({exc})")
-                    path, env = strings[0], None
+                    path, argv, env = strings[0], None, None
+                if path in FIXED_PARAM_EXECUTABLES and argv is not None:
+                    _check_fixed_params(pid, path, argv, failures)
                 tool = EXECUTABLES.get(path)
                 if tool is None:
                     failures.append(f"{pid}: executed {path}, which is not a lock tool")
@@ -379,6 +394,22 @@ def check(trace: str, manifest_text: str, checkout: str) -> dict:
         "failures": failures,
         "verdict": "pass" if not failures else "fail",
     }
+
+
+def _check_fixed_params(pid, path, argv, failures) -> None:
+    """Each fixed parameter exactly once, as its one canonical token; no other
+    token naming it; no response file."""
+    for name, value in FIXED_PARAMS:
+        token = f"--param={name}={value}"
+        count = argv[1:].count(token)
+        if count != 1:
+            failures.append(f"{pid}: {path}: {token} appears {count} times, not once")
+        others = [a for a in argv[1:] if name in a and a != token]
+        if others:
+            failures.append(f"{pid}: {path}: {name} is also given as {others!r}")
+    responses = [a for a in argv[1:] if a.startswith("@")]
+    if responses:
+        failures.append(f"{pid}: {path}: response-file argument {responses!r}")
 
 
 def _check_env(pid, path, env, expected, cwd, failures) -> None:

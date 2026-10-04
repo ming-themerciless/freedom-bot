@@ -579,7 +579,29 @@ MANIFEST_SCHEMA = "phase-5-0-evidence-review-manifest"
 #: C-S4-3 remain unresolved, `is_executable` remains `False`, PO-9 and PO-14
 #: remain open, and RP-11 remains unwired and unmet. A digest remains review
 #: input, not execution approval.
-MANIFEST_VERSION = 30
+#: **31** is C-P5.0-R5-RP11-FRESH-R5-R4-D1, 2026-10-04, finding
+#: `FRESH-R4-HS-1`. The exact `cc1.v` contract included GCC's garbage-collector
+#: parameters, which `cc1` selects from the host's memory and resource limits.
+#: `build.sh` now fixes both (`--param=ggc-min-expand=100`,
+#: `--param=ggc-min-heapsize=131072`); the `rp11_launch` section's `build`
+#: gains `compiler_fixed_params`, IC-1's compiler environment and
+#: `toolchain.lock` carry the two arguments in `COLLECT_GCC_OPTIONS`, and the
+#: re-derived fixture is 5305 bytes, SHA-256
+#: `e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a`. A
+#: version-30 digest covered a diagnostic contract with an uncontrolled host
+#: input.
+#:
+#: What does **not** move at 31: the four normative launcher output digests in
+#: `expected.sha256` and `expected_sha256`, the committed listing, the
+#: build-root manifest, XD and its table; `cc1check.py`'s byte-equality rule;
+#: the covered set; and every vector, step, mutation, materialization,
+#: expectation, target fact, required case, unresolved entry, schema,
+#: executable and verb table. The section still records `installed: false` and
+#: `wired: false`. C-7's three cases and C-S4-3 remain unresolved,
+#: `is_executable` remains `False`, PO-9 and PO-14 remain open, and RP-11
+#: remains unwired and unmet. A digest remains review input, not execution
+#: approval.
+MANIFEST_VERSION = 31
 
 #: **27.** The `infra/rp11-launch/` files whose bytes the manifest pins
 #: (proposal §5.2, §5.11): image source, build definition, toolchain and

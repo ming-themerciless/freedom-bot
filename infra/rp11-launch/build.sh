@@ -13,6 +13,12 @@
 # are run directly. The listing is produced by the pinned readelf and objdump,
 # one instruction per line with its complete byte field and no elided zero
 # block. Its decoding is not trusted: XD must agree with it (T-L11).
+#
+# The two --param values fix GCC's garbage-collector parameters, which cc1
+# otherwise selects at startup from the host's memory and resource limits and
+# prints on the "GGC heuristics:" line of cc1.v (FRESH-R4-HS-1). They are given
+# once each, in the driver's canonical joined spelling, and no other --param
+# appears, so nothing later in the vector can override them.
 set -eu
 umask 022
 if [ "$#" -ne 1 ]; then
@@ -38,6 +44,7 @@ fi
 	-falign-functions=1 -falign-jumps=1 -falign-loops=1 -falign-labels=1 \
 	-mgeneral-regs-only -mno-red-zone -march=x86-64 -mtune=generic \
 	-frandom-seed=rp11-launch \
+	--param=ggc-min-expand=100 --param=ggc-min-heapsize=131072 \
 	-Os -g0 -U_FORTIFY_SOURCE \
 	-Wall -Wextra -Wvla -Werror \
 	-o ../../"$out"/launch.s launch.c 2> ../../"$out"/cc1.v

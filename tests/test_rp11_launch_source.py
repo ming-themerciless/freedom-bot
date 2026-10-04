@@ -168,7 +168,8 @@ def test_tl2_the_lb_2s_key_set_is_r2_section_7_9() -> None:
 # T-L3 — build definition, lock and tree manifest
 # ---------------------------------------------------------------------------
 
-#: Proposal §5.3.3, transcribed.
+#: Proposal §5.3.3, transcribed, with the two fixed GCC parameters of the
+#: FRESH-R4-HS-1 remediation (C-P5.0-R5-RP11-FRESH-R5-R4-D1) after the seed.
 COMPILE_VECTOR = """-S -v -std=c11 -ffreestanding -nostdinc -fno-builtin
 -fno-pic -fno-pie -fno-stack-protector -fno-stack-clash-protection
 -fcf-protection=none -mindirect-branch=keep -mfunction-return=keep
@@ -180,6 +181,7 @@ COMPILE_VECTOR = """-S -v -std=c11 -ffreestanding -nostdinc -fno-builtin
 -falign-functions=1 -falign-jumps=1 -falign-loops=1 -falign-labels=1
 -mgeneral-regs-only -mno-red-zone -march=x86-64 -mtune=generic
 -frandom-seed=rp11-launch
+--param=ggc-min-expand=100 --param=ggc-min-heapsize=131072
 -Os -g0 -U_FORTIFY_SOURCE
 -Wall -Wextra -Wvla -Werror""".split()
 ASSEMBLE_VECTOR = "--64 --noexecstack -mx86-used-note=no".split()
@@ -591,16 +593,31 @@ def _env(index: int, co: str) -> list[str]:
     return env[::-1] if index % 2 else env  # the comparison is of mappings, not orders
 
 
-def _trace(co: str = R2_CO, envs: dict | None = None, raw: dict | None = None) -> str:
+def _fixture_cc1_argv() -> list[str]:
+    """`cc1`'s argument vector as the driver printed it into the committed
+    `cc1.v` fixture (its `-v` echo of the command it runs)."""
+    text = (S.VERIFY / "fixtures" / "cc1.v.baseline").read_text()
+    line = next(l for l in text.splitlines() if l.startswith(f" {CC1} "))
+    return line.split()
+
+
+#: The argument vectors of the driver (index 2) and `cc1` (index 3) in a
+#: conforming trace; every other execve carries only its path.
+_ARGVS = {2: S.build_driver_vector(), 3: _fixture_cc1_argv()}
+
+
+def _trace(co: str = R2_CO, envs: dict | None = None, raw: dict | None = None,
+           argvs: dict | None = None) -> str:
     """A conforming traced R-2 at `co`. `envs` replaces the environment of an
-    execve by its index; `raw` replaces the text of its environment array."""
-    envs, raw = envs or {}, raw or {}
+    execve by its index; `raw` replaces the text of its environment array;
+    `argvs` replaces its argument vector."""
+    envs, raw, argvs = envs or {}, raw or {}, {**_ARGVS, **(argvs or {})}
     src, out = f"{co}/infra/rp11-launch", f"{co}/build-out"
     lines: list[str] = []
     for i, (path, _cls) in enumerate(C.IC1_EXEC_SEQUENCE):
         pid, parent, fork = _PROCESSES[i]
         env_text = raw.get(i, _arr(envs.get(i, _env(i, co))))
-        record = f"execve({_q(path)}, {_arr([path])}, {env_text}"
+        record = f"execve({_q(path)}, {_arr(argvs.get(i, [path]))}, {env_text}"
         if i == 2:
             lines.append(f'4     chdir("{src}") = 0')
             lines.append(f'4     newfstatat(AT_FDCWD<{src}>, "launch.c.gch", 0x7ffd, 0) = -1 ENOENT (No such file or directory)')
@@ -947,9 +964,9 @@ def test_the_contract_pins_the_cc1_v_baseline_fixture() -> None:
     baseline_path = S.LAUNCH / "verify" / "fixtures" / "cc1.v.baseline"
     assert baseline_path.exists()
     baseline_bytes = baseline_path.read_bytes()
-    assert len(baseline_bytes) == C.CC1_V_BASELINE_LENGTH == 5120
+    assert len(baseline_bytes) == C.CC1_V_BASELINE_LENGTH == 5305
     assert _sha(baseline_path) == C.CC1_V_BASELINE_SHA256 == (
-        "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+        "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a"
     )
 
     # Preserve distinction: expected.sha256 contains ONLY the four normative outputs
@@ -960,7 +977,7 @@ def test_the_contract_pins_the_cc1_v_baseline_fixture() -> None:
     # Manifest section includes cc1_v_baseline contract
     section = C.manifest_section(baseline_bytes)
     assert section["cc1_v_baseline"] == {
-        "byte_length": 5120,
+        "byte_length": 5305,
         "path": C.CC1_V_BASELINE_PATH,
         "sha256": C.CC1_V_BASELINE_SHA256,
     }
@@ -973,7 +990,7 @@ def test_verify_cc1_v_baseline_mutations_and_mismatches() -> None:
 
     # Valid bytes pass
     verified = C.verify_cc1_v_baseline(baseline_bytes)
-    assert verified["byte_length"] == 5120
+    assert verified["byte_length"] == 5305
     assert verified["sha256"] == C.CC1_V_BASELINE_SHA256
 
     # 1-byte mutation
@@ -982,17 +999,166 @@ def test_verify_cc1_v_baseline_mutations_and_mismatches() -> None:
         C.verify_cc1_v_baseline(mutated)
 
     # Appended byte
-    with pytest.raises(Exception, match="length 5121 does not match expected length 5120"):
+    with pytest.raises(Exception, match="length 5306 does not match expected length 5305"):
         C.verify_cc1_v_baseline(baseline_bytes + b"\x00")
 
     # Truncated
-    with pytest.raises(Exception, match="length 5119 does not match expected length 5120"):
+    with pytest.raises(Exception, match="length 5304 does not match expected length 5305"):
         C.verify_cc1_v_baseline(baseline_bytes[:-1])
 
     # Wrong expected length
-    with pytest.raises(Exception, match="length 5120 does not match expected length 5119"):
-        C.verify_cc1_v_baseline(baseline_bytes, expected_length=5119)
+    with pytest.raises(Exception, match="length 5305 does not match expected length 5304"):
+        C.verify_cc1_v_baseline(baseline_bytes, expected_length=5304)
 
     # Wrong expected sha256
     with pytest.raises(Exception, match="does not match expected sha256"):
         C.verify_cc1_v_baseline(baseline_bytes, expected_sha256="f" * 64)
+
+
+# ---------------------------------------------------------------------------
+# FRESH-R4-HS-1 — GCC's garbage-collector parameters are fixed compiler inputs
+# (C-P5.0-R5-RP11-FRESH-R5-R4-D1)
+# ---------------------------------------------------------------------------
+
+FIXED_TOKENS = tuple(f"--param={name}={value}" for name, value in C.COMPILER_FIXED_PARAMS)
+#: The `-v` line in which `cc1` reports the values it uses.
+GGC_LINE = "GGC heuristics: " + " ".join(f"--param {n}={v}" for n, v in C.COMPILER_FIXED_PARAMS)
+#: The accepted B1 fixture (C-P5.0-R5-RP11-I1-R3-R4-R5-B1), compiled without the
+#: two arguments on a host whose resources selected the same two values.
+B1_FIXTURE = (5120, "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b")
+
+
+def _fixed_param_failures(argv: list[str]) -> list[str]:
+    failures: list[str] = []
+    IC1._check_fixed_params("t", argv[0], argv, failures)
+    return failures
+
+
+def test_the_fixed_params_are_one_contract_in_every_place() -> None:
+    assert C.COMPILER_FIXED_PARAMS == (("ggc-min-expand", 100), ("ggc-min-heapsize", 131072))
+    assert IC1.FIXED_PARAMS == tuple((n, str(v)) for n, v in C.COMPILER_FIXED_PARAMS)
+    assert IC1.FIXED_PARAM_EXECUTABLES == ("/usr/bin/gcc-15", CC1)
+    assert C.manifest_section()["build"]["compiler_fixed_params"] == [
+        {"name": "ggc-min-expand", "value": 100}, {"name": "ggc-min-heapsize", "value": 131072}]
+    options = dict(e.split("=", 1) for e in C.DRIVER_ADDED_ENV_VALUES)["COLLECT_GCC_OPTIONS"]
+    lock_compiler = json.loads(_lock()["ic1_env_compiler"][0])
+    for token in FIXED_TOKENS:
+        assert options.count(f"'{token}'") == 1 and IC1.COLLECT_GCC_OPTIONS.count(f"'{token}'") == 1
+        assert sum(e.count(f"'{token}'") for e in lock_compiler) == 1
+    assert "ggc" not in options.replace(FIXED_TOKENS[0], "").replace(FIXED_TOKENS[1], "")
+
+
+def test_build_sh_supplies_each_fixed_param_exactly_once() -> None:
+    vector = S.build_driver_vector()
+    assert _fixed_param_failures(vector) == []
+    assert [w for w in vector if "param" in w or "ggc" in w] == list(FIXED_TOKENS)
+    assert not any(w.startswith("@") or w.startswith("-specs") for w in vector)
+    # the caller's one argument reaches the vector only inside the -o path
+    gcc_line = next(l for l in BUILD_SH.replace("\\\n", " ").splitlines()
+                    if l.strip().startswith("/usr/bin/gcc-15"))
+    assert gcc_line.count("$") == 2 and gcc_line.count('"$out"') == 2
+    assert gcc_line.index("2>") > gcc_line.index("launch.c")
+
+
+_PARAM_MUTATIONS = {
+    "absent": lambda v: [w for w in v if w != FIXED_TOKENS[0]],
+    "both absent": lambda v: [w for w in v if w not in FIXED_TOKENS],
+    "duplicated": lambda v: v + [FIXED_TOKENS[1]],
+    "changed value": lambda v: [w.replace("=100", "=94") for w in v],
+    "changed heapsize": lambda v: [w.replace("=131072", "=2169") for w in v],
+    "later joined override": lambda v: v + ["--param=ggc-min-expand=94"],
+    "later separate override": lambda v: v + ["--param", "ggc-min-heapsize=2169"],
+    "earlier separate override": lambda v: v[:1] + ["--param", "ggc-min-expand=94"] + v[1:],
+    "response file": lambda v: v + ["@params.rsp"],
+}
+
+
+@pytest.mark.parametrize("mutation", sorted(_PARAM_MUTATIONS))
+@pytest.mark.parametrize("vector", ["driver", "cc1"])
+def test_the_fixed_param_rule_refuses_each_mutation(vector, mutation) -> None:
+    base = S.build_driver_vector() if vector == "driver" else _fixture_cc1_argv()
+    assert _fixed_param_failures(base) == []
+    assert _fixed_param_failures(_PARAM_MUTATIONS[mutation](list(base))) != []
+
+
+@pytest.mark.parametrize("mutation", ["reordered", "moved last"])
+def test_reordering_the_fixed_params_breaks_the_driver_contract(mutation) -> None:
+    """GCC treats the two independently, so a reordered vector passes the
+    once-only rule; it is still refused, because the driver's echo of it, which
+    IC-1 and cc1.v compare exactly, is no longer the pinned one."""
+    vector = S.build_driver_vector()
+    i = vector.index(FIXED_TOKENS[0])
+    if mutation == "reordered":
+        vector[i], vector[i + 1] = vector[i + 1], vector[i]
+    else:
+        del vector[i:i + 2]
+        vector[vector.index("-o"):vector.index("-o")] = list(FIXED_TOKENS)
+    assert _fixed_param_failures(vector) == []
+    assert S.collect_gcc_options(vector) != IC1.COLLECT_GCC_OPTIONS
+
+
+@pytest.mark.parametrize("index", [2, 3])
+@pytest.mark.parametrize("mutation", sorted(_PARAM_MUTATIONS))
+def test_ic1_refuses_a_traced_vector_without_exactly_one_fixed_param(index, mutation) -> None:
+    argv = _PARAM_MUTATIONS[mutation](list(_ARGVS[index]))
+    path = C.IC1_EXEC_SEQUENCE[index][0]
+    r = _ic1(_trace(argvs={index: argv}))
+    _fails_with(r, f": {path}: ")
+
+
+def test_ic1_names_the_offending_fixed_param() -> None:
+    cc1 = _ARGVS[3] + ["--param=ggc-min-expand=94"]
+    _fails_with(_ic1(_trace(argvs={3: cc1})),
+                f"{CC1}: ggc-min-expand is also given as ['--param=ggc-min-expand=94']")
+    driver = [w for w in _ARGVS[2] if w != FIXED_TOKENS[1]]
+    _fails_with(_ic1(_trace(argvs={2: driver})),
+                "/usr/bin/gcc-15: --param=ggc-min-heapsize=131072 appears 0 times, not once")
+
+
+def test_ic1_the_fixed_param_contract_is_load_bearing(monkeypatch) -> None:
+    """Mutating the checker's contract makes a conforming trace fail."""
+    assert _ic1(GOOD_TRACE)["verdict"] == "pass"
+    monkeypatch.setattr(IC1, "FIXED_PARAMS", (("ggc-min-expand", "94"), ("ggc-min-heapsize", "131072")))
+    _fails_with(_ic1(GOOD_TRACE), "--param=ggc-min-expand=94 appears 0 times, not once")
+
+
+def test_the_fixture_records_the_fixed_values_exactly_once_per_line() -> None:
+    text = (S.VERIFY / "fixtures" / "cc1.v.baseline").read_text()
+    lines = text.splitlines()
+    assert [l for l in lines if l.startswith("GGC heuristics:")] == [GGC_LINE]
+    echo = [l for l in lines if l.startswith("COLLECT_GCC_OPTIONS=")]
+    assert len(echo) == 2
+    assert echo[0] == "COLLECT_GCC_OPTIONS=" + IC1.COLLECT_GCC_OPTIONS
+    for line in [*echo, *(l for l in lines if l.startswith(f" {CC1} "))]:
+        for token in FIXED_TOKENS:
+            assert line.count(token) == 1, (token, line[:60])
+    assert _fixed_param_failures(_fixture_cc1_argv()) == []
+
+
+def test_the_fixture_differs_from_b1_only_by_the_fixed_params() -> None:
+    """Removing the three insertions — two driver echoes and the cc1 command
+    line — gives back the accepted B1 fixture byte for byte."""
+    data = (S.VERIFY / "fixtures" / "cc1.v.baseline").read_bytes()
+    echo = b" ".join(b"'" + t.encode() + b"'" for t in FIXED_TOKENS) + b" "
+    cc1 = b" " + b" ".join(t.encode() for t in FIXED_TOKENS)
+    assert data.count(echo) == 2 and data.count(cc1) == 1
+    b1 = data.replace(echo, b"").replace(cc1, b"")
+    assert (len(b1), _sha_bytes(b1)) == B1_FIXTURE
+    assert b"--param" not in b1.replace(b"GGC heuristics: --param ggc-min-expand=100 --param ", b"")
+
+
+def _sha_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+@pytest.mark.parametrize("ggc", [
+    "GGC heuristics: --param ggc-min-expand=94 --param ggc-min-heapsize=2169",
+    "GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131071",
+])
+def test_cc1check_still_hard_stops_on_any_ggc_difference(ggc) -> None:
+    cc1check = S.load("cc1check")
+    data = (S.VERIFY / "fixtures" / "cc1.v.baseline").read_bytes()
+    actual = data.replace(GGC_LINE.encode(), ggc.encode())
+    assert actual != data
+    assert cc1check.compare_cc1_v(data, actual).verdict == "HARD_STOP"
+    assert cc1check.compare_cc1_v(data, data).verdict == "PASS"

@@ -1,4 +1,5 @@
-"""Focused tests for the R-5 successor R4 runner (C-P5.0-R5-RP11-FRESH-D1).
+"""Focused tests for the R-5 successor runner, as amended for R5
+(C-P5.0-R5-RP11-FRESH-D1; C-P5.0-R5-RP11-FRESH-R5-R4-D1).
 
 No test contacts `oracle-test`, downloads anything or executes an R-5 block.
 Every block is answered by `FakeHost`, which returns scripted transcripts and
@@ -7,7 +8,11 @@ harmless script that is not an R-5 block.
 
 The derivation tests prove the resources are R3's §6 blocks: they extract each
 block from the accepted R3 assignment, pinned below by digest and length, apply
-exactly R3 §6.0's substitutions except `<RUN>`, and require byte equality.
+R5's one declared amendment (S1.8's expected tuple, finding FRESH-R4-HS-1) and
+exactly R3 §6.0's substitutions except `<RUN>` — with the appendices of the
+controlling assignment, whose values R5 moved — and require byte equality.
+Further tests bind the assignment's pin tables, appendices and command to the
+files.
 """
 
 from __future__ import annotations
@@ -34,7 +39,16 @@ _SPEC.loader.exec_module(R)
 R3 = ROOT / "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r3.md"
 R3_SHA256 = "039f68fbe7fc0f572b31879087a2e9d91e2a6b17892a4fca075af1c81b767bac"
 R3_LENGTH = 108733
-R4 = ROOT / R.ASSIGNMENT
+ASSIGNMENT = ROOT / R.ASSIGNMENT
+#: R5's only change to R3's command text (§0.1 item 4): S1.8 expects the review
+#: manifest of the `FRESH-R4-HS-1` remediation. Every other moved value is an
+#: appendix value, taken from the controlling assignment's Appendices A and B.
+R5_AMENDMENTS = ((
+    'want=(30,"28a4f4c2b7596e9042f6b12a34f5684b3499a3fafd997e306fe25f6798e8a526",True,'
+    '"c9afaf7cd32a398e9714e39779fef522d6af053ec71cd2c403e0a4c2eaba4b5c",False)',
+    'want=(31,"448f280511fc433a9098b8da278e32277cc108a4eb5c7a29071993b39686a0a3",True,'
+    '"b9f03a4791448c029b9a1eccc50416818893294357fa9f6182f85610ed14817a",False)',
+),)
 PY = "/opt/freedom-blades/runtime/venv-web/bin/python"
 
 #: R3 §6's sixteen blocks in document order, and the resource that holds each.
@@ -86,8 +100,13 @@ def s16_program(s01: str) -> str:
     return s01[start : s01.index(" <<'LIST'", start)]
 
 
+def assignment_text() -> str:
+    return ASSIGNMENT.read_text(encoding="utf-8")
+
+
 def substitute(body: str, text: str, s01: str) -> str:
-    """R3 §6.0's substitutions, all of them except `<RUN>`."""
+    """R3 §6.0's substitutions, all of them except `<RUN>`; the appendices
+    come from `text`, the controlling assignment."""
     a, b = appendix(text, "A"), appendix(text, "B")
     assert a.count("\n") == 28 and b.count("\n") == 28
     return (
@@ -99,13 +118,23 @@ def substitute(body: str, text: str, s01: str) -> str:
     )
 
 
+def amend(body: str) -> str:
+    """R5's declared amendments; each applies exactly once across all blocks."""
+    for old, new in R5_AMENDMENTS:
+        body = body.replace(old, new)
+    return body
+
+
 def derived_resources() -> dict[str, bytes]:
     text = r3_text()
     blocks = r3_blocks(text)
     assert len(blocks) == len(BLOCK_RESOURCES)
+    for old, _new in R5_AMENDMENTS:
+        assert sum(body.count(old) for _opener, body in blocks) == 1, old
     s01 = blocks[0][1]
+    controlling = assignment_text()
     derived = {
-        name: substitute(body, text, s01).encode("utf-8")
+        name: substitute(amend(body), controlling, s01).encode("utf-8")
         for name, (_opener, body) in zip(BLOCK_RESOURCES, blocks)
     }
     derived[SYNC_RESOURCE] = ("\n".join(r3_sync_argv(text)) + "\n").encode("utf-8")
@@ -122,7 +151,7 @@ def resource(name: str) -> bytes:
 
 
 @pytest.mark.parametrize("name", BLOCK_RESOURCES + (SYNC_RESOURCE,))
-def test_each_resource_is_its_r3_block_with_only_the_6_0_substitutions(name: str) -> None:
+def test_each_resource_is_its_r3_block_with_only_the_declared_changes(name: str) -> None:
     assert resource(name) == derived_resources()[name]
 
 
@@ -145,14 +174,15 @@ def test_the_plan_order_is_r3s_order() -> None:
     assert names == list(BLOCK_RESOURCES)
 
 
-def test_the_r4_assignment_displays_every_resource_exactly() -> None:
-    """R4 shows each block's text; with §6.0's substitutions it is the resource."""
-    text, r3 = R4.read_text(encoding="utf-8"), r3_text()
+def test_the_assignment_displays_every_resource_exactly() -> None:
+    """The assignment shows each block's text; with §6.0's substitutions it is
+    the resource."""
+    text, r3 = assignment_text(), r3_text()
     s01 = r3_blocks(r3)[0][1]
     shown = re.findall(r"Resource: `tools/r5_runner/blocks/([^`]+)`[^\n]*\n\n```bash\n(.*?)```\n", text, re.S)
     assert [name for name, _ in shown] == list(BLOCK_RESOURCES)
     for name, body in shown:
-        assert substitute(body, r3, s01).encode("utf-8") == resource(name), name
+        assert substitute(body, text, s01).encode("utf-8") == resource(name), name
     argv = re.search(r"Resource: `tools/r5_runner/blocks/s04b-sync.argv`[^\n]*\n\n```text\n(.*?)```\n", text, re.S)
     assert argv is not None and argv.group(1).encode("utf-8") == resource(SYNC_RESOURCE)
 
@@ -193,6 +223,71 @@ def test_pins_cover_every_resource_and_this_test_with_exact_identities() -> None
     identity = R.verify_identity(ROOT, runner_sha256())
     assert identity.runner.path == R.RUNNER
     assert set(identity.resources) == {i.resource for i in R.FULL_PLAN}
+
+
+def _between(text: str, start: str, end: str) -> str:
+    return text[text.index(start) + len(start) : text.index(end)]
+
+
+def _file_identity(relative: str) -> tuple[str, int]:
+    data = (ROOT / relative).read_bytes()
+    return hashlib.sha256(data).hexdigest(), len(data)
+
+
+def test_the_assignment_pins_the_28_inputs_at_their_current_bytes() -> None:
+    """§3.2, Appendix A and Appendix B agree with each other and the files, so
+    no pin the blocks carry is stale."""
+    text = assignment_text()
+    rows_b = [line.split(" ") for line in appendix(text, "B").splitlines()]
+    assert len(rows_b) == 28
+    for sha, length, path in rows_b:
+        assert _file_identity(path) == (sha, int(length)), path
+    assert appendix(text, "A").splitlines() == [f"{sha}  {path}" for sha, _length, path in rows_b]
+    table = _between(text, "### 3.2 File digests", "Appendix A restates")
+    rows = re.findall(r"^\| `([^`]+)` \| (\d+) \| `([0-9a-f]{64})` \|$", table, re.M)
+    assert [(path, int(length), sha) for path, length, sha in rows] == \
+        [(path, int(length), sha) for sha, length, path in rows_b]
+
+
+def test_the_assignment_pins_the_runner_its_resources_and_this_test() -> None:
+    text = assignment_text()
+    expected = {R.RUNNER: _file_identity(R.RUNNER), **R.PINS}
+    table = _between(text, "<!-- r5-pins:start -->", "<!-- r5-pins:end -->")
+    rows = re.findall(r"^\| `([^`]+)` \| (\d+) \| `([0-9a-f]{64})` \|$", table, re.M)
+    assert {path: (sha, int(length)) for path, length, sha in rows} == expected
+    assert [path for path, _l, _s in rows] == [R.RUNNER, *R.PINS]
+    listing = _between(text, "<!-- r5-appendix-c:start -->\n```text\n", "```\n<!-- r5-appendix-c:end -->")
+    assert listing.splitlines() == [f"{expected[path][0]}  {path}" for path in [R.RUNNER, *R.PINS]]
+    command = (
+        "cd /opt/freedom-blades/platform && /usr/bin/python3 -I -B tools/r5_runner/r5run.py --executor Gemini "
+        f"--attest-independence --expect-runner-sha256 {runner_sha256()} </dev/null"
+    )
+    section = _between(text, "## 13. Resolved Gemini invocation", "## Appendix A")
+    assert section.count(f"```text\n{command}\n```") == 1
+    goal = f"/goal Execute the active assignment in {R.ASSIGNMENT}. Proceed autonomously"
+    assert section.count(goal) == 1
+
+
+def test_the_runner_identity_is_the_r5_successor() -> None:
+    from tools.phase_5_0_evidence import rp11_launch
+
+    assert R.ASSIGNMENT == "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-assignment-r5.md"
+    assert R.HANDBACK == "docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r5-handback.md"
+    assert (R.WORK_ID, R.REVISION) == ("C-P5.0-R5-RP11-FRESH-R5-R5", "R5")
+    assert R.CONSUMED_RUN_IDS[-1] == "p5-r5-fresh-20261003T234834Z-4fc93046"
+    assert (R.BASELINE_SHA256, R.BASELINE_LENGTH) == \
+        (rp11_launch.CC1_V_BASELINE_SHA256, rp11_launch.CC1_V_BASELINE_LENGTH)
+    for consumed in ("-r4-handback.md", "-assignment-r4.md"):
+        assert consumed not in R.HANDBACK + R.ASSIGNMENT
+    resource_text = b"".join(resource(n) for n in BLOCK_RESOURCES)
+    assert b"-r4-handback.md" not in resource_text and R.HANDBACK.encode() in resource("s12-end.sh")
+
+
+def test_the_r4_run_identifier_is_refused() -> None:
+    import datetime
+
+    with pytest.raises(R.Refusal):
+        R.new_run_id(datetime.datetime(2026, 10, 3, 23, 48, 34, tzinfo=datetime.timezone.utc), "4fc93046")
 
 
 def copy_controlled(tmp_path: Path) -> Path:
@@ -309,7 +404,7 @@ OUTPUT_BEFORE = {
         "HA-3 qualifies=no (version-only differences do not qualify; section 4.2)",
     ],
     "S5.8 root-stat": [f"755 gemini:gemini /var/tmp/{RUN}-root"],
-    "S9.1 cc1v-length": ["5120"],
+    "S9.1 cc1v-length": [str(R.BASELINE_LENGTH)],
     "S9.4 display": CC1CHECK,
     "S10.4 pytest-counts": ["tests=12 failures=0 errors=0 skipped=0"],
 }
@@ -550,7 +645,7 @@ def test_step3_status_20_with_missing_evidence_is_a_hard_stop(tmp_path: Path, id
     [
         ("S1", {"S1.3 git-status": [" M a", "git_status_lines=2", "git_status_sha256=" + "0" * 64]}, "S1.3 reproduced 1 lines"),
         ("S5", {"S5.8 root-stat": [f"700 gemini:gemini /var/tmp/{RUN}-root"]}, "S5.8 does not show mode 755"),
-        ("S9", {"S9.1 cc1v-length": ["5121"]}, "S9.1 printed"),
+        ("S9", {"S9.1 cc1v-length": [str(R.BASELINE_LENGTH + 1)]}, "S9.1 printed"),
         ("S9", {"S9.4 display": CC1CHECK[:-1] + ["verdict:         HARD_STOP"]}, "lacks `verdict:         PASS`"),
         ("S11", {"S11.10 bwrap-version": ["bubblewrap 0.11.2"]}, "S11.10 bwrap-version = S2.6 bwrap-version differs"),
     ],

@@ -1139,9 +1139,9 @@ def test_baseline_contract_serialized_in_manifest(plan) -> None:
     assert "cc1_v_baseline" in body["rp11_launch"]
     contract = body["rp11_launch"]["cc1_v_baseline"]
     assert contract == {
-        "byte_length": 5120,
+        "byte_length": 5305,
         "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
-        "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b",
+        "sha256": "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a",
     }
 
 
@@ -1158,7 +1158,7 @@ def test_baseline_contract_rejects_one_byte_mutation(plan) -> None:
     tampered = _real_fixture_sources()
     orig = tampered[rp11_launch.CC1_V_BASELINE_PATH]
     mutated = bytes([orig[0] ^ 0x01]) + orig[1:]
-    assert len(mutated) == len(orig) == 5120
+    assert len(mutated) == len(orig) == 5305
     tampered[rp11_launch.CC1_V_BASELINE_PATH] = mutated
 
     with pytest.raises(PlanRefused, match="sha256.*does not match expected sha256"):
@@ -1171,12 +1171,12 @@ def test_baseline_contract_rejects_appended_byte(plan) -> None:
     """Manifest construction and contract verification reject an appended byte (prompt §3 item 7)."""
     tampered = _real_fixture_sources()
     appended = tampered[rp11_launch.CC1_V_BASELINE_PATH] + b"\x00"
-    assert len(appended) == 5121
+    assert len(appended) == 5306
     tampered[rp11_launch.CC1_V_BASELINE_PATH] = appended
 
-    with pytest.raises(PlanRefused, match="length 5121 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 5306 does not match expected length 5305"):
         ReviewManifest.build(plan, tampered)
-    with pytest.raises(PlanRefused, match="length 5121 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 5306 does not match expected length 5305"):
         rp11_launch.verify_cc1_v_baseline(appended)
 
 
@@ -1184,22 +1184,22 @@ def test_baseline_contract_rejects_truncated_fixture(plan) -> None:
     """Manifest construction and contract verification reject a truncated fixture (prompt §3 item 7)."""
     tampered = _real_fixture_sources()
     truncated = tampered[rp11_launch.CC1_V_BASELINE_PATH][:-1]
-    assert len(truncated) == 5119
+    assert len(truncated) == 5304
     tampered[rp11_launch.CC1_V_BASELINE_PATH] = truncated
 
-    with pytest.raises(PlanRefused, match="length 5119 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 5304 does not match expected length 5305"):
         ReviewManifest.build(plan, tampered)
-    with pytest.raises(PlanRefused, match="length 5119 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 5304 does not match expected length 5305"):
         rp11_launch.verify_cc1_v_baseline(truncated)
 
 
 def test_baseline_contract_rejects_wrong_expected_length() -> None:
     """Contract verification rejects a wrong expected length (prompt §3 item 7)."""
     fixture_bytes = _real_fixture_sources()[rp11_launch.CC1_V_BASELINE_PATH]
-    with pytest.raises(PlanRefused, match="length 5120 does not match expected length 5119"):
-        rp11_launch.verify_cc1_v_baseline(fixture_bytes, expected_length=5119)
-    with pytest.raises(PlanRefused, match="length 5120 does not match expected length 5121"):
-        rp11_launch.verify_cc1_v_baseline(fixture_bytes, expected_length=5121)
+    with pytest.raises(PlanRefused, match="length 5305 does not match expected length 5304"):
+        rp11_launch.verify_cc1_v_baseline(fixture_bytes, expected_length=5304)
+    with pytest.raises(PlanRefused, match="length 5305 does not match expected length 5306"):
+        rp11_launch.verify_cc1_v_baseline(fixture_bytes, expected_length=5306)
 
 
 def test_baseline_contract_rejects_wrong_expected_digest() -> None:
@@ -1232,22 +1232,22 @@ def test_baseline_contract_rejects_former_51_byte_synthetic_placeholder(plan) ->
     assert len(synthetic_placeholder) == 51
 
     # 1. Direct contract verification rejects with length mismatch:
-    with pytest.raises(PlanRefused, match="length 51 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 51 does not match expected length 5305"):
         rp11_launch.verify_cc1_v_baseline(synthetic_placeholder)
 
     # 2. ReviewManifest construction rejects unconditionally:
     tampered = _sources()
     tampered[rp11_launch.CC1_V_BASELINE_PATH] = synthetic_placeholder
-    with pytest.raises(PlanRefused, match="length 51 does not match expected length 5120"):
+    with pytest.raises(PlanRefused, match="length 51 does not match expected length 5305"):
         ReviewManifest.build(plan, tampered)
 
 
 def test_baseline_contract_rejects_arbitrary_bytes_of_correct_length(plan) -> None:
-    """Arbitrary bytes of the correct length (5120) are rejected by ReviewManifest.build()
+    """Arbitrary bytes of the correct length (5305) are rejected by ReviewManifest.build()
     and rp11_launch.verify_cc1_v_baseline() (prompt §4.2 item 2).
     """
     arbitrary_bytes = b"\x00" * rp11_launch.CC1_V_BASELINE_LENGTH
-    assert len(arbitrary_bytes) == 5120
+    assert len(arbitrary_bytes) == 5305
 
     # 1. Direct contract verification rejects with sha256 mismatch:
     with pytest.raises(PlanRefused, match="sha256.*does not match expected sha256"):
@@ -1265,10 +1265,10 @@ def test_baseline_contract_accepts_actual_fixture_bytes(plan) -> None:
     and rp11_launch.verify_cc1_v_baseline() (prompt §4.2 item 3).
     """
     actual_bytes = (REPOSITORY_ROOT / rp11_launch.CC1_V_BASELINE_PATH).read_bytes()
-    assert len(actual_bytes) == 5120
+    assert len(actual_bytes) == 5305
 
     contract = rp11_launch.verify_cc1_v_baseline(actual_bytes)
-    assert contract["byte_length"] == 5120
+    assert contract["byte_length"] == 5305
     assert contract["path"] == rp11_launch.CC1_V_BASELINE_PATH
     assert contract["sha256"] == rp11_launch.CC1_V_BASELINE_SHA256
 
@@ -1286,8 +1286,8 @@ def test_baseline_contract_serialized_from_verified_contract(plan) -> None:
     assert "cc1_v_baseline" in body["rp11_launch"]
     serialized = body["rp11_launch"]["cc1_v_baseline"]
     assert serialized == {
-        "byte_length": 5120,
+        "byte_length": 5305,
         "path": "infra/rp11-launch/verify/fixtures/cc1.v.baseline",
-        "sha256": "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b",
+        "sha256": "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a",
     }
     assert manifest.baseline_contract == serialized

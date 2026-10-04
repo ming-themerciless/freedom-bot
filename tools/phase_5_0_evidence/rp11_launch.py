@@ -155,11 +155,19 @@ DRIVER_ADDED_ENV_VALUES = (
     "'-fno-ipa-cp-clone' '-fno-ipa-sra' '-fno-tree-loop-distribute-patterns' '-fomit-frame-pointer' "
     "'-falign-functions=1' '-falign-jumps=1' '-falign-loops=1' '-falign-labels=1' "
     "'-mgeneral-regs-only' '-mno-red-zone' '-march=x86-64' '-mtune=generic' "
-    "'-frandom-seed=rp11-launch' '-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' "
+    "'-frandom-seed=rp11-launch' '--param=ggc-min-expand=100' '--param=ggc-min-heapsize=131072' "
+    "'-Os' '-g0' '-U' '_FORTIFY_SOURCE' '-Wall' '-Wextra' '-Wvla' "
     "'-Werror' '-o' '../../build-out/launch.s' '-dumpdir' '../../build-out/'",
     "OFFLOAD_TARGET_DEFAULT=1",
     "OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa",
 )
+#: (FRESH-R4-HS-1) GCC's garbage-collector parameters, fixed by `build.sh`.
+#: Unfixed, `cc1` selects them at startup from the host's memory and resource
+#: limits and prints them in `cc1.v`. GCC keeps the last value given, so each is
+#: supplied exactly once, as the token `--param=<name>=<value>`, and no other
+#: argument names it (`verify/ic1check.py` `FIXED_PARAMS`). The values are
+#: GCC's own upper bounds, the ones it selects on a host with at least 1 GiB.
+COMPILER_FIXED_PARAMS = (("ggc-min-expand", 100), ("ggc-min-heapsize", 131072))
 _IC1_SOURCE_DIRS = ("OLDPWD={co}", "PWD={co}/infra/rp11-launch")
 #: The exact environment, as a complete set of entries, of each process class.
 IC1_ENV_CLASSES = (
@@ -197,7 +205,7 @@ EXPECTED_IMAGE_SHA256 = "04218ed2d834c1c7abe417a850831d8956f087711befd692eefc2e6
 EXPECTED_LISTING_SHA256 = "8c1fedee1c717b17a14d7c746669ffcec3c41d155e5cc4c63d24a5f2527cd188"
 EXPECTED_MAP_SHA256 = "5a8b058084edcb1e3f6f7ddea13b60da6af71102300ea276225ae4ab0e8bc34d"
 EXPECTED_LAUNCH_S_SHA256 = "b37280d53eecce690210021a793cde5d5b73a8f9c027d187e4bd1338e7e27706"
-TOOLCHAIN_LOCK_SHA256 = "f92380735e32f9d7747834d684657d4087f14c7a22c0178703a50a70eef784cf"
+TOOLCHAIN_LOCK_SHA256 = "f704c0f4f0ddbe9de92da9812dde6929f681ba778263746a603bde8b4b3563d6"
 BUILD_ROOT_MANIFEST_SHA256 = "f08ba9de4374374fa91012021ce12fb83f6370be5547ee4e214232100c38e76f"
 
 # -- independent decoding (§5.15, XD-8) -------------------------------------------
@@ -209,11 +217,15 @@ AGREED_STREAM_SHA256 = "e1354c29e4abddd115fad9b1f83fd69b3b93aae2971db6a448964baa
 
 
 # -- cc1.v diagnostic baseline fixture (C-P5.0-R5-RP11-I1-R3-R4-R5-B1-R2) -----
+#: Re-derived under C-P5.0-R5-RP11-FRESH-R5-R4-D1 (FRESH-R4-HS-1) from the gated
+#: R-2 build with `COMPILER_FIXED_PARAMS`; it differs from the B1 fixture
+#: (5120 bytes, `b77f92dc…905b`) only by the three insertions of those two
+#: arguments, in both `COLLECT_GCC_OPTIONS` lines and the `cc1` command line.
 
 CC1_V_BASELINE_PATH = "infra/rp11-launch/verify/fixtures/cc1.v.baseline"
-CC1_V_BASELINE_LENGTH = 5120
+CC1_V_BASELINE_LENGTH = 5305
 CC1_V_BASELINE_SHA256 = (
-    "b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b"
+    "e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a"
 )
 
 
@@ -225,8 +237,8 @@ def verify_cc1_v_baseline(
     """Verify that fixture bytes satisfy the cc1.v baseline contract.
 
     Checks:
-    - exact byte length == expected_length (5120)
-    - exact SHA-256 == expected_sha256 (b77f92dcdcf899c5459fec606f16dc325ed5329516cbab5faea86b479992905b)
+    - exact byte length == expected_length (5305)
+    - exact SHA-256 == expected_sha256 (e99cee65a228339e304d4e578643de409961539a8240230d4e41bb1baf6bb13a)
 
     Raises PlanRefused if length or SHA-256 does not match.
     Returns the serialized baseline dictionary:
@@ -323,6 +335,9 @@ def manifest_section(baseline: dict[str, object] | bytes | None = None) -> dict:
             "shell_added_env": list(SHELL_ADDED_ENV),
             "entry_added_env": list(ENTRY_ADDED_ENV),
             "driver_added_env": list(DRIVER_ADDED_ENV),
+            "compiler_fixed_params": [
+                {"name": name, "value": value} for name, value in COMPILER_FIXED_PARAMS
+            ],
             "ic1_environment": {
                 "controlled_checkouts": list(IC1_CONTROLLED_CHECKOUTS),
                 "checkout_token": IC1_CHECKOUT_TOKEN,
@@ -354,7 +369,7 @@ __all__ = [
     "ACCEPTED_ARGUMENTS", "AGREED_STREAM_SHA256", "ARCHITECTURE", "ARGC",
     "BUILD_ARGV", "BUILD_ENV", "BUILD_ROOT_MANIFEST_SHA256",
     "CC1_V_BASELINE_LENGTH", "CC1_V_BASELINE_PATH", "CC1_V_BASELINE_SHA256",
-    "CONDITIONAL_JUMPS", "CONTRACT_ID", "DRIVER_ADDED_ENV",
+    "COMPILER_FIXED_PARAMS", "CONDITIONAL_JUMPS", "CONTRACT_ID", "DRIVER_ADDED_ENV",
     "DRIVER_ADDED_ENV_VALUES", "ENTRY_ADDED_ENV", "EXECVE_ARGV",
     "EXECVE_ENV_KEYS", "EXECVE_ENV_LITERALS", "EXECVE_PATH",
     "EXPECTED_FRAME", "EXPECTED_IMAGE_SHA256", "EXPECTED_LAUNCH_S_SHA256",

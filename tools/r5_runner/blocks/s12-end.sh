@@ -16,7 +16,7 @@ r5_block() {
   status=$?
   printf 'S12.end.1 cd exit=%s\n' "$status"
   if [ "$status" -ne 0 ]; then exit "$status"; fi
-  if [ -f 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r4-handback.md' ] && [ ! -L 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r4-handback.md' ]; then
+  if [ -f 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r5-handback.md' ] && [ ! -L 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r5-handback.md' ]; then
     printf 'handback_body=present\n'
     status=0
   else
@@ -25,7 +25,7 @@ r5_block() {
   fi
   printf 'S12.end.2 handback-body-present exit=%s\n' "$status"
   if [ "$status" -ne 0 ]; then exit "$status"; fi
-  r5_close >> 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r4-handback.md'
+  r5_close >> 'docs/review/phase-5-0-p5-r5-rp11-fresh-independent-rebuild-r5-handback.md'
   status=$?
   printf 'S12.end.5 closing-record exit=%s\n' "$status"
   if [ "$status" -ne 0 ]; then exit "$status"; fi
