@@ -1,21 +1,22 @@
 # Disposable Linux Test Server
 
-**Active restriction, 2026-10-04 — D3-R6 accepted; no host authority.** The
-one-host H-1 activation design is accepted as an inactive design basis and its
-remediation findings are closed. No successor slice is active. The next
-proposed slice, OH-S1/H-0, requires separate explicit authority. The current
-workspace host is production and must not be a source, controller, relay,
-destination, fallback or rollback target. No SSH, Git/network retrieval,
-rsync, `oracle-test` inspection, upstream research, credential,
+**Active restriction, 2026-10-04 — repository-only design remediation R6; no
+host authority.** Claude may only incorporate decided OS-6 and remediate
+`OH-H1-D3-R5-1` in the inactive proposal. `OH-H1-D3-R4-1`, `OH-H1-D3-R2-1`,
+`OH-H1-D3-R1-1` and `OH-H1-D3-2` remain open. The current workspace host is
+the production server and must not
+be a source,
+controller, relay, destination, fallback or rollback target. Direct Git
+retrieval on `oracle-test`, and any required read-only credential, require
+later separate authority. The retained
+R4 and R5 paths must not be inspected, changed or deleted. No SSH, Git/network
+retrieval, rsync, `oracle-test` inspection, upstream research, credential,
 implementation, installation, build, retry, host remediation, cleanup,
-package, privilege, `systemctl`, configuration, service/database,
-operational, secrets, commit or push action is authorized for any agent.
-[Acceptance](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md).
+package, privilege, `systemctl`, configuration, service/database, operational,
+secrets, commit or push action is authorized for any agent.
+[Authority](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-authority.md).
 
-The superseded R6-assignment restriction is preserved in
-[`disposable-test-server-through-2026-10-04-d3-r6-assignment.md`](disposable-test-server-through-2026-10-04-d3-r6-assignment.md);
-earlier snapshots are indexed under
-[`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
+The immediately superseded restriction is preserved in [`disposable-test-server-through-2026-10-04-oracle-test-topology-decision.md`](disposable-test-server-through-2026-10-04-oracle-test-topology-decision.md); earlier snapshots are indexed under [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the

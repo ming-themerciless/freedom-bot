@@ -1,5 +1,113 @@
 # Decision register
 
+## Decision — D3-R6 accepted; H-1 design remediation chain closed — 2026-10-04
+
+Peter Duscha accepts Codex's clean independent D3-R6 re-review and the
+cumulative one-host H-1 activation design. `OH-H1-D3-R5-1`,
+`OH-H1-D3-R4-1`, `OH-H1-D3-R2-1`, `OH-H1-D3-R1-1` and `OH-H1-D3-2` are
+closed as remediated. OS-6 remains decided. CX-4 is knowingly accepted as a
+residual outside A-2 and not as an authorized-path exception.
+
+The proposal becomes the accepted inactive design basis. OH-S1/H-0 is the
+next proposed separately authorized slice; no host, implementation or
+execution authority is granted by this decision.
+
+[Acceptance](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md)
+· [Accepted proposal](../review/phase-5-0-p5-r5-rp11-h1-oracle-test-one-host-design-amendment-proposal.md#17-d3-r6-remediation-and-handback-d3-r6-2026-10-04).
+
+## Superseded decision — OH-D-10 start-consumed grant; R4 assigned — 2026-10-04
+
+Peter Duscha accepts Codex's D3-R3 re-review with no finding, closes
+`OH-H1-D3-R2-2` as remediated and decides OH-D-10 as Option A with
+interruption route iii-a. The inactive design must grant `start` only and
+consume and PK-verify that grant before `ExecStart=`; manual interruption is
+the executor's A-2-authorized root stop route. Claude is assigned the narrow
+repository-only R4 incorporation and must return for independent review.
+
+`OH-H1-D3-R2-1`, `OH-H1-D3-R1-1` and `OH-H1-D3-2` remain open. No host,
+implementation, build or execution authority is granted.
+
+[R3 re-review](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r3.md)
+· [R4 authority](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r4-authority.md)
+· [Claude task](../review/phase-5-0-p5-r5-rp11-h1-one-host-design-remediation-r4-claude-prompt.md).
+
+## Superseded decision — one-host H-1 design remediation assigned — 2026-10-04
+
+Peter Duscha authorizes Claude's repository-only remediation of Blocking
+findings `OH-H1-D3-1` and `OH-H1-D3-2`. Claude must incorporate the accepted
+OH-D-1 through OH-D-9 dispositions, revise the inactive proposal and stop for
+independent Codex re-review. No host, network, credential, implementation,
+build or execution authority is granted.
+
+[Authority](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-authority.md)
+· [Claude task](../review/phase-5-0-p5-r5-rp11-h1-one-host-design-remediation-claude-prompt.md).
+
+## Superseded current state — one-host semantics accepted; design remediation required — 2026-10-04
+
+Peter Duscha accepts OH-D-1 through OH-D-9 on Codex's recommendation. The
+production server is confirmed as the current workspace host and is prohibited
+as a source; `oracle-test` will later retrieve a pinned commit directly from
+the canonical Git remote, with any required read-only credential subject to
+separate authority. The remaining decisions adopt local interactive clients,
+a local capture root, pre-pass retrieval, retained `NoNewPrivileges`, the
+stated `ubuntu` authority limitation, one-pass/one-boot activation, automatic
+activation cleanup but separately authorized H-1 rollback, and digest-bound
+record return.
+
+Claude's BLOCKED DESIGN is accepted as the terminal state, but the proposal is
+not accepted as a complete H-1 design. Blocking findings `OH-H1-D3-1` and
+`OH-H1-D3-2` require repository-only remediation and independent re-review.
+No host, network, credential, implementation, build or execution authority is
+created.
+
+[Decision record](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-decisions.md)
+· [Independent review](../review/project-review-2026-10-04-p5-r5-rp11-h1-oracle-test-one-host-design-amendment.md).
+
+## Superseded — `oracle-test` one-host design amendment assigned — 2026-10-04
+
+Peter Duscha authorizes Claude to prepare the repository-only amendment that
+implements the selected local `oracle-test` H-1 topology in design. Claude
+returns an inactive proposal or BLOCKED DESIGN for independent Codex review.
+No host, implementation, build or execution authority is granted.
+
+[Authority](../review/project-review-2026-10-04-p5-r5-rp11-h1-oracle-test-one-host-design-authority.md)
+· [Claude task](../review/phase-5-0-p5-r5-rp11-h1-oracle-test-one-host-design-amendment-claude-prompt.md).
+
+## Decision — H-1 topology corrected to local `oracle-test` — 2026-10-04
+
+Peter Duscha supersedes the production-host dispositions of U-1 and U-3. The
+complete H-1 installation and RP-11 evidence workflow will run locally on
+disposable `oracle-test` under its existing `ubuntu` account. The production
+Freedom-Blades/Foundry server is outside scope and must remain untouched. U-2
+and U-4 through U-10 remain decided for the corrected topology; D9-2 remains
+Complete. No host or implementation action is authorized by this correction.
+
+[Correction record](../review/project-review-2026-10-04-p5-r5-rp11-h1-oracle-test-topology-correction.md).
+
+## Superseded in U-1/U-3 — H-1 prerequisites and D9-2 disposition — 2026-10-04
+
+Peter Duscha accepts the reviewed BLOCKED PREPARATION result, declares D9-2
+Complete and decides U-1 through U-10. The H-1 launcher host is the
+Freedom-Blades production server co-hosting Foundry, the operator is `foundry`,
+and `oracle-test` remains the disposable target. The decisions select later
+design direction but authorize no host or implementation action.
+
+U-1 and U-3 are superseded by the local-`oracle-test` correction above. U-2,
+U-4 through U-10 and D9-2 remain effective.
+
+[Decision record](../review/project-review-2026-10-04-p5-r5-rp11-h1-prerequisite-decisions.md).
+
+## Decision — static-launcher H-1 assignment preparation authorized — 2026-10-04
+
+Peter Duscha authorizes Claude to perform the repository-only readiness audit
+and prepare a decision-ready static-launcher H-1 installed-host evidence
+assignment, or return BLOCKED PREPARATION with the exact prerequisite sequence.
+Codex independently reviews the return. No implementation, host access or H-1
+execution is authorized.
+
+[Decision record](../review/project-review-2026-10-04-p5-r5-rp11-h1-assignment-preparation-authority.md)
+· [Claude task](../review/phase-5-0-p5-r5-rp11-h1-installed-host-evidence-assignment-preparation-claude-prompt.md).
+
 ## Decision — static-launcher R-5 accepted; D9-3 complete — 2026-10-04
 
 Peter Duscha accepts Gemini's complete R5 PASS and Codex's independent review.

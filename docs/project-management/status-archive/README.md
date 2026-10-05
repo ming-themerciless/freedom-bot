@@ -14,6 +14,9 @@ authority or disposition.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`status-through-2026-10-04-d3-r6-assignment.md`](../status-through-2026-10-04-d3-r6-assignment.md) | Complete former current status through the D3-R6 assignment, return and pending independent review | `879010d3d59a85718dfb61acb778ad62956055dd289c453e41f5c8d1e15f81b5` |
+| [`status-through-2026-10-04-oracle-test-topology-decision.md`](../status-through-2026-10-04-oracle-test-topology-decision.md) | Verbatim displaced current-status block after local `oracle-test` topology selection and before the design-amendment assignment | `cfa079b653f2ee9b31a053d0b0ddcf4d9a54aec7b4b3c1ff6b56d44490b6972e` |
+| [`status-through-2026-10-04-production-host-h1-decision.md`](../status-through-2026-10-04-production-host-h1-decision.md) | Verbatim displaced current-status block recording the superseded production-host H-1 direction | `da39c94c9d67e56a503589fad4bd14034d00507822b00b982f962cf9127f1911` |
 | [`status-through-2026-10-02-fresh-r5-procedure-acceptance.md`](../status-through-2026-10-02-fresh-r5-procedure-acceptance.md) | Complete former current status after procedure acceptance and immediately before Gemini activation | `b9ce65a23aca1c858333dd96911baa6e430cd5d40b239bc368475170320a82ab` |
 | [`status-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md`](../status-through-2026-10-02-fresh-r5-assignment-r2-acceptance.md) | Complete former current status immediately before the fresh R-5 procedure was accepted, while executor appointment remained pending | `9b91deb969cf63983cd30062b5f4c66f4fb4936520b1b7f4e51a969bf12ba81d` |
 | [`status-through-2026-10-02-r5-b1-r4-acceptance.md`](../status-through-2026-10-02-r5-b1-r4-acceptance.md) | Verbatim displaced B1-R3 current-action status immediately after B1-R4 and baseline-contract acceptance | `393de86eeb2b8b61fc113fe76099ec3ebeb03da172bcc1758f30636c76b682ad` |
