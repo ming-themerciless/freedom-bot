@@ -11,6 +11,7 @@ become current because it appears in a snapshot.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`disposable-test-server-through-2026-10-07-oh-s3-r8-return.md`](../disposable-test-server-through-2026-10-07-oh-s3-r8-return.md) | Complete pre-acceptance operations document whose restriction banner recorded the OH-S3 R8 return awaiting independent decision, before Peter's acceptance and banner compaction | `cd1d9849c1f3c2433f516ff6801dd5eeb73da34772e6e855b2e17efbd307e5df` |
 | [`disposable-test-server-through-2026-10-06-oh-s2-r2-return.md`](../disposable-test-server-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance operations document whose restriction banner recorded OH-S2 R2 awaiting review | `8db0e3e7ade401572c87b89f16ba1d7c94e43c58453cfda85141e196ac53d504` |
 | [`disposable-test-server-through-2026-10-04-d3-r6-acceptance.md`](../disposable-test-server-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor operations document after D3-R6 acceptance and before bounded OH-S0b/OH-S1 host authority | `a8686c8f117aecd6453134706d1abc5d198732b362327c620a937486da41744c` |
 | [`disposable-test-server-through-2026-10-04-d3-r6-assignment.md`](../disposable-test-server-through-2026-10-04-d3-r6-assignment.md) | Complete former operations document with the repository-only D3-R6 restriction banner | `dd3678c58608c4b1d89cf07f3c23c46d5e0477e849f52c0c6347715c0ed5c947` |

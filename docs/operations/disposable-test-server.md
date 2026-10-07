@@ -1,33 +1,23 @@
 # Disposable Linux Test Server
 
-**Active restriction, 2026-10-07 — OH-S2 R2 accepted; no host authority.**
-Peter Duscha accepts the clean independent OH-S2 R2 re-review and the
-cumulative R2 citation record. `R1-F1` and `R1-F2` are closed as remediated;
-R1 remains nonconforming historical evidence and R2 is not retroactive. No
-successor assignment or SSH connection to `oracle-test` is authorized. MF-1
-through MF-8 remain uncollected unless a separate authority permits them.
+**Active restriction, 2026-10-07 — OH-S3 R8 accepted; no host authority.**
 
-No retained-evidence access, cleanup, workspace recreation, privilege, package
-operation, installation, build, test, service/database mutation, H-1/H-2,
-activation, rollback, commit or push is authorized. The R5 and H-0G evidence
-paths remain retained and untouched pending separately gated LC-3 through
-LC-5 authority.
+Peter Duscha accepts the cumulative OH-S3 R8 proposal, with the authorized
+R9-F1 editorial correction, as the inactive forward design basis. `R8-F1`,
+`R8-F2` and `R9-F1` are closed. Concrete Route 3 remains unestablished; DEC-1
+through DEC-6 and the G-1b Route 3 direction remain undecided.
 
-The obsolete local music cookie and empty Lavalink directory were removed on
-the controller without any host connection. This creates no `oracle-test`
-authority. Peter accepts the former session's residual risk and requires no
-invalidation or rotation.
+No SSH connection to `oracle-test`, host or retained-evidence access, fact
+collection, cleanup, workspace recreation, privilege, package operation,
+installation, build, test, service/database mutation, H-1/H-2, OH-S4/OH-S4p or
+later slice, activation, rollback, commit or push is authorized. MF-1 through
+MF-8 remain uncollected. The R5 and H-0G retained paths remain untouched pending
+separately gated LC-3 through LC-5 authority.
 
-[Acceptance](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
-· [Music-residue removal](../review/project-review-2026-10-06-music-residue-removal.md)
-· [R1-F1 risk acceptance](../review/project-review-2026-10-07-r1-f1-residual-risk-acceptance.md)
-· [Accepted R2 record](../review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
-· [Archived pre-acceptance restriction](disposable-test-server-through-2026-10-06-oh-s2-r2-return.md).
-
-The predecessor restriction is preserved in
-[`disposable-test-server-through-2026-10-04-d3-r6-acceptance.md`](disposable-test-server-through-2026-10-04-d3-r6-acceptance.md);
-earlier snapshots are indexed under
-[`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
+[Acceptance](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-r8-acceptance.md)
+· [Accepted R8 proposal](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-proposal.md)
+· [R8 handback](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-handback.md)
+· [Archived pre-acceptance restriction](disposable-test-server-through-2026-10-07-oh-s3-r8-return.md).
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the

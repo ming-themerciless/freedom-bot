@@ -14,6 +14,7 @@ authority or disposition.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`status-through-2026-10-07-oh-s3-r8-return.md`](../status-through-2026-10-07-oh-s3-r8-return.md) | Complete pre-acceptance status after the OH-S3 R8 return and independent Codex re-review, before Peter's acceptance, R9-F1 editorial correction and current-state compaction | `f2dcd22a775b3a61652b936cf102dacdf8196e17e3409afc5092b03433efac1d` |
 | [`status-through-2026-10-06-oh-s2-r2-return.md`](../status-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance status after OH-S2 R2 return and independent re-review, before Peter's acceptance and current-state compaction | `e660f3cfcba917a4c5801476af6b29aabd18d38d4d7d37b5965b122f14fc0e46` |
 | [`status-through-2026-10-04-d3-r6-acceptance.md`](../status-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor current status after D3-R6 acceptance and before OH-S0b/OH-S1 authorization | `7a4cf1ceddad12273739620e1ac6270103bac212f75e3a4bcddc9ec1b160002a` |
 | [`status-through-2026-10-04-d3-r6-assignment.md`](../status-through-2026-10-04-d3-r6-assignment.md) | Complete former current status through the D3-R6 assignment, return and pending independent review | `879010d3d59a85718dfb61acb778ad62956055dd289c453e41f5c8d1e15f81b5` |

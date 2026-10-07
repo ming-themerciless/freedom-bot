@@ -9,6 +9,7 @@ current record or dated erratum; snapshots must not be silently rewritten.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`implementation-plan-through-2026-10-07-oh-s3-r8-return.md`](../implementation-plan-through-2026-10-07-oh-s3-r8-return.md) | Complete pre-acceptance plan whose §20 recorded the OH-S3 R8 return and independent Codex re-review, before Peter's acceptance, R9-F1 editorial correction and §20 compaction | `177ef9502b9e0a15d7897ccfc7612aafd758d3e02efc9a6d472c704a871751de` |
 | [`implementation-plan-through-2026-10-06-oh-s2-r2-return.md`](../implementation-plan-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance plan whose §20 recorded the OH-S2 R2 return pending independent decision, before Peter's acceptance and §20 compaction | `0595c3bedc42faf5d029ac3dfec87a96bbf82f97da83b9a621ea8ac9c3550023` |
 | [`implementation-plan-through-2026-10-04-d3-r6-acceptance.md`](../implementation-plan-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor plan whose §20 recorded D3-R6 acceptance before OH-S0b/OH-S1 authorization | `07936a42ec645f2a997f5425ee68d7fd0fed92cfef8c088daf76b8831f24a1c9` |
 | [`implementation-plan-through-2026-10-04-d3-r6-assignment.md`](../implementation-plan-through-2026-10-04-d3-r6-assignment.md) | Complete former implementation plan whose §20 retained the D3-R6 assignment and superseded remediation history | `83a02bd6f76c10357c6a87b25c86f80bd30bb1fe592968102a107c4e88e0e4e8` |

@@ -1,5 +1,35 @@
 # Decision register
 
+## Decision — cumulative OH-S3 R8 design accepted — 2026-10-07
+
+Peter Duscha accepts Codex's independent OH-S3 R8 re-review and accepts the
+cumulative R8 proposal, with the authorized R9-F1 editorial correction, as the
+inactive forward design basis. `R8-F1`, `R8-F2` and `R9-F1` are closed.
+
+The decision does not establish concrete Route 3, make DEC-1 through DEC-6 or
+select the G-1b Route 3 direction. The Route 3 hard stop remains, and no
+successor or operational authority is created.
+
+[Acceptance](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-r8-acceptance.md)
+· [Accepted R8 proposal](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-proposal.md)
+· [Archived pre-acceptance handover](../review/Handover-information-through-2026-10-07-oh-s3-r8-return.md).
+
+## Decision — OH-S3 R1 design remediation authorized — 2026-10-07
+
+Peter Duscha authorizes exact 9693-byte prompt SHA-256
+`8e4d2a95092b15aec184b7099716fd9f6f56d4a3695aa8e70bc58188bf2b8c00`
+under work ID `C-P5.0-R5-RP11-H1-OH-S3-R1-20261007-01`. Claude must repair
+the activation design for PO-20(f), PO-21(c), PO-21(s) and PO-11(d), replace
+Route 1 with a concrete Route 3 design, and define the MF-1 through MF-8 and
+OH-S4p successor gates.
+
+The assignment is repository documentation only and returns for independent
+Codex review. No host, implementation, launcher, cleanup, activation, commit or
+push authority is granted.
+
+[Authority](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-r1-design-remediation-authority.md)
+· [Prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r1-design-remediation-claude-prompt.md).
+
 ## Decision — R1-F1 residual risk accepted — 2026-10-07
 
 Peter Duscha records that the deleted cookie was approximately one month old,
