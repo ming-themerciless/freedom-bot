@@ -49,15 +49,15 @@ traps stay in `.agents/AGENTS.md` and are in force whether or not a skill runs.
 They turn two rules that were prose into mechanical refusals:
 
 * **`guard-secrets.py`** refuses reads, copies, publications and edits of
-  `.env` files, `yt-cookies.txt`, service-account and credential JSON, private
-  keys, certificates and `.pgpass`. `.env.example` is exempt and must be kept
+  `.env` files, service-account and credential JSON, private keys,
+  certificates and `.pgpass`. `.env.example` is exempt and must be kept
   current.
 * **`guard-git.py`** refuses history rewrites on any branch — force push, hard
   reset, rebase, amend, filter-branch — and refuses commits and pushes on the
   default branch. Branch first, or let the maintainer publish.
 
 Run `python3 .claude/hooks/test_guards.py` after changing either. It asserts
-both directions: 27 calls that must be refused and 14 that must be allowed.
+both directions: 26 calls that must be refused and 14 that must be allowed.
 
 A refusal from a guard is a stop condition, not an obstacle to route around.
 

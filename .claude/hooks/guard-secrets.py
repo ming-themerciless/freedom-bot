@@ -2,9 +2,9 @@
 """Refuse tool calls that would read, print, copy or publish a secret file.
 
 `.agents/AGENTS.md` "Configuration and secrets" states the rule as prose: never
-read, print, commit or modify `.env`, `yt-cookies.txt`, service-account JSON,
-Discord tokens, OAuth secrets, database URLs or Foundry credentials. Prose is an
-instruction an agent can fail to apply. This hook makes the same rule a refusal.
+read, print, commit or modify `.env`, service-account JSON, Discord tokens,
+OAuth secrets, database URLs or Foundry credentials. Prose is an instruction an
+agent can fail to apply. This hook makes the same rule a refusal.
 
 ## Why the Bash rule is narrower than the file-tool rule
 
@@ -33,7 +33,6 @@ import sys
 #: Patterns naming a secret-bearing artifact.
 SECRET_PATTERNS = (
     r"(?<![\w.-])\.env(?!\.example\b)(?:\.[\w-]+)?\b",
-    r"yt-cookies\.txt",
     r"[\w-]*service[_-]?account[\w-]*\.json",
     r"[\w-]*credentials?[\w-]*\.json",
     r"[\w./-]*\.pem\b",

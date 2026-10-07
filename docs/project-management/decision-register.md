@@ -1,5 +1,190 @@
 # Decision register
 
+## Decision — R1-F1 residual risk accepted — 2026-10-07
+
+Peter Duscha records that the deleted cookie was approximately one month old,
+belonged exclusively to the already removed music capability and is no longer
+needed. He accepts any residual possibility that its former remote session
+remained valid and requires no invalidation or rotation. The R1-F1 incident-
+response question is closed; R1 remains nonconforming history.
+
+[Decision](../review/project-review-2026-10-07-r1-f1-residual-risk-acceptance.md).
+
+## Decision — obsolete music residue removed; R1-F1 response closed — 2026-10-06
+
+Peter Duscha confirms that `yt-cookies.txt` belonged only to the music
+capability removed by OD-40 and directs removal of every remaining residue.
+The untracked cookie file and empty local Lavalink directory were deleted
+without reading the cookie. Current music-specific operational exceptions were
+removed; historical evidence was preserved. This closes the local residue;
+remote-session invalidation or explicit risk acceptance remains Peter's
+decision. R1 remains nonconforming history.
+
+[Decision](../review/project-review-2026-10-06-music-residue-removal.md).
+
+## Decision — OH-S2 R2 accepted — 2026-10-06
+
+Peter Duscha accepts Codex's independent OH-S2 R2 re-review with no Blocking,
+Important or Optional finding and accepts the cumulative R2 citation record as
+the inactive forward basis. `R1-F1` and `R1-F2` are closed as remediated. R1
+remains a nonconforming historical execution and R2 is not retroactive.
+
+The accepted technical dispositions and missing-fact boundaries are unchanged.
+The R1-F1 incident-response and credential-rotation question remains Peter's
+decision. No successor or operational authority is created.
+
+[Acceptance](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
+· [Accepted R2 record](../review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md).
+
+## Decision — R3 accepted and narrow H-0G R1 authorized — 2026-10-06
+
+Peter Duscha accepts Codex's independent R3 review with no finding, accepts
+the cumulative R3 design and closes `R2-F1` through `R2-F3` as remediated.
+Peter separately authorizes exact 7881-byte H-0G prompt SHA-256
+`58ebc8cb07a82d4f2c75df5dc35feb99eaf04802cc9abd1a98ffdb1104caca31`
+under work ID `C-P5.0-R5-RP11-H1-OH-S0B-S1-H0G-R1-20261006-06`.
+
+The one-shot assignment permits one forwarding-disabled SSH execution
+connection and repository-free, unprivileged fact collection into the fresh
+exclusive evidence path. It does not authorize cleanup, workspace recreation,
+OH-S2 or later work. Its return requires independent review and composition.
+
+[R3 acceptance](../review/project-review-2026-10-06-p5-r5-rp11-h1-h0-completeness-remediation-r3-acceptance.md)
+· [H-0G authority](../review/project-review-2026-10-06-p5-r5-rp11-h1-h0g-r1-authority.md)
+· [Active prompt](../review/phase-5-0-p5-r5-rp11-h1-h0g-r1-claude-prompt.md).
+
+## Decision — R5 H-0 completeness remediation authorized — 2026-10-06
+
+Peter Duscha authorizes exact prompt SHA-256
+`b52085f8caccc88ec3b633c70e4d02d4874bfc9af06c90d8f48cc07e0268cedc`
+(9780 bytes) under work ID
+`C-P5.0-R5-RP11-H1-OH-S0B-S1-H0-R5-DR1-20261006-03`.
+
+Claude may produce the repository-only cumulative remediation proposal,
+complete handback and terminal current-state pointer updates. No network,
+`oracle-test`, retained-evidence access, fresh H-0 fact collection,
+implementation, OH-S2, H-1/H-2, activation, cleanup, commit or push is
+authorized. The return requires independent Codex review and Peter's recorded
+decisions.
+
+[Authority](../review/project-review-2026-10-06-p5-r5-rp11-h1-h0-completeness-remediation-authority.md)
+· [Active prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r5-remediation-claude-prompt.md).
+
+## Decision — R5 isolated-checkout H-0 authorized — 2026-10-06
+
+Peter Duscha authorizes exact prompt SHA-256
+`57d23c1ba683ce8c2be15fe101da959a9dc1334ff89a1b0c66f917f26cf42e8e`
+(6942 bytes) under work ID
+`C-P5.0-R5-RP11-H1-OH-S0B-S1-H0-R5-20261006-02`. R5 uses fresh `-02` paths,
+one forwarding-disabled SSH execution connection and anonymous retrieval from
+the public `freedom-platform` URL. R4 and every earlier path remain consumed.
+
+No controller-side network preflight, retry, cleanup, credential, privilege,
+installation, build, test, service/database mutation, H-1/H-2 or later slice
+is authorized. The complete handback must be preserved both in its dedicated
+file and verbatim in chat before independent Codex review.
+
+[Authority](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r5-authority.md)
+· [Active prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r5-claude-prompt.md).
+
+## Decision — repository renamed to `freedom-platform` and made public — 2026-10-06
+
+Peter Duscha renamed the canonical GitHub repository from
+`ming-themerciless/freedom-bot` to `ming-themerciless/freedom-platform` and
+made it publicly readable. Current retrieval uses
+`https://github.com/ming-themerciless/freedom-platform.git`; historical records
+retain the old slug when it identifies an executed or consumed assignment.
+
+This administrative change does not rename the Freedom bot application or
+service and does not authorize a new H-0 run. R4 remains consumed. A successor
+requires a fresh work ID, exclusive paths and explicit authority.
+
+[Decision record](../review/project-review-2026-10-06-repository-rename-and-publication.md)
+· [R4 review](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r4-hard-stop.md).
+
+## Decision — R4 isolated-checkout H-0 authorized — 2026-10-06
+
+Peter Duscha directs routine execution details to be resolved without repeated
+escalation. R4 preserves the dirty fixed checkout and uses new exclusive
+`/var/tmp` checkout and evidence paths for one SSH-controlled pinned retrieval
+and H-0 collection. It records the available `/usr/bin/python3` rather than
+assuming Python 3.12 and must produce a durable file-backed terminal handback.
+OH-S2 and every later slice remain gated on independent review.
+
+[Authority](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r4-authority.md)
+· [Claude prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r4-claude-prompt.md).
+
+## Record — R3 H-0 consumed at dirty-checkout HARD STOP — 2026-10-05
+
+R3 used its one authorized SSH connection and correctly stopped at Phase 1
+because the fixed checkout was not clean. Independent review accepts the
+substantive HARD STOP but not the visibly truncated terminal text as a complete
+literal evidence record. No retry, cleanup, fresh checkout or later slice is
+authorized. Peter must separately choose any successor route.
+
+[Independent review](../review/project-review-2026-10-05-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r3-hard-stop.md).
+
+## Decision — direct SSH-controlled OH-S0b/OH-S1 H-0 authorized — 2026-10-05
+
+Peter Duscha authorizes workspace Claude to remain on the controller and send
+one self-contained H-0 program through exactly one forwarding-disabled,
+non-interactive SSH execution connection to `oracle-test`. The retained program
+runs locally as `ubuntu@Test`, retrieves the pin directly from the canonical
+public repository and creates all evidence remotely. No nested Claude client,
+repository transfer, credential forwarding, second connection or retry is
+authorized. R2 is withdrawn unused. This exception changes H-0 orchestration
+only; H-1 and later topology remain unchanged.
+
+[Authority](../review/project-review-2026-10-05-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r3-authority.md)
+· [Claude prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r3-claude-prompt.md).
+
+## Superseded decision — corrected OH-S0b/OH-S1 H-0 authorized — 2026-10-05
+
+Peter Duscha authorizes Claude to execute corrected work ID
+`C-P5.0-R5-RP11-H1-OH-S0B-S1-H0-R1-20261005-04` locally on `oracle-test` as
+`ubuntu`. The identity check compares `uname -n` with kernel nodename `Test`.
+The assignment may anonymously retrieve only the pinned commit from the fixed
+canonical public HTTPS repository and then collect HF-01 through HF-20 into its
+new exclusive evidence directory. It ends at `H-0 PASS` or `HARD STOP`.
+
+[Authority](../review/project-review-2026-10-05-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r1-authority.md)
+· [Claude prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-r1-claude-prompt.md).
+
+## Record — evidence repair returned; H-0 remains unauthorized — 2026-10-05
+
+Claude returned `EVIDENCE REPAIR COMPLETE` for work ID
+`C-P5.0-ORACLE-AGENT-CLIENT-BOOTSTRAP-R1-20261005-03`. The one-shot authority
+is consumed. The substantive remediation facts are recorded as verified and
+the original evidence procedure remains nonconforming. Because the transmitted
+handback still contains truncated command text and fields, it is not accepted
+as the complete literal corrected record required by its prompt. No retry or
+H-0 authority follows.
+
+[Return review](../review/project-review-2026-10-05-agent-client-bootstrap-evidence-repair-return.md).
+
+## Decision — retained bootstrap-remediation evidence repair authorized — 2026-10-05
+
+Peter Duscha authorizes Claude to execute the exact one-shot retained-evidence
+repair under work ID
+`C-P5.0-ORACLE-AGENT-CLIENT-BOOTSTRAP-R1-20261005-03`. The authority is limited
+to the fixed evidence paths, bounded absence checks and exclusive new evidence
+directory in the prompt. It ends at `EVIDENCE REPAIR COMPLETE` or `HARD STOP`.
+No retry is authorized, and H-0 remains unauthorized.
+
+[Authority](../review/project-review-2026-10-05-agent-client-bootstrap-evidence-repair-authority.md)
+· [Prompt](../review/phase-5-0-agent-clients-bootstrap-remediation-evidence-repair-claude-prompt.md).
+
+## Decision — OH-S0b public retrieval and OH-S1 H-0 authorized — 2026-10-05
+
+Peter Duscha authorizes Claude to run locally on `oracle-test` as `ubuntu`,
+retrieve pinned commit `46d1c35a029ca8287779ae87d08a370ba0a0f2ef`
+anonymously from the canonical public repository, then collect the accepted
+H-0 fact set without privilege. Authentication or any need for a credential is
+a HARD STOP. The authority is one-shot and ends at `H-0 PASS` or `HARD STOP`.
+
+[Authority](../review/project-review-2026-10-05-p5-r5-rp11-h1-oh-s0b-oh-s1-authority.md)
+· [Claude prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s0b-oh-s1-h0-claude-prompt.md).
+
 ## Decision — D3-R6 accepted; H-1 design remediation chain closed — 2026-10-04
 
 Peter Duscha accepts Codex's clean independent D3-R6 re-review and the

@@ -5,7 +5,6 @@ rsync
 --exclude=.env*
 --exclude=*.pem
 --exclude=*.key
---exclude=yt-cookies.txt
 --exclude=*service_account*.json
 --exclude=*credentials*.json
 --exclude=__pycache__/

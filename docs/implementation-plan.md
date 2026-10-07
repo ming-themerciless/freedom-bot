@@ -12,7 +12,7 @@ Acceptance authority: Peter Duscha, Maintainer and Product Sponsor
 
 Audience: Maintainers, implementation agents, reviewers, and operators
 
-Repository: `freedom-bot` (to evolve into the Freedom Blades platform)
+Repository: `freedom-platform` (renamed from `freedom-bot` on 2026-10-06)
 
 Primary rules source: `Freedom Blades - Homebrew Rules.pdf`
 
@@ -225,16 +225,16 @@ repository. Do not delete the Freedom bot after the website is introduced; its r
 The bot remains the Discord-facing adapter for notifications, event
 integration, voice attendance, and optional lightweight commands.
 
-The repository may be renamed from `freedom-bot` to a platform-oriented name
-after the database-backed web application is operating reliably. A rename is
-an administrative change, not an architectural milestone.
+The repository was renamed administratively on 2026-10-06 from `freedom-bot`
+to `freedom-platform`. The rename does not rename the Freedom bot application
+or change its retirement gate.
 
 ### 2.2 Intended repository layout
 
 The layout should evolve incrementally toward:
 
 ```text
-freedom-bot/
+freedom-platform/
 ├── application/             # use cases shared by web, bot, and Foundry
 ├── domain/                  # framework-free game and platform policy
 ├── adapters/
@@ -2439,6 +2439,15 @@ indexed under `docs/review/handover-archive/`; dedicated handbacks and reviews
 remain the durable records. Agents update the current entry point rather than
 appending an unbounded history to it.
 
+Every assignment names a dedicated repository-relative handback path under
+`docs/review/`. The executor writes the complete terminal handback there before
+returning it in chat and links it from the current handover. When an operational
+authority forbids repository writes, the controller or assigning agent instead
+preserves the exact, unabridged terminal output at that path before review is
+requested. Chat-only or truncated handbacks are not durable evidence. The
+canonical `Handover information` remains concise and links to the dedicated
+record rather than containing a large transcript.
+
 Claude Code reports:
 
 - requirements implemented;
@@ -2548,21 +2557,29 @@ A production feature is complete when:
 
 ## 20. Immediate next actions
 
-**Current state, 2026-10-04 — Peter Duscha accepts Codex's clean D3-R6
-re-review and the cumulative one-host H-1 activation design.**
-`OH-H1-D3-R5-1`, `OH-H1-D3-R4-1`, `OH-H1-D3-R2-1`,
-`OH-H1-D3-R1-1` and `OH-H1-D3-2` are closed as remediated. OS-6 remains
-decided. CX-4 is knowingly accepted as an outside-A-2 residual and is not an
-authorized-path exception.
+Peter Duscha accepts Codex's clean independent OH-S2 R2 re-review and the
+cumulative R2 citation record. `R1-F1` and `R1-F2` are closed as remediated;
+R1 remains nonconforming historical evidence and R2 is not retroactive. The
+R2 record is the accepted inactive forward basis.
 
-The proposal is the accepted inactive design basis. The next proposed slice is
-OH-S1, the separately authorized read-only H-0 fact collection, followed by
-the independently gated OH-S2 citation work. No successor is currently
-authorized. No host, Git/network retrieval, credential, implementation,
-build, installation, H-0/H-1/H-2, activation, evidence, rollback, cleanup,
-commit or push authority exists. The production workspace host must not
-participate.
+The accepted dispositions remain in force: the activation design returns to
+design review; Route 1 returns to Route 3 design review; PO-19 remains not
+established pending MF-1 and MF-2; the other missing facts remain open; and
+PO-17 remains unevaluated against a launcher image pending OH-S4p. Peter
+confirms that the R1-F1 cookie belonged only to the retired music capability.
+Its deletion closes the local residue without retroactively conforming R1;
+Peter explicitly accepts the remote-session residual risk and requires no
+invalidation or rotation. The R1-F1 incident-response question is closed.
 
-[Acceptance record](review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md)
-· [Accepted inactive proposal](review/phase-5-0-p5-r5-rp11-h1-oracle-test-one-host-design-amendment-proposal.md#17-d3-r6-remediation-and-handback-d3-r6-2026-10-04)
-· [Archived former §20 state](implementation-plan-through-2026-10-04-d3-r6-assignment.md).
+No successor assignment is authorized. No host or retained-evidence access,
+cleanup, workspace recreation, implementation, build, test, package or
+service/database operation, H-1/H-2, activation, rollback, commit or push is
+authorized. Retained R5 and H-0G paths remain untouched pending separately
+gated LC-3 through LC-5 authority.
+
+[Acceptance](review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
+· [Music-residue removal](review/project-review-2026-10-06-music-residue-removal.md)
+· [R1-F1 risk acceptance](review/project-review-2026-10-07-r1-f1-residual-risk-acceptance.md)
+· [Accepted R2 record](review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
+· [R2 handback](review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-handback.md)
+· [Archived pre-acceptance §20](implementation-plan-through-2026-10-06-oh-s2-r2-return.md).

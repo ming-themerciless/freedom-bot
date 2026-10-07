@@ -9,6 +9,8 @@ current record or dated erratum; snapshots must not be silently rewritten.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`implementation-plan-through-2026-10-06-oh-s2-r2-return.md`](../implementation-plan-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance plan whose §20 recorded the OH-S2 R2 return pending independent decision, before Peter's acceptance and §20 compaction | `0595c3bedc42faf5d029ac3dfec87a96bbf82f97da83b9a621ea8ac9c3550023` |
+| [`implementation-plan-through-2026-10-04-d3-r6-acceptance.md`](../implementation-plan-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor plan whose §20 recorded D3-R6 acceptance before OH-S0b/OH-S1 authorization | `07936a42ec645f2a997f5425ee68d7fd0fed92cfef8c088daf76b8831f24a1c9` |
 | [`implementation-plan-through-2026-10-04-d3-r6-assignment.md`](../implementation-plan-through-2026-10-04-d3-r6-assignment.md) | Complete former implementation plan whose §20 retained the D3-R6 assignment and superseded remediation history | `83a02bd6f76c10357c6a87b25c86f80bd30bb1fe592968102a107c4e88e0e4e8` |
 | [`implementation-plan-through-2026-10-04-oracle-test-topology-decision.md`](../implementation-plan-through-2026-10-04-oracle-test-topology-decision.md) | Verbatim displaced §20 block after local `oracle-test` topology selection and before the design-amendment assignment | `bc532b54049382716eb6262579cd76e7f431b65cdfd76113e640ede076404364` |
 | [`implementation-plan-through-2026-10-04-production-host-h1-decision.md`](../implementation-plan-through-2026-10-04-production-host-h1-decision.md) | Verbatim displaced §20 current-action block recording the superseded production-host H-1 direction | `7ba936aab7b41e7f3a72b57567622c3fefdf701a073e306c9f55a60e8972509b` |

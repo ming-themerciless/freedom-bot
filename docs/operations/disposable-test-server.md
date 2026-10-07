@@ -1,19 +1,31 @@
 # Disposable Linux Test Server
 
-**Active restriction, 2026-10-04 — D3-R6 accepted; no host authority.** The
-one-host H-1 activation design is accepted as an inactive design basis and its
-remediation findings are closed. No successor slice is active. The next
-proposed slice, OH-S1/H-0, requires separate explicit authority. The current
-workspace host is production and must not be a source, controller, relay,
-destination, fallback or rollback target. No SSH, Git/network retrieval,
-rsync, `oracle-test` inspection, upstream research, credential,
-implementation, installation, build, retry, host remediation, cleanup,
-package, privilege, `systemctl`, configuration, service/database,
-operational, secrets, commit or push action is authorized for any agent.
-[Acceptance](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md).
+**Active restriction, 2026-10-07 — OH-S2 R2 accepted; no host authority.**
+Peter Duscha accepts the clean independent OH-S2 R2 re-review and the
+cumulative R2 citation record. `R1-F1` and `R1-F2` are closed as remediated;
+R1 remains nonconforming historical evidence and R2 is not retroactive. No
+successor assignment or SSH connection to `oracle-test` is authorized. MF-1
+through MF-8 remain uncollected unless a separate authority permits them.
 
-The superseded R6-assignment restriction is preserved in
-[`disposable-test-server-through-2026-10-04-d3-r6-assignment.md`](disposable-test-server-through-2026-10-04-d3-r6-assignment.md);
+No retained-evidence access, cleanup, workspace recreation, privilege, package
+operation, installation, build, test, service/database mutation, H-1/H-2,
+activation, rollback, commit or push is authorized. The R5 and H-0G evidence
+paths remain retained and untouched pending separately gated LC-3 through
+LC-5 authority.
+
+The obsolete local music cookie and empty Lavalink directory were removed on
+the controller without any host connection. This creates no `oracle-test`
+authority. Peter accepts the former session's residual risk and requires no
+invalidation or rotation.
+
+[Acceptance](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
+· [Music-residue removal](../review/project-review-2026-10-06-music-residue-removal.md)
+· [R1-F1 risk acceptance](../review/project-review-2026-10-07-r1-f1-residual-risk-acceptance.md)
+· [Accepted R2 record](../review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
+· [Archived pre-acceptance restriction](disposable-test-server-through-2026-10-06-oh-s2-r2-return.md).
+
+The predecessor restriction is preserved in
+[`disposable-test-server-through-2026-10-04-d3-r6-acceptance.md`](disposable-test-server-through-2026-10-04-d3-r6-acceptance.md);
 earlier snapshots are indexed under
 [`disposable-test-server-archive/`](disposable-test-server-archive/README.md).
 
@@ -33,6 +45,7 @@ The server exists so that **Codex, Claude Code, Antigravity, and maintainers hav
 |---|---|
 | **Public IPv4** | `138.2.182.39` |
 | **SSH Host Alias** | `oracle-test` (and direct IP `138.2.182.39`) |
+| **Kernel Nodename** | `Test` (`uname -n`); distinct from the SSH alias |
 | **User** | `ubuntu` |
 | **Privilege Level** | Full passwordless `sudo` (`sudo ALL=(ALL) NOPASSWD:ALL`) |
 | **SSH Authentication** | Key-based via `~/.ssh/id_ed25519` from this host |
@@ -90,7 +103,6 @@ rsync -avz --delete \
   --exclude='.env*' \
   --exclude='*.pem' \
   --exclude='*.key' \
-  --exclude='yt-cookies.txt' \
   --exclude='*service_account*.json' \
   --exclude='*credentials*.json' \
   --exclude='__pycache__/' \
@@ -154,7 +166,6 @@ If a test corrupted the database or filesystem:
      --exclude='.env*' \
      --exclude='*.pem' \
      --exclude='*.key' \
-     --exclude='yt-cookies.txt' \
      --exclude='*service_account*.json' \
      --exclude='*credentials*.json' \
      --exclude='__pycache__/' \

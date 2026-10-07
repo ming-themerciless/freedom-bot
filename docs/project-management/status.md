@@ -3,23 +3,35 @@
 This is the concise current operational-status entry point. Historical states
 are indexed under [`status-archive/`](status-archive/README.md).
 
-## Current status — D3-R6 accepted; H-1 design remediation chain closed — 2026-10-04
+## Current status — OH-S2 R2 accepted; next work unassigned — 2026-10-07
 
-Peter Duscha accepts Codex's clean D3-R6 re-review and the cumulative one-host
-H-1 activation design. `OH-H1-D3-R5-1`, `OH-H1-D3-R4-1`,
-`OH-H1-D3-R2-1`, `OH-H1-D3-R1-1` and `OH-H1-D3-2` are closed as remediated.
-OS-6 remains decided. CX-4 is an accepted residual outside A-2, not an
-authorized-path exception.
+The canonical public repository is `ming-themerciless/freedom-platform` at
+`https://github.com/ming-themerciless/freedom-platform.git`. The rename does
+not rename the Freedom bot application or service.
 
-The proposal is accepted as the inactive design basis. H-1 remains blocked on
-the separately gated successor sequence beginning with OH-S1/H-0 and OH-S2
-citations. Package RAID item `P5.0-R5`, PO-9, PO-14, D9-4, H-1, RP-11 wiring,
-`plan.is_executable` and Package 5.0 readiness remain open.
+Peter Duscha accepts Codex's clean independent OH-S2 R2 re-review and the
+cumulative R2 citation record. `R1-F1` and `R1-F2` are closed as remediated;
+R1 remains a nonconforming historical execution and R2 is not retroactive.
+The R2 record is the accepted inactive forward basis.
 
-No host, Git/network retrieval, credential, implementation, build,
-installation, H-0/H-1/H-2, activation, evidence, rollback, cleanup, commit or
-push authority exists. The production workspace host must not participate.
+Accepted dispositions: PO-14 and AD-7 are established; the activation design
+returns to design review; Route 1 returns to Route 3 design review; PO-19 is
+not established pending MF-1 and MF-2; the remaining missing facts stay open;
+and PO-17 remains unevaluated against an OH-S4p launcher image. Peter confirms
+that the R1-F1 cookie belonged only to the retired music capability. Its
+deletion closes the local residue without retroactively conforming R1; remote-
+session residual risk is explicitly accepted and no invalidation or rotation is
+required. The R1-F1 incident-response question is closed.
 
-[Acceptance](../review/project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md)
-· [Accepted inactive proposal](../review/phase-5-0-p5-r5-rp11-h1-oracle-test-one-host-design-amendment-proposal.md#17-d3-r6-remediation-and-handback-d3-r6-2026-10-04)
-· [Archived former status](status-through-2026-10-04-d3-r6-assignment.md).
+No successor assignment or operational authority is active. No host or
+retained-evidence access, cleanup, workspace recreation, implementation,
+build, test, package or service/database operation, H-1/H-2, activation,
+rollback, commit or push is authorized. Retained R5 and H-0G paths remain
+untouched pending separately gated LC-3 through LC-5 authority.
+
+[Acceptance](../review/project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
+· [Music-residue removal](../review/project-review-2026-10-06-music-residue-removal.md)
+· [R1-F1 risk acceptance](../review/project-review-2026-10-07-r1-f1-residual-risk-acceptance.md)
+· [Accepted R2 record](../review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
+· [R2 handback](../review/phase-5-0-p5-r5-rp11-h1-oh-s2-r2-handback.md)
+· [Archived pre-acceptance status](status-through-2026-10-06-oh-s2-r2-return.md).

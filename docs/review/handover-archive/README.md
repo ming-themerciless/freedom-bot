@@ -14,6 +14,8 @@ assignment or operational authority.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`Handover-information-through-2026-10-06-oh-s2-r2-return.md`](../Handover-information-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance handover after OH-S2 R2 return and independent re-review, before Peter's acceptance and current-state compaction | `2c75a873539cb891477bbaa5f1b871f4008826920d3b9b296ce2accb553e7084` |
+| [`Handover-information-through-2026-10-04-d3-r6-acceptance.md`](../Handover-information-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor handover after D3-R6 acceptance and before OH-S0b/OH-S1 authorization | `cdf16ac0bae15aa8f45e02e673d74b7bf8b0e5e041c391a50f15e26ce52242c5` |
 | [`Handover-information-through-2026-10-04-d3-r6-assignment.md`](../Handover-information-through-2026-10-04-d3-r6-assignment.md) | Complete former active handover through the D3-R6 assignment, return and pending independent review | `fcedfcce8c8144cecdc6b497f3ee356a5ebe181f66b7e859a6948e0f56d14bb5` |
 | [`Handover-information-through-2026-10-04-oracle-test-topology-decision.md`](../Handover-information-through-2026-10-04-oracle-test-topology-decision.md) | Verbatim displaced active handover block after local `oracle-test` topology selection and before the design-amendment assignment | `a670535ccc72d6694ef395ce4ef4d8d28a486a2a9e91dbbc8b356a6f2c214343` |
 | [`Handover-information-through-2026-10-04-production-host-h1-decision.md`](../Handover-information-through-2026-10-04-production-host-h1-decision.md) | Verbatim displaced active handover block recording the superseded production-host H-1 direction | `a245f3c0b8d6cebf7522536ed69870c8b71170db42cf17845ec27865f3518d27` |

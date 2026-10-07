@@ -1,24 +1,36 @@
-# Active handover — D3-R6 accepted; H-1 design remediation chain closed — 2026-10-04
+# Active handover — OH-S2 R2 accepted; no successor authorized — 2026-10-07
 
-Peter Duscha accepts Codex's clean independent D3-R6 re-review and the
-cumulative one-host H-1 activation design. `OH-H1-D3-R5-1`,
-`OH-H1-D3-R4-1`, `OH-H1-D3-R2-1`, `OH-H1-D3-R1-1` and `OH-H1-D3-2` are
-closed as remediated. OS-6 remains the decided route-iii-a condition.
+Peter Duscha accepts Codex's independent re-review recommendation with no
+Blocking, Important or Optional finding and accepts the cumulative OH-S2 R2
+citation record as the inactive forward basis. `R1-F1` and `R1-F2` are closed
+as remediated. R1 remains a nonconforming historical execution; R2's authority
+is not retroactive.
 
-CX-4 remains a knowingly accepted residual outside A-2: a non-route root
-`stop` or prohibited orderly transition during `start-pre` can defeat the
-one-start-attempt barriers only under the exact conditions recorded in the
-accepted proposal. It is not an authorized-path exception, and no grant exists
-during or after a pass.
+The accepted technical dispositions do not change. The activation design
+returns to design review; Route 1 returns to Route 3 design review; PO-19
+remains not established pending MF-1 and MF-2; the other missing facts remain
+open; and PO-17 remains unevaluated against a launcher image pending OH-S4p.
 
-The accepted proposal remains an inactive design. The next proposed slice is
-OH-S1, the separately authorized, read-only H-0 fact collection defined in the
-proposal. No such authority is active yet. No SSH, Git/network retrieval,
-credential, implementation, build, installation, H-0/H-1/H-2, activation,
-evidence, rollback, cleanup, commit or push authority exists. The current
-workspace host is production and must not participate.
+Peter confirms that the affected cookie file belonged only to the retired
+music capability. It was deleted without being read, together with the empty
+local Lavalink directory and current music-specific operational residues. This
+closes the local residue without retroactively conforming R1. Peter accepts any
+residual possibility that the month-old former session remained valid and
+requires no invalidation or rotation. The R1-F1 incident-response question is
+closed. No secret or credential inspection is authorized.
 
-- [Acceptance record](project-review-2026-10-04-p5-r5-rp11-h1-one-host-design-remediation-r6-acceptance.md)
-- [Accepted inactive proposal](phase-5-0-p5-r5-rp11-h1-oracle-test-one-host-design-amendment-proposal.md#17-d3-r6-remediation-and-handback-d3-r6-2026-10-04)
-- [Archived former handover](Handover-information-through-2026-10-04-d3-r6-assignment.md)
+No successor assignment is authorized. No host or retained-evidence access,
+cleanup, workspace recreation, implementation, build, test, package or
+service/database operation, H-1/H-2, activation, rollback, commit or push is
+authorized. The R5 and H-0G retained paths remain untouched pending separately
+gated LC-3 through LC-5 authority.
+
+- [Acceptance record](project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-acceptance.md)
+- [Music-residue removal decision](project-review-2026-10-06-music-residue-removal.md)
+- [R1-F1 residual-risk acceptance](project-review-2026-10-07-r1-f1-residual-risk-acceptance.md)
+- [Accepted cumulative R2 citation record](phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
+- [R2 handback](phase-5-0-p5-r5-rp11-h1-oh-s2-r2-handback.md)
+- [Consumed R2 authority](project-review-2026-10-06-p5-r5-rp11-h1-oh-s2-r2-remediation-authority.md)
+- [Consumed R2 prompt](phase-5-0-p5-r5-rp11-h1-oh-s2-r2-remediation-claude-prompt.md)
+- [Archived pre-acceptance handover](Handover-information-through-2026-10-06-oh-s2-r2-return.md)
 - [Handover archive index](handover-archive/README.md)

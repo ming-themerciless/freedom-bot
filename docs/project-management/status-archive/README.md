@@ -14,6 +14,8 @@ authority or disposition.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`status-through-2026-10-06-oh-s2-r2-return.md`](../status-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance status after OH-S2 R2 return and independent re-review, before Peter's acceptance and current-state compaction | `e660f3cfcba917a4c5801476af6b29aabd18d38d4d7d37b5965b122f14fc0e46` |
+| [`status-through-2026-10-04-d3-r6-acceptance.md`](../status-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor current status after D3-R6 acceptance and before OH-S0b/OH-S1 authorization | `7a4cf1ceddad12273739620e1ac6270103bac212f75e3a4bcddc9ec1b160002a` |
 | [`status-through-2026-10-04-d3-r6-assignment.md`](../status-through-2026-10-04-d3-r6-assignment.md) | Complete former current status through the D3-R6 assignment, return and pending independent review | `879010d3d59a85718dfb61acb778ad62956055dd289c453e41f5c8d1e15f81b5` |
 | [`status-through-2026-10-04-oracle-test-topology-decision.md`](../status-through-2026-10-04-oracle-test-topology-decision.md) | Verbatim displaced current-status block after local `oracle-test` topology selection and before the design-amendment assignment | `cfa079b653f2ee9b31a053d0b0ddcf4d9a54aec7b4b3c1ff6b56d44490b6972e` |
 | [`status-through-2026-10-04-production-host-h1-decision.md`](../status-through-2026-10-04-production-host-h1-decision.md) | Verbatim displaced current-status block recording the superseded production-host H-1 direction | `da39c94c9d67e56a503589fad4bd14034d00507822b00b982f962cf9127f1911` |

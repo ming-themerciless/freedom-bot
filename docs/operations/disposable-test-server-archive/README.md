@@ -11,6 +11,8 @@ become current because it appears in a snapshot.
 
 | Snapshot | Scope | SHA-256 at archival |
 |---|---|---|
+| [`disposable-test-server-through-2026-10-06-oh-s2-r2-return.md`](../disposable-test-server-through-2026-10-06-oh-s2-r2-return.md) | Complete pre-acceptance operations document whose restriction banner recorded OH-S2 R2 awaiting review | `8db0e3e7ade401572c87b89f16ba1d7c94e43c58453cfda85141e196ac53d504` |
+| [`disposable-test-server-through-2026-10-04-d3-r6-acceptance.md`](../disposable-test-server-through-2026-10-04-d3-r6-acceptance.md) | Complete predecessor operations document after D3-R6 acceptance and before bounded OH-S0b/OH-S1 host authority | `a8686c8f117aecd6453134706d1abc5d198732b362327c620a937486da41744c` |
 | [`disposable-test-server-through-2026-10-04-d3-r6-assignment.md`](../disposable-test-server-through-2026-10-04-d3-r6-assignment.md) | Complete former operations document with the repository-only D3-R6 restriction banner | `dd3678c58608c4b1d89cf07f3c23c46d5e0477e849f52c0c6347715c0ed5c947` |
 | [`disposable-test-server-through-2026-10-04-oracle-test-topology-decision.md`](../disposable-test-server-through-2026-10-04-oracle-test-topology-decision.md) | Verbatim displaced restriction after local `oracle-test` topology selection and before the design-amendment assignment | `42182b3ed040657004e1759c7c528fb88d2f831c287d645901c2a4b35932e509` |
 | [`disposable-test-server-through-2026-10-04-production-host-h1-decision.md`](../disposable-test-server-through-2026-10-04-production-host-h1-decision.md) | Verbatim displaced restriction banner recording the superseded production-host H-1 direction | `863196cfc38781e1c0b2bd226cd7ce84023d74246d5eafa3f66f16273f567d1d` |

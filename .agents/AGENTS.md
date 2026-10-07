@@ -124,7 +124,10 @@ narrow, platform-owned adapter, sized and gated by the package that needs it —
 the attendance package in particular, because voice-state join/leave requires a
 live gateway connection.
 
-The repository may be renamed later as an explicit administrative change.
+The repository was renamed administratively on 2026-10-06 from `freedom-bot`
+to `freedom-platform`. Its canonical public HTTPS URL is
+`https://github.com/ming-themerciless/freedom-platform.git`. This repository
+rename does not rename the legacy Freedom bot application, service, or adapter.
 
 Baseline v1.7, 2026-08-28: direction items 8–9 and this paragraph were amended
 on Peter Duscha's decision that the **Freedom bot** is deleted once the platform
@@ -491,9 +494,8 @@ supported versions.
 
 - Configuration comes from environment variables and is validated at startup.
 - Keep `.env.example` current with safe placeholders.
-- Never read, print, commit, or modify `.env`, `yt-cookies.txt`,
-  service-account JSON, Discord tokens, OAuth secrets, database URLs, or
-  Foundry credentials.
+- Never read, print, commit, or modify `.env`, service-account JSON, Discord
+  tokens, OAuth secrets, database URLs, or Foundry credentials.
 - Never add fallback secrets or production IDs to source code.
 - Request only the permissions each integration needs.
 - Remove Google service-account credentials after Sheets is retired.
@@ -669,6 +671,17 @@ plan's §16.3 report contents together, and does not replace either:
    logs, and migration reversibility;
 4. report commands run and checks that could not be run; and
 5. call out deployment, configuration, data migration, and rollback steps.
+
+Every assignment must name a repository-relative durable handback file under
+`docs/review/`. At every terminal state, including a refusal, INVALID RUN or
+HARD STOP, the executor writes the complete handback there before returning it
+in chat, then links it from `docs/review/Handover information`. If the active
+authority forbids repository writes, the assignment must instead require the
+controller or assigning agent to preserve the executor's exact, unabridged
+terminal output in a dedicated `docs/review/` handback file before requesting
+review, and to link that file from the current handover. Chat text alone is not
+durable handoff evidence. Do not put a large transcript directly into the
+concise `Handover information` entry point.
 
 Do not claim a check passed unless it was actually run.
 

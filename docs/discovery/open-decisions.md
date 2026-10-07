@@ -3197,15 +3197,11 @@ service was inspected or altered):
 | Cookie fixture | `yt-cookies.txt.example` deleted |
 | Tests | no music-specific test exists |
 
-Two residues are **outside the repository's tracked content** and were
-deliberately left alone:
-
-- `infra/lavalink/` remains as an empty directory in the working tree. Git does
-  not track empty directories, so it does not exist in the repository; deleting
-  it locally is optional tidying.
-- `yt-cookies.txt` still exists in the working tree and is excluded by
-  `.gitignore`. It is a credential-shaped file: it was not read, printed or
-  modified, and whether to delete it from the host is an operator decision.
+**Final residue removal, 2026-10-06.** Peter Duscha directed removal of the
+obsolete untracked `yt-cookies.txt` and empty local `infra/lavalink/` directory.
+The cookie file was deleted by exact path without being read or printed. Its
+`.gitignore`, synchronization and secret-guard special cases were removed with
+it. Historical records retain their original references as evidence.
 
 Repository removal is **not** authorization to stop or reconfigure any live
 Lavalink process. That is live-service administration and belongs to a

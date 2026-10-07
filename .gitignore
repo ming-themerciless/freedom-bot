@@ -32,7 +32,5 @@ logs/
 *.log
 .DS_Store
 
-# Node/lavalink cache (falls vorhanden)
+# Node cache (if present)
 node_modules/
-
-yt-cookies.txt
