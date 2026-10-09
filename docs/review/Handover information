@@ -1,30 +1,34 @@
-# Active handover — OH-S3 R8 accepted; Route 3 decision gate next — 2026-10-07
+# Active handover — LIT-FULL WP-1 accepted; EX-1/EX-2 §0.2 pending — 2026-10-09
 
-Peter Duscha accepts Codex's independent OH-S3 R8 re-review and accepts the
-cumulative R8 proposal, with the authorized R9-F1 editorial correction, as the
-inactive forward design basis. `R8-F1`, `R8-F2` and `R9-F1` are closed. R1
-through R7 remain unchanged, unaccepted historical proposals; the accepted R8
-proposal is the self-contained forward reference.
+Peter Duscha accepts the no-findings independent R6 re-review and the cumulative
+R6 proposal as the completed WP-1 boundary analysis. He records PD-2a as B2-F,
+PD-2b as both `AP-2` and the OS-6 `stop` in the final root-procedure set, and
+PD-3 as B3-OUT for H-1, RB-1, RS-1 and H-1R.
 
-The accepted design keeps `s0_ran` as durable per-child history, distinct from
-whether S0 runs on a particular SN invocation. Both settled-handle histories
-are preserved and the schema invariant
-`s0_ran == (grace_deadline_ms != null)` remains in force.
+**Current state:** WP-1 and BQ-2/BQ-3 are decided. The selected combination
+contains EX-1 and EX-2 and no EX-3. It requires neither B2-N nor a Python-free
+installer design before WP-2. The `start` and `stop` roles remain work allocated
+to WP-2 through WP-7 after the gate. BC-2 remains unresolved for any later WP-9
+selection, and concrete Route 3 remains unestablished.
 
-**Current hard stop:** concrete Route 3 is not established. The next gate is
-Peter's recorded G-1a decisions (DEC-1 through DEC-6) and G-1b Route 3
-direction. This acceptance makes none of those decisions and authorizes no
-successor.
+**Current action and gate before WP-2.** Complete implementation-plan §0.2
+change control for EX-1 and EX-2. The change-log items are open: impact
+assessment, Product Owner recommendation, Technical Lead review, Acceptance
+Authority approval and any required new baseline version remain pending. The
+recorded boundary decisions are not themselves §0.2 approval; EX-1 and EX-2 are
+not effective, BC-4 is not approved or widened, and WP-2 may not be prompted,
+authorized or rely on this boundary until both items close.
 
 No host or retained-evidence access, network research, cleanup, workspace
-recreation, implementation, launcher work, build, test, package or
-service/database operation, OH-S4/OH-S4p or later slice, H-1/H-2, activation,
-rollback, commit or push is authorized. The R5 and H-0G retained paths remain
+recreation, implementation, configuration/infrastructure edit, launcher work,
+build, test, formatter, package or service/database operation, OH-S4/OH-S4p or
+later slice, H-1/H-2, activation, rollback, commit or push is authorized. No
+successor implementation is authorized. The R5 and H-0G retained paths remain
 untouched pending separately gated LC-3 through LC-5 authority.
 
-- [Acceptance record](project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-r8-acceptance.md)
-- [Accepted cumulative R8 proposal](phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-proposal.md)
-- [R8 handback](phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-handback.md)
-- [Accepted cumulative OH-S2 R2 citation record](phase-5-0-p5-r5-rp11-h1-oh-s2-r2-citations.md)
-- [Archived pre-acceptance handover](Handover-information-through-2026-10-07-oh-s3-r8-return.md)
+- [WP-1 acceptance and BQ decisions](project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-acceptance-and-bq-decisions.md)
+- [Independent R6 re-review](project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r6-remediation.md)
+- [Accepted cumulative R6 proposal](phase-5-0-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r6-remediation-proposal.md)
+- [Open §0.2 change control](../project-management/change-log.md)
+- [Archived pre-decision handover](Handover-information-through-2026-10-09-lit-full-wp1-r6-remediation-review.md)
 - [Handover archive index](handover-archive/README.md)

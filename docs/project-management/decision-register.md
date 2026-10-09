@@ -1,5 +1,60 @@
 # Decision register
 
+## Decision — WP-1 accepted; BQ-2/BQ-3 recorded; §0.2 required — 2026-10-09
+
+Peter Duscha accepts the independently reviewed cumulative R6 proposal as the
+completed LIT-FULL WP-1 boundary analysis and records the recommended choices:
+PD-2a is B2-F; PD-2b puts both `AP-2` and the OS-6 `stop` in the final
+root-procedure set; and PD-3 is B3-OUT for H-1, RB-1, RS-1 and H-1R.
+
+The combination selects EX-1 and EX-2, selects no EX-3, and requires neither
+B2-N nor a Python-free installer design before WP-2. EX-1, EX-2 and the affected
+BC-4 boundary are not yet effective or approved: complete implementation-plan
+§0.2 change control is open and must close before WP-2. Concrete Route 3 remains
+unestablished, BC-2 remains unresolved, and no host or implementation authority
+is created.
+
+[Acceptance and decisions](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-acceptance-and-bq-decisions.md)
+· [Independent R6 re-review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r6-remediation.md)
+· [Open §0.2 change control](change-log.md).
+
+## Decision — LIT-FULL WP-1 R1 remediation authorized — 2026-10-07
+
+Peter Duscha authorizes exact 7482-byte prompt SHA-256
+`2724e5c19d4edf9084200dc7bde58853864b19d41fadfbebbde4a2b508f4f127`
+under work ID `C-P5.0-R5-RP11-H1-OH-S3-RT3-WP1-R1-20261007-10`.
+
+Claude must remediate Blocking WP1-R1 by restoring mandatory §0.2 change
+control before WP-2 may rely on a BC-4 exception, and Important WP1-R2 through a
+complete first-byte-through-EOF audit of the controlling records. The assignment
+is repository documentation only and returns for independent Codex re-review.
+
+No BQ decision, exception approval, §0.2 change, WP-1 acceptance, WP-2, host or
+implementation authority is created.
+
+[Review](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-lit-full-wp1.md)
+· [Authority](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r1-remediation-authority.md)
+· [Exact prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r1-remediation-claude-prompt.md).
+
+## Decision — DEC-1 through DEC-6 accepted; LIT-FULL readiness commissioned — 2026-10-07
+
+Peter Duscha accepts all six activation-design recommendations in accepted R8
+§12.1 and commissions the LIT-FULL/R3-ROOT Route 3 readiness investigation,
+WP-1 through WP-7 in dependency order. The decision preserves the accepted
+Route 3 boundary, opens no §0.2 change and does not select LIT-FULL for
+implementation.
+
+Exact work ID `C-P5.0-R5-RP11-H1-OH-S3-RT3-WP1-20261007-09` activates WP-1
+only through the 5504-byte prompt with SHA-256
+`60074759b6e0ae8f41b9cf3d5ddd0f477fa960cc4cd4d7fad5f21661b0a1011e`.
+WP-2 through WP-7 remain separately gated. WP-1 returns for independent Codex
+review and Peter's BQ-2/BQ-3 decisions; no host or implementation authority is
+created.
+
+[Decision](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-g1-decisions.md)
+· [WP-1 authority](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-lit-full-wp1-authority.md)
+· [Exact prompt](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-lit-full-wp1-claude-prompt.md).
+
 ## Decision — cumulative OH-S3 R8 design accepted — 2026-10-07
 
 Peter Duscha accepts Codex's independent OH-S3 R8 re-review and accepts the

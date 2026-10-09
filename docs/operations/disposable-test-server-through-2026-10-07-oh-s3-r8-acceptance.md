@@ -1,33 +1,23 @@
 # Disposable Linux Test Server
 
-**Active restriction, 2026-10-09 — WP-1 accepted; EX-1/EX-2 §0.2 pending; no host authority.**
+**Active restriction, 2026-10-07 — OH-S3 R8 accepted; no host authority.**
 
-Peter accepts the no-findings independent R6 re-review and WP-1, records PD-2a
-as B2-F, puts both `AP-2` and the OS-6 `stop` in the final root-procedure set
-under PD-2b, and records PD-3 as B3-OUT for H-1, RB-1, RS-1 and H-1R.
-
-**Current state:** WP-1 and BQ-2/BQ-3 are decided. The combination selects EX-1
-and EX-2, no EX-3, and neither B2-N nor a Python-free installer prerequisite.
-EX-1 and EX-2 are not effective and BC-4 is not approved or widened. Concrete
-Route 3 remains unestablished; BC-2 remains unresolved; WP-2 is not authorized.
-
-**Gate before WP-2.** Complete implementation-plan §0.2 change control for
-EX-1 and EX-2, including impact assessment, Product Owner recommendation,
-Technical Lead review, Acceptance Authority approval and any required baseline
-version. The boundary choices are not themselves §0.2 approval.
+Peter Duscha accepts the cumulative OH-S3 R8 proposal, with the authorized
+R9-F1 editorial correction, as the inactive forward design basis. `R8-F1`,
+`R8-F2` and `R9-F1` are closed. Concrete Route 3 remains unestablished; DEC-1
+through DEC-6 and the G-1b Route 3 direction remain undecided.
 
 No SSH connection to `oracle-test`, host or retained-evidence access, fact
 collection, cleanup, workspace recreation, privilege, package operation,
-installation, build, test, formatter, service/database mutation, H-1/H-2,
-OH-S4/OH-S4p or later slice, activation, rollback, commit or push is authorized.
-No successor implementation is authorized. MF-1 through MF-8 remain
-uncollected. The R5 and H-0G retained paths remain untouched pending separately
-gated LC-3 through LC-5 authority.
+installation, build, test, service/database mutation, H-1/H-2, OH-S4/OH-S4p or
+later slice, activation, rollback, commit or push is authorized. MF-1 through
+MF-8 remain uncollected. The R5 and H-0G retained paths remain untouched pending
+separately gated LC-3 through LC-5 authority.
 
-[WP-1 acceptance and BQ decisions](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-acceptance-and-bq-decisions.md)
-· [Independent R6 re-review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r6-remediation.md)
-· [Open §0.2 change control](../project-management/change-log.md)
-· [Archived pre-decision restriction](disposable-test-server-through-2026-10-09-lit-full-wp1-r6-remediation-review.md).
+[Acceptance](../review/project-review-2026-10-07-p5-r5-rp11-h1-oh-s3-r8-acceptance.md)
+· [Accepted R8 proposal](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-proposal.md)
+· [R8 handback](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-r8-remediation-handback.md)
+· [Archived pre-acceptance restriction](disposable-test-server-through-2026-10-07-oh-s3-r8-return.md).
 
 Agents that support skills should use the `run-suites` skill, which carries
 this document's synchronization and execution procedure together with the
