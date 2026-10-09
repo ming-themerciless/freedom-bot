@@ -1,5 +1,37 @@
 # Decision register
 
+## Decision — LIT-FULL WP-2 accepted — 2026-10-09
+
+Peter Duscha accepts the clean independent WP-2 R5 re-review recommendation
+and the cumulative R5 operation inventory as completed WP-2. The review found
+no Blocking, Important or Optional findings and closed `WP2-R4-1`.
+
+The acceptance permits preparation of a bounded WP-3 assignment for
+independent review. It does not accept or activate a WP-3 prompt, authorize
+WP-3 execution, authorize WP-4 through WP-7, establish concrete Route 3,
+select LIT-FULL for implementation, answer Q6-6 or Q6-7, decide BC-2, or grant
+host, retained-evidence or implementation authority.
+
+[Acceptance](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp2-acceptance.md)
+· [Independent R5 re-review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp2-r5.md)
+· [Accepted cumulative inventory](../review/phase-5-0-p5-r5-rp11-h1-oh-s3-lit-full-wp2-operation-inventory.md).
+
+## Decision — EX-1/EX-2 approved; baseline v1.8 effective — 2026-10-09
+
+Peter Duscha adopts the Product Owner recommendation and, as Acceptance
+Authority, approves EX-1 and EX-2 exactly as assessed. Their existing BC-4 uses
+are effective without widening BC-4; HB-1 is accepted for EX-2; and controlled
+baseline v1.8 is adopted. Both exception-specific §0.2 items are closed.
+
+EX-3 is not selected. B2-N and a Python-free installer are not pre-WP-2
+prerequisites under the selected F-1 combination. The approval changes the
+design boundary only: concrete Route 3 remains unestablished, BC-2 remains
+unresolved, and WP-2, host access and implementation remain unauthorized.
+
+[Approval](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-ex1-ex2-change-control-approval.md)
+· [Assessment and Technical Lead review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-ex1-ex2-change-control-assessment.md)
+· [Closed change items](change-log.md).
+
 ## Decision — WP-1 accepted; BQ-2/BQ-3 recorded; §0.2 required — 2026-10-09
 
 Peter Duscha accepts the independently reviewed cumulative R6 proposal as the
@@ -8,15 +40,19 @@ PD-2a is B2-F; PD-2b puts both `AP-2` and the OS-6 `stop` in the final
 root-procedure set; and PD-3 is B3-OUT for H-1, RB-1, RS-1 and H-1R.
 
 The combination selects EX-1 and EX-2, selects no EX-3, and requires neither
-B2-N nor a Python-free installer design before WP-2. EX-1, EX-2 and the affected
-BC-4 boundary are not yet effective or approved: complete implementation-plan
-§0.2 change control is open and must close before WP-2. Concrete Route 3 remains
-unestablished, BC-2 remains unresolved, and no host or implementation authority
-is created.
+B2-N nor a Python-free installer design before WP-2. At this decision point,
+EX-1, EX-2 and the affected BC-4 boundary were not yet effective or approved;
+complete implementation-plan §0.2 change control still had to close. Concrete
+Route 3 remained unestablished, BC-2 unresolved, and no host or implementation
+authority was created.
+
+The subsequent EX-1/EX-2 impact assessment and approval are recorded in the
+newer decision above. This entry remains the boundary-choice record.
 
 [Acceptance and decisions](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-acceptance-and-bq-decisions.md)
 · [Independent R6 re-review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-r6-remediation.md)
-· [Open §0.2 change control](change-log.md).
+· [Impact assessment and Technical Lead review](../review/project-review-2026-10-09-p5-r5-rp11-h1-oh-s3-lit-full-wp1-ex1-ex2-change-control-assessment.md)
+· [Change items, subsequently closed](change-log.md).
 
 ## Decision — LIT-FULL WP-1 R1 remediation authorized — 2026-10-07
 
